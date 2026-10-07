@@ -267,7 +267,7 @@ Try it: `pnpm dev` shows the component gallery in light and dark, and `/api/heal
   Do: Port `bb.css` faithfully; dark mode follows `prefers-color-scheme`; reduced motion turns every animation and transition off; safe-area padding for the notch and the home indicator. Use the style guide sections in `docs/design/styleguide/` (index in its README) and `components.html` for markup and ARIA.
   Acceptance: E2E opens `/dev/components` in light and dark and compares screenshots against committed baselines; E2E asserts that no request leaves the origin; with `reducedMotion: 'reduce'` the computed `transition-duration` of a sheet is 0 s; every icon-only button in the gallery has an accessible name; touch targets in the gallery measure at least 44 × 44 px.
 
-- [ ] **5. Server skeleton, database and migrations.**
+- [x] **5. Server skeleton, database and migrations.**
   Refs: DEP-2, DEP-3, DEP-4, DEP-5, SEC-6, COR-5. Depends: 2. Parallel: 3, 4.
   Files: `server/src/app.ts`, `server/src/config.ts` (zod-validated env), `server/src/db/schema.ts`, `server/drizzle/` (migrations), `server/src/db/migrate.ts`, `server/src/db/backup.ts` (`backupTo(path)` with `.backup()`), `server/src/clock.ts`, `server/src/modules/health/`.
   Do: The full schema of Design section 4 in a first migration. At start: open the DB in WAL mode with foreign keys on; if migrations are pending, write a `pre_migration` backup first, then migrate inside a transaction; on failure, log, leave the DB as it was and exit non-zero. Serve `web/dist` statically, falling back to `index.html` for client routes. Set up pino redaction, the error shape and the zod type provider.

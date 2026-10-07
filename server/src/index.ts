@@ -1,23 +1,33 @@
-import { mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { parseConfig } from './config.js';
 import { createApp } from './app.js';
+import { openDatabase } from './db/index.js';
 
 try {
   process.loadEnvFile(fileURLToPath(new URL('../../.env', import.meta.url)));
 } catch (error) {
-  if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') throw error;
+  if (
+    !(error instanceof Error) ||
+    !('code' in error) ||
+    error.code !== 'ENOENT'
+  )
+    throw error;
 }
 
-const host = process.env.HOST ?? '127.0.0.1';
-const port = Number.parseInt(process.env.PORT ?? '3000', 10);
-const dataDir = process.env.DATA_DIR ?? (process.env.NODE_ENV === 'production' ? '/data' : '../.data');
-
-await mkdir(dataDir, { recursive: true });
-const app = await createApp();
-
+let database: Awaited<ReturnType<typeof openDatabase>> | undefined;
+let app: Awaited<ReturnType<typeof createApp>> | undefined;
 try {
-  await app.listen({ host, port });
+  const config = parseConfig();
+  database = await openDatabase(config);
+  app = await createApp({ database });
+  await app.listen({ host: config.host, port: config.port });
 } catch (error) {
-  app.log.error(error);
+  if (app) {
+    app.log.error(error, 'Server startup failed');
+    await app.close();
+  } else {
+    console.error('Server startup failed', error);
+  }
+  database?.close();
   process.exitCode = 1;
 }

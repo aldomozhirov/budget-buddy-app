@@ -226,6 +226,9 @@ importers:
       fflate:
         specifier: ^0.8.3
         version: 0.8.3
+      unicode-case-folding:
+        specifier: 1.1.2
+        version: 1.1.2
       web-push:
         specifier: ^3.6.7
         version: 3.6.7
@@ -3523,6 +3526,9 @@ packages:
   unicode-canonical-property-names-ecmascript@2.0.1:
     resolution: {integrity: sha512-dA8WbNeb2a6oQzAQ55YlT5vQAWGV9WXOsi3SskE3bcCdM0P4SDd+24zS/OCacdRq5BkdsRj9q3Pg6YyQoxIGqg==}
     engines: {node: '>=4'}
+
+  unicode-case-folding@1.1.2:
+    resolution: {integrity: sha512-03vMM1kVkJbiSIPDW1D0hu42prq3Pe000yC5PaNMjhBJQxDuhAfh+R1V4TXXL21adjBqj7fUtBjZuWCRmiOQQQ==}
 
   unicode-match-property-ecmascript@2.0.0:
     resolution: {integrity: sha512-5kaZCrbp5mmbz5ulBkDkbY0SsPOjKqVS35VpL9ulMPfSl0J0Xsm+9Evphv9CoIZFwre7aJoa94AY6seMKGVN5Q==}
@@ -7051,6 +7057,8 @@ snapshots:
   undici-types@7.24.6: {}
 
   unicode-canonical-property-names-ecmascript@2.0.1: {}
+
+  unicode-case-folding@1.1.2: {}
 
   unicode-match-property-ecmascript@2.0.0:
     dependencies:

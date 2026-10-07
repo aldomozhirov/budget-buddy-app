@@ -10,7 +10,7 @@ In `docs/design/html/screens/` (HTML and PNG per screen), the HTML is the refere
 
 ## Stack and commands
 
-Node 24 LTS (`.nvmrc`), pnpm 12, TypeScript 6, Vue 3, Vite 8, Vue Router 4, `vite-plugin-pwa` 2, Fastify 5, `fastify-type-provider-zod` 7, zod 4, `better-sqlite3` 13, Drizzle ORM 0 and `drizzle-kit` 0, `decimal.js` 10, date-fns 4, `@date-fns/tz` 1, `@node-rs/argon2` 2, SimpleWebAuthn 14, `web-push` 3, `fflate` 0, `lucide-vue-next` 1, Vitest 5, Playwright 1, ESLint 10, `typescript-eslint` 8, `eslint-plugin-vue` 10, and Prettier 3. Exact resolutions are pinned in `pnpm-lock.yaml`; the package manager is pinned to pnpm 12.10.1.
+Node 24 LTS (`.nvmrc`), pnpm 12, TypeScript 6, Vue 3, Vite 8, Vue Router 4, `vite-plugin-pwa` 2, Fastify 5, `fastify-type-provider-zod` 7, zod 4, `better-sqlite3` 13, Drizzle ORM 0 and `drizzle-kit` 0, `decimal.js` 10, date-fns 4, `@date-fns/tz` 1, `@node-rs/argon2` 2, SimpleWebAuthn 14, `web-push` 3, `fflate` 0, `unicode-case-folding` 1, `lucide-vue-next` 1, Vitest 5, Playwright 1, ESLint 10, `typescript-eslint` 8, `eslint-plugin-vue` 10, and Prettier 3. Exact resolutions are pinned in `pnpm-lock.yaml`; the package manager is pinned to pnpm 12.10.1.
 
 From a fresh clone, run `pnpm install --frozen-lockfile`. Use `pnpm dev` for the Vite web app with `/api` proxied to the reloading Fastify server, `pnpm build` for production assets, `pnpm typecheck` for TypeScript checks, `pnpm lint` for ESLint, `pnpm test` for Vitest in each workspace, `pnpm e2e` for a production build tested by Playwright WebKit on iPhone (390 × 844) and iPad (820 × 1180), and `pnpm format` for Prettier. Vitest and Playwright use the `dot` reporter by default; `pnpm test -- --reporter=verbose` prints successful tests too.
 
