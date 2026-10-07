@@ -264,7 +264,7 @@ Try it: `pnpm dev` shows the component gallery in light and dark, and `/api/heal
 - [ ] **4. Design system in `web`.**
   Refs: UI-VIS-1–6, UI-MOT-1–3, UI-A11Y-1–4, IOS-5, IOS-7, SEC-7. Depends: 2. Parallel: 3, 5.
   Files: `web/src/styles/` (tokens and components ported from `docs/design/html/bb.css`, `fonts/` copied from `docs/design/html/fonts/` with the licence), `web/src/components/` (`BbButton`, `BbChip`, `BbChipGroup` (radio group), `BbSegmented` (tab list), `BbSwitch`, `BbSheet`, `BbConfirmSheet`, `BbListCard`, `BbRow`, `BbTag`, `BbProgress`, `BbBackButton`, `BbAmount` (hidden or visible amount with its accessible label), `BbIcon`), `web/src/screens/dev/Components.vue` (route `/dev/components`, only in development and E2E builds).
-  Do: Port `bb.css` faithfully; dark mode follows `prefers-color-scheme`; reduced motion turns every animation and transition off; safe-area padding for the notch and the home indicator. Use `styleguide.html` and `components.html` for markup and ARIA.
+  Do: Port `bb.css` faithfully; dark mode follows `prefers-color-scheme`; reduced motion turns every animation and transition off; safe-area padding for the notch and the home indicator. Use the style guide sections in `docs/design/styleguide/` (index in its README) and `components.html` for markup and ARIA.
   Acceptance: E2E opens `/dev/components` in light and dark and compares screenshots against committed baselines; E2E asserts that no request leaves the origin; with `reducedMotion: 'reduce'` the computed `transition-duration` of a sheet is 0 s; every icon-only button in the gallery has an accessible name; touch targets in the gallery measure at least 44 × 44 px.
 
 - [ ] **5. Server skeleton, database and migrations.**
@@ -486,3 +486,4 @@ To be filled in by tasks 1, 25, 30 and 31.
 - 2026-10-06: D8 added with the owner: several data sources per account; `account.data_source` and `bank_ids` dropped; `source_ref` and `external_id` on snapshots; tie rule for snapshots at the same instant; `account_link` planned for later specs.
 - 2026-10-07: the owner accepted the defaults of O1–O4; the section is now "Settled open items".
 - 2026-10-07: task 2 gained quiet test reporters and a pre-commit hook (typecheck, lint, unit tests), after the pre-implementation audit of the agent setup.
+- 2026-10-07: task 4 reads the style guide by section from `docs/design/styleguide/` instead of the whole `styleguide.html`.
