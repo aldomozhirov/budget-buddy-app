@@ -4,7 +4,9 @@ Instructions for every agent working in this repository.
 
 Product requirements are in `docs/requirements.md`. Read it before writing or building a spec: it records what the owner has already decided, including the main stack choices.
 
-The design spec is in `docs/design-spec.md`. Read it before planning or building anything on screen: it records the layout, behaviour, copy and visual system the owner approved in the prototype. Build styling on `docs/design/html/bb.css`. Its style guide is split by section in `docs/design/styleguide/`: read the index there and only the sections you need, not `docs/design/html/styleguide.html`, and use `docs/design/html/screens/` (HTML and PNG per screen) as the visual reference. The raw prototype files are in `docs/design/prototype/`.
+The design spec is in `docs/design-spec.md`. Read it before planning or building anything on screen: it records the layout, behaviour, copy and visual system the owner approved in the prototype. Build styling on `docs/design/html/bb.css`. Its style guide is split by section in `docs/design/styleguide/`: read the index there and only the sections you need, not `docs/design/html/styleguide.html`. The raw prototype files are in `docs/design/prototype/`.
+
+In `docs/design/html/screens/` (HTML and PNG per screen), the HTML is the reference for structure, spacing and copy; take exact values and text from it, never from the picture. Use the PNG for a first look at the layout and for comparing a built screen with the design.
 
 ## Stack and commands
 
