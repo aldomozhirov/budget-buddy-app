@@ -1,8 +1,8 @@
 ---
-description: Read-only explorer for code and documentation, running on the local model. Use it to find files, answer "where and how is X done" questions about this repo, and look up library or framework docs. Ask one specific question and say how thorough to be (quick, medium, very thorough).
+description: Read-only explorer for code and documentation, running on the cheapest model. Use it to find files, answer "where and how is X done" questions about this repo, and look up library or framework docs. Ask one specific question and say how thorough to be (quick, medium, very thorough).
 mode: subagent
-model: lmstudio/qwen/qwen3.8-27b
-temperature: 0.1
+model: openai/gpt-6-luna
+reasoningEffort: low
 steps: 30
 permission:
   "*": deny

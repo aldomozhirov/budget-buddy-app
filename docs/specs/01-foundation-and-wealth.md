@@ -251,9 +251,9 @@ Try it: `pnpm dev` shows the component gallery in light and dark, and `/api/heal
 
 - [ ] **2. Workspace skeleton and commands.**
   Refs: QUA-1, QUA-2, AGENTS.md. Depends: none. Parallel: 1.
-  Files: root `package.json`, `pnpm-workspace.yaml`, `tsconfig.base.json`, `eslint.config.js`, `.prettierrc`, `.nvmrc`, `.gitignore`, `.env.example`, `shared/`, `server/`, `web/` stubs, `web/playwright.config.ts`, `AGENTS.md` ("Stack and commands").
-  Do: Set up the workspace of Design section 1. Root scripts: `dev` (Vite with `/api` proxied to Fastify, both reloading), `build`, `typecheck`, `lint`, `test` (Vitest in every package), `e2e` (build, start the server against a temporary `DATA_DIR` with `RATES_FEED=fixture`, run Playwright WebKit with the projects `iphone` 390 × 844 and `ipad` 820 × 1180), `format`. Fill in "Stack and commands" in `AGENTS.md` with the stack, the major versions and every command.
-  Acceptance: on a fresh clone, `pnpm install --frozen-lockfile && pnpm typecheck && pnpm lint && pnpm test && pnpm e2e` exits 0, and the E2E run includes one placeholder test per project; `AGENTS.md` lists the commands exactly as they run.
+  Files: root `package.json`, `pnpm-workspace.yaml`, `tsconfig.base.json`, `eslint.config.js`, `.prettierrc`, `.nvmrc`, `.gitignore`, `.env.example`, `shared/`, `server/`, `web/` stubs, `web/playwright.config.ts`, `.githooks/pre-commit`, `AGENTS.md` ("Stack and commands").
+  Do: Set up the workspace of Design section 1. Root scripts: `dev` (Vite with `/api` proxied to Fastify, both reloading), `build`, `typecheck`, `lint`, `test` (Vitest in every package), `e2e` (build, start the server against a temporary `DATA_DIR` with `RATES_FEED=fixture`, run Playwright WebKit with the projects `iphone` 390 × 844 and `ipad` 820 × 1180), `format`. Vitest and Playwright use the `dot` reporter by default, so agent runs print failures only; `pnpm test -- --reporter=verbose` stays possible. Add `.githooks/pre-commit` running `pnpm typecheck && pnpm lint && pnpm test`, activated by a root `prepare` script (`git config core.hooksPath .githooks`). Fill in "Stack and commands" in `AGENTS.md` with the stack, the major versions and every command.
+  Acceptance: on a fresh clone, `pnpm install --frozen-lockfile && pnpm typecheck && pnpm lint && pnpm test && pnpm e2e` exits 0, and the E2E run includes one placeholder test per project; `AGENTS.md` lists the commands exactly as they run; a commit with a type error is refused by the hook.
 
 - [ ] **3. Money core in `shared`.**
   Refs: section 4.2, ACC-9, ACC-10, UI-AMT-2, UI-AMT-3, UI-TXT-1, UI-TXT-2, COR-1, QUA-3. Depends: 2. Parallel: 4, 5.
@@ -485,3 +485,4 @@ To be filled in by tasks 1, 25, 30 and 31.
 - 2026-10-06: written by `plan` with the owner's answers on stack, Home scope, extras and spec shape (D1–D7).
 - 2026-10-06: D8 added with the owner: several data sources per account; `account.data_source` and `bank_ids` dropped; `source_ref` and `external_id` on snapshots; tie rule for snapshots at the same instant; `account_link` planned for later specs.
 - 2026-10-07: the owner accepted the defaults of O1–O4; the section is now "Settled open items".
+- 2026-10-07: task 2 gained quiet test reporters and a pre-commit hook (typecheck, lint, unit tests), after the pre-implementation audit of the agent setup.

@@ -8,27 +8,29 @@ The design spec is in `docs/design-spec.md`. Read it before planning or building
 
 ## Stack and commands
 
-Not decided yet. The first spec in `docs/specs/` chooses the stack; once it does, record here:
+The stack is decided: see decision D1 and Design section 1 of `docs/specs/01-foundation-and-wealth.md`. Do not ask the user about it again.
 
-- Stack and versions
-- Install, dev server, typecheck, lint, unit test and end-to-end test commands
-
-Until this section is filled in, ask the user instead of assuming a stack.
+Task 2 of that spec creates the workspace and replaces this paragraph with the major versions and the exact install, dev server, typecheck, lint, unit test and end-to-end test commands. Until then the commands are the ones task 2 names (`pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm e2e`).
 
 ## How the team works
 
 - `plan` (primary) writes a spec with a task list to `docs/specs/<nn>-<slug>.md`. It does not write application code.
 - `build` (primary) implements one task at a time from a spec and delegates:
-  - `explore` for finding code and reading documentation (read-only, local model)
+  - `explore` for finding code and reading documentation (read-only, cheapest model)
   - `tester` for writing tests and running the verification commands
   - `reviewer` for an independent read-only review of the diff
 - The spec file is the shared state. Tick tasks off in it and update it when the design changes.
 
 ## Agent tooling
 
-- `opencode.json` defines the `lmstudio` provider that `explore` runs on. LM Studio's local server must be running on `http://127.0.0.1:1234` with `qwen/qwen3.8-27b` loaded (context length 32k or more). If OpenCode runs on another machine than LM Studio, change `baseURL` there.
+- One build session builds one task. Start a new session for the next task, so context and cost stay small.
+- `build` and `tester` run on `openai/gpt-6-luna`, `plan` and `reviewer` on `openai/gpt-6.1-sol`, `explore` on Luna at low effort. For a hard task, start build with `--model openai/gpt-6.1-sol#high`.
+- `opencode.json` turns on the language servers (`lsp`), which give agents TypeScript, Vue and ESLint diagnostics once the workspace exists.
+- OpenCode's background service keeps the PATH it was started with. After installing a tool, run `opencode service restart`.
+- Agents do not push, and `build` cannot run `tailscale`, `sudo` or destructive git and Docker commands. This machine is also the deployment host: the live app runs from a separate clone, never from this checkout.
 - Subagent access is controlled with the `task` permission in each agent's frontmatter.
 - `websearch` is off unless OpenCode is started with `OPENCODE_ENABLE_EXA=1`; `explore` falls back to fetching official docs.
+- Playwright's WebKit is installed on this machine (`npx playwright install webkit`; checked on macOS 27 with Playwright 1.63).
 - Playwright is the project's test runner (`pnpm e2e`) and needs no MCP server. The Playwright MCP server in `opencode.json` is disabled; enable it only to let `build` look at the running app.
 
 ## Definition of done
