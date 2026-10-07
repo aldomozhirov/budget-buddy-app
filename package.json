@@ -13,7 +13,7 @@
     "typecheck": "pnpm --filter @budget-buddy/shared typecheck && pnpm --filter @budget-buddy/server typecheck && pnpm --filter @budget-buddy/web typecheck",
     "lint": "eslint .",
     "test": "node scripts/test.mjs",
-    "e2e": "pnpm build && node scripts/e2e.mjs",
+    "e2e": "VITE_COMPONENT_GALLERY=true pnpm build && node scripts/e2e.mjs",
     "format": "prettier --write .",
     "prepare": "node scripts/prepare.mjs"
   },

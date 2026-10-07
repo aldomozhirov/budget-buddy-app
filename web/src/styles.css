@@ -1,19 +1,170 @@
-:root {
-  color: #222;
-  background: #f4f2ed;
-  font-family: system-ui, sans-serif;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-}
-
-body {
-  margin: 0;
+html,
+body,
+#app {
   min-width: 320px;
-  min-height: 100vh;
+  min-height: 100%;
+  margin: 0;
 }
 
-main {
+.bb.components-page {
+  position: relative;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.bb .components-content {
+  width: 100%;
   max-width: 640px;
-  margin: 0 auto;
-  padding: 2rem 1.25rem;
+  box-sizing: border-box;
+  margin-inline: auto;
+  gap: 16px;
+  padding-bottom: max(32px, env(safe-area-inset-bottom));
+}
+
+.bb .components-section {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bb .components-swatches {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.bb .components-swatch {
+  display: flex;
+  min-height: 44px;
+  box-sizing: border-box;
+  height: 44px;
+  align-items: flex-end;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 10px;
+}
+
+.bb .components-button-stack,
+.bb .components-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.bb .chip-target {
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.bb .seg-target {
+  display: flex;
+  min-height: 44px;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  margin-block: -4px;
+}
+
+.bb .seg-target .seg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bb .key-target {
+  display: flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-key);
+}
+
+.bb .key-target .key {
+  width: 100%;
+}
+
+.bb .key-target:active .key {
+  transform: scale(.92);
+  background: var(--soft);
+}
+
+.bb .components-grid-three {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.bb .components-demo-sheet {
+  z-index: 101;
+}
+
+.bb .switch-target {
+  display: inline-flex;
+  width: 60px;
+  height: 44px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 22px;
+}
+
+.bb .switch-target:focus-visible,
+.bb button:focus-visible,
+.bb a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.bb .switch-target .switch {
+  display: block;
+}
+
+.bb .scrim {
+  z-index: 100;
+  width: 100%;
+  height: 100%;
+  cursor: default;
+}
+
+.bb .sheet {
+  z-index: 101;
+  padding-top: max(10px, env(safe-area-inset-top));
+}
+
+.bb .sheet:focus {
+  outline: none;
+}
+
+.bb .sheet-head h2 {
+  flex: 1;
+}
+
+.bb .components-inline-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bb .components-banner-copy {
+  font-weight: 600;
+}
+
+.bb .sheet-copy {
+  margin: 0;
+}
+
+@media (min-width: 700px) {
+  .bb .components-content {
+    padding-inline: 0;
+  }
 }

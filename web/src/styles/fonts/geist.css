@@ -1,0 +1,29 @@
+/* Geist (SIL Open Font License 1.1, see LICENSE-Geist.txt), latin subset, bundled so nothing loads from a third party (SEC-7). */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(Geist-400.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(Geist-500.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(Geist-600.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(Geist-700.woff2) format('woff2');
+}
