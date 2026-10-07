@@ -24,6 +24,13 @@ Until this section is filled in, ask the user instead of assuming a stack.
   - `reviewer` for an independent read-only review of the diff
 - The spec file is the shared state. Tick tasks off in it and update it when the design changes.
 
+## Agent tooling
+
+- `opencode.json` defines the `lmstudio` provider that `explore` runs on. LM Studio's local server must be running on `http://127.0.0.1:1234` with `qwen/qwen3.8-27b` loaded (context length 32k or more). If OpenCode runs on another machine than LM Studio, change `baseURL` there.
+- Subagent access is controlled with the `task` permission in each agent's frontmatter.
+- `websearch` is off unless OpenCode is started with `OPENCODE_ENABLE_EXA=1`; `explore` falls back to fetching official docs.
+- Playwright is the project's test runner (`pnpm e2e`) and needs no MCP server. The Playwright MCP server in `opencode.json` is disabled; enable it only to let `build` look at the running app.
+
 ## Definition of done
 
 A task is done when all of these hold:

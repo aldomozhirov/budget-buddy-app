@@ -2,9 +2,9 @@
 description: Writes and runs tests. Give it a spec path, task number and acceptance criteria; it adds tests, runs the verification commands and reports pass or fail with output.
 mode: subagent
 model: openai/gpt-6-luna
-variant: high
+reasoningEffort: high
 permission:
-  subagent: deny
+  task: deny
   bash:
     "*": allow
     "git commit*": deny

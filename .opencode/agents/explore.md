@@ -20,7 +20,8 @@ For codebase questions:
 
 For documentation questions:
 - Check the repo first (README, docs/, package manifests for the installed version).
-- Then fetch the official documentation for the installed version of the library. Prefer official docs over blog posts.
+- Then fetch the official documentation for the installed version of the library with webfetch. Prefer official docs over blog posts.
+- websearch only works when OpenCode was started with `OPENCODE_ENABLE_EXA=1`. If it is not available, go straight to the library's official documentation URL (from its package.json `homepage` or the npm page) instead.
 
 Answer format:
 - The direct answer first, in one or two sentences.

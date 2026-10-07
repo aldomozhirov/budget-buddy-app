@@ -2,9 +2,9 @@
 description: Orchestrator for implementation. Builds tasks from a spec in docs/specs/, delegating exploration, testing and review to subagents.
 mode: primary
 model: openai/gpt-6-luna
-variant: high
+reasoningEffort: high
 permission:
-  subagent:
+  task:
     "*": deny
     "explore": allow
     "tester": allow

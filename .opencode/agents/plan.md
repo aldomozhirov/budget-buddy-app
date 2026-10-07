@@ -2,7 +2,7 @@
 description: Orchestrator for planning. Turns a request into a spec and a task list with acceptance criteria in docs/specs/. Does not write application code.
 mode: primary
 model: openai/gpt-6.1-sol
-variant: high
+reasoningEffort: high
 permission:
   edit:
     "*": deny
@@ -13,7 +13,7 @@ permission:
     "git log*": allow
     "git diff*": allow
     "ls*": allow
-  subagent:
+  task:
     "*": deny
     "explore": allow
 ---

@@ -2,12 +2,12 @@
 description: Read-only code reviewer. Give it a spec path and task number; it reviews the uncommitted diff against the spec and returns blocking and non-blocking findings.
 mode: subagent
 model: openai/gpt-6.1-sol
-variant: high
+reasoningEffort: high
 permission:
   edit: deny
   webfetch: deny
   websearch: deny
-  subagent: deny
+  task: deny
   bash:
     "*": deny
     "git status*": allow
