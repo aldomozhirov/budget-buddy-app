@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Budget Buddy — screens</title>
+<link rel="stylesheet" href="fonts/geist.css">
+<style>
+body{margin:0;padding:32px 24px;background:#F4F3EF;color:#15171A;font-family:'Geist',system-ui,sans-serif}
+h1{margin:0 0 4px;font-size:24px}p{margin:0 0 24px;color:#5C6168}
+h2{margin:32px 0 12px;font-size:17px}
+.grid{display:flex;flex-wrap:wrap;gap:20px}
+a{color:inherit;text-decoration:none}
+figure{margin:0;width:195px}
+img{width:195px;height:422px;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,.12);display:block;background:#fff}
+figcaption{margin-top:8px;font-size:13px}figcaption span{display:block;color:#5C6168;font-size:12px}
+</style>
+</head>
+<body>
+<h1>Budget Buddy — screens</h1>
+<p>Static exports of the approved prototype, default state, light appearance. Each image opens the screen's HTML. Rules: <code>docs/design-spec.md</code>. Styling: <a href="styleguide.html">style guide and component library</a>, <a href="bb.css"><code>bb.css</code></a>.</p>
+<h2>Core flows</h2>
+<div class="grid">
+<a href="screens/Main.html"><figure><img src="screens/Main.png" alt="Home" loading="lazy"><figcaption>Home<span>Main.html</span></figcaption></figure></a>
+<a href="screens/AddExpense.html"><figure><img src="screens/AddExpense.png" alt="Add expense" loading="lazy"><figcaption>Add expense<span>AddExpense.html</span></figcaption></figure></a>
+<a href="screens/CheckIn.html"><figure><img src="screens/CheckIn.png" alt="Check-in" loading="lazy"><figcaption>Check-in<span>CheckIn.html</span></figcaption></figure></a>
+<a href="screens/SearchAccounts.html"><figure><img src="screens/SearchAccounts.png" alt="Add expense · search accounts" loading="lazy"><figcaption>Add expense · search accounts<span>SearchAccounts.html</span></figcaption></figure></a>
+<a href="screens/SearchCategories.html"><figure><img src="screens/SearchCategories.png" alt="Add expense · search categories" loading="lazy"><figcaption>Add expense · search categories<span>SearchCategories.html</span></figcaption></figure></a>
+</div>
+<h2>Envelopes &amp; transactions</h2>
+<div class="grid">
+<a href="screens/Envelopes.html"><figure><img src="screens/Envelopes.png" alt="Envelopes" loading="lazy"><figcaption>Envelopes<span>Envelopes.html</span></figcaption></figure></a>
+<a href="screens/EnvelopeDetail.html"><figure><img src="screens/EnvelopeDetail.png" alt="Envelope · Groceries" loading="lazy"><figcaption>Envelope · Groceries<span>EnvelopeDetail.html</span></figcaption></figure></a>
+<a href="screens/Transactions.html"><figure><img src="screens/Transactions.png" alt="Transactions" loading="lazy"><figcaption>Transactions<span>Transactions.html</span></figcaption></figure></a>
+<a href="screens/ToLabel.html"><figure><img src="screens/ToLabel.png" alt="Transactions · needs a category" loading="lazy"><figcaption>Transactions · needs a category<span>ToLabel.html</span></figcaption></figure></a>
+<a href="screens/TransactionDetail.html"><figure><img src="screens/TransactionDetail.png" alt="Transaction" loading="lazy"><figcaption>Transaction<span>TransactionDetail.html</span></figcaption></figure></a>
+<a href="screens/TransactionsFilter.html"><figure><img src="screens/TransactionsFilter.png" alt="Transactions · filter" loading="lazy"><figcaption>Transactions · filter<span>TransactionsFilter.html</span></figcaption></figure></a>
+</div>
+<h2>Accounts</h2>
+<div class="grid">
+<a href="screens/Accounts.html"><figure><img src="screens/Accounts.png" alt="Accounts" loading="lazy"><figcaption>Accounts<span>Accounts.html</span></figcaption></figure></a>
+<a href="screens/AccountDetail.html"><figure><img src="screens/AccountDetail.png" alt="Account · ING Girokonto" loading="lazy"><figcaption>Account · ING Girokonto<span>AccountDetail.html</span></figcaption></figure></a>
+<a href="screens/NewAccount.html"><figure><img src="screens/NewAccount.png" alt="New account" loading="lazy"><figcaption>New account<span>NewAccount.html</span></figcaption></figure></a>
+</div>
+<h2>Check-ins, categories &amp; settings</h2>
+<div class="grid">
+<a href="screens/CheckIns.html"><figure><img src="screens/CheckIns.png" alt="Check-ins" loading="lazy"><figcaption>Check-ins<span>CheckIns.html</span></figcaption></figure></a>
+<a href="screens/CheckInSummary.html"><figure><img src="screens/CheckInSummary.png" alt="Check-in summary" loading="lazy"><figcaption>Check-in summary<span>CheckInSummary.html</span></figcaption></figure></a>
+<a href="screens/Categories.html"><figure><img src="screens/Categories.png" alt="Categories" loading="lazy"><figcaption>Categories<span>Categories.html</span></figcaption></figure></a>
+<a href="screens/Rules.html"><figure><img src="screens/Rules.png" alt="Categories · rules" loading="lazy"><figcaption>Categories · rules<span>Rules.html</span></figcaption></figure></a>
+<a href="screens/Settings.html"><figure><img src="screens/Settings.png" alt="Settings" loading="lazy"><figcaption>Settings<span>Settings.html</span></figcaption></figure></a>
+<a href="screens/SettingsSchedule.html"><figure><img src="screens/SettingsSchedule.png" alt="Settings · schedule" loading="lazy"><figcaption>Settings · schedule<span>SettingsSchedule.html</span></figcaption></figure></a>
+</div>
+<h2>Sign in, profiles &amp; first start</h2>
+<div class="grid">
+<a href="screens/Setup.html"><figure><img src="screens/Setup.png" alt="First start" loading="lazy"><figcaption>First start<span>Setup.html</span></figcaption></figure></a>
+<a href="screens/SignIn.html"><figure><img src="screens/SignIn.png" alt="Sign in" loading="lazy"><figcaption>Sign in<span>SignIn.html</span></figcaption></figure></a>
+<a href="screens/SignInPick.html"><figure><img src="screens/SignInPick.png" alt="Choose profile" loading="lazy"><figcaption>Choose profile<span>SignInPick.html</span></figcaption></figure></a>
+<a href="screens/SignInLocked.html"><figure><img src="screens/SignInLocked.png" alt="Sign in · too many tries" loading="lazy"><figcaption>Sign in · too many tries<span>SignInLocked.html</span></figcaption></figure></a>
+</div>
+</body>
+</html>

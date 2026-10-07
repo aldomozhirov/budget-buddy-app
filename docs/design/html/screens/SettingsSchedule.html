@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Budget Buddy — Check-in schedule</title>
+<!-- Static export of the prototype screen "Settings · schedule" (prototype file SettingsSchedule.dc.html), default state.
+     Generated on 2026-10-06. Layout and copy are the reference; see docs/design/html/README.md. -->
+<link rel="stylesheet" href="../fonts/geist.css">
+<style>
+body{margin:0}
+a{color:inherit}a:hover{color:inherit}
+.bb-light{--bg:#F4F3EF;--surface:#FFFFFF;--ink:#15171A;--on-ink:#F4F3EF;--muted:#5C6168;--line:#E2E0D9;--soft:#EAE8E2;--accent:#1D5C45;--accent-soft:#DCEAE3;--warn:#A2470F;--warn-soft:#F5E2D4;--scrim:rgba(20,20,18,.36)}
+.bb-dark{--bg:#111214;--surface:#1A1C1F;--ink:#F1F0EC;--on-ink:#111214;--muted:#A3A8AF;--line:#2B2E33;--soft:#24272B;--accent:#7CC6A3;--accent-soft:#1D3229;--warn:#F2A574;--warn-soft:#3A2618;--scrim:rgba(0,0,0,.55)}
+.bb button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer}
+.bb .num{font-variant-numeric:tabular-nums}
+.bb svg{flex:none}
+.bb .scroll::-webkit-scrollbar{display:none}
+.bb .h{margin:10px 4px 0;font-size:13px;font-weight:500;color:var(--muted)}
+.bb .card{display:flex;flex-direction:column;border-radius:18px;background:var(--surface);padding:0 14px}
+.bb .row{width:100%;display:flex;align-items:center;gap:12px;min-height:54px;text-align:left;text-decoration:none;border-bottom:1px solid var(--line)}
+.bb .row-last{border-bottom:0}
+.bb .row-l{flex:1;min-width:0;display:flex;flex-direction:column}
+.bb .row-v{font-size:14px;color:var(--muted);text-align:right}
+.bb .switch{width:51px;height:31px;border-radius:16px;background:var(--line);position:relative;flex:none}
+.bb .switch-on{background:var(--accent)}
+.bb .knob{position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:14px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.bb .knob-on{left:22px}
+.bb .seg{flex:1;height:36px;border-radius:10px;font-size:14px;font-weight:500;color:var(--muted);text-align:center}
+.bb .seg-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.bb .chip{height:40px;min-width:44px;padding:0 12px;border-radius:20px;background:var(--bg);border:1px solid var(--line);font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:center;white-space:nowrap}
+.bb .chip-on{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.bb .lbl{font-size:12px;font-weight:500;color:var(--muted)}
+
+/* motion */
+@keyframes bb-in-fwd{from{transform:translateX(100%)}to{transform:none}}
+@keyframes bb-in-back{from{transform:translateX(-28%);opacity:.6}to{transform:none;opacity:1}}
+@keyframes bb-fade{from{opacity:0}to{opacity:1}}
+@keyframes bb-sheet{from{transform:translateY(100%)}to{transform:none}}
+@keyframes bb-grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes bb-growy{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes bb-draw{from{stroke-dashoffset:1400}to{stroke-dashoffset:0}}
+@keyframes bb-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes bb-shake{0%,100%{transform:none}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+@keyframes bb-down{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+
+.bb [role="dialog"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both;will-change:transform}
+.bb div[style*="var(--scrim)"],.bb div[style*="rgba(20,20,18,.36)"],.bb div[style*="rgba(20, 20, 18, 0.36)"]{animation:bb-fade .3s ease-out both}
+.bb div[style*="inset: 0"][style*="background: var(--bg)"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both}
+.bb span[style*="width: 72px; height: 72px"],.bb span[style*="width: 56px; height: 56px; border-radius: 28px; background: var(--accent-soft)"]{animation:bb-pop .4s cubic-bezier(.2,.8,.2,1) .25s both}
+.bb [style*="height: 6px"]>[style*="height: 6px"],.bb [style*="height: 4px"]>[style*="height: 4px"]{transform-origin:left center;animation:bb-grow .8s cubic-bezier(.2,.8,.2,1) .3s both;transition:width .45s cubic-bezier(.2,.8,.2,1),background-color .3s}
+.bb div[title][style*="border-radius: 6px 6px 0 0"]{transform-origin:bottom;animation:bb-growy .7s cubic-bezier(.2,.8,.2,1) .3s both}
+.bb polyline{stroke-dasharray:1400;animation:bb-draw 1.1s cubic-bezier(.4,0,.2,1) .3s both}
+.bb button,.bb a{transition:transform .12s ease,background-color .18s ease,color .18s ease,border-color .18s ease,opacity .18s ease}
+.bb button:active:not([disabled]),.bb a:active{transform:scale(.97)}
+.bb .key:active{transform:scale(.92)}
+.bb .knob{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb .switch{transition:background-color .22s}
+.bb span[style*="width: 27px; height: 27px"]{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb span[style*="width: 51px; height: 31px"]{transition:background-color .22s}
+.bb .pw-err{animation:bb-shake .4s ease}
+.bb [role="alert"]:not(:empty),.bb [role="status"]{animation:bb-fade .3s ease-out both}
+.bb .wrap{animation:bb-down .22s ease-out both}
+@media (prefers-reduced-motion: reduce){.bb,.bb *{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="bb bb-light" style="width: 390px; height: 844px; position: relative; overflow: hidden; background: var(--bg); color: var(--ink); font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.4; display: flex; flex-direction: column">
+
+<div style="padding: 48px 16px 8px; display: flex; align-items: center; gap: 12px">
+<a href="Main.dc.html" aria-label="Back to home" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+</a>
+<h1 style="flex: 1; margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em">Settings</h1>
+</div>
+
+<div class="scroll" style="flex: 1; overflow-y: auto; padding: 0 16px 36px; display: flex; flex-direction: column; gap: 6px">
+
+<h2 class="h">Profiles</h2>
+<div class="card">
+<button class="row"><span class="row-l"><span style="font-weight: 500">Alena</span><span style="font-size: 13px; color: var(--muted)">Default on this iPhone</span></span></button>
+<button class="row"><span class="row-l"><span style="font-weight: 500">Max</span></span></button>
+<button class="row"><span class="row-l"><span style="font-weight: 500">Sofia</span></span></button>
+<button class="row row-last" style="color: var(--accent); font-weight: 600">+ Add profile</button>
+</div>
+
+<h2 class="h">Sign-in</h2>
+<div class="card">
+<button class="row"><span class="row-l"><span style="font-weight: 500">Family password</span><span style="font-size: 13px; color: var(--muted)">One password for everyone</span></span><span class="row-v">Change</span></button>
+<button class="row row-last" role="switch" aria-checked="true">
+<span class="row-l"><span style="font-weight: 500">Unlock with Face ID</span><span style="font-size: 13px; color: var(--muted)">On this iPhone, instead of the password</span></span>
+<span class="switch switch-on"><span class="knob knob-on"></span></span>
+</button>
+</div>
+
+<h2 class="h">Check-in</h2>
+<div class="card">
+<button class="row"><span class="row-l"><span style="font-weight: 500">Schedule</span></span><span class="row-v">Monthly, 5th, 09:00</span></button>
+<button class="row row-last"><span class="row-l"><span style="font-weight: 500">Follow-up reminders</span><span style="font-size: 13px; color: var(--muted)">To profiles with accounts left</span></span><span class="row-v">Every 2 days</span></button>
+</div>
+
+<h2 class="h">Money</h2>
+<div class="card">
+<button class="row"><span class="row-l"><span style="font-weight: 500">Common currency</span><span style="font-size: 13px; color: var(--muted)">Totals across currencies</span></span><span class="row-v">EUR</span></button>
+<button class="row"><span class="row-l"><span style="font-weight: 500">Currencies and coins</span></span><span class="row-v">EUR, USD, RUB, BTC</span></button>
+<button class="row"><span class="row-l"><span style="font-weight: 500">Exchange rates</span></span><span class="row-v">Updated today 06:00</span></button>
+<button class="row row-last"><span class="row-l"><span style="font-weight: 500">Time zone</span></span><span class="row-v">Europe/Berlin</span></button>
+</div>
+
+<h2 class="h">Spending</h2>
+<div class="card">
+<a class="row" href="Envelopes.dc.html"><span class="row-l"><span style="font-weight: 500">Envelopes</span></span><span class="row-v">3 · top up on the 1st</span></a>
+<a class="row" href="Categories.dc.html"><span class="row-l"><span style="font-weight: 500">Categories</span></span><span class="row-v">16</span></a>
+<a class="row row-last" href="Categories.dc.html"><span class="row-l"><span style="font-weight: 500">Rules</span></span><span class="row-v">6</span></a>
+</div>
+
+<h2 class="h">This device</h2>
+<div class="card">
+<button class="row" role="switch" aria-checked="false">
+<span class="row-l"><span style="font-weight: 500">Notifications</span><span style="font-size: 13px; color: var(--muted)">Off · the in-app banner still shows</span></span>
+<span class="switch"><span class="knob"></span></span>
+</button>
+<button class="row" role="switch" aria-checked="true">
+<span class="row-l"><span style="font-weight: 500">Hide amounts on Home</span><span style="font-size: 13px; color: var(--muted)">Tap the eye to show them for 30 s</span></span>
+<span class="switch switch-on"><span class="knob knob-on"></span></span>
+</button>
+<a class="row row-last" href="SignIn.dc.html"><span class="row-l"><span style="font-weight: 500">Sign out</span></span></a>
+</div>
+
+<h2 class="h">Data</h2>
+<div class="card">
+<div class="row">
+<span style="width: 10px; height: 10px; border-radius: 5px; background: var(--accent); flex: none"></span>
+<span class="row-l"><span style="font-weight: 500">Backup</span><span class="num" style="font-size: 13px; color: var(--muted)">Last today 03:00 · 4.2 MB · 14 daily, 12 monthly kept</span></span>
+</div>
+<button class="row row-last"><span class="row-l"><span style="font-weight: 500">Export all data</span><span style="font-size: 13px; color: var(--muted)">CSV files in one .zip</span></span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5"></path><path d="M5 20h14"></path></svg>
+</button>
+</div>
+<p style="margin: 14px 4px 0; font-size: 12px; color: var(--muted)">Budget Buddy · runs on your Mac mini · only reachable in your Tailscale network</p>
+</div>
+
+
+<div style="position: absolute; inset: 0; background: var(--scrim)"></div>
+<div role="dialog" aria-label="Check-in schedule" style="position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 24px 24px 0 0; padding: 10px 16px 30px; display: flex; flex-direction: column; gap: 14px">
+<div aria-hidden="true" style="align-self: center; width: 36px; height: 5px; border-radius: 3px; background: var(--line)"></div>
+<div style="display: flex; align-items: center; gap: 12px">
+<h2 style="flex: 1; margin: 0; font-size: 18px; font-weight: 600">Check-in schedule</h2>
+<button aria-label="Close" style="width: 44px; height: 44px; border-radius: 22px; background: var(--bg); display: flex; align-items: center; justify-content: center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+</div>
+<div role="radiogroup" aria-label="Repeat" style="display: flex; gap: 2px; padding: 3px; border-radius: 13px; background: var(--soft)">
+
+<button role="radio" aria-checked="false" class="seg">Off</button>
+
+<button role="radio" aria-checked="true" class="seg seg-on">Monthly</button>
+
+<button role="radio" aria-checked="false" class="seg">Every N weeks</button>
+
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="lbl">Day of the month</span>
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px">
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">1</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">2</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">3</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">4</button>
+
+<button class="chip chip-on" aria-pressed="true" style="min-width: 0; padding: 0">5</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">6</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">7</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">8</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">9</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">10</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">11</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">12</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">13</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">14</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">15</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">16</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">17</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">18</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">19</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">20</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">21</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">22</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">23</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">24</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">25</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">26</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">27</button>
+
+<button class="chip" aria-pressed="false" style="min-width: 0; padding: 0">28</button>
+
+</div>
+</div>
+
+
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="lbl">Time</span>
+<div style="display: flex; gap: 6px">
+
+<button class="chip" aria-pressed="false">08:00</button>
+
+<button class="chip chip-on" aria-pressed="true">09:00</button>
+
+<button class="chip" aria-pressed="false">12:00</button>
+
+<button class="chip" aria-pressed="false">19:00</button>
+
+</div>
+</div>
+
+<p class="num" style="margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--bg); font-size: 14px">Next check-in opens on 5 November at 09:00. Everyone gets a notification.</p>
+<button style="height: 56px; border-radius: 18px; background: var(--ink); color: var(--on-ink); font-weight: 600; font-size: 16px; text-align: center">Done</button>
+</div>
+
+
+
+
+
+
+</div>
+</body>
+</html>

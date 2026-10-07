@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Budget Buddy — First start</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit}a:hover{color:inherit}
+.bb-light{--bg:#F4F3EF;--surface:#FFFFFF;--ink:#15171A;--on-ink:#F4F3EF;--muted:#5C6168;--line:#E2E0D9;--soft:#EAE8E2;--accent:#1D5C45;--accent-soft:#DCEAE3;--warn:#A2470F;--warn-soft:#F5E2D4}
+.bb-dark{--bg:#111214;--surface:#1A1C1F;--ink:#F1F0EC;--on-ink:#111214;--muted:#A3A8AF;--line:#2B2E33;--soft:#24272B;--accent:#7CC6A3;--accent-soft:#1D3229;--warn:#F2A574;--warn-soft:#3A2618}
+.bb button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer}
+.bb svg{flex:none}
+.bb .scroll::-webkit-scrollbar{display:none}
+.bb .lbl{font-size:12px;font-weight:500;color:var(--muted)}
+.bb .text{width:100%;box-sizing:border-box;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:17px;padding:0 14px;outline:none}
+.bb .text:focus{border-color:var(--ink)}
+.bb .text::placeholder{color:var(--muted)}
+.bb .primary{height:56px;border-radius:18px;background:var(--ink);color:var(--on-ink);font-weight:600;font-size:17px;display:flex;align-items:center;justify-content:center;text-decoration:none;text-align:center}
+.bb .primary-off{background:var(--soft);color:var(--muted)}
+.bb .next{display:flex;align-items:center;gap:14px;min-height:64px;padding:0 14px;border-radius:18px;background:var(--surface);text-decoration:none}
+.bb .num-dot{width:28px;height:28px;border-radius:14px;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex:none}
+.bb .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* motion */
+@keyframes bb-in-fwd{from{transform:translateX(100%)}to{transform:none}}
+@keyframes bb-in-back{from{transform:translateX(-28%);opacity:.6}to{transform:none;opacity:1}}
+@keyframes bb-fade{from{opacity:0}to{opacity:1}}
+@keyframes bb-sheet{from{transform:translateY(100%)}to{transform:none}}
+@keyframes bb-grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes bb-growy{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes bb-draw{from{stroke-dashoffset:1400}to{stroke-dashoffset:0}}
+@keyframes bb-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes bb-shake{0%,100%{transform:none}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+@keyframes bb-down{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.bb.nav-fwd{animation:bb-in-fwd .42s cubic-bezier(.32,.72,0,1) both;box-shadow:-12px 0 32px rgba(0,0,0,.12)}
+.bb.nav-back{animation:bb-in-back .38s cubic-bezier(.32,.72,0,1) both}
+.bb [role="dialog"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both;will-change:transform}
+.bb div[style*="var(--scrim)"],.bb div[style*="rgba(20,20,18,.36)"],.bb div[style*="rgba(20, 20, 18, 0.36)"]{animation:bb-fade .3s ease-out both}
+.bb div[style*="inset: 0"][style*="background: var(--bg)"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both}
+.bb span[style*="width: 72px; height: 72px"],.bb span[style*="width: 56px; height: 56px; border-radius: 28px; background: var(--accent-soft)"]{animation:bb-pop .4s cubic-bezier(.2,.8,.2,1) .25s both}
+.bb [style*="height: 6px"]>[style*="height: 6px"],.bb [style*="height: 4px"]>[style*="height: 4px"]{transform-origin:left center;animation:bb-grow .8s cubic-bezier(.2,.8,.2,1) .3s both;transition:width .45s cubic-bezier(.2,.8,.2,1),background-color .3s}
+.bb div[title][style*="border-radius: 6px 6px 0 0"]{transform-origin:bottom;animation:bb-growy .7s cubic-bezier(.2,.8,.2,1) .3s both}
+.bb polyline{stroke-dasharray:1400;animation:bb-draw 1.1s cubic-bezier(.4,0,.2,1) .3s both}
+.bb button,.bb a{transition:transform .12s ease,background-color .18s ease,color .18s ease,border-color .18s ease,opacity .18s ease}
+.bb button:active:not([disabled]),.bb a:active{transform:scale(.97)}
+.bb .key:active{transform:scale(.92)}
+.bb .knob{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb .switch{transition:background-color .22s}
+.bb span[style*="width: 27px; height: 27px"]{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb span[style*="width: 51px; height: 31px"]{transition:background-color .22s}
+.bb .pw-err{animation:bb-shake .4s ease}
+.bb [role="alert"]:not(:empty),.bb [role="status"]{animation:bb-fade .3s ease-out both}
+.bb .wrap{animation:bb-down .22s ease-out both}
+@media (prefers-reduced-motion: reduce){.bb,.bb *{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div class="bb {{themeClass}}" onClickCapture="{{navCapture}}" style="width: 390px; height: 844px; position: relative; overflow: hidden; background: var(--bg); color: var(--ink); font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.4; display: flex; flex-direction: column">
+
+<sc-if value="{{isForm}}" hint-placeholder-val="{{ true }}">
+<div class="scroll" style="flex: 1; overflow-y: auto; padding: 64px 24px 16px; display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.02em">Set up Budget Buddy</h1>
+<p style="margin: 0; color: var(--muted)">One password for the whole family, and a profile for each person.</p>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="su-pw" class="lbl">Family password</label>
+<input id="su-pw" class="text" type="password" autocomplete="new-password" placeholder="At least 10 characters" value="{{pw}}" onChange="{{onPw}}" aria-describedby="su-pw-hint">
+<label for="su-pw2" class="sr">Repeat family password</label>
+<input id="su-pw2" class="text" type="password" autocomplete="new-password" placeholder="Repeat it" value="{{pw2}}" onChange="{{onPw2}}">
+<span id="su-pw-hint" style="font-size: 13px; color: {{pwHintColor}}">{{pwHint}}</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span class="lbl">Profiles</span>
+<sc-for list="{{profiles}}" as="p" hint-placeholder-count="2">
+<div style="display: flex; gap: 8px; align-items: center">
+<label for="{{p.id}}" class="sr">{{p.aria}}</label>
+<input id="{{p.id}}" class="text" type="text" autocomplete="off" placeholder="{{p.placeholder}}" value="{{p.value}}" onChange="{{p.onChange}}">
+<sc-if value="{{p.removable}}" hint-placeholder-val="{{ false }}">
+<button onClick="{{p.remove}}" aria-label="{{p.removeAria}}" style="width: 44px; height: 44px; flex: none; border-radius: 22px; display: flex; align-items: center; justify-content: center; color: var(--muted)">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+</sc-if>
+</div>
+</sc-for>
+<button onClick="{{addProfile}}" style="align-self: flex-start; min-height: 44px; font-weight: 600; color: var(--accent)">+ Add a profile</button>
+<span style="font-size: 13px; color: var(--muted)">The first one opens on this device. You can add more profiles later.</span>
+</div>
+</div>
+<div style="padding: 12px 24px 40px">
+<button class="{{btnCls}}" onClick="{{create}}" disabled="{{btnDisabled}}" style="width: 100%">Create</button>
+</div>
+</sc-if>
+
+<sc-if value="{{isDone}}" hint-placeholder-val="{{ false }}">
+<div style="flex: 1; padding: 72px 24px 40px; display: flex; flex-direction: column; gap: 24px">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span style="width: 56px; height: 56px; border-radius: 28px; background: var(--accent-soft); display: flex; align-items: center; justify-content: center">
+<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+</span>
+<h1 style="margin: 8px 0 0; font-size: 28px; font-weight: 600; letter-spacing: -0.02em">{{doneTitle}}</h1>
+<p style="margin: 0; color: var(--muted)">{{doneSub}}</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<a href="NewAccount.dc.html" class="next"><span class="num-dot">1</span><span style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 600">Add your accounts</span><span style="font-size: 13px; color: var(--muted)">Bank, cash, debts, crypto</span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></a>
+<a href="SettingsSchedule.dc.html" class="next"><span class="num-dot">2</span><span style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 600">Pick the check-in schedule</span><span style="font-size: 13px; color: var(--muted)">Monthly by default</span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></a>
+</div>
+<div style="flex: 1"></div>
+<a href="Main.dc.html" class="primary" style="background: var(--surface); color: var(--ink)">Later, go to Home</a>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { pw: '', pw2: '', names: ['', ''], done: false }; }
+  renderVals() {
+    var self = this;
+    var st = this.state;
+    var longEnough = st.pw.length >= 10;
+    var match = st.pw2.length > 0 && st.pw2 === st.pw;
+    var named = st.names.map(function (n) { return n.trim(); }).filter(Boolean);
+    var ok = longEnough && match && st.names[0].trim().length > 0;
+    var pwHint = !st.pw ? 'Everyone uses it to sign in. A long phrase is easiest.' : (!longEnough ? (10 - st.pw.length) + ' more characters' : (st.pw2 && !match ? 'The two don’t match yet.' : (match ? 'Good.' : 'Now repeat it.')));
+    var profiles = st.names.map(function (n, i) {
+      return {
+        id: 'pf-' + i, value: n,
+        aria: i === 0 ? 'Your name' : 'Profile ' + (i + 1) + ' name',
+        placeholder: i === 0 ? 'Your name' : 'Another person, e.g. Max',
+        removable: i > 0,
+        removeAria: 'Remove profile ' + (i + 1),
+        onChange: function (e) { var ns = self.state.names.slice(); ns[i] = e.target.value; self.setState({ names: ns }); },
+        remove: function () { var ns = self.state.names.slice(); ns.splice(i, 1); self.setState({ names: ns }); }
+      };
+    });
+    return {
+      themeClass: (this.props.dark ? 'bb-dark' : 'bb-light') + ' ' + (function () { try { return sessionStorage.getItem('bb-nav') === 'back' ? 'nav-back' : 'nav-fwd'; } catch (e) { return 'nav-fwd'; } })(),
+      navCapture: function (e) {
+        var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+        if (!a) return;
+        var href = a.getAttribute('href') || '', label = (a.getAttribute('aria-label') || '') + ' ' + (a.textContent || '');
+        var back = href === 'Main.dc.html' || /^\s*(Back|Close|Cancel|Done|Later|Keep)/.test(label) || /^\s*(Back home|Back to)/.test(a.textContent || '');
+        try { sessionStorage.setItem('bb-nav', back ? 'back' : 'fwd'); } catch (err) {}
+      },
+      isForm: !st.done, isDone: st.done,
+      pw: st.pw, pw2: st.pw2,
+      onPw: function (e) { self.setState({ pw: e.target.value }); },
+      onPw2: function (e) { self.setState({ pw2: e.target.value }); },
+      pwHint: pwHint,
+      pwHintColor: st.pw2 && !match && longEnough ? 'var(--warn)' : (match && longEnough ? 'var(--accent)' : 'var(--muted)'),
+      profiles: profiles,
+      addProfile: function () { self.setState({ names: self.state.names.concat(['']) }); },
+      btnDisabled: !ok,
+      btnCls: ok ? 'primary' : 'primary primary-off',
+      create: function () { if (ok) self.setState({ done: true }); },
+      doneTitle: 'Welcome, ' + (st.names[0].trim() || 'there'),
+      doneSub: named.length > 1 ? 'Profiles ready: ' + named.join(', ') + '. Share the family password with them, and they pick their profile on their phone.' : 'Add the rest of the family any time in Settings → Profiles.'
+    };
+  }
+}
+</script>
+</body>
+</html>

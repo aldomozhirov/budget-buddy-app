@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Budget Buddy — Account</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit}a:hover{color:inherit}
+.bb-light{--bg:#F4F3EF;--surface:#FFFFFF;--ink:#15171A;--on-ink:#F4F3EF;--muted:#5C6168;--line:#E2E0D9;--soft:#EAE8E2;--accent:#1D5C45;--accent-soft:#DCEAE3;--warn:#A2470F;--warn-soft:#F5E2D4;--scrim:rgba(20,20,18,.36)}
+.bb-dark{--bg:#111214;--surface:#1A1C1F;--ink:#F1F0EC;--on-ink:#111214;--muted:#A3A8AF;--line:#2B2E33;--soft:#24272B;--accent:#7CC6A3;--accent-soft:#1D3229;--warn:#F2A574;--warn-soft:#3A2618;--scrim:rgba(0,0,0,.55)}
+.bb button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer}
+.bb .num{font-variant-numeric:tabular-nums}
+.bb svg{flex:none}
+.bb .scroll::-webkit-scrollbar{display:none}
+.bb .seg{flex:1;height:32px;border-radius:9px;font-size:13px;font-weight:500;color:var(--muted);text-align:center}
+.bb .seg-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.bb .key{height:46px;border-radius:12px;background:var(--bg);font-size:21px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.bb .key-op{background:var(--soft);font-size:19px}
+.bb .field{width:100%;min-height:54px;display:flex;align-items:center;gap:12px;text-align:left;border-bottom:1px solid var(--line)}
+.bb .field-l{flex:none;width:96px;font-size:14px;color:var(--muted)}
+.bb .field-v{flex:1;min-width:0;font-weight:500;text-align:right}
+.bb .pill{height:36px;padding:0 12px;border-radius:18px;border:1px solid var(--line);font-size:13px;font-weight:600;display:flex;align-items:center}
+.bb .pill-on{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+
+/* motion */
+@keyframes bb-in-fwd{from{transform:translateX(100%)}to{transform:none}}
+@keyframes bb-in-back{from{transform:translateX(-28%);opacity:.6}to{transform:none;opacity:1}}
+@keyframes bb-fade{from{opacity:0}to{opacity:1}}
+@keyframes bb-sheet{from{transform:translateY(100%)}to{transform:none}}
+@keyframes bb-grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes bb-growy{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes bb-draw{from{stroke-dashoffset:1400}to{stroke-dashoffset:0}}
+@keyframes bb-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes bb-shake{0%,100%{transform:none}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+@keyframes bb-down{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.bb.nav-fwd{animation:bb-in-fwd .42s cubic-bezier(.32,.72,0,1) both;box-shadow:-12px 0 32px rgba(0,0,0,.12)}
+.bb.nav-back{animation:bb-in-back .38s cubic-bezier(.32,.72,0,1) both}
+.bb [role="dialog"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both;will-change:transform}
+.bb div[style*="var(--scrim)"],.bb div[style*="rgba(20,20,18,.36)"],.bb div[style*="rgba(20, 20, 18, 0.36)"]{animation:bb-fade .3s ease-out both}
+.bb div[style*="inset: 0"][style*="background: var(--bg)"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both}
+.bb span[style*="width: 72px; height: 72px"],.bb span[style*="width: 56px; height: 56px; border-radius: 28px; background: var(--accent-soft)"]{animation:bb-pop .4s cubic-bezier(.2,.8,.2,1) .25s both}
+.bb [style*="height: 6px"]>[style*="height: 6px"],.bb [style*="height: 4px"]>[style*="height: 4px"]{transform-origin:left center;animation:bb-grow .8s cubic-bezier(.2,.8,.2,1) .3s both;transition:width .45s cubic-bezier(.2,.8,.2,1),background-color .3s}
+.bb div[title][style*="border-radius: 6px 6px 0 0"]{transform-origin:bottom;animation:bb-growy .7s cubic-bezier(.2,.8,.2,1) .3s both}
+.bb polyline{stroke-dasharray:1400;animation:bb-draw 1.1s cubic-bezier(.4,0,.2,1) .3s both}
+.bb button,.bb a{transition:transform .12s ease,background-color .18s ease,color .18s ease,border-color .18s ease,opacity .18s ease}
+.bb button:active:not([disabled]),.bb a:active{transform:scale(.97)}
+.bb .key:active{transform:scale(.92)}
+.bb .knob{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb .switch{transition:background-color .22s}
+.bb span[style*="width: 27px; height: 27px"]{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb span[style*="width: 51px; height: 31px"]{transition:background-color .22s}
+.bb .pw-err{animation:bb-shake .4s ease}
+.bb [role="alert"]:not(:empty),.bb [role="status"]{animation:bb-fade .3s ease-out both}
+.bb .wrap{animation:bb-down .22s ease-out both}
+@media (prefers-reduced-motion: reduce){.bb,.bb *{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div class="bb {{themeClass}}" onClickCapture="{{navCapture}}" style="width: 390px; height: 844px; position: relative; overflow: hidden; background: var(--bg); color: var(--ink); font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.4; display: flex; flex-direction: column">
+
+<div style="padding: 48px 16px 8px; display: flex; align-items: center; gap: 12px">
+<a href="{{backHref}}" aria-label="{{backLabel}}" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+</a>
+<div style="flex: 1; display: flex; flex-direction: column">
+<h1 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em">{{name}}</h1>
+<span style="font-size: 13px; color: var(--muted)">{{subtitle}}</span>
+</div>
+<button onClick="{{openSettings}}" aria-label="Account settings" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"></path><circle cx="16" cy="7" r="2"></circle><circle cx="10" cy="17" r="2"></circle></svg>
+</button>
+</div>
+
+<sc-if value="{{inactive}}" hint-placeholder-val="{{ false }}">
+<div style="margin: 4px 16px 0; padding: 10px 14px; border-radius: 12px; background: var(--soft); font-size: 14px; display: flex; align-items: center; gap: 10px">
+<span style="flex: 1">Inactive since today. It stays in history and leaves future check-ins.</span>
+<button onClick="{{reactivate}}" style="height: 36px; padding: 0 10px; font-weight: 600; color: var(--accent)">Reactivate</button>
+</div>
+</sc-if>
+
+<div class="scroll" style="flex: 1; overflow-y: auto; padding: 8px 16px 32px; display: flex; flex-direction: column; gap: 14px">
+
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 18px 16px 14px; border-radius: 20px; background: var(--surface)">
+<span class="num" style="font-size: 36px; font-weight: 600; letter-spacing: -0.02em">{{balance}}</span>
+<span class="num" style="font-size: 13px; color: var(--muted)">{{balanceMeta}}</span>
+<div style="position: relative; height: 120px; margin-top: 12px">
+<svg width="100%" height="120" viewBox="0 0 320 120" preserveAspectRatio="none" aria-label="{{chartAria}}" role="img" style="display: block; overflow: visible">
+<polyline points="{{chartLine}}" fill="none" style="stroke: var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"></polyline>
+</svg>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--muted)">
+<span>{{chartFrom}}</span><span>{{chartTo}}</span>
+</div>
+<div role="tablist" aria-label="Range" style="display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--soft); margin-top: 8px">
+<sc-for list="{{ranges}}" as="r" hint-placeholder-count="3">
+<button role="tab" aria-selected="{{r.on}}" class="{{r.cls}}" onClick="{{r.pick}}">{{r.label}}</button>
+</sc-for>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<button onClick="{{openSet}}" style="height: 52px; border-radius: 16px; background: var(--ink); color: var(--on-ink); font-weight: 600; text-align: center">Set balance</button>
+<a href="Transactions.dc.html" style="height: 52px; border-radius: 16px; background: var(--surface); font-weight: 600; display: flex; align-items: center; justify-content: center; text-decoration: none">Transactions</a>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 0 4px; font-size: 13px; font-weight: 500; color: var(--muted)">Balance history · tap to correct</h2>
+<div style="display: flex; flex-direction: column; border-radius: 18px; background: var(--surface); padding: 0 14px">
+<sc-for list="{{snaps}}" as="s" hint-placeholder-count="6">
+<button onClick="{{s.open}}" style="display: flex; align-items: center; gap: 12px; min-height: 58px; text-align: left; border-bottom: {{s.border}}">
+<span style="flex: 1; display: flex; flex-direction: column">
+<span class="num" style="font-weight: 500">{{s.date}}</span>
+<span style="font-size: 13px; color: var(--muted)">{{s.meta}}</span>
+</span>
+<span style="display: flex; flex-direction: column; align-items: flex-end">
+<span class="num" style="font-weight: 500">{{s.amount}}</span>
+<span class="num" style="font-size: 12px; color: var(--muted)">{{s.delta}}</span>
+</span>
+</button>
+</sc-for>
+</div>
+</div>
+</div>
+
+<sc-if value="{{keypadOpen}}" hint-placeholder-val="{{ false }}">
+<div onClick="{{closeSheet}}" style="position: absolute; inset: 0; background: var(--scrim)"></div>
+<div role="dialog" aria-label="{{kTitle}}" style="position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 24px 24px 0 0; padding: 10px 16px 30px; display: flex; flex-direction: column; gap: 12px">
+<div aria-hidden="true" style="align-self: center; width: 36px; height: 5px; border-radius: 3px; background: var(--line)"></div>
+<div style="display: flex; align-items: flex-start; gap: 12px">
+<div style="flex: 1; display: flex; flex-direction: column">
+<h2 style="margin: 0; font-size: 18px; font-weight: 600">{{kTitle}}</h2>
+<span class="num" style="font-size: 13px; color: var(--muted)">{{kSub}}</span>
+</div>
+<button onClick="{{closeSheet}}" aria-label="Close" style="width: 44px; height: 44px; border-radius: 22px; background: var(--bg); display: flex; align-items: center; justify-content: center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+</div>
+<sc-if value="{{isSet}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; gap: 8px">
+<sc-for list="{{whens}}" as="w" hint-placeholder-count="2">
+<button class="{{w.cls}}" aria-pressed="{{w.on}}" onClick="{{w.pick}}">{{w.label}}</button>
+</sc-for>
+</div>
+</sc-if>
+<div style="display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 16px; background: var(--bg)">
+<div style="flex: 1; display: flex; flex-direction: column; min-width: 0">
+<span class="num" style="height: 18px; font-size: 13px; color: var(--muted)">{{exprLine}}</span>
+<span class="num" style="font-size: 32px; font-weight: 600; letter-spacing: -0.02em; color: {{amountColor}}">{{amountText}}</span>
+</div>
+<button onClick="{{useLast}}" style="height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid var(--line); font-size: 13px; font-weight: 600">{{useLastLabel}}</button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px">
+<sc-for list="{{keys}}" as="key" hint-placeholder-count="20">
+<button class="{{key.cls}}" aria-label="{{key.aria}}" onClick="{{key.press}}">{{key.label}}</button>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: {{actionCols}}; gap: 8px">
+<sc-if value="{{isCorrect}}" hint-placeholder-val="{{ false }}">
+<button onClick="{{deleteSnap}}" style="height: 56px; border-radius: 18px; background: var(--bg); color: var(--warn); font-weight: 600; font-size: 16px; text-align: center">Delete</button>
+</sc-if>
+<button onClick="{{saveK}}" disabled="{{saveDisabled}}" class="num" style="height: 56px; border-radius: 18px; background: {{saveBg}}; color: {{saveFg}}; font-weight: 600; font-size: 16px; text-align: center">{{saveLabel}}</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{settingsOpen}}" hint-placeholder-val="{{ false }}">
+<div onClick="{{closeSheet}}" style="position: absolute; inset: 0; background: var(--scrim)"></div>
+<div role="dialog" aria-label="Account settings" style="position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 24px 24px 0 0; padding: 10px 16px 30px; display: flex; flex-direction: column; gap: 8px">
+<div aria-hidden="true" style="align-self: center; width: 36px; height: 5px; border-radius: 3px; background: var(--line)"></div>
+<div style="display: flex; align-items: center; gap: 12px">
+<h2 style="flex: 1; margin: 0; font-size: 18px; font-weight: 600">Account settings</h2>
+<button onClick="{{closeSheet}}" aria-label="Close" style="width: 44px; height: 44px; border-radius: 22px; background: var(--bg); display: flex; align-items: center; justify-content: center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+</div>
+<div style="display: flex; flex-direction: column">
+<button class="field"><span class="field-l">Name</span><span class="field-v">{{name}}</span></button>
+<button class="field"><span class="field-l">Owner</span><span class="field-v">Alena</span></button>
+<button class="field"><span class="field-l">Type</span><span class="field-v">Bank</span></button>
+<button class="field" onClick="{{askCurrency}}"><span class="field-l">Currency</span><span class="field-v">{{currency}}</span></button>
+<sc-if value="{{currencyWarn}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 12px 14px; margin: 8px 0; border-radius: 14px; background: var(--warn-soft); display: flex; flex-direction: column; gap: 10px">
+<span style="font-weight: 600; color: var(--warn)">Change currency to USD?</span>
+<span class="num" style="font-size: 14px">All 8 stored amounts are relabelled, not converted: €1,986.30 becomes $1,986.30. Use this only to fix a wrong currency.</span>
+<div style="display: flex; gap: 8px">
+<button onClick="{{confirmCurrency}}" style="height: 40px; padding: 0 14px; border-radius: 20px; background: var(--warn); color: var(--surface); font-weight: 600; font-size: 14px">Relabel as USD</button>
+<button onClick="{{cancelCurrency}}" style="height: 40px; padding: 0 14px; border-radius: 20px; font-weight: 600; font-size: 14px">Cancel</button>
+</div>
+</div>
+</sc-if>
+<button class="field"><span class="field-l">Bank IDs</span><span class="field-v" style="color: var(--muted); font-weight: 400">IBAN for statement import</span></button>
+</div>
+<sc-if value="{{deactConfirm}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 12px 14px; border-radius: 14px; background: var(--soft); display: flex; flex-direction: column; gap: 10px">
+<span style="font-weight: 600">Deactivate ING Girokonto?</span>
+<span style="font-size: 14px; color: var(--muted)">Its history stays. It leaves check-ins and its balance counts as zero from today.</span>
+<div style="display: flex; gap: 8px">
+<button onClick="{{deactivate}}" style="height: 40px; padding: 0 14px; border-radius: 20px; background: var(--ink); color: var(--on-ink); font-weight: 600; font-size: 14px">Deactivate</button>
+<button onClick="{{cancelDeact}}" style="height: 40px; padding: 0 14px; border-radius: 20px; font-weight: 600; font-size: 14px">Cancel</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{deactButton}}" hint-placeholder-val="{{ true }}">
+<button onClick="{{askDeact}}" style="height: 52px; border-radius: 16px; background: var(--bg); font-weight: 600; text-align: center; margin-top: 6px">Deactivate account</button>
+</sc-if>
+<p style="margin: 2px 4px 0; font-size: 13px; color: var(--muted)">It can’t be deleted because it has balance history. Accounts with no history can be.</p>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      cur: 'EUR', range: '6m', sheet: null, expr: '', when: 'now', editIdx: null, currencyWarn: false, deactConfirm: false, inactive: false,
+      snaps: [
+        { d: '05/10/2026', v: 1986.3, src: 'Check-in', who: 'Alena' },
+        { d: '02/09/2026', v: 2140.55, src: 'Check-in', who: 'Alena' },
+        { d: '01/08/2026', v: 1870.1, src: 'Check-in', who: 'Max' },
+        { d: '03/07/2026', v: 2410, src: 'Check-in', who: 'Alena' },
+        { d: '14/06/2026', v: 2050, src: 'By hand', who: 'Alena', corrected: true },
+        { d: '01/06/2026', v: 1760.4, src: 'Check-in', who: 'Alena' },
+        { d: '02/05/2026', v: 2300, src: 'Check-in', who: 'Sofia' },
+        { d: '15/04/2026', v: 1500, src: 'Opening balance', who: 'Alena' }
+      ]
+    };
+  }
+  evaluate(s) {
+    var t = s.replace(/−/g, '-').replace(/×/g, '*').replace(/÷/g, '/');
+    var i = 0;
+    function peek() { return t[i]; }
+    function num() {
+      var st = i;
+      while (i < t.length && /[0-9.]/.test(t[i])) i++;
+      var str = t.slice(st, i);
+      if (!str || !/^(\d+\.?\d*|\.\d+)$/.test(str)) throw new Error('num');
+      return parseFloat(str);
+    }
+    function factor() {
+      if (peek() === '-') { i++; return -factor(); }
+      if (peek() === '+') { i++; return factor(); }
+      var v;
+      if (peek() === '(') { i++; v = expr(); if (peek() !== ')') throw new Error('paren'); i++; }
+      else v = num();
+      while (peek() === '%') { i++; v = v / 100; }
+      return v;
+    }
+    function term() {
+      var v = factor();
+      while (peek() === '*' || peek() === '/') {
+        var op = t[i++]; var r = factor();
+        if (op === '/') { if (r === 0) throw new Error('div0'); v = v / r; } else v = v * r;
+      }
+      return v;
+    }
+    function expr() {
+      var v = term();
+      while (peek() === '+' || peek() === '-') {
+        var op = t[i++]; var r = term();
+        v = op === '+' ? v + r : v - r;
+      }
+      return v;
+    }
+    var v = expr();
+    if (i !== t.length) throw new Error('trailing');
+    return Math.round(v * 100) / 100;
+  }
+  renderVals() {
+    var self = this;
+    var st = this.state;
+    var sym = st.cur === 'USD' ? '$' : '€';
+    function money(v) { return (v < 0 ? '−' : '') + sym + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    var snaps = st.snaps;
+    var latest = snaps[0];
+
+    // chart (oldest → newest)
+    var n = Math.min(snaps.length, st.range === '3m' ? 4 : (st.range === '6m' ? 7 : snaps.length));
+    var pts = snaps.slice(0, n).slice().reverse();
+    var vals = pts.map(function (p) { return p.v; });
+    var mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals);
+    var span = mx - mn || 1;
+    var chartLine = pts.map(function (p, i) {
+      var x = pts.length === 1 ? 160 : i / (pts.length - 1) * 320;
+      var y = 110 - (p.v - mn) / span * 100;
+      return x.toFixed(1) + ',' + y.toFixed(1);
+    }).join(' ');
+    var ranges = [['3m', '3 months'], ['6m', '6 months'], ['all', 'All']].map(function (r) {
+      var on = st.range === r[0];
+      return { label: r[1], on: on, cls: on ? 'seg seg-on' : 'seg', pick: function () { self.setState({ range: r[0] }); } };
+    });
+
+    var list = snaps.map(function (s, i) {
+      var prev = snaps[i + 1];
+      var d = prev ? s.v - prev.v : null;
+      return {
+        date: s.d,
+        meta: s.src + ' · ' + s.who + (s.corrected ? ' · corrected' : ''),
+        amount: money(s.v),
+        delta: d === null ? 'First balance' : (d === 0 ? 'No change' : (d > 0 ? '▲ ' : '▼ ') + money(Math.abs(d))),
+        border: i < snaps.length - 1 ? '1px solid var(--line)' : '0',
+        open: function () { self.setState({ sheet: 'correct', editIdx: i, expr: '' }); }
+      };
+    });
+
+    // keypad sheet
+    var isSet = st.sheet === 'set', isCorrect = st.sheet === 'correct';
+    var editSnap = isCorrect ? snaps[st.editIdx] : null;
+    var value = null;
+    try { value = st.expr ? this.evaluate(st.expr) : null; } catch (e) { value = null; }
+    var hasOp = /[+−×÷%()]/.test(st.expr.replace(/^−/, ''));
+    var valid = value !== null;
+    var ref = isCorrect ? editSnap : latest;
+    function press(k) {
+      return function () {
+        var e = self.state.expr;
+        if (k === 'C') e = '';
+        else if (k === '⌫') e = e.slice(0, -1);
+        else e = (e + k).slice(0, 40);
+        self.setState({ expr: e });
+      };
+    }
+    var KEYS = ['7', '8', '9', '(', ')', '4', '5', '6', '×', '÷', '1', '2', '3', '+', '−', '.', '0', '%', '⌫', 'C'];
+    var ARIA = { '(': 'Open bracket', ')': 'Close bracket', '×': 'Multiply', '÷': 'Divide', '+': 'Plus', '−': 'Minus', '%': 'Percent', '⌫': 'Delete', 'C': 'Clear', '.': 'Decimal point' };
+    var keys = KEYS.map(function (k) {
+      var op = !/[0-9.]/.test(k);
+      return { label: k, aria: ARIA[k] || k, cls: op ? 'key key-op' : 'key', press: press(k) };
+    });
+    var whens = [['now', 'Now'], ['earlier', 'Earlier date…']].map(function (w) {
+      var on = st.when === w[0];
+      return { label: w[1], on: on, cls: on ? 'pill pill-on' : 'pill', pick: function () { self.setState({ when: w[0] }); } };
+    });
+
+    var BACKS = {"Accounts.dc.html": ["Accounts.dc.html", "Back to accounts"], "NewAccount.dc.html": ["Accounts.dc.html", "Back to accounts"], "CheckInSummary.dc.html": ["CheckInSummary.dc.html", "Back to check-in"], "TransactionDetail.dc.html": ["TransactionDetail.dc.html", "Back to transaction"]};
+    var backTo = BACKS['Accounts.dc.html'];
+    try { var from = sessionStorage.getItem('bb-from:AccountDetail.dc.html'); if (from && BACKS[from]) backTo = BACKS[from]; } catch (e) {}
+    return {
+      backHref: backTo[0], backLabel: backTo[1],
+      themeClass: (this.props.dark ? 'bb-dark' : 'bb-light') + ' ' + (function () { try { return sessionStorage.getItem('bb-nav') === 'back' ? 'nav-back' : 'nav-fwd'; } catch (e) { return 'nav-fwd'; } })(),
+      navCapture: function (e) {
+        var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+        if (!a) return;
+        var href = a.getAttribute('href') || '', label = (a.getAttribute('aria-label') || '') + ' ' + (a.textContent || '');
+        var back = href === 'Main.dc.html' || /^\s*(Back|Close|Cancel|Done|Later|Keep)/.test(label) || /^\s*(Back home|Back to)/.test(a.textContent || '');
+        try { sessionStorage.setItem('bb-nav', back ? 'back' : 'fwd'); } catch (err) {}
+      },
+      name: 'ING Girokonto',
+      currency: st.cur,
+      subtitle: 'Alena · Bank · ' + st.cur,
+      inactive: st.inactive,
+      reactivate: function () { self.setState({ inactive: false }); },
+      balance: st.inactive ? money(0) : money(latest.v),
+      balanceMeta: st.inactive ? 'Counts as zero while inactive' : latest.src + ' · ' + latest.d + ' · ' + latest.who,
+      chartLine: chartLine,
+      chartAria: 'Balance from ' + pts[0].d + ' to ' + pts[pts.length - 1].d,
+      chartFrom: pts[0].d, chartTo: pts[pts.length - 1].d,
+      ranges: ranges,
+      snaps: list,
+      openSet: function () { self.setState({ sheet: 'set', expr: '', when: 'now' }); },
+      openSettings: function () { self.setState({ sheet: 'settings', currencyWarn: false, deactConfirm: false }); },
+      closeSheet: function () { self.setState({ sheet: null, expr: '' }); },
+      keypadOpen: isSet || isCorrect,
+      isSet: isSet, isCorrect: isCorrect,
+      kTitle: isSet ? 'Set balance' : 'Correct ' + (editSnap ? editSnap.d : ''),
+      kSub: isSet ? 'Last ' + money(latest.v) + ' on ' + latest.d : (editSnap ? money(editSnap.v) + ' · ' + editSnap.src + ' · ' + editSnap.who + '. The old value is kept in the change log.' : ''),
+      whens: whens,
+      exprLine: hasOp ? st.expr : '',
+      amountText: valid ? money(value) : (st.expr ? '…' : money(ref ? ref.v : 0)),
+      amountColor: valid ? 'var(--ink)' : 'var(--muted)',
+      useLastLabel: isSet ? 'Start from last' : 'Start from this',
+      useLast: function () { self.setState({ expr: String(ref.v) }); },
+      keys: keys,
+      actionCols: isCorrect ? '1fr 2fr' : '1fr',
+      saveDisabled: !valid,
+      saveBg: valid ? 'var(--ink)' : 'var(--soft)',
+      saveFg: valid ? 'var(--on-ink)' : 'var(--muted)',
+      saveLabel: !valid ? 'Enter a balance' : (isSet ? 'Save ' + money(value) + (st.when === 'now' ? ' as of now' : '') : 'Save correction'),
+      saveK: function () {
+        if (!valid) return;
+        var s = self.state.snaps.slice();
+        if (isSet) s.unshift({ d: '05/10/2026', v: value, src: 'By hand', who: 'Alena' });
+        else s[st.editIdx] = Object.assign({}, s[st.editIdx], { v: value, corrected: true });
+        self.setState({ snaps: s, sheet: null, expr: '' });
+      },
+      deleteSnap: function () {
+        var s = self.state.snaps.slice();
+        if (s.length > 1) s.splice(st.editIdx, 1);
+        self.setState({ snaps: s, sheet: null, expr: '' });
+      },
+      settingsOpen: st.sheet === 'settings',
+      currencyWarn: st.currencyWarn,
+      askCurrency: function () { self.setState({ currencyWarn: true }); },
+      cancelCurrency: function () { self.setState({ currencyWarn: false }); },
+      confirmCurrency: function () { self.setState({ cur: 'USD', currencyWarn: false, sheet: null }); },
+      deactConfirm: st.deactConfirm,
+      deactButton: !st.deactConfirm && !st.inactive,
+      askDeact: function () { self.setState({ deactConfirm: true }); },
+      cancelDeact: function () { self.setState({ deactConfirm: false }); },
+      deactivate: function () { self.setState({ inactive: true, deactConfirm: false, sheet: null }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,297 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "AddExpense.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 28,
+      "title": "Add expense",
+      "w": 390,
+      "x": 470,
+      "y": 0
+    },
+    "CheckIn.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 28,
+      "title": "Check-in",
+      "w": 390,
+      "x": 940,
+      "y": 0
+    },
+    "EnvelopeDetail.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 28,
+      "title": "Envelope · Groceries",
+      "w": 390,
+      "x": 470,
+      "y": 2150
+    },
+    "Envelopes.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 28,
+      "title": "Envelopes",
+      "w": 390,
+      "x": 0,
+      "y": 2150
+    },
+    "Main.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 28,
+      "title": "Home",
+      "w": 390,
+      "x": 0,
+      "y": 0
+    },
+    "SearchAccounts.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 28,
+      "title": "Add expense · search accounts",
+      "w": 390,
+      "x": 470,
+      "y": 964
+    },
+    "SearchCategories.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 28,
+      "title": "Add expense · search categories",
+      "w": 390,
+      "x": 940,
+      "y": 964
+    },
+    "ToLabel.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 28,
+      "title": "Transactions · needs a category",
+      "w": 390,
+      "x": 1410,
+      "y": 2150
+    },
+    "TransactionDetail.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 28,
+      "title": "Transaction",
+      "w": 390,
+      "x": 1880,
+      "y": 2150
+    },
+    "Transactions.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 28,
+      "title": "Transactions",
+      "w": 390,
+      "x": 940,
+      "y": 2150
+    },
+    "TransactionsFilter.dc.html": {
+      "x": 2350,
+      "y": 2150,
+      "w": 390,
+      "h": 844,
+      "title": "Transactions · filter",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "Accounts.dc.html": {
+      "x": 0,
+      "y": 3350,
+      "w": 390,
+      "h": 844,
+      "title": "Accounts",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "AccountDetail.dc.html": {
+      "x": 470,
+      "y": 3350,
+      "w": 390,
+      "h": 844,
+      "title": "Account · ING Girokonto",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "NewAccount.dc.html": {
+      "x": 940,
+      "y": 3350,
+      "w": 390,
+      "h": 844,
+      "title": "New account",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "CheckIns.dc.html": {
+      "x": 0,
+      "y": 4550,
+      "w": 390,
+      "h": 844,
+      "title": "Check-ins",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "CheckInSummary.dc.html": {
+      "x": 470,
+      "y": 4550,
+      "w": 390,
+      "h": 844,
+      "title": "Check-in summary",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "Categories.dc.html": {
+      "x": 940,
+      "y": 4550,
+      "w": 390,
+      "h": 844,
+      "title": "Categories",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "Rules.dc.html": {
+      "x": 1410,
+      "y": 4550,
+      "w": 390,
+      "h": 844,
+      "title": "Categories · rules",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "Settings.dc.html": {
+      "x": 1880,
+      "y": 4550,
+      "w": 390,
+      "h": 844,
+      "title": "Settings",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "SettingsSchedule.dc.html": {
+      "x": 2350,
+      "y": 4550,
+      "w": 390,
+      "h": 844,
+      "title": "Settings · schedule",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "Setup.dc.html": {
+      "x": 0,
+      "y": 5750,
+      "w": 390,
+      "h": 844,
+      "title": "First start",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "SignIn.dc.html": {
+      "x": 470,
+      "y": 5750,
+      "w": 390,
+      "h": 844,
+      "title": "Sign in",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "SignInPick.dc.html": {
+      "x": 940,
+      "y": 5750,
+      "w": 390,
+      "h": 844,
+      "title": "Choose profile",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "SignInLocked.dc.html": {
+      "x": 1410,
+      "y": 5750,
+      "w": 390,
+      "h": 844,
+      "title": "Sign in · too many tries",
+      "is_interactive": true,
+      "radius": 28
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-05T14:40:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "flows": {
+      "kind": "title1",
+      "maxW": 1330,
+      "text": "Budget Buddy — core flows",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    },
+    "spending": {
+      "kind": "title1",
+      "maxW": 2740,
+      "text": "Envelopes & transactions",
+      "w": 240,
+      "x": 0,
+      "y": 1880
+    },
+    "accounts": {
+      "x": 0,
+      "y": 3080,
+      "text": "Accounts",
+      "kind": "title1",
+      "maxW": 1330
+    },
+    "more": {
+      "x": 0,
+      "y": 4280,
+      "text": "Check-ins, categories & settings",
+      "kind": "title1",
+      "maxW": 2740
+    },
+    "signin": {
+      "x": 0,
+      "y": 5480,
+      "text": "Sign in, profiles & first start",
+      "kind": "title1",
+      "maxW": 1800
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "AddExpense.dc.html",
+    "CheckIn.dc.html",
+    "SearchAccounts.dc.html",
+    "SearchCategories.dc.html",
+    "Envelopes.dc.html",
+    "EnvelopeDetail.dc.html",
+    "Transactions.dc.html",
+    "ToLabel.dc.html",
+    "TransactionDetail.dc.html",
+    "TransactionsFilter.dc.html",
+    "Accounts.dc.html",
+    "AccountDetail.dc.html",
+    "NewAccount.dc.html",
+    "CheckIns.dc.html",
+    "CheckInSummary.dc.html",
+    "Categories.dc.html",
+    "Rules.dc.html",
+    "Settings.dc.html",
+    "SettingsSchedule.dc.html",
+    "Setup.dc.html",
+    "SignIn.dc.html",
+    "SignInPick.dc.html",
+    "SignInLocked.dc.html"
+  ],
+  "pages": [],
+  "title": "Budget Buddy"
+}

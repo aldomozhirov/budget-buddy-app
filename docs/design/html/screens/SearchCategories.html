@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Budget Buddy — Search categories</title>
+<!-- Static export of the prototype screen "Add expense · search categories" (prototype file SearchCategories.dc.html), default state.
+     Generated on 2026-10-06. Layout and copy are the reference; see docs/design/html/README.md. -->
+<link rel="stylesheet" href="../fonts/geist.css">
+<style>
+body{margin:0}
+a{color:inherit}a:hover{color:inherit}
+.bb-light{--bg:#F4F3EF;--surface:#FFFFFF;--ink:#15171A;--on-ink:#F4F3EF;--muted:#5C6168;--line:#E2E0D9;--soft:#EAE8E2;--accent:#1D5C45;--accent-soft:#DCEAE3;--warn:#A2470F;--warn-soft:#F5E2D4;--scrim:rgba(20,20,18,.36)}
+.bb-dark{--bg:#111214;--surface:#1A1C1F;--ink:#F1F0EC;--on-ink:#111214;--muted:#A3A8AF;--line:#2B2E33;--soft:#24272B;--accent:#7CC6A3;--accent-soft:#1D3229;--warn:#F2A574;--warn-soft:#3A2618;--scrim:rgba(0,0,0,.55)}
+.bb button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer}
+.bb .num{font-variant-numeric:tabular-nums}
+.bb svg{flex:none}
+.bb .row{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px}
+.bb .row::-webkit-scrollbar{display:none}
+.bb .chip{flex:none;height:44px;padding:0 16px;border-radius:22px;background:var(--surface);border:1px solid var(--line);font-size:15px;font-weight:500;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.bb .chip-on{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.bb .chip-ghost{background:transparent;color:var(--muted);border-style:dashed}
+.bb .seg{flex:1;height:36px;border-radius:10px;font-size:14px;font-weight:500;color:var(--muted)}
+.bb .seg-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.bb .key{height:42px;border-radius:12px;background:var(--surface);font-size:21px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.bb .key:active{background:var(--soft)}
+.bb .key-op{background:var(--soft);font-size:19px}
+.bb .lbl{font-size:12px;font-weight:500;color:var(--muted);letter-spacing:.02em}
+.bb .search{width:100%;box-sizing:border-box;height:48px;border-radius:14px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:17px;padding:0 14px 0 42px;outline:none}
+.bb .search:focus{border-color:var(--ink)}
+.bb .search::placeholder{color:var(--muted)}
+.bb .opt{width:100%;min-height:56px;display:flex;align-items:center;gap:12px;padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
+.bb .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.bb .sheet-scroll::-webkit-scrollbar{display:none}
+.bb .field-btn{width:100%;height:48px;display:flex;align-items:center;gap:10px;padding:0 12px 0 14px;border-radius:14px;background:var(--surface);border:1px solid var(--line);font-size:15px;box-sizing:border-box}
+.bb .meta{height:52px;padding:0 10px 0 12px;border-radius:14px;background:var(--surface);border:1px solid var(--line);box-shadow:0 1px 0 rgba(0,0,0,.04);display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;min-width:0;text-align:left}
+.bb .meta-set{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.bb .meta-l{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.02em}
+.bb .meta-v{width:100%;display:flex;align-items:center;justify-content:space-between;gap:4px;font-size:14px;font-weight:600}
+.bb .meta-t{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bb .chip-set{background:var(--surface);color:var(--ink);border-style:solid}
+.bb .day{height:44px;border-radius:12px;font-size:16px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.bb .day-on{background:var(--ink);color:var(--on-ink)}
+.bb .day-off{color:var(--line);cursor:default}
+.bb .noteinput{width:100%;box-sizing:border-box;min-height:96px;border-radius:14px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:16px;padding:12px 14px;outline:none;resize:none}
+.bb .noteinput:focus{border-color:var(--ink)}
+
+/* motion */
+@keyframes bb-in-fwd{from{transform:translateX(100%)}to{transform:none}}
+@keyframes bb-in-back{from{transform:translateX(-28%);opacity:.6}to{transform:none;opacity:1}}
+@keyframes bb-fade{from{opacity:0}to{opacity:1}}
+@keyframes bb-sheet{from{transform:translateY(100%)}to{transform:none}}
+@keyframes bb-grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes bb-growy{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes bb-draw{from{stroke-dashoffset:1400}to{stroke-dashoffset:0}}
+@keyframes bb-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes bb-shake{0%,100%{transform:none}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+@keyframes bb-down{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+
+.bb [role="dialog"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both;will-change:transform}
+.bb div[style*="var(--scrim)"],.bb div[style*="rgba(20,20,18,.36)"],.bb div[style*="rgba(20, 20, 18, 0.36)"]{animation:bb-fade .3s ease-out both}
+.bb div[style*="inset: 0"][style*="background: var(--bg)"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both}
+.bb span[style*="width: 72px; height: 72px"],.bb span[style*="width: 56px; height: 56px; border-radius: 28px; background: var(--accent-soft)"]{animation:bb-pop .4s cubic-bezier(.2,.8,.2,1) .25s both}
+.bb [style*="height: 6px"]>[style*="height: 6px"],.bb [style*="height: 4px"]>[style*="height: 4px"]{transform-origin:left center;animation:bb-grow .8s cubic-bezier(.2,.8,.2,1) .3s both;transition:width .45s cubic-bezier(.2,.8,.2,1),background-color .3s}
+.bb div[title][style*="border-radius: 6px 6px 0 0"]{transform-origin:bottom;animation:bb-growy .7s cubic-bezier(.2,.8,.2,1) .3s both}
+.bb polyline{stroke-dasharray:1400;animation:bb-draw 1.1s cubic-bezier(.4,0,.2,1) .3s both}
+.bb button,.bb a{transition:transform .12s ease,background-color .18s ease,color .18s ease,border-color .18s ease,opacity .18s ease}
+.bb button:active:not([disabled]),.bb a:active{transform:scale(.97)}
+.bb .key:active{transform:scale(.92)}
+.bb .knob{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb .switch{transition:background-color .22s}
+.bb span[style*="width: 27px; height: 27px"]{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb span[style*="width: 51px; height: 31px"]{transition:background-color .22s}
+.bb .pw-err{animation:bb-shake .4s ease}
+.bb [role="alert"]:not(:empty),.bb [role="status"]{animation:bb-fade .3s ease-out both}
+.bb .wrap{animation:bb-down .22s ease-out both}
+@media (prefers-reduced-motion: reduce){.bb,.bb *{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="bb bb-light" style="width: 390px; height: 844px; position: relative; overflow: hidden; background: var(--bg); color: var(--ink); font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.4; display: flex; flex-direction: column; padding: 46px 16px 20px; box-sizing: border-box; gap: 9px">
+
+<div style="display: flex; align-items: center; gap: 12px">
+<a href="Main.dc.html" aria-label="Close" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</a>
+<div role="tablist" aria-label="Kind" style="flex: 1; display: flex; gap: 2px; padding: 3px; border-radius: 13px; background: var(--soft)">
+
+<button role="tab" aria-selected="true" class="seg seg-on" style="text-align: center">Expense</button>
+
+<button role="tab" aria-selected="false" class="seg" style="text-align: center">Income</button>
+
+<button role="tab" aria-selected="false" class="seg" style="text-align: center">Transfer</button>
+
+</div>
+</div>
+
+
+
+<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0 2px">
+<span class="num" style="height: 18px; font-size: 14px; color: var(--muted)"></span>
+<div style="display: flex; align-items: baseline; gap: 8px">
+<span class="num" style="font-size: 46px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; color: var(--ink)">€23.80</span>
+<button aria-label="Change currency" style="height: 30px; padding: 0 10px; border-radius: 8px; background: var(--soft); font-size: 13px; font-weight: 600">EUR</button>
+</div>
+<span style="height: 16px; font-size: 12px; color: var(--warn)"></span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="lbl">Paid from</span>
+<div class="row">
+
+<button class="chip chip-on" aria-pressed="true">ING Visa</button>
+
+<button class="chip" aria-pressed="false">Cash €</button>
+
+<button class="chip" aria-pressed="false">Revolut</button>
+
+<button class="chip" aria-pressed="false">Wise $</button>
+
+<button class="chip" aria-pressed="false">Cash $</button>
+
+<button class="chip chip-ghost" aria-label="All accounts">All…</button>
+</div>
+</div>
+
+
+
+
+<button class="field-btn" aria-label="Add merchant">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted)"><path d="M4 10l1.5-5h13L20 10"></path><path d="M4 10v9h16v-9"></path><path d="M4 10c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3"></path></svg>
+<span style="flex: 1; min-width: 0; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 400; color: var(--muted)">Add merchant</span>
+<span style="font-size: 12px; color: var(--muted)">Optional</span>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted)"><path d="M9 6l6 6-6 6"></path></svg>
+</button>
+
+
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="lbl">Category · optional</span>
+<div class="row">
+
+<button class="chip" aria-pressed="false">Groceries</button>
+
+<button class="chip" aria-pressed="false">Eating out</button>
+
+<button class="chip" aria-pressed="false">Transport</button>
+
+<button class="chip" aria-pressed="false">Shopping</button>
+
+<button class="chip chip-ghost" aria-label="All categories">All…</button>
+</div>
+</div>
+
+
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="lbl">Envelope · optional</span>
+<div class="row">
+
+<button class="chip" aria-pressed="false">Groceries</button>
+
+<button class="chip" aria-pressed="false">Eating out</button>
+
+<button class="chip" aria-pressed="false">Unexpected</button>
+
+</div>
+</div>
+
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+<button class="meta" aria-label="Date: Today. Change">
+<span class="meta-l"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="13" height="15" rx="2"></rect><path d="M4 10h13M9 3v4M15 3v4"></path></svg>Date</span>
+<span class="meta-v"><span class="meta-t">Today</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted)"><path d="M6 9l6 6 6-6"></path></svg></span>
+</button>
+<button class="meta">
+<span class="meta-l"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>Paid by</span>
+<span class="meta-v"><span class="meta-t">Alena</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted)"><path d="M6 9l6 6 6-6"></path></svg></span>
+</button>
+<button class="meta">
+<span class="meta-l"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"></path></svg>Note</span>
+<span class="meta-v"><span class="meta-t">Add</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted)"><path d="M6 9l6 6 6-6"></path></svg></span>
+</button>
+</div>
+
+<div style="flex: 1"></div>
+
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px">
+
+<button class="key" aria-label="7">7</button>
+
+<button class="key" aria-label="8">8</button>
+
+<button class="key" aria-label="9">9</button>
+
+<button class="key key-op" aria-label="Open bracket">(</button>
+
+<button class="key key-op" aria-label="Close bracket">)</button>
+
+<button class="key" aria-label="4">4</button>
+
+<button class="key" aria-label="5">5</button>
+
+<button class="key" aria-label="6">6</button>
+
+<button class="key key-op" aria-label="Multiply">×</button>
+
+<button class="key key-op" aria-label="Divide">÷</button>
+
+<button class="key" aria-label="1">1</button>
+
+<button class="key" aria-label="2">2</button>
+
+<button class="key" aria-label="3">3</button>
+
+<button class="key key-op" aria-label="Plus">+</button>
+
+<button class="key key-op" aria-label="Minus">−</button>
+
+<button class="key" aria-label="Decimal point">.</button>
+
+<button class="key" aria-label="0">0</button>
+
+<button class="key key-op" aria-label="Percent">%</button>
+
+<button class="key key-op" aria-label="Delete">⌫</button>
+
+<button class="key key-op" aria-label="Clear">C</button>
+
+</div>
+
+<button style="height: 58px; border-radius: 18px; background: var(--ink); color: var(--on-ink); font-size: 17px; font-weight: 600; text-align: center" class="num">Save €23.80</button>
+
+
+<div style="position: absolute; inset: 0; background: var(--scrim)"></div>
+<div role="dialog" aria-label="Category" style="position: absolute; left: 0; right: 0; bottom: 0; top: 96px; background: var(--surface); border-radius: 24px 24px 0 0; padding: 10px 16px 0; display: flex; flex-direction: column; gap: 12px">
+<div aria-hidden="true" style="align-self: center; width: 36px; height: 5px; border-radius: 3px; background: var(--line)"></div>
+<div style="display: flex; align-items: center; gap: 12px">
+<h2 style="flex: 1; margin: 0; font-size: 18px; font-weight: 600">Category</h2>
+<button aria-label="Close" style="width: 44px; height: 44px; border-radius: 22px; background: var(--bg); display: flex; align-items: center; justify-content: center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+</div>
+<div style="position: relative">
+<label for="picker-q" class="sr">Category</label>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 14px; top: 15px"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4 4"></path></svg>
+<input id="picker-q" type="search" class="search" autocomplete="off" placeholder="Search or add a category" value="pet">
+</div>
+<div class="sheet-scroll" style="flex: 1; overflow-y: auto; margin: 0 -16px; padding: 0 16px 34px">
+
+
+<button class="opt" style="color: var(--accent); font-weight: 600; border-bottom: 0">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+Add category “Pet”
+</button>
+
+
+</div>
+</div>
+
+
+
+
+
+
+</div>
+</body>
+</html>

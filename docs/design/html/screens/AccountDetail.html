@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Budget Buddy — Account</title>
+<!-- Static export of the prototype screen "Account · ING Girokonto" (prototype file AccountDetail.dc.html), default state.
+     Generated on 2026-10-06. Layout and copy are the reference; see docs/design/html/README.md. -->
+<link rel="stylesheet" href="../fonts/geist.css">
+<style>
+body{margin:0}
+a{color:inherit}a:hover{color:inherit}
+.bb-light{--bg:#F4F3EF;--surface:#FFFFFF;--ink:#15171A;--on-ink:#F4F3EF;--muted:#5C6168;--line:#E2E0D9;--soft:#EAE8E2;--accent:#1D5C45;--accent-soft:#DCEAE3;--warn:#A2470F;--warn-soft:#F5E2D4;--scrim:rgba(20,20,18,.36)}
+.bb-dark{--bg:#111214;--surface:#1A1C1F;--ink:#F1F0EC;--on-ink:#111214;--muted:#A3A8AF;--line:#2B2E33;--soft:#24272B;--accent:#7CC6A3;--accent-soft:#1D3229;--warn:#F2A574;--warn-soft:#3A2618;--scrim:rgba(0,0,0,.55)}
+.bb button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer}
+.bb .num{font-variant-numeric:tabular-nums}
+.bb svg{flex:none}
+.bb .scroll::-webkit-scrollbar{display:none}
+.bb .seg{flex:1;height:32px;border-radius:9px;font-size:13px;font-weight:500;color:var(--muted);text-align:center}
+.bb .seg-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.bb .key{height:46px;border-radius:12px;background:var(--bg);font-size:21px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.bb .key-op{background:var(--soft);font-size:19px}
+.bb .field{width:100%;min-height:54px;display:flex;align-items:center;gap:12px;text-align:left;border-bottom:1px solid var(--line)}
+.bb .field-l{flex:none;width:96px;font-size:14px;color:var(--muted)}
+.bb .field-v{flex:1;min-width:0;font-weight:500;text-align:right}
+.bb .pill{height:36px;padding:0 12px;border-radius:18px;border:1px solid var(--line);font-size:13px;font-weight:600;display:flex;align-items:center}
+.bb .pill-on{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+
+/* motion */
+@keyframes bb-in-fwd{from{transform:translateX(100%)}to{transform:none}}
+@keyframes bb-in-back{from{transform:translateX(-28%);opacity:.6}to{transform:none;opacity:1}}
+@keyframes bb-fade{from{opacity:0}to{opacity:1}}
+@keyframes bb-sheet{from{transform:translateY(100%)}to{transform:none}}
+@keyframes bb-grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes bb-growy{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes bb-draw{from{stroke-dashoffset:1400}to{stroke-dashoffset:0}}
+@keyframes bb-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes bb-shake{0%,100%{transform:none}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+@keyframes bb-down{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+
+.bb [role="dialog"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both;will-change:transform}
+.bb div[style*="var(--scrim)"],.bb div[style*="rgba(20,20,18,.36)"],.bb div[style*="rgba(20, 20, 18, 0.36)"]{animation:bb-fade .3s ease-out both}
+.bb div[style*="inset: 0"][style*="background: var(--bg)"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both}
+.bb span[style*="width: 72px; height: 72px"],.bb span[style*="width: 56px; height: 56px; border-radius: 28px; background: var(--accent-soft)"]{animation:bb-pop .4s cubic-bezier(.2,.8,.2,1) .25s both}
+.bb [style*="height: 6px"]>[style*="height: 6px"],.bb [style*="height: 4px"]>[style*="height: 4px"]{transform-origin:left center;animation:bb-grow .8s cubic-bezier(.2,.8,.2,1) .3s both;transition:width .45s cubic-bezier(.2,.8,.2,1),background-color .3s}
+.bb div[title][style*="border-radius: 6px 6px 0 0"]{transform-origin:bottom;animation:bb-growy .7s cubic-bezier(.2,.8,.2,1) .3s both}
+.bb polyline{stroke-dasharray:1400;animation:bb-draw 1.1s cubic-bezier(.4,0,.2,1) .3s both}
+.bb button,.bb a{transition:transform .12s ease,background-color .18s ease,color .18s ease,border-color .18s ease,opacity .18s ease}
+.bb button:active:not([disabled]),.bb a:active{transform:scale(.97)}
+.bb .key:active{transform:scale(.92)}
+.bb .knob{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb .switch{transition:background-color .22s}
+.bb span[style*="width: 27px; height: 27px"]{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb span[style*="width: 51px; height: 31px"]{transition:background-color .22s}
+.bb .pw-err{animation:bb-shake .4s ease}
+.bb [role="alert"]:not(:empty),.bb [role="status"]{animation:bb-fade .3s ease-out both}
+.bb .wrap{animation:bb-down .22s ease-out both}
+@media (prefers-reduced-motion: reduce){.bb,.bb *{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="bb bb-light" style="width: 390px; height: 844px; position: relative; overflow: hidden; background: var(--bg); color: var(--ink); font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.4; display: flex; flex-direction: column">
+
+<div style="padding: 48px 16px 8px; display: flex; align-items: center; gap: 12px">
+<a href="Accounts.dc.html" aria-label="Back to accounts" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+</a>
+<div style="flex: 1; display: flex; flex-direction: column">
+<h1 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em">ING Girokonto</h1>
+<span style="font-size: 13px; color: var(--muted)">Alena · Bank · EUR</span>
+</div>
+<button aria-label="Account settings" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"></path><circle cx="16" cy="7" r="2"></circle><circle cx="10" cy="17" r="2"></circle></svg>
+</button>
+</div>
+
+
+
+<div class="scroll" style="flex: 1; overflow-y: auto; padding: 8px 16px 32px; display: flex; flex-direction: column; gap: 14px">
+
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 18px 16px 14px; border-radius: 20px; background: var(--surface)">
+<span class="num" style="font-size: 36px; font-weight: 600; letter-spacing: -0.02em">€1,986.30</span>
+<span class="num" style="font-size: 13px; color: var(--muted)">Check-in · 05/10/2026 · Alena</span>
+<div style="position: relative; height: 120px; margin-top: 12px">
+<svg width="100%" height="120" viewBox="0 0 320 120" preserveAspectRatio="none" aria-label="Balance from 02/05/2026 to 05/10/2026" role="img" style="display: block; overflow: visible">
+<polyline points="0.0,26.9 53.3,110.0 106.7,65.4 160.0,10.0 213.3,93.1 266.7,51.5 320.0,75.2" fill="none" style="stroke: var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"></polyline>
+</svg>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--muted)">
+<span>02/05/2026</span><span>05/10/2026</span>
+</div>
+<div role="tablist" aria-label="Range" style="display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--soft); margin-top: 8px">
+
+<button role="tab" aria-selected="false" class="seg">3 months</button>
+
+<button role="tab" aria-selected="true" class="seg seg-on">6 months</button>
+
+<button role="tab" aria-selected="false" class="seg">All</button>
+
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<button style="height: 52px; border-radius: 16px; background: var(--ink); color: var(--on-ink); font-weight: 600; text-align: center">Set balance</button>
+<a href="Transactions.dc.html" style="height: 52px; border-radius: 16px; background: var(--surface); font-weight: 600; display: flex; align-items: center; justify-content: center; text-decoration: none">Transactions</a>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 0 4px; font-size: 13px; font-weight: 500; color: var(--muted)">Balance history · tap to correct</h2>
+<div style="display: flex; flex-direction: column; border-radius: 18px; background: var(--surface); padding: 0 14px">
+
+<button style="display: flex; align-items: center; gap: 12px; min-height: 58px; text-align: left; border-bottom: 1px solid var(--line)">
+<span style="flex: 1; display: flex; flex-direction: column">
+<span class="num" style="font-weight: 500">05/10/2026</span>
+<span style="font-size: 13px; color: var(--muted)">Check-in · Alena</span>
+</span>
+<span style="display: flex; flex-direction: column; align-items: flex-end">
+<span class="num" style="font-weight: 500">€1,986.30</span>
+<span class="num" style="font-size: 12px; color: var(--muted)">▼ €154.25</span>
+</span>
+</button>
+
+<button style="display: flex; align-items: center; gap: 12px; min-height: 58px; text-align: left; border-bottom: 1px solid var(--line)">
+<span style="flex: 1; display: flex; flex-direction: column">
+<span class="num" style="font-weight: 500">02/09/2026</span>
+<span style="font-size: 13px; color: var(--muted)">Check-in · Alena</span>
+</span>
+<span style="display: flex; flex-direction: column; align-items: flex-end">
+<span class="num" style="font-weight: 500">€2,140.55</span>
+<span class="num" style="font-size: 12px; color: var(--muted)">▲ €270.45</span>
+</span>
+</button>
+
+<button style="display: flex; align-items: center; gap: 12px; min-height: 58px; text-align: left; border-bottom: 1px solid var(--line)">
+<span style="flex: 1; display: flex; flex-direction: column">
+<span class="num" style="font-weight: 500">01/08/2026</span>
+<span style="font-size: 13px; color: var(--muted)">Check-in · Max</span>
+</span>
+<span style="display: flex; flex-direction: column; align-items: flex-end">
+<span class="num" style="font-weight: 500">€1,870.10</span>
+<span class="num" style="font-size: 12px; color: var(--muted)">▼ €539.90</span>
+</span>
+</button>
+
+<button style="display: flex; align-items: center; gap: 12px; min-height: 58px; text-align: left; border-bottom: 1px solid var(--line)">
+<span style="flex: 1; display: flex; flex-direction: column">
+<span class="num" style="font-weight: 500">03/07/2026</span>
+<span style="font-size: 13px; color: var(--muted)">Check-in · Alena</span>
+</span>
+<span style="display: flex; flex-direction: column; align-items: flex-end">
+<span class="num" style="font-weight: 500">€2,410.00</span>
+<span class="num" style="font-size: 12px; color: var(--muted)">▲ €360.00</span>
+</span>
+</button>
+
+<button style="display: flex; align-items: center; gap: 12px; min-height: 58px; text-align: left; border-bottom: 1px solid var(--line)">
+<span style="flex: 1; display: flex; flex-direction: column">
+<span class="num" style="font-weight: 500">14/06/2026</span>
+<span style="font-size: 13px; color: var(--muted)">By hand · Alena · corrected</span>
+</span>
+<span style="display: flex; flex-direction: column; align-items: flex-end">
+<span class="num" style="font-weight: 500">€2,050.00</span>
+<span class="num" style="font-size: 12px; color: var(--muted)">▲ €289.60</span>
+</span>
+</button>
+
+<button style="display: flex; align-items: center; gap: 12px; min-height: 58px; text-align: left; border-bottom: 1px solid var(--line)">
+<span style="flex: 1; display: flex; flex-direction: column">
+<span class="num" style="font-weight: 500">01/06/2026</span>
+<span style="font-size: 13px; color: var(--muted)">Check-in · Alena</span>
+</span>
+<span style="display: flex; flex-direction: column; align-items: flex-end">
+<span class="num" style="font-weight: 500">€1,760.40</span>
+<span class="num" style="font-size: 12px; color: var(--muted)">▼ €539.60</span>
+</span>
+</button>
+
+<button style="display: flex; align-items: center; gap: 12px; min-height: 58px; text-align: left; border-bottom: 1px solid var(--line)">
+<span style="flex: 1; display: flex; flex-direction: column">
+<span class="num" style="font-weight: 500">02/05/2026</span>
+<span style="font-size: 13px; color: var(--muted)">Check-in · Sofia</span>
+</span>
+<span style="display: flex; flex-direction: column; align-items: flex-end">
+<span class="num" style="font-weight: 500">€2,300.00</span>
+<span class="num" style="font-size: 12px; color: var(--muted)">▲ €800.00</span>
+</span>
+</button>
+
+<button style="display: flex; align-items: center; gap: 12px; min-height: 58px; text-align: left; border-bottom: 0">
+<span style="flex: 1; display: flex; flex-direction: column">
+<span class="num" style="font-weight: 500">15/04/2026</span>
+<span style="font-size: 13px; color: var(--muted)">Opening balance · Alena</span>
+</span>
+<span style="display: flex; flex-direction: column; align-items: flex-end">
+<span class="num" style="font-weight: 500">€1,500.00</span>
+<span class="num" style="font-size: 12px; color: var(--muted)">First balance</span>
+</span>
+</button>
+
+</div>
+</div>
+</div>
+
+
+
+
+
+</div>
+</body>
+</html>

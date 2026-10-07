@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Budget Buddy style guide</title>
+<meta name="description" content="Style guide and component library for the Budget Buddy app: tokens, type, icons, motion, components and patterns, built from bb.css.">
+<link rel="stylesheet" href="fonts/geist.css">
+<link rel="stylesheet" href="bb.css">
+<style>
+/* style guide chrome; everything inside .sg-stage is plain bb.css */
+html { scroll-behavior: smooth; }
+body { margin: 0; min-height: 100vh; }
+.sg { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; }
+.sg-side { position: sticky; top: 0; height: 100vh; overflow-y: auto; padding: 24px 16px 40px; border-right: 1px solid var(--line); box-sizing: border-box; background: var(--bg); }
+.sg-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+.sg-mark { width: 36px; height: 36px; border-radius: 10px; background: var(--ink); color: var(--on-ink); display: flex; align-items: center; justify-content: center; }
+.sg-brand b { display: block; font-size: 15px; color: var(--ink); } .sg-brand span { font-size: 12px; color: var(--muted); }
+.sg-nav p { margin: 18px 8px 6px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.sg-nav a { display: block; padding: 6px 8px; border-radius: 8px; font-size: 14px; color: var(--ink); }
+.sg-nav a:hover { background: var(--soft); }
+.sg-nav a[aria-current="true"] { background: var(--surface); font-weight: 600; }
+.sg-theme { margin-top: 20px; }
+.sg-main { padding: 40px 48px 120px; max-width: 980px; min-width: 0; box-sizing: border-box; }
+.sg-demo > * { min-width: 0; }
+.sg-main > section { padding-top: 24px; margin-bottom: 40px; scroll-margin-top: 8px; }
+.sg-main h1 { margin: 0 0 8px; font-size: 34px; font-weight: 700; letter-spacing: -0.02em; }
+.sg-main h2 { margin: 0 0 6px; font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
+.sg-main h3 { margin: 22px 0 8px; font-size: 15px; font-weight: 600; }
+.sg-lead { font-size: 17px; color: var(--muted); max-width: 680px; margin: 0 0 20px; }
+.sg-main p, .sg-main li { max-width: 700px; }
+.sg-spec { display: inline-block; margin: 2px 0 12px; font-size: 12px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.sg-main code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+.sg-main :not(pre) > code { background: var(--soft); padding: 1px 5px; border-radius: 5px; }
+.sg-demo { display: grid; grid-template-columns: 390px minmax(0, 1fr); gap: 20px; align-items: start; }
+.sg-stage { background: var(--bg); border: 1px solid var(--line); border-radius: 24px; padding: 20px 16px; box-sizing: border-box; width: 390px; overflow: hidden; }
+.sg-stage .stack { display: flex; flex-direction: column; gap: 10px; }
+.sg-stage .cluster { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.sg-stage .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.sg-stage .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.sg-stage .sg-inline-sheet { position: static; animation: none; max-height: none; border-radius: 24px; box-shadow: 0 8px 30px rgba(0,0,0,.12); }
+.sg-stage .sg-topbar { padding: 0; }
+.sg-info table, .sg-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.sg-table th, .sg-table td { text-align: left; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.sg-table th { font-size: 12px; font-weight: 600; color: var(--muted); }
+.sg-dd { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.sg-dd div { border-radius: 14px; padding: 10px 12px; font-size: 13.5px; background: var(--surface); }
+.sg-dd b { display: block; font-size: 12px; margin-bottom: 4px; }
+.sg-dd .do b { color: var(--accent); } .sg-dd .dont b { color: var(--warn); }
+.sg-dd ul { margin: 0; padding-left: 18px; }
+.sg-code { position: relative; margin-top: 14px; grid-column: 1 / -1; }
+.sg-code pre { margin: 0; max-height: 260px; overflow: auto; padding: 14px 16px; border-radius: 14px; background: #15171A; color: #E8E6E0; border: 1px solid var(--line); font-size: 12px; line-height: 1.55; }
+.bb .sg-copy { position: absolute; top: 8px; right: 8px; height: 28px; padding: 0 10px; border-radius: 8px; background: #2B2E33 !important; color: #F1F0EC !important; font-size: 12px; font-weight: 600; }
+.sg-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.sg-sw { border-radius: 16px; overflow: hidden; background: var(--surface); border: 1px solid var(--line); }
+.sg-sw .chipbox { display: grid; grid-template-columns: 1fr 1fr; height: 64px; }
+.sg-sw .chipbox span { display: flex; align-items: flex-end; padding: 6px 8px; font-size: 10px; font-family: ui-monospace, Menlo, monospace; }
+.sg-sw .meta { all: unset; display: block; padding: 10px 12px; font-size: 13px; }
+.sg-sw .meta b { display: block; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
+.sg-sw .meta span { color: var(--muted); font-size: 12px; }
+.sg-type-row { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 16px; align-items: baseline; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.sg-type-row small { display: block; color: var(--muted); font-size: 12px; }
+.sg-icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.bb .sg-icon { background: var(--surface); border-radius: 14px; padding: 14px 10px; text-align: center; font-size: 12px; cursor: pointer; border: 1px solid transparent; }
+.sg-icon:hover { border-color: var(--line); }
+.sg-icon svg { display: block; margin: 0 auto 8px; }
+.sg-icon span { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+.sg-motion { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.sg-motion-box { width: 120px; height: 72px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); position: relative; overflow: hidden; }
+.sg-motion-box > div { position: absolute; inset: 8px; border-radius: 10px; background: var(--ink); }
+.sg-motion-box > .progress { inset: auto 10px 30px 10px; }
+.sg-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--on-ink); padding: 10px 16px; border-radius: 12px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.sg-toast.on { opacity: 1; }
+.sg-pattern { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; align-items: start; }
+.sg-pattern figure { margin: 0; } .sg-pattern img { width: 100%; max-width: 300px; border-radius: 18px; border: 1px solid var(--line); display: block; }
+.sg-pattern figcaption { font-size: 12px; color: var(--muted); margin-top: 6px; }
+@media (max-width: 980px) {
+  .sg { grid-template-columns: minmax(0, 1fr); }
+  .sg-side { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+  .sg-nav { display: flex; flex-wrap: wrap; gap: 4px; } .sg-nav p { width: 100%; margin: 10px 8px 2px; }
+  .sg-main { padding: 24px 16px 80px; }
+  .sg-table { display: block; overflow-x: auto; }
+  .sg-type-row { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .sg-dd { grid-template-columns: minmax(0, 1fr); }
+  .sg-demo { grid-template-columns: minmax(0, 1fr); }
+  .sg-stage { width: 100%; max-width: 390px; }
+}
+</style>
+</head>
+<body class="bb">
+<div class="sg">
+<aside class="sg-side">
+  <div class="sg-brand"><span class="sg-mark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18"/><path d="M15.5 14.5h2.5"/><path d="M7 6V4.5h10V6"/></svg></span><span><b>Budget Buddy</b><span>Style guide · 2026-10-06</span></span></div>
+  <nav class="sg-nav" aria-label="Contents">
+    <p>Foundations</p>
+<a href="#overview">Overview</a>
+<a href="#principles">Principles</a>
+<a href="#colour">Colour</a>
+<a href="#type">Typography</a>
+<a href="#shape">Spacing and shape</a>
+<a href="#icons">Icons</a>
+<a href="#motion">Motion</a>
+<a href="#writing">Writing and formats</a>
+<a href="#a11y">Accessibility</a>
+<p>Components</p>
+<a href="#buttons">Buttons</a>
+<a href="#icon-buttons">Icon buttons</a>
+<a href="#tiles">Quick tiles</a>
+<a href="#chips">Choice chips</a>
+<a href="#suggest">Suggestion and filter chips</a>
+<a href="#segmented">Segmented control</a>
+<a href="#switch">Switch and tick box</a>
+<a href="#fields">Merchant field and meta tiles</a>
+<a href="#detail-fields">Detail rows</a>
+<a href="#text-inputs">Text, search and password</a>
+<a href="#keypad">Amount and keypad</a>
+<a href="#cards">Cards and banner</a>
+<a href="#rows">List rows, tags and badges</a>
+<a href="#masked">Hidden amounts</a>
+<a href="#sheets">Sheets</a>
+<a href="#topbar">Top bar</a>
+<p>Patterns</p>
+<a href="#p-home">Private Home</a>
+<a href="#p-add">Category and envelope</a>
+<a href="#p-confirm">Confirm and undo</a>
+<a href="#p-empty">Empty, offline, error</a>
+<p>Theme</p>
+  </nav>
+  <div class="segmented segmented-sm sg-theme" role="tablist" aria-label="Theme" id="sg-theme">
+    <button class="seg" role="tab" aria-selected="true" data-theme="">System</button>
+    <button class="seg" role="tab" aria-selected="false" data-theme="bb-light">Light</button>
+    <button class="seg" role="tab" aria-selected="false" data-theme="bb-dark">Dark</button>
+  </div>
+</aside>
+<main class="sg-main">
+
+<section id="overview">
+<h1>Budget Buddy style guide</h1>
+<p class="sg-lead">Tokens, type, icons, motion, components and patterns for the Budget Buddy web app, mobile first. Every example on this page is live markup styled only by <code>bb.css</code>; copy its code to get the same result.</p>
+<table class="sg-table">
+<tr><th>File</th><th>What it is for</th></tr>
+<tr><td><code>bb.css</code></td><td>The stylesheet. Port its tokens and component rules into the app; class names here are the vocabulary the screens use.</td></tr>
+<tr><td><code>fonts/</code></td><td>Geist 400–700, self-hosted (SEC-7).</td></tr>
+<tr><td><code>screens/</code>, <code>index.html</code></td><td>Every approved screen as static HTML and PNG.</td></tr>
+<tr><td><code>docs/design-spec.md</code></td><td>The behaviour rules (UI-… IDs) cited on this page.</td></tr>
+</table>
+<p>Setup: put <code>class="bb"</code> on the app root, load <code>fonts/geist.css</code> then <code>bb.css</code>. The theme follows the system; <code>bb-light</code> or <code>bb-dark</code> forces one. Use the switch in the sidebar to check both.</p>
+</section>
+<section id="principles"><h2>Principles</h2>
+<table class="sg-table">
+<tr><th>Principle</th><th>In practice</th></tr>
+<tr><td>Private in public</td><td>Home shows no money figures until the eye is tapped, and hides them again after 30 seconds.</td></tr>
+<tr><td>Type as little as possible</td><td>Only the amount is required. Defaults, merchant rules and “Same” do the rest.</td></tr>
+<tr><td>One thumb</td><td>Main action at the bottom; every target at least 44 points.</td></tr>
+<tr><td>Everything from Home</td><td>Every feature in at most two taps.</td></tr>
+<tr><td>Optional means optional</td><td>Category, envelope, merchant, note, date and payer can be left alone.</td></tr>
+<tr><td>Calm and plain</td><td>One accent for progress and confirmation, one warning colour, nothing else that shouts.</td></tr>
+</table></section>
+<section id="colour"><h2>Colour</h2><p class="sg-lead">Twelve tokens, each with a light and a dark value. Use the token, never the hex value.</p><div class="sg-swatches">
+<div class="sg-sw"><div class="chipbox"><span style="background:#F4F3EF;color:#15171A">light</span><span style="background:#111214;color:#F1F0EC">dark</span></div><div class="meta"><b>--bg</b>#F4F3EF · #111214<br><span>Page background</span></div></div>
+<div class="sg-sw"><div class="chipbox"><span style="background:#FFFFFF;color:#15171A">light</span><span style="background:#1A1C1F;color:#F1F0EC">dark</span></div><div class="meta"><b>--surface</b>#FFFFFF · #1A1C1F<br><span>Cards, rows, chips, keys, sheets</span></div></div>
+<div class="sg-sw"><div class="chipbox"><span style="background:#15171A;color:#F4F3EF">light</span><span style="background:#F1F0EC;color:#111214">dark</span></div><div class="meta"><b>--ink</b>#15171A · #F1F0EC<br><span>Text, primary buttons, selected chips</span></div></div>
+<div class="sg-sw"><div class="chipbox"><span style="background:#F4F3EF;color:#15171A">light</span><span style="background:#111214;color:#111214">dark</span></div><div class="meta"><b>--on-ink</b>#F4F3EF · #111214<br><span>Text and icons on ink</span></div></div>
+<div class="sg-sw"><div class="chipbox"><span style="background:#5C6168;color:#F4F3EF">light</span><span style="background:#A3A8AF;color:#111214">dark</span></div><div class="meta"><b>--muted</b>#5C6168 · #A3A8AF<br><span>Secondary text, hints, labels</span></div></div>
+<div class="sg-sw"><div class="chipbox"><span style="background:#E2E0D9;color:#15171A">light</span><span style="background:#2B2E33;color:#F1F0EC">dark</span></div><div class="meta"><b>--line</b>#E2E0D9 · #2B2E33<br><span>Borders, dividers</span></div></div>
+<div class="sg-sw"><div class="chipbox"><span style="background:#EAE8E2;color:#15171A">light</span><span style="background:#24272B;color:#F1F0EC">dark</span></div><div class="meta"><b>--soft</b>#EAE8E2 · #24272B<br><span>Operator keys, segmented track, disabled buttons, bar tracks</span></div></div>
+<div class="sg-sw"><div class="chipbox"><span style="background:#1D5C45;color:#F4F3EF">light</span><span style="background:#7CC6A3;color:#111214">dark</span></div><div class="meta"><b>--accent</b>#1D5C45 · #7CC6A3<br><span>Progress, positive change, links, switch on</span></div></div>
+<div class="sg-sw"><div class="chipbox"><span style="background:#DCEAE3;color:#15171A">light</span><span style="background:#1D3229;color:#F1F0EC">dark</span></div><div class="meta"><b>--accent-soft</b>#DCEAE3 · #1D3229<br><span>Check-in banner, suggestion chips, revealed eye</span></div></div>
+<div class="sg-sw"><div class="chipbox"><span style="background:#A2470F;color:#F4F3EF">light</span><span style="background:#F2A574;color:#111214">dark</span></div><div class="meta"><b>--warn</b>#A2470F · #F2A574<br><span>Overspent, stale, decreases, errors</span></div></div>
+<div class="sg-sw"><div class="chipbox"><span style="background:#F5E2D4;color:#15171A">light</span><span style="background:#3A2618;color:#F1F0EC">dark</span></div><div class="meta"><b>--warn-soft</b>#F5E2D4 · #3A2618<br><span>Warning tags</span></div></div>
+<div class="sg-sw"><div class="chipbox"><span style="background:rgba(20,20,18,.36);color:#F4F3EF">light</span><span style="background:rgba(0,0,0,.55);color:#F1F0EC">dark</span></div><div class="meta"><b>--scrim</b>rgba(20,20,18,.36) · rgba(0,0,0,.55)<br><span>Dimmed page behind a sheet</span></div></div>
+</div><h3>Contrast of text pairs (WCAG 2.1)</h3><table class="sg-table"><tr><th>Text on background</th><th>Use</th><th>Light</th><th>Dark</th></tr>
+<tr><td><code>ink</code> on <code>bg</code></td><td>Body text</td><td>16.2:1 AAA</td><td>16.4:1 AAA</td></tr>
+<tr><td><code>ink</code> on <code>surface</code></td><td>Text on cards</td><td>18.0:1 AAA</td><td>15.0:1 AAA</td></tr>
+<tr><td><code>muted</code> on <code>bg</code></td><td>Secondary text</td><td>5.6:1 AA</td><td>7.8:1 AAA</td></tr>
+<tr><td><code>muted</code> on <code>surface</code></td><td>Secondary text on cards</td><td>6.2:1 AA</td><td>7.1:1 AAA</td></tr>
+<tr><td><code>muted</code> on <code>soft</code></td><td>Labels on segmented track</td><td>5.1:1 AA</td><td>6.3:1 AA</td></tr>
+<tr><td><code>accent</code> on <code>surface</code></td><td>Positive change, links</td><td>7.9:1 AAA</td><td>8.5:1 AAA</td></tr>
+<tr><td><code>accent</code> on <code>accent-soft</code></td><td>Suggestion chip</td><td>6.3:1 AA</td><td>6.8:1 AA</td></tr>
+<tr><td><code>warn</code> on <code>surface</code></td><td>Overspent, errors</td><td>6.1:1 AA</td><td>8.5:1 AAA</td></tr>
+<tr><td><code>warn</code> on <code>warn-soft</code></td><td>Stale tag</td><td>4.9:1 AA</td><td>7.1:1 AAA</td></tr>
+<tr><td><code>on-ink</code> on <code>ink</code></td><td>Primary button</td><td>16.2:1 AAA</td><td>16.4:1 AAA</td></tr>
+</table><h3>Rules</h3><ul><li>Selection is <code>ink</code> fill, never accent (UI-VIS-2).</li><li><code>warn</code> only for overspent, stale, decreases on the summary, and errors.</li><li>Colour is never the only signal: changes carry ▲ or ▼, warnings carry words.</li></ul></section>
+<section id="type"><h2>Typography</h2><p class="sg-lead">Geist, falling back to the system UI font. Base 15 px, line height 1.4. Every amount uses tabular figures (<code>.num</code>).</p>
+<div class="sg-type-row"><div><b>Greeting</b><small>.t-greeting · 26 / 600 / −0.02em</small></div><div class="t-greeting">Hi, Alena</div></div>
+<div class="sg-type-row"><div><b>Screen title</b><small>.t-title · 20 / 600 / −0.01em</small></div><div class="t-title">Envelopes</div></div>
+<div class="sg-type-row"><div><b>Sheet title</b><small>.t-sheet · 18 / 600</small></div><div class="t-sheet">Close the check-in now?</div></div>
+<div class="sg-type-row"><div><b>Hero amount</b><small>.t-hero · 36 / 600 / −0.02em, tabular</small></div><div class="t-hero num">€84,215.00</div></div>
+<div class="sg-type-row"><div><b>Card amount</b><small>.t-hero-sm · 30 / 600 / −0.02em, tabular</small></div><div class="t-hero-sm num">€187.60</div></div>
+<div class="sg-type-row"><div><b>Amount being typed</b><small>.amount · 46 / 600 / −0.03em, tabular</small></div><div class="amount num">€23.80</div></div>
+<div class="sg-type-row"><div><b>Body</b><small>body · 15 / 400, line height 1.4</small></div><div class="">Closes by itself when everyone is in.</div></div>
+<div class="sg-type-row"><div><b>Section label</b><small>.h · 13 / 500, muted</small></div><div class="h">Biggest changes</div></div>
+<div class="sg-type-row"><div><b>Meta line, subtitle</b><small>.t-sub · 13 / 400, muted</small></div><div class="t-sub num">Last €1,986.30 on 02/09/2026</div></div>
+<div class="sg-type-row"><div><b>Field label</b><small>.lbl · 12 / 500, muted, +0.02em</small></div><div class="lbl">Category · from REWE rule</div></div>
+</section>
+<section id="shape"><h2>Spacing and shape</h2><table class="sg-table"><tr><th>Token</th><th>Value</th><th>Use</th></tr>
+<tr><td><code>--gutter</code></td><td>16px</td><td>Page side padding</td></tr>
+<tr><td><code>gap</code></td><td>8px</td><td>Between chips, tiles, keys (keys 6px)</td></tr>
+<tr><td><code>gap</code></td><td>10–16px</td><td>Between blocks on a page</td></tr>
+<tr><td><code>--touch</code></td><td>44px</td><td>Smallest touch target (IOS-5)</td></tr>
+<tr><td><code>top</code></td><td>48px</td><td>Space above the top bar (safe area)</td></tr>
+<tr><td><code>--r-card</code></td><td>18px</td><td>Cards, list groups</td></tr>
+<tr><td><code>--r-hero</code></td><td>20px</td><td>Hero and envelope cards</td></tr>
+<tr><td><code>--r-field</code></td><td>14px</td><td>Fields, tiles, merchant field</td></tr>
+<tr><td><code>--r-key</code></td><td>12px</td><td>Keypad keys</td></tr>
+<tr><td><code>--r-button</code></td><td>18px</td><td>Primary and secondary buttons</td></tr>
+<tr><td><code>--r-sheet</code></td><td>24px</td><td>Top corners of a sheet</td></tr>
+<tr><td><code>pill</code></td><td>height ÷ 2</td><td>Chips, filter chips, icon buttons</td></tr>
+</table><p>Shadows are rare: the selected segment (0 1px 2px / 8%), the changed meta tile (inset ink ring), and sheets. Everything else is flat on <code>surface</code>.</p></section>
+<section id="icons"><h2>Icons</h2><p class="sg-lead">Outline icons on a 24 grid, stroke 1.8–2, round caps and joins, drawn in <code>currentColor</code>. Sizes 18–22 in buttons, 13–16 inline. Bundle them; no icon CDN. Click an icon to copy its SVG.</p><div class="sg-icons">
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M15 6l-6 6 6 6&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>back<span>Back</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M9 6l6 6-6 6&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>forward<span>Opens a screen (row chevron)</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M6 9l6 6 6-6&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>down<span>Opens a picker</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M6 15l6-6 6 6&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>up<span>Collapse</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M6 6l12 12M18 6L6 18&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>close<span>Close</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M5 12.5l4.5 4.5L19 7.5&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>check<span>Selected, done</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M12 5v14M5 12h14&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>plus<span>Add</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;circle cx=&quot;11&quot; cy=&quot;11&quot; r=&quot;6.5&quot;/&gt;&lt;path d=&quot;M16 16l4 4&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>search<span>Search</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z&quot;/&gt;&lt;circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;3&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>eye<span>Amounts visible</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M3 3l18 18&quot;/&gt;&lt;path d=&quot;M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.2&quot;/&gt;&lt;path d=&quot;M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.9 0 3.6-.6 5-1.5&quot;/&gt;&lt;path d=&quot;M9.9 9.9a3 3 0 0 0 4.2 4.2&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.2"/><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.9 0 3.6-.6 5-1.5"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>eye-off<span>Amounts hidden</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M20 12a8 8 0 1 1-2.3-5.6&quot;/&gt;&lt;path d=&quot;M20 4v5h-5&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg>checkin<span>Check-in</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M12 4v11M7 10l5 5 5-5&quot;/&gt;&lt;path d=&quot;M5 20h14&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M5 20h14"/></svg>income<span>Income</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M4 8h15l-3-3&quot;/&gt;&lt;path d=&quot;M20 16H5l3 3&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h15l-3-3"/><path d="M20 16H5l3 3"/></svg>transfer<span>Transfer, move money</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M9 6h11M9 12h11M9 18h11&quot;/&gt;&lt;path d=&quot;M4 6h.01M4 12h.01M4 18h.01&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg>transactions<span>Transactions</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;rect x=&quot;3&quot; y=&quot;5&quot; width=&quot;18&quot; height=&quot;14&quot; rx=&quot;2&quot;/&gt;&lt;path d=&quot;M3 7l9 6 9-6&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>envelope<span>Envelopes</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;rect x=&quot;3&quot; y=&quot;6&quot; width=&quot;18&quot; height=&quot;13&quot; rx=&quot;2&quot;/&gt;&lt;path d=&quot;M3 10h18&quot;/&gt;&lt;path d=&quot;M16 14.5h2&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M16 14.5h2"/></svg>account<span>Accounts</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;rect x=&quot;4&quot; y=&quot;5&quot; width=&quot;16&quot; height=&quot;15&quot; rx=&quot;2&quot;/&gt;&lt;path d=&quot;M4 10h16M9 3v4M15 3v4&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>calendar<span>Check-ins, date</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M4 19V5&quot;/&gt;&lt;path d=&quot;M4 19h16&quot;/&gt;&lt;path d=&quot;M7 15l4-4 3 3 5-6&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l4-4 3 3 5-6"/></svg>chart<span>Wealth history, history</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M3 12V4h8l9 9-8 8-9-9z&quot;/&gt;&lt;circle cx=&quot;7.5&quot; cy=&quot;7.5&quot; r=&quot;1.2&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V4h8l9 9-8 8-9-9z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg>tag<span>Categories, Needs a category</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M12 3v9h9&quot;/&gt;&lt;path d=&quot;M20.5 15A9 9 0 1 1 9 3.5&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v9h9"/><path d="M20.5 15A9 9 0 1 1 9 3.5"/></svg>reports<span>Reports</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M4 7h10M18 7h2M4 17h4M12 17h8&quot;/&gt;&lt;circle cx=&quot;16&quot; cy=&quot;7&quot; r=&quot;2&quot;/&gt;&lt;circle cx=&quot;10&quot; cy=&quot;17&quot; r=&quot;2&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>settings<span>Settings</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;circle cx=&quot;12&quot; cy=&quot;8&quot; r=&quot;4&quot;/&gt;&lt;path d=&quot;M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>person<span>Paid by, profile</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M4 20h4L19 9l-4-4L4 16v4z&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>note<span>Note, edit</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M4 10l1.5-5h13L20 10&quot;/&gt;&lt;path d=&quot;M4 10v9h16v-9&quot;/&gt;&lt;path d=&quot;M4 10c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10l1.5-5h13L20 10"/><path d="M4 10v9h16v-9"/><path d="M4 10c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3"/></svg>merchant<span>Merchant</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M3 3l18 18&quot;/&gt;&lt;path d=&quot;M9 19h8a4 4 0 0 0 1.6-7.7&quot;/&gt;&lt;path d=&quot;M6 9.6A5 5 0 0 0 7 19&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M9 19h8a4 4 0 0 0 1.6-7.7"/><path d="M6 9.6A5 5 0 0 0 7 19"/></svg>offline<span>Offline</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;rect x=&quot;4&quot; y=&quot;3&quot; width=&quot;16&quot; height=&quot;18&quot; rx=&quot;2&quot;/&gt;&lt;path d=&quot;M8 8h8M8 12h8M8 16h5&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>record<span>Record, history of a transaction</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M21 15V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10&quot;/&gt;&lt;path d=&quot;M17 17v6M14 20h6&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10"/><path d="M17 17v6M14 20h6"/></svg>receipt<span>Attach receipt</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2&quot;/&gt;&lt;path d=&quot;M9 9.5v1M15 9.5v1M12 9.5v3.5h-1&quot;/&gt;&lt;path d=&quot;M9.5 16c1.5 1 3.5 1 5 0&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 9.5v1M15 9.5v1M12 9.5v3.5h-1"/><path d="M9.5 16c1.5 1 3.5 1 5 0"/></svg>faceid<span>Face ID</span></button>
+<button class="sg-icon" type="button" data-svg="&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;rect x=&quot;3&quot; y=&quot;6&quot; width=&quot;18&quot; height=&quot;13&quot; rx=&quot;2.5&quot;/&gt;&lt;path d=&quot;M3 10h18&quot;/&gt;&lt;path d=&quot;M15.5 14.5h2.5&quot;/&gt;&lt;path d=&quot;M7 6V4.5h10V6&quot;/&gt;&lt;/svg&gt;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18"/><path d="M15.5 14.5h2.5"/><path d="M7 6V4.5h10V6"/></svg>wallet<span>App mark</span></button>
+</div></section>
+<section id="motion"><h2>Motion</h2><p class="sg-lead">Screens slide, sheets rise, bars grow. With Reduce motion on, everything is still (UI-MOT-3). Press Play to replay.</p><table class="sg-table"><tr><th>Class</th><th>Moment</th><th>Duration</th><th>Easing</th><th>What moves</th></tr>
+<tr><td><code>.enter-fwd</code></td><td>Screen pushed</td><td>0.42s</td><td><code>cubic-bezier(.32,.72,0,1)</code></td><td>Slides in from the right</td></tr>
+<tr><td><code>.enter-back</code></td><td>Back</td><td>0.38s</td><td><code>cubic-bezier(.32,.72,0,1)</code></td><td>Previous screen slides in from the left (−28%), fading from 0.6</td></tr>
+<tr><td><code>.sheet</code></td><td>Sheet opens</td><td>0.42s</td><td><code>cubic-bezier(.32,.72,0,1)</code></td><td>Slides up from the bottom</td></tr>
+<tr><td><code>.scrim</code></td><td>Dimmed layer</td><td>0.3s</td><td><code>ease-out</code></td><td>Fades in</td></tr>
+<tr><td><code>.progress</code></td><td>Bars</td><td>0.8s after 0.3s</td><td><code>cubic-bezier(.2,.8,.2,1)</code></td><td>Grows from the left</td></tr>
+<tr><td><code>.chart-line</code></td><td>Chart line</td><td>1.1s after 0.3s</td><td><code>cubic-bezier(.4,0,.2,1)</code></td><td>Draws from left to right</td></tr>
+<tr><td><code>.success-icon</code></td><td>Saved tick</td><td>0.4s after 0.25s</td><td><code>cubic-bezier(.2,.8,.2,1)</code></td><td>Pops in</td></tr>
+<tr><td><code>.shake</code></td><td>Wrong password</td><td>0.4s</td><td><code>ease</code></td><td>Shakes sideways</td></tr>
+<tr><td><code>.expand</code></td><td>Row opens in place</td><td>0.22s</td><td><code>ease-out</code></td><td>Fades down 6px</td></tr>
+<tr><td><code>.(any button)</code></td><td>Press</td><td>0.12s</td><td><code>ease</code></td><td>Scales to 97% (keys 92%)</td></tr>
+</table><div class="sg-motion" id="sg-motion">
+<div class="sg-motion-box" title="enter-fwd"><div class="enter-fwd"></div></div>
+<div class="sg-motion-box" title="enter-back"><div class="enter-back"></div></div>
+<div class="sg-motion-box" title="sheet"><div class="sheet" style="position: absolute; inset: 24px 0 0 0; padding: 0; background: var(--ink)"></div></div>
+<div class="sg-motion-box" title="progress"><span class="progress"><span style="width: 70%"></span></span></div>
+</div><p><button class="secondary secondary-sm" style="width: auto; padding: 0 18px" id="sg-play">Play</button></p></section>
+<section id="writing"><h2>Writing and formats</h2>
+<table class="sg-table">
+<tr><th>Thing</th><th>Format</th><th>Example</th></tr>
+<tr><td>Dates in lists and headings</td><td>DD/MM/YYYY</td><td>02/09/2026</td></tr>
+<tr><td>Recent dates in transaction lists</td><td>Today, Yesterday, weekday and day</td><td>Sat 3 Oct</td></tr>
+<tr><td>Amounts</td><td>Symbol, grouping comma, currency decimals</td><td class="num">€1,234.56 · ₿0.04120000</td></tr>
+<tr><td>Negative</td><td>U+2212 minus</td><td class="num">−€14.50</td></tr>
+<tr><td>Change</td><td>▲ or ▼ with the amount, or a word</td><td class="num">▲ €1,742.00 · Unchanged</td></tr>
+<tr><td>Hidden</td><td>Symbol and dots</td><td class="num">€ • • • • •</td></tr>
+</table>
+<h3>Voice</h3>
+<ul><li>Short, plain English, second person: “Your accounts are in”.</li><li>Buttons are verbs that say what happens: “Save €23.80”, “Relabel as USD”.</li><li>Confirmations state the consequence first: “€64.20 goes back into Groceries. This can’t be undone.”</li><li>Errors say what is wrong and what happens next: “That password doesn’t match. 2 tries before a short wait.”</li></ul>
+<h3>Words the UI uses</h3>
+<table class="sg-table"><tr><th>UI</th><th>Means</th></tr>
+<tr><td>Profile</td><td>Member</td></tr><tr><td>Family password</td><td>The shared sign-in secret</td></tr>
+<tr><td>Same / Unchanged</td><td>A fresh snapshot equal to the last balance</td></tr><tr><td>Wasn’t changed</td><td>Carried forward (no value entered)</td></tr>
+<tr><td>Needs a category</td><td>The CAT-7 list</td></tr><tr><td>Stale</td><td>Older than the check-in cadence (DSH-3)</td></tr></table>
+</section>
+<section id="a11y"><h2>Accessibility</h2><ul>
+<li>Touch targets at least 44 × 44; content clear of the notch and home indicator (<code>env(safe-area-inset-*)</code>).</li>
+<li>Every icon-only button has an <code>aria-label</code> naming its action or destination.</li>
+<li>Segmented controls are <code>tablist</code>; single-choice chip rows are <code>radiogroup</code>; switches are <code>role="switch"</code> with <code>aria-checked</code>.</li>
+<li>Errors use <code>role="alert"</code>; masked amounts get a label such as “Amount hidden”.</li>
+<li>All text pairs above meet WCAG AA in both themes.</li>
+<li>Reduce motion turns off every animation and transition.</li>
+</ul></section>
+<section id="buttons"><h2>Buttons</h2><span class="sg-spec">UI-ADD-7, UI-NAV-4</span><p>One primary button per screen, at the bottom, full width. Its label says what happens and includes the amount when there is one.</p>
+<div class="sg-demo"><div class="sg-stage"><div class="stack">
+  <button class="primary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add expense</button>
+  <button class="primary">Save €23.80</button>
+  <button class="primary" disabled>Enter an amount</button>
+  <button class="secondary">Add another</button>
+  <div class="grid2">
+    <button class="secondary secondary-sm"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h15l-3-3"/><path d="M20 16H5l3 3"/></svg>Move money</button>
+    <button class="secondary secondary-sm danger">Delete</button>
+  </div>
+  <button class="text-btn">Keep it open</button>
+</div></div><div class="sg-info"><table class="sg-table"><tr><th>Class or state</th><th>Meaning</th></tr>
+<tr><td><code>.primary</code></td><td>Main action. 56 high, ink fill.</td></tr>
+<tr><td><code>.primary:disabled</code></td><td>Not possible yet; the label says why ("Enter an amount").</td></tr>
+<tr><td><code>.secondary</code></td><td>Second action on a result screen.</td></tr>
+<tr><td><code>.secondary-sm</code></td><td>Pair of actions in a grid, 52 high.</td></tr>
+<tr><td><code>.danger</code></td><td>Destructive; always confirmed in a sheet.</td></tr>
+<tr><td><code>.text-btn</code></td><td>Way out of a sheet.</td></tr>
+</table><div class="sg-dd"><div class="do"><b>Do</b><ul><li>Use a verb that says what happens: "Close check-in", "Relabel as USD".</li><li>Keep the primary button reachable by thumb at the bottom.</li></ul></div><div class="dont"><b>Don’t</b><ul><li>Put two primary buttons on one screen.</li><li>Use "OK" or "Submit".</li></ul></div></div></div>
+<div class="sg-code"><button class="sg-copy" type="button">Copy</button><pre><code>&lt;div class="stack"&gt;
+  &lt;button class="primary"&gt;&lt;svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M12 5v14M5 12h14"/&gt;&lt;/svg&gt;Add expense&lt;/button&gt;
+  &lt;button class="primary"&gt;Save €23.80&lt;/button&gt;
+  &lt;button class="primary" disabled&gt;Enter an amount&lt;/button&gt;
+  &lt;button class="secondary"&gt;Add another&lt;/button&gt;
+  &lt;div class="grid2"&gt;
+    &lt;button class="secondary secondary-sm"&gt;&lt;svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M4 8h15l-3-3"/&gt;&lt;path d="M20 16H5l3 3"/&gt;&lt;/svg&gt;Move money&lt;/button&gt;
+    &lt;button class="secondary secondary-sm danger"&gt;Delete&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;button class="text-btn"&gt;Keep it open&lt;/button&gt;
+&lt;/div&gt;</code></pre></div></div></section>
+<section id="icon-buttons"><h2>Icon buttons</h2><span class="sg-spec">UI-NAV-1, UI-NAV-2, UI-HOME-3, UI-A11Y-1</span><p>Round 44-point buttons in the top bar: Back, Close, the eye, and add. Every one has an accessible label that says what it does or where it goes.</p>
+<div class="sg-demo"><div class="sg-stage"><div class="cluster">
+  <button class="icon-btn" aria-label="Back to home"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+  <button class="icon-btn" aria-label="Close"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  <button class="icon-btn" aria-label="Show amounts for 30 seconds" aria-pressed="false" data-eye><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.2"/><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.9 0 3.6-.6 5-1.5"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button>
+  <button class="icon-btn icon-btn-ink" aria-label="New account"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+</div></div><div class="sg-info"><table class="sg-table"><tr><th>Class or state</th><th>Meaning</th></tr>
+<tr><td><code>.icon-btn</code></td><td>44 × 44, surface fill.</td></tr>
+<tr><td><code>.icon-btn-ink</code></td><td>The one add action of a list screen.</td></tr>
+<tr><td><code>[aria-pressed="true"]</code></td><td>Eye while amounts are visible: accent-soft fill.</td></tr>
+<tr><td><code>.sheet .icon-btn</code></td><td>Close inside a sheet uses the bg fill.</td></tr>
+</table><div class="sg-dd"><div class="do"><b>Do</b><ul><li>Name the destination: "Back to check-ins", not "Back".</li></ul></div><div class="dont"><b>Don’t</b><ul><li>Use an icon button without aria-label.</li></ul></div></div></div>
+<div class="sg-code"><button class="sg-copy" type="button">Copy</button><pre><code>&lt;div class="cluster"&gt;
+  &lt;button class="icon-btn" aria-label="Back to home"&gt;&lt;svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M15 6l-6 6 6 6"/&gt;&lt;/svg&gt;&lt;/button&gt;
+  &lt;button class="icon-btn" aria-label="Close"&gt;&lt;svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M6 6l12 12M18 6L6 18"/&gt;&lt;/svg&gt;&lt;/button&gt;
+  &lt;button class="icon-btn" aria-label="Show amounts for 30 seconds" aria-pressed="false" data-eye&gt;&lt;svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M3 3l18 18"/&gt;&lt;path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.2"/&gt;&lt;path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.9 0 3.6-.6 5-1.5"/&gt;&lt;path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/&gt;&lt;/svg&gt;&lt;/button&gt;
+  &lt;button class="icon-btn icon-btn-ink" aria-label="New account"&gt;&lt;svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M12 5v14M5 12h14"/&gt;&lt;/svg&gt;&lt;/button&gt;
+&lt;/div&gt;</code></pre></div></div></section>
+<section id="tiles"><h2>Quick tiles</h2><span class="sg-spec">UI-HOME-1</span><p>Home shows three quick tiles under the banner. Each opens a flow in one tap.</p>
+<div class="sg-demo"><div class="sg-stage"><div class="grid3">
+  <a class="tile" href="#"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M5 20h14"/></svg>Income</a>
+  <a class="tile" href="#"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h15l-3-3"/><path d="M20 16H5l3 3"/></svg>Transfer</a>
+  <a class="tile" href="#"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg>Check-in</a>
+</div></div><div class="sg-info"><table class="sg-table"><tr><th>Class or state</th><th>Meaning</th></tr>
+<tr><td><code>.tile</code></td><td>Icon above a short label, 16 radius.</td></tr>
+</table><div class="sg-dd"><div class="do"><b>Do</b><ul><li>Keep to three tiles.</li></ul></div><div class="dont"><b>Don’t</b><ul><li>Show amounts in tiles.</li></ul></div></div></div>
+<div class="sg-code"><button class="sg-copy" type="button">Copy</button><pre><code>&lt;div class="grid3"&gt;
+  &lt;a class="tile" href="#"&gt;&lt;svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M12 4v11M7 10l5 5 5-5"/&gt;&lt;path d="M5 20h14"/&gt;&lt;/svg&gt;Income&lt;/a&gt;
+  &lt;a class="tile" href="#"&gt;&lt;svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M4 8h15l-3-3"/&gt;&lt;path d="M20 16H5l3 3"/&gt;&lt;/svg&gt;Transfer&lt;/a&gt;
+  &lt;a class="tile" href="#"&gt;&lt;svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M20 12a8 8 0 1 1-2.3-5.6"/&gt;&lt;path d="M20 4v5h-5"/&gt;&lt;/svg&gt;Check-in&lt;/a&gt;
+&lt;/div&gt;</code></pre></div></div></section>
+<section id="chips"><h2>Choice chips</h2><span class="sg-spec">UI-ADD-2, UI-ADD-4, UI-ADD-5, UI-VIS-2</span><p>One-tap choices for account, category and envelope. A row scrolls sideways to the screen edges. Selected means ink fill. Tapping a selected category or envelope chip clears it.</p>
+<div class="sg-demo"><div class="sg-stage"><div class="stack">
+  <span class="lbl">Paid from</span>
+  <div class="hrow" role="radiogroup" aria-label="Paid from" data-radio>
+    <button class="chip" role="radio" aria-checked="true">ING Visa</button>
+    <button class="chip" role="radio" aria-checked="false">Cash €</button>
+    <button class="chip" role="radio" aria-checked="false">Revolut</button>
+    <button class="chip" role="radio" aria-checked="false">Wise $</button>
+    <button class="chip chip-ghost">All…</button>
+  </div>
+  <span class="lbl">Envelope · optional</span>
+  <div class="hrow" role="radiogroup" aria-label="Envelope" data-radio data-clearable>
+    <button class="chip" role="radio" aria-checked="false">Groceries</button>
+    <button class="chip" role="radio" aria-checked="false">Eating out</button>
+    <button class="chip" role="radio" aria-checked="false">Unexpected</button>
+  </div>
+  <span class="lbl">In a sheet or card</span>
+  <div class="cluster" role="radiogroup" aria-label="Paid by" data-radio>
+    <button class="chip chip-sm" role="radio" aria-checked="true">Alena</button>
+    <button class="chip chip-sm" role="radio" aria-checked="false">Max</button>
+    <button class="chip chip-sm" role="radio" aria-checked="false">Sofia</button>
+  </div>
+</div></div><div class="sg-info"><table class="sg-table"><tr><th>Class or state</th><th>Meaning</th></tr>
+<tr><td><code>.chip</code></td><td>44 high on a page.</td></tr>
+<tr><td><code>.chip-sm</code></td><td>40 high inside a sheet or card; bg fill.</td></tr>
+<tr><td><code>[aria-checked="true"]</code></td><td>Selected: ink fill, on-ink text.</td></tr>
+<tr><td><code>.chip-ghost</code></td><td>"All…" or "Other…": opens a search sheet.</td></tr>
+<tr><td><code>.hrow</code></td><td>Sideways-scrolling row that runs to the screen edges.</td></tr>
+</table><div class="sg-dd"><div class="do"><b>Do</b><ul><li>Put the most used options first; a choice picked from search moves to the front.</li></ul></div><div class="dont"><b>Don’t</b><ul><li>Add a "None" chip on the add form; an empty choice already means none (UI-ADD-5).</li></ul></div></div></div>
+<div class="sg-code"><button class="sg-copy" type="button">Copy</button><pre><code>&lt;div class="stack"&gt;
+  &lt;span class="lbl"&gt;Paid from&lt;/span&gt;
+  &lt;div class="hrow" role="radiogroup" aria-label="Paid from" data-radio&gt;
+    &lt;button class="chip" role="radio" aria-checked="true"&gt;ING Visa&lt;/button&gt;
+    &lt;button class="chip" role="radio" aria-checked="false"&gt;Cash €&lt;/button&gt;
+    &lt;button class="chip" role="radio" aria-checked="false"&gt;Revolut&lt;/button&gt;
+    &lt;button class="chip" role="radio" aria-checked="false"&gt;Wise $&lt;/button&gt;
+    &lt;button class="chip chip-ghost"&gt;All…&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;span class="lbl"&gt;Envelope · optional&lt;/span&gt;
+  &lt;div class="hrow" role="radiogroup" aria-label="Envelope" data-radio data-clearable&gt;
+    &lt;button class="chip" role="radio" aria-checked="false"&gt;Groceries&lt;/button&gt;
+    &lt;button class="chip" role="radio" aria-checked="false"&gt;Eating out&lt;/button&gt;
+    &lt;button class="chip" role="radio" aria-checked="false"&gt;Unexpected&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;span class="lbl"&gt;In a sheet or card&lt;/span&gt;
+  &lt;div class="cluster" role="radiogroup" aria-label="Paid by" data-radio&gt;
+    &lt;button class="chip chip-sm" role="radio" aria-checked="true"&gt;Alena&lt;/button&gt;
+    &lt;button class="chip chip-sm" role="radio" aria-checked="false"&gt;Max&lt;/button&gt;
+    &lt;button class="chip chip-sm" role="radio" aria-checked="false"&gt;Sofia&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</code></pre></div></div></section>
+<section id="suggest"><h2>Suggestion and filter chips</h2><span class="sg-spec">UI-TXN-1, UI-TXN-3, UI-SUM-3</span><p>A suggestion chip applies a proposed value in one tap. Filter chips narrow a list and open a sheet. Pills switch a chart series.</p>
+<div class="sg-demo"><div class="sg-stage"><div class="stack">
+  <div class="cluster"><button class="chip-suggest"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Subscriptions</button><button class="chip chip-sm chip-ghost">Other…</button></div>
+  <div class="hrow">
+    <button class="fchip" aria-pressed="true">October <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+    <button class="fchip" aria-pressed="false">Member <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+    <button class="fchip" aria-pressed="false">Account <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+  </div>
+  <div class="hrow" role="radiogroup" aria-label="Series" data-radio>
+    <button class="pill" role="radio" aria-checked="true">All in EUR</button>
+    <button class="pill" role="radio" aria-checked="false">EUR</button>
+    <button class="pill" role="radio" aria-checked="false">USD</button>
+  </div>
+</div></div><div class="sg-info"><table class="sg-table"><tr><th>Class or state</th><th>Meaning</th></tr>
+<tr><td><code>.chip-suggest</code></td><td>Suggested value; accent on accent-soft.</td></tr>
+<tr><td><code>.fchip</code></td><td>Filter chip, 36 high; filled when a filter is active.</td></tr>
+<tr><td><code>.pill</code></td><td>Chart series switch.</td></tr>
+</table><div class="sg-dd"><div class="do"><b>Do</b><ul><li>Show the count of matches in the filter sheet.</li></ul></div><div class="dont"><b>Don’t</b><ul><li>Apply a model or rule suggestion without a tap (CAT-8).</li></ul></div></div></div>
+<div class="sg-code"><button class="sg-copy" type="button">Copy</button><pre><code>&lt;div class="stack"&gt;
+  &lt;div class="cluster"&gt;&lt;button class="chip-suggest"&gt;&lt;svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M5 12.5l4.5 4.5L19 7.5"/&gt;&lt;/svg&gt;Subscriptions&lt;/button&gt;&lt;button class="chip chip-sm chip-ghost"&gt;Other…&lt;/button&gt;&lt;/div&gt;
+  &lt;div class="hrow"&gt;
+    &lt;button class="fchip" aria-pressed="true"&gt;October &lt;svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M6 9l6 6 6-6"/&gt;&lt;/svg&gt;&lt;/button&gt;
+    &lt;button class="fchip" aria-pressed="false"&gt;Member &lt;svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M6 9l6 6 6-6"/&gt;&lt;/svg&gt;&lt;/button&gt;
+    &lt;button class="fchip" aria-pressed="false"&gt;Account &lt;svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M6 9l6 6 6-6"/&gt;&lt;/svg&gt;&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;div class="hrow" role="radiogroup" aria-label="Series" data-radio&gt;
+    &lt;button class="pill" role="radio" aria-checked="true"&gt;All in EUR&lt;/button&gt;
+    &lt;button class="pill" role="radio" aria-checked="false"&gt;EUR&lt;/button&gt;
+    &lt;button class="pill" role="radio" aria-checked="false"&gt;USD&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</code></pre></div></div></section>
+<section id="segmented"><h2>Segmented control</h2><span class="sg-spec">UI-ADD-1, UI-ACC-1, UI-A11Y-2</span><p>Switches between two to four views or kinds. It is a tab list.</p>
+<div class="sg-demo"><div class="sg-stage"><div class="stack">
+  <div class="segmented" role="tablist" aria-label="Kind" data-tabs>
+    <button class="seg" role="tab" aria-selected="true">Expense</button>
+    <button class="seg" role="tab" aria-selected="false">Income</button>
+    <button class="seg" role="tab" aria-selected="false">Transfer</button>
+  </div>
+  <div class="segmented segmented-sm" role="tablist" aria-label="Rates" data-tabs>
+    <button class="seg" role="tab" aria-selected="true">Rate of each date</button>
+    <button class="seg" role="tab" aria-selected="false">Today’s rates</button>
+  </div>
+</div></div><div class="sg-info"><table class="sg-table"><tr><th>Class or state</th><th>Meaning</th></tr>
+<tr><td><code>.segmented</code></td><td>Soft track.</td></tr>
+<tr><td><code>.seg[aria-selected="true"]</code></td><td>Selected segment on surface with a light shadow.</td></tr>
+<tr><td><code>.segmented-sm</code></td><td>32 high, inside cards.</td></tr>
+</table><div class="sg-dd"><div class="do"><b>Do</b><ul><li>Keep labels to one or two words.</li></ul></div><div class="dont"><b>Don’t</b><ul><li>Use it for actions.</li></ul></div></div></div>
+<div class="sg-code"><button class="sg-copy" type="button">Copy</button><pre><code>&lt;div class="stack"&gt;
+  &lt;div class="segmented" role="tablist" aria-label="Kind" data-tabs&gt;
+    &lt;button class="seg" role="tab" aria-selected="true"&gt;Expense&lt;/button&gt;
+    &lt;button class="seg" role="tab" aria-selected="false"&gt;Income&lt;/button&gt;
+    &lt;button class="seg" role="tab" aria-selected="false"&gt;Transfer&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;div class="segmented segmented-sm" role="tablist" aria-label="Rates" data-tabs&gt;
+    &lt;button class="seg" role="tab" aria-selected="true"&gt;Rate of each date&lt;/button&gt;
+    &lt;button class="seg" role="tab" aria-selected="false"&gt;Today’s rates&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</code></pre></div></div></section>
+<section id="switch"><h2>Switch and tick box</h2><span class="sg-spec">UI-AUTH-5, UI-SET-1, UI-TXN-3</span><p>A switch turns a setting on or off at once. A tick box selects rows for a bulk action.</p>
+<div class="sg-demo"><div class="sg-stage"><div class="card">
+  <div class="row"><span class="row-l"><span style="font-weight: 500">Unlock with Face ID</span><span class="t-sub">On this iPhone, instead of the password</span></span>
+    <button class="switch" role="switch" aria-checked="true" aria-label="Unlock with Face ID" data-switch><span class="knob"></span></button></div>
+  <div class="row"><span class="row-l"><span style="font-weight: 500">Hide amounts on Home</span><span class="t-sub">Tap the eye to show them for 30 s</span></span>
+    <button class="switch" role="switch" aria-checked="false" aria-label="Hide amounts on Home" data-switch><span class="knob"></span></button></div>
+  <button class="opt" role="checkbox" aria-checked="true" data-switch><span class="box"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span style="flex: 1">Groceries</span><span class="t-sub">2</span></button>
+  <button class="opt" role="checkbox" aria-checked="false" data-switch style="border-bottom: 0"><span class="box"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span style="flex: 1">Eating out</span><span class="t-sub">0</span></button>
+</div></div><div class="sg-info"><table class="sg-table"><tr><th>Class or state</th><th>Meaning</th></tr>
+<tr><td><code>.switch[aria-checked]</code></td><td>51 × 31; accent when on.</td></tr>
+<tr><td><code>.opt</code></td><td>Option row in a sheet, at least 52 high.</td></tr>
+<tr><td><code>.box[aria-checked], .opt[aria-checked] .box</code></td><td>Tick box; .box-radio for a round one.</td></tr>
+</table><div class="sg-dd"><div class="do"><b>Do</b><ul><li>Apply a switch immediately.</li></ul></div><div class="dont"><b>Don’t</b><ul><li>Ask "Save" after flipping a switch.</li></ul></div></div></div>
+<div class="sg-code"><button class="sg-copy" type="button">Copy</button><pre><code>&lt;div class="card"&gt;
+  &lt;div class="row"&gt;&lt;span class="row-l"&gt;&lt;span style="font-weight: 500"&gt;Unlock with Face ID&lt;/span&gt;&lt;span class="t-sub"&gt;On this iPhone, instead of the password&lt;/span&gt;&lt;/span&gt;
+    &lt;button class="switch" role="switch" aria-checked="true" aria-label="Unlock with Face ID" data-switch&gt;&lt;span class="knob"&gt;&lt;/span&gt;&lt;/button&gt;&lt;/div&gt;
+  &lt;div class="row"&gt;&lt;span class="row-l"&gt;&lt;span style="font-weight: 500"&gt;Hide amounts on Home&lt;/span&gt;&lt;span class="t-sub"&gt;Tap the eye to show them for 30 s&lt;/span&gt;&lt;/span&gt;
+    &lt;button class="switch" role="switch" aria-checked="false" aria-label="Hide amounts on Home" data-switch&gt;&lt;span class="knob"&gt;&lt;/span&gt;&lt;/button&gt;&lt;/div&gt;
+  &lt;button class="opt" role="checkbox" aria-checked="true" data-switch&gt;&lt;span class="box"&gt;&lt;svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M5 12.5l4.5 4.5L19 7.5"/&gt;&lt;/svg&gt;&lt;/span&gt;&lt;span style="flex: 1"&gt;Groceries&lt;/span&gt;&lt;span class="t-sub"&gt;2&lt;/span&gt;&lt;/button&gt;
+  &lt;button class="opt" role="checkbox" aria-checked="false" data-switch style="border-bottom: 0"&gt;&lt;span class="box"&gt;&lt;svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M5 12.5l4.5 4.5L19 7.5"/&gt;&lt;/svg&gt;&lt;/span&gt;&lt;span style="flex: 1"&gt;Eating out&lt;/span&gt;&lt;span class="t-sub"&gt;0&lt;/span&gt;&lt;/button&gt;
+&lt;/div&gt;</code></pre></div></div></section>
+<section id="fields"><h2>Merchant field and meta tiles</h2><span class="sg-spec">UI-ADD-3, UI-ADD-6</span><p>On the add form, optional details are tiles that show their current value. A tile whose value differs from the default gets a stronger border.</p>
+<div class="sg-demo"><div class="sg-stage"><div class="stack">
+  <button class="field-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10l1.5-5h13L20 10"/><path d="M4 10v9h16v-9"/><path d="M4 10c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3"/></svg><span style="flex: 1; text-align: left; color: var(--muted)">Add merchant</span><span class="t-sub">Optional</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+  <button class="field-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10l1.5-5h13L20 10"/><path d="M4 10v9h16v-9"/><path d="M4 10c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3"/></svg><span style="flex: 1; text-align: left; font-weight: 600">REWE</span><span class="t-sub">Rule applied · change</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+  <div class="grid3">
+    <button class="meta"><span class="meta-l"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Date</span><span class="meta-v">Today <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span></button>
+    <button class="meta meta-set"><span class="meta-l"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Paid by</span><span class="meta-v">Max <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span></button>
+    <button class="meta"><span class="meta-l"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>Note</span><span class="meta-v">Add <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span></button>
+  </div>
+</div></div><div class="sg-info"><table class="sg-table"><tr><th>Class or state</th><th>Meaning</th></tr>
+<tr><td><code>.field-btn</code></td><td>Full-width optional field, 48 high.</td></tr>
+<tr><td><code>.meta</code></td><td>Tile: small label over a bold value.</td></tr>
+<tr><td><code>.meta-set</code></td><td>Value changed from the default (not today, not you, has a note).</td></tr>
+</table><div class="sg-dd"><div class="do"><b>Do</b><ul><li>Show the default value ("Today", "Alena"), not a placeholder.</li></ul></div><div class="dont"><b>Don’t</b><ul><li>Make any of these required.</li></ul></div></div></div>
+<div class="sg-code"><button class="sg-copy" type="button">Copy</button><pre><code>&lt;div class="stack"&gt;
+  &lt;button class="field-btn"&gt;&lt;svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M4 10l1.5-5h13L20 10"/&gt;&lt;path d="M4 10v9h16v-9"/&gt;&lt;path d="M4 10c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3"/&gt;&lt;/svg&gt;&lt;span style="flex: 1; text-align: left; color: var(--muted)"&gt;Add merchant&lt;/span&gt;&lt;span class="t-sub"&gt;Optional&lt;/span&gt;&lt;svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M9 6l6 6-6 6"/&gt;&lt;/svg&gt;&lt;/button&gt;
+  &lt;button class="field-btn"&gt;&lt;svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M4 10l1.5-5h13L20 10"/&gt;&lt;path d="M4 10v9h16v-9"/&gt;&lt;path d="M4 10c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3"/&gt;&lt;/svg&gt;&lt;span style="flex: 1; text-align: left; font-weight: 600"&gt;REWE&lt;/span&gt;&lt;span class="t-sub"&gt;Rule applied · change&lt;/span&gt;&lt;svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M9 6l6 6-6 6"/&gt;&lt;/svg&gt;&lt;/button&gt;
+  &lt;div class="grid3"&gt;
+    &lt;button class="meta"&gt;&lt;span class="meta-l"&gt;&lt;svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;rect x="4" y="5" width="16" height="15" rx="2"/&gt;&lt;path d="M4 10h16M9 3v4M15 3v4"/&gt;&lt;/svg&gt;Date&lt;/span&gt;&lt;span class="meta-v"&gt;Today &lt;svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M6 9l6 6 6-6"/&gt;&lt;/svg&gt;&lt;/span&gt;&lt;/button&gt;
+    &lt;button class="meta meta-set"&gt;&lt;span class="meta-l"&gt;&lt;svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;circle cx="12" cy="8" r="4"/&gt;&lt;path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/&gt;&lt;/svg&gt;Paid by&lt;/span&gt;&lt;span class="meta-v"&gt;Max &lt;svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M6 9l6 6 6-6"/&gt;&lt;/svg&gt;&lt;/span&gt;&lt;/button&gt;
+    &lt;button class="meta"&gt;&lt;span class="meta-l"&gt;&lt;svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M4 20h4L19 9l-4-4L4 16v4z"/&gt;&lt;/svg&gt;Note&lt;/span&gt;&lt;span class="meta-v"&gt;Add &lt;svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M6 9l6 6 6-6"/&gt;&lt;/svg&gt;&lt;/span&gt;&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</code></pre></div></div></section>
+<section id="detail-fields"><h2>Detail rows</h2><span class="sg-spec">UI-TXN-4, UI-TXN-5</span><p>On a transaction page each field is a row that opens in place. A row that opens another screen has a right-pointing chevron instead.</p>
+<div class="sg-demo"><div class="sg-stage"><div class="card">
+  <button class="field" aria-expanded="true" data-expand><span class="field-l">Category</span><span class="field-v">Groceries</span></button>
+  <div class="cluster expand" style="padding: 4px 0 14px; border-bottom: 1px solid var(--line)" role="radiogroup" aria-label="Category" data-radio>
+    <button class="chip chip-sm" role="radio" aria-checked="true">Groceries</button><button class="chip chip-sm" role="radio" aria-checked="false">Household</button><button class="chip chip-sm" role="radio" aria-checked="false">Eating out</button>
+  </div>
+  <button class="field" aria-expanded="false" data-expand><span class="field-l">Envelope</span><span class="field-v">Groceries</span></button>
+  <a class="field field-link" href="#"><span class="field-l">Paid from</span><span class="field-v">ING Visa · EUR</span></a>
+  <button class="field" aria-expanded="false" style="border-bottom: 0" data-expand><span class="field-l">Note</span><span class="field-v muted">Add a note</span></button>
+</div></div><div class="sg-info"><table class="sg-table"><tr><th>Class or state</th><th>Meaning</th></tr>
+<tr><td><code>.field</code></td><td>Row with label and value; chevron turns when [aria-expanded="true"].</td></tr>
+<tr><td><code>.field-link</code></td><td>Opens another screen.</td></tr>
+<tr><td><code>.expand</code></td><td>Content shown when a row opens.</td></tr>
+</table><div class="sg-dd"><div class="do"><b>Do</b><ul><li>Save each change as it is made and log it in the Record (MEM-5).</li></ul></div><div class="dont"><b>Don’t</b><ul><li>Send the member to a separate edit screen.</li></ul></div></div></div>
+<div class="sg-code"><button class="sg-copy" type="button">Copy</button><pre><code>&lt;div class="card"&gt;
+  &lt;button class="field" aria-expanded="true" data-expand&gt;&lt;span class="field-l"&gt;Category&lt;/span&gt;&lt;span class="field-v"&gt;Groceries&lt;/span&gt;&lt;/button&gt;
+  &lt;div class="cluster expand" style="padding: 4px 0 14px; border-bottom: 1px solid var(--line)" role="radiogroup" aria-label="Category" data-radio&gt;
+    &lt;button class="chip chip-sm" role="radio" aria-checked="true"&gt;Groceries&lt;/button&gt;&lt;button class="chip chip-sm" role="radio" aria-checked="false"&gt;Household&lt;/button&gt;&lt;button class="chip chip-sm" role="radio" aria-checked="false"&gt;Eating out&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;button class="field" aria-expanded="false" data-expand&gt;&lt;span class="field-l"&gt;Envelope&lt;/span&gt;&lt;span class="field-v"&gt;Groceries&lt;/span&gt;&lt;/button&gt;
+  &lt;a class="field field-link" href="#"&gt;&lt;span class="field-l"&gt;Paid from&lt;/span&gt;&lt;span class="field-v"&gt;ING Visa · EUR&lt;/span&gt;&lt;/a&gt;
+  &lt;button class="field" aria-expanded="false" style="border-bottom: 0" data-expand&gt;&lt;span class="field-l"&gt;Note&lt;/span&gt;&lt;span class="field-v muted"&gt;Add a note&lt;/span&gt;&lt;/button&gt;
+&lt;/div&gt;</code></pre></div></div></section>
+<section id="text-inputs"><h2>Text, search and password</h2><span class="sg-spec">UI-AUTH-3, UI-TXN-1</span><p>Text inputs are 52 high (password 56). Inside a sheet they use the bg fill. An error turns the border warn and shows a message announced to screen readers.</p>
+<div class="sg-demo"><div class="sg-stage"><div class="stack">
+  <div class="input-wrap"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><input class="search" type="search" placeholder="Search merchant, note, amount" aria-label="Search transactions"></div>
+  <input class="text" placeholder="Name the account" aria-label="Name">
+  <div class="input-wrap"><input class="pw shake" type="password" value="wrongpass" aria-label="Family password" aria-invalid="true" aria-describedby="pw-err"><button class="input-btn" aria-label="Show password"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+  <span class="error" id="pw-err" role="alert">That password doesn’t match. 2 tries before a short wait.</span>
+</div></div><div class="sg-info"><table class="sg-table"><tr><th>Class or state</th><th>Meaning</th></tr>
+<tr><td><code>.text</code></td><td>Single-line text.</td></tr>
+<tr><td><code>.search</code></td><td>With a search icon in .input-wrap.</td></tr>
+<tr><td><code>.pw</code></td><td>Password with a show/hide .input-btn.</td></tr>
+<tr><td><code>[aria-invalid="true"]</code></td><td>Error border.</td></tr>
+<tr><td><code>.error[role="alert"]</code></td><td>Error message.</td></tr>
+<tr><td><code>.shake</code></td><td>Wrong password feedback.</td></tr>
+</table><div class="sg-dd"><div class="do"><b>Do</b><ul><li>Say what is wrong and what happens next.</li></ul></div><div class="dont"><b>Don’t</b><ul><li>Use the system keyboard for amounts (UI-AMT-1).</li></ul></div></div></div>
+<div class="sg-code"><button class="sg-copy" type="button">Copy</button><pre><code>&lt;div class="stack"&gt;
+  &lt;div class="input-wrap"&gt;&lt;svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;circle cx="11" cy="11" r="6.5"/&gt;&lt;path d="M16 16l4 4"/&gt;&lt;/svg&gt;&lt;input class="search" type="search" placeholder="Search merchant, note, amount" aria-label="Search transactions"&gt;&lt;/div&gt;
+  &lt;input class="text" placeholder="Name the account" aria-label="Name"&gt;
+  &lt;div class="input-wrap"&gt;&lt;input class="pw shake" type="password" value="wrongpass" aria-label="Family password" aria-invalid="true" aria-describedby="pw-err"&gt;&lt;button class="input-btn" aria-label="Show password"&gt;&lt;svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/&gt;&lt;circle cx="12" cy="12" r="3"/&gt;&lt;/svg&gt;&lt;/button&gt;&lt;/div&gt;
+  &lt;span class="error" id="pw-err" role="alert"&gt;That password doesn’t match. 2 tries before a short wait.&lt;/span&gt;
+&lt;/div&gt;</code></pre></div></div></section>
+<section id="keypad"><h2>Amount and keypad</h2><span class="sg-spec">UI-AMT-1 to UI-AMT-4, ACC-9</span><p>Every amount is typed on this keypad. The expression shows above the result once it has an operator; the result rounds to the currency. Try it.</p>
+<div class="sg-demo"><div class="sg-stage"><div class="stack" data-calc>
+  <div style="text-align: center">
+    <div class="amount-expr" data-expr>&nbsp;</div>
+    <div class="amount" data-result style="color: var(--muted)">€0</div>
+    <div class="error" data-err role="alert"></div>
+  </div>
+  <div class="keypad">
+    <button class="key">7</button><button class="key">8</button><button class="key">9</button><button class="key key-op" aria-label="Open bracket">(</button><button class="key key-op" aria-label="Close bracket">)</button>
+    <button class="key">4</button><button class="key">5</button><button class="key">6</button><button class="key key-op" aria-label="Multiply">×</button><button class="key key-op" aria-label="Divide">÷</button>
+    <button class="key">1</button><button class="key">2</button><button class="key">3</button><button class="key key-op" aria-label="Plus">+</button><button class="key key-op" aria-label="Minus">−</button>
+    <button class="key" aria-label="Decimal point">.</button><button class="key">0</button><button class="key key-op" aria-label="Percent">%</button><button class="key key-op" aria-label="Delete">⌫</button><button class="key key-op" aria-label="Clear">C</button>
+  </div>
+  <button class="primary" disabled data-save>Enter an amount</button>
+</div></div><div class="sg-info"><table class="sg-table"><tr><th>Class or state</th><th>Meaning</th></tr>
+<tr><td><code>.amount</code></td><td>Result, 46 px, tabular.</td></tr>
+<tr><td><code>.amount-expr</code></td><td>Expression line.</td></tr>
+<tr><td><code>.keypad</code></td><td>5 columns, 6 px gap.</td></tr>
+<tr><td><code>.key / .key-op</code></td><td>Digit key / operator key (soft fill). 42 high on a page, 48 in a sheet.</td></tr>
+</table><div class="sg-dd"><div class="do"><b>Do</b><ul><li>Store the result in minor units (AGENTS.md).</li><li>Offer "Start from last" for balances (UI-AMT-4).</li></ul></div><div class="dont"><b>Don’t</b><ul><li>Use floating point to calculate.</li></ul></div></div></div>
+<div class="sg-code"><button class="sg-copy" type="button">Copy</button><pre><code>&lt;div class="stack" data-calc&gt;
+  &lt;div style="text-align: center"&gt;
+    &lt;div class="amount-expr" data-expr&gt;&amp;nbsp;&lt;/div&gt;
+    &lt;div class="amount" data-result style="color: var(--muted)"&gt;€0&lt;/div&gt;
+    &lt;div class="error" data-err role="alert"&gt;&lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class="keypad"&gt;
+    &lt;button class="key"&gt;7&lt;/button&gt;&lt;button class="key"&gt;8&lt;/button&gt;&lt;button class="key"&gt;9&lt;/button&gt;&lt;button class="key key-op" aria-label="Open bracket"&gt;(&lt;/button&gt;&lt;button class="key key-op" aria-label="Close bracket"&gt;)&lt;/button&gt;
+    &lt;button class="key"&gt;4&lt;/button&gt;&lt;button class="key"&gt;5&lt;/button&gt;&lt;button class="key"&gt;6&lt;/button&gt;&lt;button class="key key-op" aria-label="Multiply"&gt;×&lt;/button&gt;&lt;button class="key key-op" aria-label="Divide"&gt;÷&lt;/button&gt;
+    &lt;button class="key"&gt;1&lt;/button&gt;&lt;button class="key"&gt;2&lt;/button&gt;&lt;button class="key"&gt;3&lt;/button&gt;&lt;button class="key key-op" aria-label="Plus"&gt;+&lt;/button&gt;&lt;button class="key key-op" aria-label="Minus"&gt;−&lt;/button&gt;
+    &lt;button class="key" aria-label="Decimal point"&gt;.&lt;/button&gt;&lt;button class="key"&gt;0&lt;/button&gt;&lt;button class="key key-op" aria-label="Percent"&gt;%&lt;/button&gt;&lt;button class="key key-op" aria-label="Delete"&gt;⌫&lt;/button&gt;&lt;button class="key key-op" aria-label="Clear"&gt;C&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;button class="primary" disabled data-save&gt;Enter an amount&lt;/button&gt;
+&lt;/div&gt;</code></pre></div></div></section>
+<section id="cards"><h2>Cards and banner</h2><span class="sg-spec">UI-ENV-1, UI-HOME-5, UI-SUM-2</span><p>Content sits on surface cards on the bg page. The overspent envelope gets a warn outline. The open check-in banner uses accent-soft and never shows amounts.</p>
+<div class="sg-demo"><div class="sg-stage"><div class="stack">
+  <div class="banner"><span style="display: flex; justify-content: space-between"><span style="font-weight: 600">Monthly check-in is open</span><span class="link">Continue</span></span><span class="progress"><span style="width: 57%"></span></span><span class="t-sub">Opened today · 4 of your accounts to check</span></div>
+  <a class="card-hero" href="#">
+    <span style="display: flex; justify-content: space-between"><span style="font-weight: 600; font-size: 17px">Groceries</span><span class="tag tag-mode">Resets monthly</span></span>
+    <span class="t-hero-sm num">€187.60 <span class="muted" style="font-size: 15px; font-weight: 500; letter-spacing: 0">left</span></span>
+    <span class="progress"><span style="width: 62%"></span></span>
+    <span class="t-sub num">€312.40 spent of €500.00 · 6 expenses</span>
+  </a>
+  <a class="card-hero card-warn" href="#">
+    <span style="display: flex; justify-content: space-between"><span style="font-weight: 600; font-size: 17px">Eating out</span><span class="tag tag-mode">Resets monthly</span></span>
+    <span class="t-hero-sm num warn">−€14.50 <span style="font-size: 15px; font-weight: 500; letter-spacing: 0">overspent</span></span>
+    <span class="progress progress-over"><span style="width: 100%"></span></span>
+    <span class="t-sub num">€214.50 spent of €200.00 · 4 expenses</span>
+  </a>
+</div></div><div class="sg-info"><table class="sg-table"><tr><th>Class or state</th><th>Meaning</th></tr>
+<tr><td><code>.card</code></td><td>Group of rows, 18 radius, 14 side padding.</td></tr>
+<tr><td><code>.card-hero</code></td><td>Big figure card, 20 radius.</td></tr>
+<tr><td><code>.card-warn</code></td><td>Overspent outline.</td></tr>
+<tr><td><code>.banner</code></td><td>Open check-in; accent-soft.</td></tr>
+<tr><td><code>.progress / .progress-over</code></td><td>Bar; warn when over.</td></tr>
+</table><div class="sg-dd"><div class="do"><b>Do</b><ul><li>Pair colour with words: "overspent", "Over budget".</li></ul></div><div class="dont"><b>Don’t</b><ul><li>Use warn for anything but overspending, staleness and errors.</li></ul></div></div></div>
+<div class="sg-code"><button class="sg-copy" type="button">Copy</button><pre><code>&lt;div class="stack"&gt;
+  &lt;div class="banner"&gt;&lt;span style="display: flex; justify-content: space-between"&gt;&lt;span style="font-weight: 600"&gt;Monthly check-in is open&lt;/span&gt;&lt;span class="link"&gt;Continue&lt;/span&gt;&lt;/span&gt;&lt;span class="progress"&gt;&lt;span style="width: 57%"&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="t-sub"&gt;Opened today · 4 of your accounts to check&lt;/span&gt;&lt;/div&gt;
+  &lt;a class="card-hero" href="#"&gt;
+    &lt;span style="display: flex; justify-content: space-between"&gt;&lt;span style="font-weight: 600; font-size: 17px"&gt;Groceries&lt;/span&gt;&lt;span class="tag tag-mode"&gt;Resets monthly&lt;/span&gt;&lt;/span&gt;
+    &lt;span class="t-hero-sm num"&gt;€187.60 &lt;span class="muted" style="font-size: 15px; font-weight: 500; letter-spacing: 0"&gt;left&lt;/span&gt;&lt;/span&gt;
+    &lt;span class="progress"&gt;&lt;span style="width: 62%"&gt;&lt;/span&gt;&lt;/span&gt;
+    &lt;span class="t-sub num"&gt;€312.40 spent of €500.00 · 6 expenses&lt;/span&gt;
+  &lt;/a&gt;
+  &lt;a class="card-hero card-warn" href="#"&gt;
+    &lt;span style="display: flex; justify-content: space-between"&gt;&lt;span style="font-weight: 600; font-size: 17px"&gt;Eating out&lt;/span&gt;&lt;span class="tag tag-mode"&gt;Resets monthly&lt;/span&gt;&lt;/span&gt;
+    &lt;span class="t-hero-sm num warn"&gt;−€14.50 &lt;span style="font-size: 15px; font-weight: 500; letter-spacing: 0"&gt;overspent&lt;/span&gt;&lt;/span&gt;
+    &lt;span class="progress progress-over"&gt;&lt;span style="width: 100%"&gt;&lt;/span&gt;&lt;/span&gt;
+    &lt;span class="t-sub num"&gt;€214.50 spent of €200.00 · 4 expenses&lt;/span&gt;
+  &lt;/a&gt;
+&lt;/div&gt;</code></pre></div></div></section>
+<section id="rows"><h2>List rows, tags and badges</h2><span class="sg-spec">UI-ACC-1, UI-TXN-2, UI-CHK-3</span><p>Rows are at least 56 high and divided by line. Tags mark state in words. A badge counts what waits.</p>
+<div class="sg-demo"><div class="sg-stage"><div class="card">
+  <a class="row" href="#"><span class="row-l"><span style="font-weight: 500">Revolut · EUR</span><span class="t-sub">Check-in 02/09/2026</span></span><span style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px"><span class="num" style="font-weight: 500">€386.20</span><span class="tag tag-warn">Stale</span></span></a>
+  <a class="row" href="#" style="opacity: .6"><span class="row-l"><span style="font-weight: 500">Tinkoff Black · RUB</span><span class="t-sub">By hand 11/03/2026</span></span><span style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px"><span class="num" style="font-weight: 500">₽0.00</span><span class="tag">Inactive</span></span></a>
+  <div class="row"><span class="row-l"><span style="font-weight: 500">ING Girokonto · EUR</span><span class="t-sub">Last €1,986.30 on 02/09/2026</span></span><button class="chip chip-sm"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Same</button></div>
+  <a class="row" href="#"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V4h8l9 9-8 8-9-9z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg><span class="row-l">Needs a category</span><span class="badge">3</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
+</div></div><div class="sg-info"><table class="sg-table"><tr><th>Class or state</th><th>Meaning</th></tr>
+<tr><td><code>.row</code></td><td>List row; .row-l holds title and meta.</td></tr>
+<tr><td><code>.tag</code></td><td>Neutral state ("Inactive", "Transfer", "Refund").</td></tr>
+<tr><td><code>.tag-warn</code></td><td>Warning state ("Stale", "No category").</td></tr>
+<tr><td><code>.badge</code></td><td>Count of items waiting.</td></tr>
+</table><div class="sg-dd"><div class="do"><b>Do</b><ul><li>Show amounts with .num so digits line up.</li></ul></div><div class="dont"><b>Don’t</b><ul><li>Rely on opacity alone to mean inactive; add the tag.</li></ul></div></div></div>
+<div class="sg-code"><button class="sg-copy" type="button">Copy</button><pre><code>&lt;div class="card"&gt;
+  &lt;a class="row" href="#"&gt;&lt;span class="row-l"&gt;&lt;span style="font-weight: 500"&gt;Revolut · EUR&lt;/span&gt;&lt;span class="t-sub"&gt;Check-in 02/09/2026&lt;/span&gt;&lt;/span&gt;&lt;span style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px"&gt;&lt;span class="num" style="font-weight: 500"&gt;€386.20&lt;/span&gt;&lt;span class="tag tag-warn"&gt;Stale&lt;/span&gt;&lt;/span&gt;&lt;/a&gt;
+  &lt;a class="row" href="#" style="opacity: .6"&gt;&lt;span class="row-l"&gt;&lt;span style="font-weight: 500"&gt;Tinkoff Black · RUB&lt;/span&gt;&lt;span class="t-sub"&gt;By hand 11/03/2026&lt;/span&gt;&lt;/span&gt;&lt;span style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px"&gt;&lt;span class="num" style="font-weight: 500"&gt;₽0.00&lt;/span&gt;&lt;span class="tag"&gt;Inactive&lt;/span&gt;&lt;/span&gt;&lt;/a&gt;
+  &lt;div class="row"&gt;&lt;span class="row-l"&gt;&lt;span style="font-weight: 500"&gt;ING Girokonto · EUR&lt;/span&gt;&lt;span class="t-sub"&gt;Last €1,986.30 on 02/09/2026&lt;/span&gt;&lt;/span&gt;&lt;button class="chip chip-sm"&gt;&lt;svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M5 12.5l4.5 4.5L19 7.5"/&gt;&lt;/svg&gt;Same&lt;/button&gt;&lt;/div&gt;
+  &lt;a class="row" href="#"&gt;&lt;svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M3 12V4h8l9 9-8 8-9-9z"/&gt;&lt;circle cx="7.5" cy="7.5" r="1.2"/&gt;&lt;/svg&gt;&lt;span class="row-l"&gt;Needs a category&lt;/span&gt;&lt;span class="badge"&gt;3&lt;/span&gt;&lt;svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M9 6l6 6-6 6"/&gt;&lt;/svg&gt;&lt;/a&gt;
+&lt;/div&gt;</code></pre></div></div></section>
+<section id="masked"><h2>Hidden amounts</h2><span class="sg-spec">UI-HOME-2, UI-HOME-3, DSH-1</span><p>Home hides amounts every time it opens. The eye shows them for 30 seconds. While hidden, show shares and directions, never partial digits. Try the eye.</p>
+<div class="sg-demo"><div class="sg-stage"><div class="stack" data-privacy>
+  <div style="display: flex; align-items: center; gap: 12px">
+    <span style="flex: 1" class="t-sub" data-note>Amounts hidden</span>
+    <button class="icon-btn" aria-label="Show amounts for 30 seconds" aria-pressed="false" data-eye><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.2"/><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.9 0 3.6-.6 5-1.5"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button>
+  </div>
+  <div class="card"><div class="row"><span class="row-l"><span style="font-weight: 500">Family wealth · EUR</span><span class="t-sub" data-h="+€1,742 since check-in of 02/09/2026">Hidden · last check-in 02/09/2026</span></span><span class="num masked" style="font-weight: 600; font-size: 20px" data-h="€84,215">€ • • • • •</span></div>
+  <div class="row"><span class="row-l"><span style="font-weight: 500">Eating out</span></span><span class="t-sub warn" data-h="€14.50 over">Over budget</span></div>
+  <div class="row"><span class="row-l"><span style="font-weight: 500">Groceries</span></span><span class="t-sub" data-h="€187.60 left of €500">62% used</span></div></div>
+</div></div><div class="sg-info"><table class="sg-table"><tr><th>Class or state</th><th>Meaning</th></tr>
+<tr><td><code>.masked</code></td><td>Currency symbol and dots: "€ • • • • •".</td></tr>
+<tr><td><code>[aria-pressed] on the eye</code></td><td>true while revealed; label "Hide amounts".</td></tr>
+</table><div class="sg-dd"><div class="do"><b>Do</b><ul><li>Hide again after 30 seconds and on every app open.</li><li>Give the masked figure an accessible label such as "Amount hidden".</li></ul></div><div class="dont"><b>Don’t</b><ul><li>Store the revealed state.</li><li>Put amounts in notifications or the check-in banner (NTF-4).</li></ul></div></div></div>
+<div class="sg-code"><button class="sg-copy" type="button">Copy</button><pre><code>&lt;div class="stack" data-privacy&gt;
+  &lt;div style="display: flex; align-items: center; gap: 12px"&gt;
+    &lt;span style="flex: 1" class="t-sub" data-note&gt;Amounts hidden&lt;/span&gt;
+    &lt;button class="icon-btn" aria-label="Show amounts for 30 seconds" aria-pressed="false" data-eye&gt;&lt;svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M3 3l18 18"/&gt;&lt;path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.2"/&gt;&lt;path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.9 0 3.6-.6 5-1.5"/&gt;&lt;path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/&gt;&lt;/svg&gt;&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;div class="card"&gt;&lt;div class="row"&gt;&lt;span class="row-l"&gt;&lt;span style="font-weight: 500"&gt;Family wealth · EUR&lt;/span&gt;&lt;span class="t-sub" data-h="+€1,742 since check-in of 02/09/2026"&gt;Hidden · last check-in 02/09/2026&lt;/span&gt;&lt;/span&gt;&lt;span class="num masked" style="font-weight: 600; font-size: 20px" data-h="€84,215"&gt;€ • • • • •&lt;/span&gt;&lt;/div&gt;
+  &lt;div class="row"&gt;&lt;span class="row-l"&gt;&lt;span style="font-weight: 500"&gt;Eating out&lt;/span&gt;&lt;/span&gt;&lt;span class="t-sub warn" data-h="€14.50 over"&gt;Over budget&lt;/span&gt;&lt;/div&gt;
+  &lt;div class="row"&gt;&lt;span class="row-l"&gt;&lt;span style="font-weight: 500"&gt;Groceries&lt;/span&gt;&lt;/span&gt;&lt;span class="t-sub" data-h="€187.60 left of €500"&gt;62% used&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;/div&gt;</code></pre></div></div></section>
+<section id="sheets"><h2>Sheets</h2><span class="sg-spec">UI-NAV-4, UI-CHK-7, UI-TXN-8</span><p>Pickers, filters, short forms and confirmations open as bottom sheets over a dimmed page. A confirmation states the consequence before the action. (Shown in place here; in the app it is fixed to the bottom with .scrim behind it.)</p>
+<div class="sg-demo"><div class="sg-stage"><div class="sheet sg-inline-sheet" role="dialog" aria-modal="true" aria-labelledby="sg-sheet-t">
+  <div class="sheet-handle" aria-hidden="true"></div>
+  <div class="sheet-head"><h3 class="t-sheet" id="sg-sheet-t" style="flex: 1">Close the check-in now?</h3><button class="icon-btn" aria-label="Close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <p class="t-sub" style="margin: 0">3 accounts without a value will keep the last balance, marked as “wasn’t changed”.</p>
+  <button class="primary">Close check-in</button>
+  <button class="text-btn">Keep it open</button>
+</div></div><div class="sg-info"><table class="sg-table"><tr><th>Class or state</th><th>Meaning</th></tr>
+<tr><td><code>.scrim</code></td><td>Dimmed layer; a tap closes the sheet.</td></tr>
+<tr><td><code>.sheet</code></td><td>Bottom sheet, 24 top radius, slides up.</td></tr>
+<tr><td><code>.sheet-handle / .sheet-head</code></td><td>Drag handle; title row with Close.</td></tr>
+</table><div class="sg-dd"><div class="do"><b>Do</b><ul><li>Trap focus in the sheet and return it on close.</li></ul></div><div class="dont"><b>Don’t</b><ul><li>Use a centred modal dialog.</li></ul></div></div></div>
+<div class="sg-code"><button class="sg-copy" type="button">Copy</button><pre><code>&lt;div class="sheet sg-inline-sheet" role="dialog" aria-modal="true" aria-labelledby="sg-sheet-t"&gt;
+  &lt;div class="sheet-handle" aria-hidden="true"&gt;&lt;/div&gt;
+  &lt;div class="sheet-head"&gt;&lt;h3 class="t-sheet" id="sg-sheet-t" style="flex: 1"&gt;Close the check-in now?&lt;/h3&gt;&lt;button class="icon-btn" aria-label="Close"&gt;&lt;svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M6 6l12 12M18 6L6 18"/&gt;&lt;/svg&gt;&lt;/button&gt;&lt;/div&gt;
+  &lt;p class="t-sub" style="margin: 0"&gt;3 accounts without a value will keep the last balance, marked as “wasn’t changed”.&lt;/p&gt;
+  &lt;button class="primary"&gt;Close check-in&lt;/button&gt;
+  &lt;button class="text-btn"&gt;Keep it open&lt;/button&gt;
+&lt;/div&gt;</code></pre></div></div></section>
+<section id="topbar"><h2>Top bar</h2><span class="sg-spec">UI-NAV-1, UI-NAV-2</span><p>Back on the left, title and subtitle, then up to two icon buttons. 48 px above it on iPhone for the status bar.</p>
+<div class="sg-demo"><div class="sg-stage"><div class="topbar sg-topbar">
+  <a class="icon-btn" href="#" aria-label="Back to home"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
+  <div style="flex: 1; display: flex; flex-direction: column"><h1 class="t-title">Envelopes</h1><span class="t-sub">October · next top-up on 1 November</span></div>
+  <button class="icon-btn" aria-label="New envelope"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+</div></div><div class="sg-info"><table class="sg-table"><tr><th>Class or state</th><th>Meaning</th></tr>
+<tr><td><code>.topbar</code></td><td>Row with safe-area top padding.</td></tr>
+<tr><td><code>.t-title / .t-sub</code></td><td>Title and subtitle.</td></tr>
+</table><div class="sg-dd"><div class="do"><b>Do</b><ul><li>Return to where the member came from (UI-NAV-2).</li></ul></div><div class="dont"><b>Don’t</b><ul><li>Hard-code the Back target.</li></ul></div></div></div>
+<div class="sg-code"><button class="sg-copy" type="button">Copy</button><pre><code>&lt;div class="topbar sg-topbar"&gt;
+  &lt;a class="icon-btn" href="#" aria-label="Back to home"&gt;&lt;svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M15 6l-6 6 6 6"/&gt;&lt;/svg&gt;&lt;/a&gt;
+  &lt;div style="flex: 1; display: flex; flex-direction: column"&gt;&lt;h1 class="t-title"&gt;Envelopes&lt;/h1&gt;&lt;span class="t-sub"&gt;October · next top-up on 1 November&lt;/span&gt;&lt;/div&gt;
+  &lt;button class="icon-btn" aria-label="New envelope"&gt;&lt;svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M12 5v14M5 12h14"/&gt;&lt;/svg&gt;&lt;/button&gt;
+&lt;/div&gt;</code></pre></div></div></section>
+<section id="p-home"><h2>Pattern: private Home</h2><span class="sg-spec">UI-HOME-1 to UI-HOME-6</span>
+<div class="sg-pattern"><figure><img src="screens/Main.png" alt="Home screen with amounts hidden"><figcaption>screens/Main.html</figcaption></figure>
+<div><ol><li>Greeting, profile avatar, eye.</li><li>Check-in banner while one is open, without amounts.</li><li>Quick tiles: Income, Transfer, Check-in.</li><li>Envelopes this month as shares used.</li><li>Needs a category with its count, only when above zero.</li><li>Family wealth, hidden, opening the latest check-in summary.</li><li>Everything grid of eight destinations.</li><li>Sticky “Add expense”.</li></ol></div></div></section>
+<section id="p-add"><h2>Pattern: category and envelope on Add expense</h2><span class="sg-spec">UI-ADD-8 to UI-ADD-12, CAT-5</span>
+<div class="sg-pattern"><figure><img src="screens/AddExpense.png" alt="Add expense form"><figcaption>screens/AddExpense.html</figcaption></figure>
+<div><table class="sg-table"><tr><th>When</th><th>Then</th></tr>
+<tr><td>Form opens</td><td>Nothing selected.</td></tr>
+<tr><td>Merchant with a rule picked</td><td>Rule fills empty or rule-set category and envelope. Label: “Category · from REWE rule”; hint “Rule applied · change”.</td></tr>
+<tr><td>Member picks a chip</td><td>That value is final; rules never overwrite it. Tapping it again clears it.</td></tr>
+<tr><td>Category set, envelope empty</td><td>Envelope label previews “if empty, Groceries”; the default is filled on save.</td></tr>
+<tr><td>Saved</td><td>Confirmation says what was filled: “Groceries envelope added from the Groceries category.”</td></tr>
+</table></div></div></section>
+<section id="p-confirm"><h2>Pattern: confirm and undo</h2><span class="sg-spec">UI-NAV-4, UI-ADD-13, UI-TXN-3</span>
+<p>Destructive or far-reaching actions are confirmed in a sheet that states the consequence. Quick, reversible actions are not confirmed; they offer Undo instead (saved expense, labelling in Needs a category).</p></section>
+<section id="p-empty"><h2>Pattern: empty, offline and error states</h2><span class="sg-spec">UI-ADD-14, UI-TXN-3, CHK-12</span>
+<table class="sg-table"><tr><th>State</th><th>Copy</th></tr>
+<tr><td>Offline on Add expense</td><td>“Offline. It stays on this phone and sends itself later.” Row tag “Waiting to send”.</td></tr>
+<tr><td>Nothing to label</td><td>“Everything is labelled”</td></tr>
+<tr><td>No filter results</td><td>“Nothing matches these filters.”</td></tr>
+<tr><td>Bad expression</td><td>“Can’t calculate that. Check the brackets.”</td></tr>
+<tr><td>Too many password tries</td><td>“Too many tries. Try again in 30 s.” Button “Wait 30 s”.</td></tr>
+</table></section>
+</main></div>
+<div class="sg-toast" id="sg-toast" aria-live="polite"></div>
+<script>
+(function () {
+  var toastT;
+  function toast(t) { var el = document.getElementById('sg-toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(function () { el.classList.remove('on'); }, 1400); }
+  function copy(text) { (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function () { toast('Copied'); }, function () { toast('Copy failed: select the code instead'); }); }
+  // theme
+  var root = document.body, saved = '';
+  try { saved = localStorage.getItem('sg-theme') || ''; } catch (e) {}
+  function setTheme(t) { root.classList.remove('bb-light', 'bb-dark'); if (t) root.classList.add(t);
+    document.querySelectorAll('#sg-theme .seg').forEach(function (b) { b.setAttribute('aria-selected', String(b.dataset.theme === t)); });
+    try { localStorage.setItem('sg-theme', t); } catch (e) {} }
+  setTheme(saved);
+  document.querySelectorAll('#sg-theme .seg').forEach(function (b) { b.addEventListener('click', function () { setTheme(b.dataset.theme); }); });
+  // copy buttons
+  document.querySelectorAll('.sg-copy').forEach(function (b) { b.addEventListener('click', function () { copy(b.nextElementSibling.textContent); }); });
+  document.querySelectorAll('.sg-icon').forEach(function (b) { b.addEventListener('click', function () { copy(b.dataset.svg); }); });
+  // radio groups and tabs
+  document.querySelectorAll('[data-radio]').forEach(function (g) {
+    g.addEventListener('click', function (e) { var b = e.target.closest('[role="radio"]'); if (!b || !g.contains(b)) return;
+      var was = b.getAttribute('aria-checked') === 'true';
+      g.querySelectorAll('[role="radio"]').forEach(function (x) { x.setAttribute('aria-checked', 'false'); });
+      b.setAttribute('aria-checked', String(!(was && g.hasAttribute('data-clearable')))); });
+  });
+  document.querySelectorAll('[data-tabs]').forEach(function (g) {
+    g.addEventListener('click', function (e) { var b = e.target.closest('[role="tab"]'); if (!b) return;
+      g.querySelectorAll('[role="tab"]').forEach(function (x) { x.setAttribute('aria-selected', String(x === b)); }); });
+  });
+  document.querySelectorAll('[data-switch]').forEach(function (b) { b.addEventListener('click', function () { b.setAttribute('aria-checked', String(b.getAttribute('aria-checked') !== 'true')); }); });
+  document.querySelectorAll('[data-expand]').forEach(function (b) { b.addEventListener('click', function () { b.setAttribute('aria-expanded', String(b.getAttribute('aria-expanded') !== 'true')); }); });
+  document.querySelectorAll('.fchip').forEach(function (b) { b.addEventListener('click', function () { b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')); }); });
+  // eye: 30 seconds
+  var EYE_ON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>', EYE_OFF = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.2"/><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.9 0 3.6-.6 5-1.5"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+  document.querySelectorAll('[data-eye]').forEach(function (b) {
+    var box = b.closest('[data-privacy]'), timer;
+    function set(on) { b.setAttribute('aria-pressed', String(on)); b.setAttribute('aria-label', on ? 'Hide amounts' : 'Show amounts for 30 seconds'); b.innerHTML = on ? EYE_ON : EYE_OFF;
+      if (!box) return;
+      box.querySelectorAll('[data-h]').forEach(function (el) { if (!el.dataset.m) el.dataset.m = el.textContent; el.textContent = on ? el.dataset.h : el.dataset.m; el.classList.toggle('masked', !on && el.dataset.m.indexOf('•') > -1); });
+      var n = box.querySelector('[data-note]'); if (n) n.textContent = on ? 'Amounts visible · hiding again in 30 s' : 'Amounts hidden'; }
+    b.addEventListener('click', function () { clearTimeout(timer); var on = b.getAttribute('aria-pressed') !== 'true'; set(on); if (on) timer = setTimeout(function () { set(false); }, 30000); });
+  });
+  // keypad: same rules as ACC-9 (+ − × ÷ brackets %), rounded to cents, no eval of anything but digits and operators
+  document.querySelectorAll('[data-calc]').forEach(function (box) {
+    var expr = '', ex = box.querySelector('[data-expr]'), res = box.querySelector('[data-result]'), err = box.querySelector('[data-err]'), save = box.querySelector('[data-save]');
+    function parse(s) { var i = 0;
+      function num() { var m = s.slice(i).match(/^\d+(\.\d*)?|^\.\d+/); if (!m) throw 0; i += m[0].length; var v = parseFloat(m[0]); if (s[i] === '%') { i++; v = v / 100; } return v; }
+      function atom() { if (s[i] === '−') { i++; return -atom(); } if (s[i] === '(') { i++; var v = add(); if (s[i] !== ')') throw 0; i++; if (s[i] === '%') { i++; v = v / 100; } return v; } return num(); }
+      function mul() { var v = atom(); while (s[i] === '×' || s[i] === '÷') { var o = s[i++]; var r = atom(); if (o === '÷' && r === 0) throw 0; v = o === '×' ? v * r : v / r; } return v; }
+      function add() { var v = mul(); while (s[i] === '+' || s[i] === '−') { var o = s[i++]; var r = mul(); v = o === '+' ? v + r : v - r; } return v; }
+      var v = add(); if (i !== s.length) throw 0; return v; }
+    function fmt(v) { return (v < 0 ? '−' : '') + '€' + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function render() {
+      var v = null, typing = /[+−×÷(]$/.test(expr);
+      try { v = expr ? Math.round(parse(expr) * 100) / 100 : null; } catch (e) { v = null; }
+      var shown = v; if (v === null && expr) { try { shown = Math.round(parse(expr.replace(/[+−×÷(]+$/, '')) * 100) / 100; } catch (e) { shown = null; } }
+      ex.textContent = /[+−×÷%()]/.test(expr.replace(/^−/, '')) ? expr : '\u00a0';
+      res.textContent = shown === null ? '€0' : fmt(shown); res.style.color = shown === null ? 'var(--muted)' : 'var(--ink)';
+      err.textContent = expr && v === null && !typing ? 'Can’t calculate that. Check the brackets.' : '';
+      var ok = v !== null && v !== 0; save.disabled = !ok; save.textContent = ok ? 'Save ' + fmt(v) : 'Enter an amount'; }
+    box.querySelectorAll('.key').forEach(function (k) { k.addEventListener('click', function () { var t = k.textContent;
+      if (t === 'C') expr = ''; else if (t === '⌫') expr = expr.slice(0, -1); else expr = (expr + t).slice(0, 40); render(); }); });
+    save.addEventListener('click', function () { toast('Saved ' + res.textContent); expr = ''; render(); });
+  });
+  // motion replay
+  document.getElementById('sg-play').addEventListener('click', function () {
+    document.querySelectorAll('#sg-motion .sg-motion-box').forEach(function (b) { var c = b.firstElementChild, n = c.cloneNode(true); b.replaceChild(n, c); });
+  });
+  // current section in the nav
+  var links = {}; document.querySelectorAll('.sg-nav a').forEach(function (a) { links[a.getAttribute('href').slice(1)] = a; });
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting && links[e.target.id]) {
+      Object.keys(links).forEach(function (k) { links[k].removeAttribute('aria-current'); }); links[e.target.id].setAttribute('aria-current', 'true'); } }); }, { rootMargin: '0px 0px -70% 0px' });
+    document.querySelectorAll('.sg-main > section').forEach(function (s) { io.observe(s); });
+  }
+})();
+</script>
+</body>
+</html>

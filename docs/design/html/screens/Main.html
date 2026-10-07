@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Budget Buddy — Home</title>
+<!-- Static export of the prototype screen "Home" (prototype file Main.dc.html), default state.
+     Generated on 2026-10-06. Layout and copy are the reference; see docs/design/html/README.md. -->
+<link rel="stylesheet" href="../fonts/geist.css">
+<style>
+body{margin:0}
+a{color:inherit}a:hover{color:inherit}
+.bb-light{--bg:#F4F3EF;--surface:#FFFFFF;--ink:#15171A;--on-ink:#F4F3EF;--muted:#5C6168;--line:#E2E0D9;--soft:#EAE8E2;--accent:#1D5C45;--accent-soft:#DCEAE3;--warn:#A2470F;--warn-soft:#F5E2D4}
+.bb-dark{--bg:#111214;--surface:#1A1C1F;--ink:#F1F0EC;--on-ink:#111214;--muted:#A3A8AF;--line:#2B2E33;--soft:#24272B;--accent:#7CC6A3;--accent-soft:#1D3229;--warn:#F2A574;--warn-soft:#3A2618}
+.bb button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer;text-align:left}
+.bb .num{font-variant-numeric:tabular-nums}
+.bb svg{flex:none}
+.bb .scroll::-webkit-scrollbar{display:none}
+.bb .prow{width:100%;min-height:56px;display:flex;align-items:center;gap:12px;text-decoration:none;border-bottom:1px solid var(--line);font-weight:500}
+.bb .pin{width:100%;box-sizing:border-box;height:48px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:16px;padding:0 12px;outline:none}
+.bb .pin:focus{border-color:var(--ink)}
+.bb .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* motion */
+@keyframes bb-in-fwd{from{transform:translateX(100%)}to{transform:none}}
+@keyframes bb-in-back{from{transform:translateX(-28%);opacity:.6}to{transform:none;opacity:1}}
+@keyframes bb-fade{from{opacity:0}to{opacity:1}}
+@keyframes bb-sheet{from{transform:translateY(100%)}to{transform:none}}
+@keyframes bb-grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes bb-growy{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes bb-draw{from{stroke-dashoffset:1400}to{stroke-dashoffset:0}}
+@keyframes bb-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes bb-shake{0%,100%{transform:none}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+@keyframes bb-down{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+
+.bb [role="dialog"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both;will-change:transform}
+.bb div[style*="var(--scrim)"],.bb div[style*="rgba(20,20,18,.36)"],.bb div[style*="rgba(20, 20, 18, 0.36)"]{animation:bb-fade .3s ease-out both}
+.bb div[style*="inset: 0"][style*="background: var(--bg)"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both}
+.bb span[style*="width: 72px; height: 72px"],.bb span[style*="width: 56px; height: 56px; border-radius: 28px; background: var(--accent-soft)"]{animation:bb-pop .4s cubic-bezier(.2,.8,.2,1) .25s both}
+.bb [style*="height: 6px"]>[style*="height: 6px"],.bb [style*="height: 4px"]>[style*="height: 4px"]{transform-origin:left center;animation:bb-grow .8s cubic-bezier(.2,.8,.2,1) .3s both;transition:width .45s cubic-bezier(.2,.8,.2,1),background-color .3s}
+.bb div[title][style*="border-radius: 6px 6px 0 0"]{transform-origin:bottom;animation:bb-growy .7s cubic-bezier(.2,.8,.2,1) .3s both}
+.bb polyline{stroke-dasharray:1400;animation:bb-draw 1.1s cubic-bezier(.4,0,.2,1) .3s both}
+.bb button,.bb a{transition:transform .12s ease,background-color .18s ease,color .18s ease,border-color .18s ease,opacity .18s ease}
+.bb button:active:not([disabled]),.bb a:active{transform:scale(.97)}
+.bb .key:active{transform:scale(.92)}
+.bb .knob{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb .switch{transition:background-color .22s}
+.bb span[style*="width: 27px; height: 27px"]{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb span[style*="width: 51px; height: 31px"]{transition:background-color .22s}
+.bb .pw-err{animation:bb-shake .4s ease}
+.bb [role="alert"]:not(:empty),.bb [role="status"]{animation:bb-fade .3s ease-out both}
+.bb .wrap{animation:bb-down .22s ease-out both}
+@media (prefers-reduced-motion: reduce){.bb,.bb *{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="bb bb-light" style="width: 390px; height: 844px; position: relative; overflow: hidden; background: var(--bg); color: var(--ink); font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.4; display: flex; flex-direction: column">
+
+<div class="scroll" style="flex: 1; overflow-y: auto; padding: 56px 16px 24px; display: flex; flex-direction: column; gap: 20px">
+
+<header style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 13px; color: var(--muted)">Monday, 5 October</span>
+<h1 style="margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.02em">Hi, Alena</h1>
+</div>
+<div style="display: flex; align-items: center; gap: 8px">
+<button aria-label="Show amounts for 30 seconds" aria-pressed="false" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center">
+
+
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"></path><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.2"></path><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.9 0 3.6-.6 5-1.5"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg>
+
+</button>
+<button aria-label="Alena — switch profile or sign out" aria-haspopup="dialog" style="width: 44px; height: 44px; border-radius: 22px; background: var(--ink); color: var(--on-ink); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 16px">A</button>
+</div>
+</header>
+
+
+
+
+<a href="CheckIn.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 14px 14px 14px 16px; border-radius: 16px; background: var(--accent-soft); text-decoration: none; min-height: 44px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.6"></path><path d="M20 4v5h-5"></path></svg>
+<span style="flex: 1; display: flex; flex-direction: column; gap: 1px">
+<span style="font-weight: 600">Monthly check-in is open</span>
+<span style="font-size: 13px; color: var(--muted)">Opened today · 4 of your accounts to check</span>
+</span>
+<span style="font-weight: 600; color: var(--accent); font-size: 14px">Continue</span>
+</a>
+
+
+<nav aria-label="Quick actions" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+<a href="AddExpense.dc.html" style="display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 14px; border-radius: 16px; background: var(--surface); text-decoration: none; min-height: 44px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5"></path><path d="M5 20h14"></path></svg>
+<span style="font-weight: 500">Income</span>
+</a>
+<a href="AddExpense.dc.html" style="display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 14px; border-radius: 16px; background: var(--surface); text-decoration: none; min-height: 44px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h15l-3-3"></path><path d="M20 16H5l3 3"></path></svg>
+<span style="font-weight: 500">Transfer</span>
+</a>
+<a href="CheckIn.dc.html" style="display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 14px; border-radius: 16px; background: var(--surface); text-decoration: none; min-height: 44px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.6"></path><path d="M20 4v5h-5"></path></svg>
+<span style="font-weight: 500">Check-in</span>
+</a>
+</nav>
+
+<section aria-labelledby="month-h" style="background: var(--surface); border-radius: 20px; padding: 18px 16px 8px; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+<h2 id="month-h" style="margin: 0; font-size: 15px; font-weight: 600">October</h2>
+<span style="font-size: 13px; color: var(--muted)">Day 5 of 31</span>
+</div>
+<div style="display: flex; align-items: baseline; gap: 8px; padding: 6px 0 10px">
+<span class="num" style="font-size: 30px; font-weight: 600; letter-spacing: -0.02em">€ • • • •</span>
+<span style="font-size: 13px; color: var(--muted)">spent</span>
+</div>
+
+<a href="Envelopes.dc.html" style="display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-top: 1px solid var(--line); text-decoration: none; min-height: 44px">
+<span style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px">
+<span style="font-weight: 500">Groceries</span>
+<span class="num" style="font-size: 13px; color: var(--muted)">62% used</span>
+</span>
+<span style="display: block; height: 6px; border-radius: 3px; background: var(--soft); overflow: hidden">
+<span style="display: block; height: 6px; border-radius: 3px; width: 62%; background: var(--accent)"></span>
+</span>
+</a>
+
+<a href="Envelopes.dc.html" style="display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-top: 1px solid var(--line); text-decoration: none; min-height: 44px">
+<span style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px">
+<span style="font-weight: 500">Eating out</span>
+<span class="num" style="font-size: 13px; color: var(--warn)">Over budget</span>
+</span>
+<span style="display: block; height: 6px; border-radius: 3px; background: var(--soft); overflow: hidden">
+<span style="display: block; height: 6px; border-radius: 3px; width: 100%; background: var(--warn)"></span>
+</span>
+</a>
+
+<a href="Envelopes.dc.html" style="display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-top: 1px solid var(--line); text-decoration: none; min-height: 44px">
+<span style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px">
+<span style="font-weight: 500">Unexpected</span>
+<span class="num" style="font-size: 13px; color: var(--muted)">11% used</span>
+</span>
+<span style="display: block; height: 6px; border-radius: 3px; background: var(--soft); overflow: hidden">
+<span style="display: block; height: 6px; border-radius: 3px; width: 11%; background: var(--accent)"></span>
+</span>
+</a>
+
+</section>
+
+<a href="ToLabel.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 16px; background: var(--surface); text-decoration: none; min-height: 44px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12V4h8l9 9-8 8-9-9z"></path><circle cx="7.5" cy="7.5" r="1.2"></circle></svg>
+<span style="flex: 1; font-weight: 500">Needs a category</span>
+<span style="min-width: 24px; height: 24px; padding: 0 8px; box-sizing: border-box; border-radius: 12px; background: var(--ink); color: var(--on-ink); font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: center">3</span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+
+<a href="CheckInSummary.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 16px; border-radius: 16px; background: var(--surface); text-decoration: none; min-height: 44px">
+<span style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 13px; color: var(--muted)">Family wealth · EUR</span>
+<span class="num" style="font-size: 22px; font-weight: 600; letter-spacing: -0.01em">€ • • • • •</span>
+<span class="num" style="font-size: 13px; color: var(--muted)">Hidden · last check-in 02/09/2026</span>
+</span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+
+<section aria-labelledby="all-h" style="display: flex; flex-direction: column; gap: 10px">
+<h2 id="all-h" style="margin: 0; padding: 4px 4px 0; font-size: 13px; font-weight: 500; color: var(--muted)">Everything</h2>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<a href="Transactions.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 52px; border-radius: 14px; background: var(--surface); text-decoration: none; font-weight: 500">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"></path><path d="M4 6h.01M4 12h.01M4 18h.01"></path></svg>Transactions</a>
+<a href="Envelopes.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 52px; border-radius: 14px; background: var(--surface); text-decoration: none; font-weight: 500">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg>Envelopes</a>
+<a href="Accounts.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 52px; border-radius: 14px; background: var(--surface); text-decoration: none; font-weight: 500">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M3 10h18"></path><path d="M16 14.5h2"></path></svg>Accounts</a>
+<a href="CheckIns.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 52px; border-radius: 14px; background: var(--surface); text-decoration: none; font-weight: 500">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M4 10h16M9 3v4M15 3v4"></path></svg>Check-ins</a>
+<a href="CheckInSummary.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 52px; border-radius: 14px; background: var(--surface); text-decoration: none; font-weight: 500">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5"></path><path d="M4 19h16"></path><path d="M7 15l4-4 3 3 5-6"></path></svg>Wealth history</a>
+<a href="Categories.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 52px; border-radius: 14px; background: var(--surface); text-decoration: none; font-weight: 500">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12V4h8l9 9-8 8-9-9z"></path><circle cx="7.5" cy="7.5" r="1.2"></circle></svg>Categories</a>
+<a href="#" style="display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 52px; border-radius: 14px; background: var(--surface); text-decoration: none; font-weight: 500">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9h9"></path><path d="M20.5 15A9 9 0 1 1 9 3.5"></path></svg>Reports</a>
+<a href="Settings.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 52px; border-radius: 14px; background: var(--surface); text-decoration: none; font-weight: 500">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"></path><circle cx="16" cy="7" r="2"></circle><circle cx="10" cy="17" r="2"></circle></svg>Settings</a>
+</div>
+</section>
+
+</div>
+
+<div style="padding: 12px 16px 34px; background: var(--bg); border-top: 1px solid var(--line)">
+<a href="AddExpense.dc.html" style="display: flex; align-items: center; justify-content: center; gap: 10px; height: 60px; border-radius: 18px; background: var(--ink); color: var(--on-ink); text-decoration: none; font-size: 17px; font-weight: 600">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+Add expense
+</a>
+</div>
+
+
+
+</div>
+</body>
+</html>

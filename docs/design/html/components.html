@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Budget Buddy — components</title>
+<!-- Living style guide: every component of bb.css, in light and dark. Built only from bb.css classes. -->
+<link rel="stylesheet" href="fonts/geist.css">
+<link rel="stylesheet" href="bb.css">
+<style>
+body { margin: 0; background: #d9d8d3; font-family: 'Geist', system-ui, sans-serif; }
+.pair { display: flex; flex-wrap: wrap; gap: 24px; padding: 24px; }
+.pane { box-sizing: border-box; width: 390px; padding: 20px 16px 28px; border-radius: 28px; display: flex; flex-direction: column; gap: 14px; }
+.swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.sw { height: 44px; border-radius: 10px; border: 1px solid var(--line); display: flex; align-items: flex-end; padding: 4px 6px; font-size: 10px; box-sizing: border-box; }
+.bb .demo-sheet { position: static; animation: none; border-radius: 24px; max-height: none; }
+</style>
+</head>
+<body>
+<div class="pair">
+<!-- the same markup twice: light, then dark -->
+<section class="bb bb-light pane" aria-label="Light">
+  <h1 class="t-title">Components · light</h1>
+
+  <p class="h">Colour tokens</p>
+  <div class="swatches">
+    <div class="sw" style="background: var(--bg)">bg</div>
+    <div class="sw" style="background: var(--surface)">surface</div>
+    <div class="sw" style="background: var(--ink); color: var(--on-ink)">ink</div>
+    <div class="sw" style="background: var(--muted); color: var(--on-ink)">muted</div>
+    <div class="sw" style="background: var(--line)">line</div>
+    <div class="sw" style="background: var(--soft)">soft</div>
+    <div class="sw" style="background: var(--accent); color: var(--on-ink)">accent</div>
+    <div class="sw" style="background: var(--accent-soft)">accent-soft</div>
+    <div class="sw" style="background: var(--warn); color: var(--on-ink)">warn</div>
+    <div class="sw" style="background: var(--warn-soft)">warn-soft</div>
+  </div>
+
+  <p class="h">Type</p>
+  <div><h2 class="t-greeting">Hi, Alena</h2><span class="t-sub">Monday, 5 October</span></div>
+  <div class="t-hero num">€84,215.00</div>
+  <div><span class="lbl">Category · from REWE rule</span></div>
+
+  <p class="h">Top bar</p>
+  <div style="display: flex; align-items: center; gap: 12px">
+    <button class="icon-btn" aria-label="Back to home"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <div style="flex: 1"><h3 class="t-title">Envelopes</h3><span class="t-sub">October · next top-up on 1 November</span></div>
+    <button class="icon-btn" aria-label="Show amounts for 30 seconds" aria-pressed="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.2"/><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.9 0 3.6-.6 5-1.5"/></svg></button>
+    <button class="icon-btn icon-btn-ink" aria-label="New envelope"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+  </div>
+
+  <p class="h">Segmented control</p>
+  <div class="segmented" role="tablist"><button class="seg" role="tab" aria-selected="true">Expense</button><button class="seg" role="tab" aria-selected="false">Income</button><button class="seg" role="tab" aria-selected="false">Transfer</button></div>
+
+  <p class="h">Choice chips</p>
+  <div class="hrow" role="radiogroup" aria-label="Paid from">
+    <button class="chip" role="radio" aria-checked="true">ING Visa</button><button class="chip" role="radio" aria-checked="false">Cash €</button><button class="chip" role="radio" aria-checked="false">Revolut</button><button class="chip chip-ghost">All…</button>
+  </div>
+  <div style="display: flex; gap: 8px; flex-wrap: wrap"><button class="chip-suggest" style="display: flex; align-items: center; gap: 6px">✓ Subscriptions</button><button class="fchip" aria-pressed="true">October ▾</button><button class="fchip" aria-pressed="false">Account ▾</button><button class="pill" aria-checked="true">All in EUR</button></div>
+
+  <p class="h">Fields</p>
+  <button class="field-btn"><span style="flex: 1; text-align: left; color: var(--muted)">Add merchant</span><span class="t-sub">Optional</span></button>
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+    <button class="meta"><span class="meta-l">Date</span><span class="meta-v">Today</span></button>
+    <button class="meta meta-set"><span class="meta-l">Paid by</span><span class="meta-v">Max</span></button>
+    <button class="meta"><span class="meta-l">Note</span><span class="meta-v">Add</span></button>
+  </div>
+  <div class="card">
+    <button class="field" aria-expanded="false"><span class="field-l">Category</span><span class="field-v">Groceries</span></button>
+    <a class="field field-link" href="#"><span class="field-l">Paid from</span><span class="field-v">ING Visa · EUR</span></a>
+  </div>
+  <input class="search" placeholder="Search merchant, note, amount">
+  <input class="pw" type="password" placeholder="Family password" aria-invalid="true">
+  <span class="error" role="alert">That password doesn’t match. 2 tries before a short wait.</span>
+
+  <p class="h">Amount and keypad</p>
+  <div class="amount num">€23.80</div>
+  <div class="keypad">
+    <button class="key">7</button><button class="key">8</button><button class="key">9</button><button class="key key-op">(</button><button class="key key-op">)</button>
+    <button class="key">.</button><button class="key">0</button><button class="key key-op">%</button><button class="key key-op">⌫</button><button class="key key-op">C</button>
+  </div>
+  <button class="primary">Save €23.80</button>
+  <button class="primary" disabled>Enter an amount</button>
+  <button class="secondary">Add another</button>
+
+  <p class="h">Cards, rows and tags</p>
+  <a class="card-hero" href="#">
+    <span style="display: flex; justify-content: space-between"><span style="font-weight: 600; font-size: 17px">Groceries</span><span class="tag tag-mode">Resets monthly</span></span>
+    <span class="t-hero-sm num">€187.60 <span class="muted" style="font-size: 15px; font-weight: 500">left</span></span>
+    <span class="progress"><span style="width: 62%"></span></span>
+    <span class="t-sub num">€312.40 spent of €500.00 · 6 expenses</span>
+  </a>
+  <a class="card-hero card-warn" href="#">
+    <span style="font-weight: 600; font-size: 17px">Eating out</span>
+    <span class="t-hero-sm num warn">−€14.50 <span style="font-size: 15px; font-weight: 500">overspent</span></span>
+    <span class="progress progress-over"><span style="width: 100%"></span></span>
+  </a>
+  <div class="card">
+    <a class="row" href="#"><span class="row-l"><span style="font-weight: 500">Revolut · EUR</span><span class="t-sub">Check-in 02/09/2026</span></span><span class="num">€386.20</span> <span class="tag tag-warn">Stale</span></a>
+    <div class="row"><span class="row-l"><span style="font-weight: 500">Unlock with Face ID</span><span class="t-sub">On this iPhone, instead of the password</span></span><button class="switch" role="switch" aria-checked="true" aria-label="Unlock with Face ID"><span class="knob"></span></button></div>
+    <a class="row" href="#"><span class="row-l">Needs a category</span><span class="badge">3</span></a>
+  </div>
+  <div class="banner"><span style="font-weight: 600">Monthly check-in is open</span><span class="progress"><span style="width: 57%"></span></span><span class="t-sub">Opened today · 4 of your accounts to check</span></div>
+  <div class="card"><div class="row"><span class="row-l">Family wealth · EUR</span><span class="num masked">€ • • • • •</span></div></div>
+
+  <p class="h">Sheet</p>
+  <div class="sheet demo-sheet" role="dialog" aria-label="Close the check-in now?">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><h3 class="t-sheet" style="flex: 1">Close the check-in now?</h3><button class="icon-btn" aria-label="Close">✕</button></div>
+    <p class="t-sub" style="margin: 0">3 accounts without a value will keep the last balance, marked as “wasn’t changed”.</p>
+    <button class="primary">Close check-in</button>
+    <button class="text-btn">Keep it open</button>
+  </div>
+</section>
+</div>
+<script>
+  // duplicate the light pane as a dark pane so both always show the same markup
+  const light = document.querySelector('.pane');
+  const dark = light.cloneNode(true);
+  dark.classList.replace('bb-light', 'bb-dark');
+  dark.setAttribute('aria-label', 'Dark');
+  dark.querySelector('h1').textContent = 'Components · dark';
+  light.after(dark);
+</script>
+</body>
+</html>

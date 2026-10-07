@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# Dependencies and builds
+node_modules/
+dist/
+coverage/
+
+# Tests
+playwright-report/
+test-results/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# App state (never commit real data)
+data/
+backups/

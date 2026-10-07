@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Budget Buddy — Check-ins</title>
+<!-- Static export of the prototype screen "Check-ins" (prototype file CheckIns.dc.html), default state.
+     Generated on 2026-10-06. Layout and copy are the reference; see docs/design/html/README.md. -->
+<link rel="stylesheet" href="../fonts/geist.css">
+<style>
+body{margin:0}
+a{color:inherit}a:hover{color:inherit}
+.bb-light{--bg:#F4F3EF;--surface:#FFFFFF;--ink:#15171A;--on-ink:#F4F3EF;--muted:#5C6168;--line:#E2E0D9;--soft:#EAE8E2;--accent:#1D5C45;--accent-soft:#DCEAE3;--warn:#A2470F;--warn-soft:#F5E2D4}
+.bb-dark{--bg:#111214;--surface:#1A1C1F;--ink:#F1F0EC;--on-ink:#111214;--muted:#A3A8AF;--line:#2B2E33;--soft:#24272B;--accent:#7CC6A3;--accent-soft:#1D3229;--warn:#F2A574;--warn-soft:#3A2618}
+.bb button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer}
+.bb .num{font-variant-numeric:tabular-nums}
+.bb svg{flex:none}
+.bb .scroll::-webkit-scrollbar{display:none}
+
+/* motion */
+@keyframes bb-in-fwd{from{transform:translateX(100%)}to{transform:none}}
+@keyframes bb-in-back{from{transform:translateX(-28%);opacity:.6}to{transform:none;opacity:1}}
+@keyframes bb-fade{from{opacity:0}to{opacity:1}}
+@keyframes bb-sheet{from{transform:translateY(100%)}to{transform:none}}
+@keyframes bb-grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes bb-growy{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes bb-draw{from{stroke-dashoffset:1400}to{stroke-dashoffset:0}}
+@keyframes bb-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes bb-shake{0%,100%{transform:none}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+@keyframes bb-down{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+
+.bb [role="dialog"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both;will-change:transform}
+.bb div[style*="var(--scrim)"],.bb div[style*="rgba(20,20,18,.36)"],.bb div[style*="rgba(20, 20, 18, 0.36)"]{animation:bb-fade .3s ease-out both}
+.bb div[style*="inset: 0"][style*="background: var(--bg)"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both}
+.bb span[style*="width: 72px; height: 72px"],.bb span[style*="width: 56px; height: 56px; border-radius: 28px; background: var(--accent-soft)"]{animation:bb-pop .4s cubic-bezier(.2,.8,.2,1) .25s both}
+.bb [style*="height: 6px"]>[style*="height: 6px"],.bb [style*="height: 4px"]>[style*="height: 4px"]{transform-origin:left center;animation:bb-grow .8s cubic-bezier(.2,.8,.2,1) .3s both;transition:width .45s cubic-bezier(.2,.8,.2,1),background-color .3s}
+.bb div[title][style*="border-radius: 6px 6px 0 0"]{transform-origin:bottom;animation:bb-growy .7s cubic-bezier(.2,.8,.2,1) .3s both}
+.bb polyline{stroke-dasharray:1400;animation:bb-draw 1.1s cubic-bezier(.4,0,.2,1) .3s both}
+.bb button,.bb a{transition:transform .12s ease,background-color .18s ease,color .18s ease,border-color .18s ease,opacity .18s ease}
+.bb button:active:not([disabled]),.bb a:active{transform:scale(.97)}
+.bb .key:active{transform:scale(.92)}
+.bb .knob{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb .switch{transition:background-color .22s}
+.bb span[style*="width: 27px; height: 27px"]{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb span[style*="width: 51px; height: 31px"]{transition:background-color .22s}
+.bb .pw-err{animation:bb-shake .4s ease}
+.bb [role="alert"]:not(:empty),.bb [role="status"]{animation:bb-fade .3s ease-out both}
+.bb .wrap{animation:bb-down .22s ease-out both}
+@media (prefers-reduced-motion: reduce){.bb,.bb *{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="bb bb-light" style="width: 390px; height: 844px; position: relative; overflow: hidden; background: var(--bg); color: var(--ink); font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.4; display: flex; flex-direction: column">
+
+<div style="padding: 48px 16px 8px; display: flex; align-items: center; gap: 12px">
+<a href="Main.dc.html" aria-label="Back to home" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+</a>
+<div style="flex: 1; display: flex; flex-direction: column">
+<h1 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em">Check-ins</h1>
+<span style="font-size: 13px; color: var(--muted)">Monthly on the 5th, 09:00</span>
+</div>
+<button aria-label="Show amounts" aria-pressed="false" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
+
+
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"></path><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.2"></path><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.9 0 3.6-.6 5-1.5"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg>
+
+</button>
+</div>
+
+<div class="scroll" style="flex: 1; overflow-y: auto; padding: 8px 16px 32px; display: flex; flex-direction: column; gap: 14px">
+
+
+<a href="CheckIn.dc.html" style="display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 18px; background: var(--accent-soft); text-decoration: none">
+<span style="display: flex; justify-content: space-between; align-items: baseline">
+<span style="font-weight: 600">Open now · since today, 09:00</span>
+<span style="font-weight: 600; font-size: 14px; color: var(--accent)">Continue</span>
+</span>
+<span style="display: block; height: 6px; border-radius: 3px; background: var(--surface); overflow: hidden"><span style="display: block; height: 6px; width: 57%; border-radius: 3px; background: var(--accent)"></span></span>
+<span class="num" style="font-size: 13px; color: var(--muted)">12 of 21 accounts · Max done · you 4 left · Sofia 5 left</span>
+</a>
+
+
+
+<section style="display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 0 4px; font-size: 13px; font-weight: 500; color: var(--muted)">Closed · family total in EUR</h2>
+<div style="display: flex; flex-direction: column; border-radius: 18px; background: var(--surface); padding: 0 14px">
+
+<a href="CheckInSummary.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 64px; text-decoration: none; border-bottom: 1px solid var(--line)">
+<span style="flex: 1; display: flex; flex-direction: column">
+<span class="num" style="font-weight: 500">02/09/2026</span>
+<span style="font-size: 13px; color: var(--muted)">Max closed it · 2 weren’t changed</span>
+</span>
+<span style="display: flex; flex-direction: column; align-items: flex-end">
+<span class="num" style="font-weight: 500">€ • • • • •</span>
+<span class="num" style="font-size: 13px; color: var(--muted)">▲ up</span>
+</span>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+
+<a href="CheckInSummary.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 64px; text-decoration: none; border-bottom: 1px solid var(--line)">
+<span style="flex: 1; display: flex; flex-direction: column">
+<span class="num" style="font-weight: 500">01/08/2026</span>
+<span style="font-size: 13px; color: var(--muted)">Closed by itself · everyone in</span>
+</span>
+<span style="display: flex; flex-direction: column; align-items: flex-end">
+<span class="num" style="font-weight: 500">€ • • • • •</span>
+<span class="num" style="font-size: 13px; color: var(--muted)">▲ up</span>
+</span>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+
+<a href="CheckInSummary.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 64px; text-decoration: none; border-bottom: 1px solid var(--line)">
+<span style="flex: 1; display: flex; flex-direction: column">
+<span class="num" style="font-weight: 500">03/07/2026</span>
+<span style="font-size: 13px; color: var(--muted)">Closed by itself · everyone in</span>
+</span>
+<span style="display: flex; flex-direction: column; align-items: flex-end">
+<span class="num" style="font-weight: 500">€ • • • • •</span>
+<span class="num" style="font-size: 13px; color: var(--muted)">▲ up</span>
+</span>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+
+<a href="CheckInSummary.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 64px; text-decoration: none; border-bottom: 1px solid var(--line)">
+<span style="flex: 1; display: flex; flex-direction: column">
+<span class="num" style="font-weight: 500">01/06/2026</span>
+<span style="font-size: 13px; color: var(--muted)">Alena closed it · 1 wasn’t changed</span>
+</span>
+<span style="display: flex; flex-direction: column; align-items: flex-end">
+<span class="num" style="font-weight: 500">€ • • • • •</span>
+<span class="num" style="font-size: 13px; color: var(--muted)">▲ up</span>
+</span>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+
+<a href="CheckInSummary.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 64px; text-decoration: none; border-bottom: 1px solid var(--line)">
+<span style="flex: 1; display: flex; flex-direction: column">
+<span class="num" style="font-weight: 500">02/05/2026</span>
+<span style="font-size: 13px; color: var(--muted)">Closed by itself · everyone in</span>
+</span>
+<span style="display: flex; flex-direction: column; align-items: flex-end">
+<span class="num" style="font-weight: 500">€ • • • • •</span>
+<span class="num" style="font-size: 13px; color: var(--muted)">▲ up</span>
+</span>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+
+<a href="CheckInSummary.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 64px; text-decoration: none; border-bottom: 0">
+<span style="flex: 1; display: flex; flex-direction: column">
+<span class="num" style="font-weight: 500">15/04/2026</span>
+<span style="font-size: 13px; color: var(--muted)">First check-in · 22 accounts added</span>
+</span>
+<span style="display: flex; flex-direction: column; align-items: flex-end">
+<span class="num" style="font-weight: 500">€ • • • • •</span>
+<span class="num" style="font-size: 13px; color: var(--muted)">Start</span>
+</span>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+
+</div>
+</section>
+</div>
+
+</div>
+</body>
+</html>

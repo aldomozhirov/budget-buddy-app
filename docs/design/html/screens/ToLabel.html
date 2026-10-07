@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Budget Buddy — Needs a category</title>
+<!-- Static export of the prototype screen "Transactions · needs a category" (prototype file ToLabel.dc.html), default state.
+     Generated on 2026-10-06. Layout and copy are the reference; see docs/design/html/README.md. -->
+<link rel="stylesheet" href="../fonts/geist.css">
+<style>
+body{margin:0}
+a{color:inherit}a:hover{color:inherit}
+.bb-light{--bg:#F4F3EF;--surface:#FFFFFF;--ink:#15171A;--on-ink:#F4F3EF;--muted:#5C6168;--line:#E2E0D9;--soft:#EAE8E2;--accent:#1D5C45;--accent-soft:#DCEAE3;--warn:#A2470F;--warn-soft:#F5E2D4}
+.bb-dark{--bg:#111214;--surface:#1A1C1F;--ink:#F1F0EC;--on-ink:#111214;--muted:#A3A8AF;--line:#2B2E33;--soft:#24272B;--accent:#7CC6A3;--accent-soft:#1D3229;--warn:#F2A574;--warn-soft:#3A2618}
+.bb button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer}
+.bb .num{font-variant-numeric:tabular-nums}
+.bb svg{flex:none}
+.bb .scroll::-webkit-scrollbar{display:none}
+.bb .hrow{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px}
+.bb .hrow::-webkit-scrollbar{display:none}
+.bb .fchip{flex:none;height:36px;padding:0 12px;border-radius:18px;border:1px solid var(--line);background:var(--surface);font-size:14px;font-weight:500;display:flex;align-items:center;gap:4px;white-space:nowrap}
+.bb .fchip-on{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.bb .seg{flex:1;height:36px;border-radius:10px;font-size:14px;font-weight:500;color:var(--muted);text-align:center}
+.bb .seg-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.bb .search{width:100%;box-sizing:border-box;height:44px;border-radius:14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:16px;padding:0 14px 0 40px;outline:none}
+.bb .search:focus{border-color:var(--ink)}
+.bb .search::placeholder{color:var(--muted)}
+.bb .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.bb .box{width:24px;height:24px;border-radius:7px;border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;flex:none}
+.bb .box-on{background:var(--ink);border-color:var(--ink);color:var(--on-ink)}
+.bb .radio{border-radius:12px}
+.bb .opt{width:100%;min-height:52px;display:flex;align-items:center;gap:12px;padding:4px 0;border-bottom:1px solid var(--line);text-align:left}
+.bb .sheet-scroll::-webkit-scrollbar{display:none}
+.bb{--scrim:rgba(20,20,18,.36)}.bb-dark{--scrim:rgba(0,0,0,.55)}
+
+/* motion */
+@keyframes bb-in-fwd{from{transform:translateX(100%)}to{transform:none}}
+@keyframes bb-in-back{from{transform:translateX(-28%);opacity:.6}to{transform:none;opacity:1}}
+@keyframes bb-fade{from{opacity:0}to{opacity:1}}
+@keyframes bb-sheet{from{transform:translateY(100%)}to{transform:none}}
+@keyframes bb-grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes bb-growy{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes bb-draw{from{stroke-dashoffset:1400}to{stroke-dashoffset:0}}
+@keyframes bb-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes bb-shake{0%,100%{transform:none}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+@keyframes bb-down{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+
+.bb [role="dialog"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both;will-change:transform}
+.bb div[style*="var(--scrim)"],.bb div[style*="rgba(20,20,18,.36)"],.bb div[style*="rgba(20, 20, 18, 0.36)"]{animation:bb-fade .3s ease-out both}
+.bb div[style*="inset: 0"][style*="background: var(--bg)"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both}
+.bb span[style*="width: 72px; height: 72px"],.bb span[style*="width: 56px; height: 56px; border-radius: 28px; background: var(--accent-soft)"]{animation:bb-pop .4s cubic-bezier(.2,.8,.2,1) .25s both}
+.bb [style*="height: 6px"]>[style*="height: 6px"],.bb [style*="height: 4px"]>[style*="height: 4px"]{transform-origin:left center;animation:bb-grow .8s cubic-bezier(.2,.8,.2,1) .3s both;transition:width .45s cubic-bezier(.2,.8,.2,1),background-color .3s}
+.bb div[title][style*="border-radius: 6px 6px 0 0"]{transform-origin:bottom;animation:bb-growy .7s cubic-bezier(.2,.8,.2,1) .3s both}
+.bb polyline{stroke-dasharray:1400;animation:bb-draw 1.1s cubic-bezier(.4,0,.2,1) .3s both}
+.bb button,.bb a{transition:transform .12s ease,background-color .18s ease,color .18s ease,border-color .18s ease,opacity .18s ease}
+.bb button:active:not([disabled]),.bb a:active{transform:scale(.97)}
+.bb .key:active{transform:scale(.92)}
+.bb .knob{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb .switch{transition:background-color .22s}
+.bb span[style*="width: 27px; height: 27px"]{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb span[style*="width: 51px; height: 31px"]{transition:background-color .22s}
+.bb .pw-err{animation:bb-shake .4s ease}
+.bb [role="alert"]:not(:empty),.bb [role="status"]{animation:bb-fade .3s ease-out both}
+.bb .wrap{animation:bb-down .22s ease-out both}
+@media (prefers-reduced-motion: reduce){.bb,.bb *{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="bb bb-light" style="width: 390px; height: 844px; position: relative; overflow: hidden; background: var(--bg); color: var(--ink); font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.4; display: flex; flex-direction: column">
+
+<div style="padding: 48px 16px 10px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; gap: 12px">
+<a href="Main.dc.html" aria-label="Back to home" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+</a>
+<h1 style="flex: 1; margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em">Transactions</h1>
+<a href="AddExpense.dc.html" aria-label="Add transaction" style="width: 44px; height: 44px; border-radius: 22px; background: var(--ink); color: var(--on-ink); display: flex; align-items: center; justify-content: center">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+</a>
+</div>
+<div style="position: relative">
+<label for="tx-q" class="sr">Search transactions</label>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 13px; top: 13px"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4 4"></path></svg>
+<input id="tx-q" class="search" type="search" autocomplete="off" placeholder="Search merchant, note, amount" value="">
+</div>
+<div role="tablist" aria-label="Show" style="display: flex; gap: 2px; padding: 3px; border-radius: 13px; background: var(--soft)">
+
+<button role="tab" aria-selected="false" class="seg">All</button>
+
+<button role="tab" aria-selected="true" class="seg seg-on">Needs a category · 3</button>
+
+</div>
+
+</div>
+
+<div class="scroll" style="flex: 1; overflow-y: auto; padding: 4px 16px 24px; display: flex; flex-direction: column; gap: 14px">
+
+
+
+
+<p style="margin: 0 4px; font-size: 13px; color: var(--muted)">These were saved without a category. Tap a suggestion, or tick several and apply all.</p>
+<div style="display: flex; flex-direction: column; border-radius: 18px; background: var(--surface); padding: 0 14px">
+
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px 0 8px">
+<button aria-pressed="false" aria-label="Select PayPal *Spotify" style="width: 44px; height: 44px; margin: -10px -10px -10px -10px; display: flex; align-items: center; justify-content: center; border: 0; background: none">
+<span class="box">
+
+</span>
+</button>
+<a href="TransactionDetail.dc.html" style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; text-decoration: none">
+<span style="display: flex; justify-content: space-between; gap: 8px">
+<span style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">PayPal *Spotify</span>
+<span class="num" style="font-weight: 500">−€10.99</span>
+</span>
+<span style="font-size: 13px; color: var(--muted)">Today · ING Visa · Alena</span>
+</a>
+</div>
+<div style="display: flex; gap: 8px; padding: 0 0 12px 40px; border-bottom: 1px solid var(--line); margin-top: -1px">
+<button style="height: 36px; padding: 0 12px; border-radius: 18px; background: var(--accent-soft); color: var(--accent); font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Subscriptions</button>
+<button style="height: 36px; padding: 0 12px; border-radius: 18px; border: 1px dashed var(--line); color: var(--muted); font-size: 14px; font-weight: 500">Other…</button>
+</div>
+
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px 0 8px">
+<button aria-pressed="false" aria-label="Select Shell" style="width: 44px; height: 44px; margin: -10px -10px -10px -10px; display: flex; align-items: center; justify-content: center; border: 0; background: none">
+<span class="box">
+
+</span>
+</button>
+<a href="TransactionDetail.dc.html" style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; text-decoration: none">
+<span style="display: flex; justify-content: space-between; gap: 8px">
+<span style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Shell</span>
+<span class="num" style="font-weight: 500">−€68.40</span>
+</span>
+<span style="font-size: 13px; color: var(--muted)">Sun 4 Oct · DKB · Max</span>
+</a>
+</div>
+<div style="display: flex; gap: 8px; padding: 0 0 12px 40px; border-bottom: 1px solid var(--line); margin-top: -1px">
+<button style="height: 36px; padding: 0 12px; border-radius: 18px; background: var(--accent-soft); color: var(--accent); font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Transport</button>
+<button style="height: 36px; padding: 0 12px; border-radius: 18px; border: 1px dashed var(--line); color: var(--muted); font-size: 14px; font-weight: 500">Other…</button>
+</div>
+
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px 0 8px">
+<button aria-pressed="false" aria-label="Select Expense" style="width: 44px; height: 44px; margin: -10px -10px -10px -10px; display: flex; align-items: center; justify-content: center; border: 0; background: none">
+<span class="box">
+
+</span>
+</button>
+<a href="TransactionDetail.dc.html" style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; text-decoration: none">
+<span style="display: flex; justify-content: space-between; gap: 8px">
+<span style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">No merchant</span>
+<span class="num" style="font-weight: 500">−€4.50</span>
+</span>
+<span style="font-size: 13px; color: var(--muted)">Sat 3 Oct · Cash € · Max</span>
+</a>
+</div>
+<div style="display: flex; gap: 8px; padding: 0 0 12px 40px; border-bottom: 0; margin-top: -1px">
+<button style="height: 36px; padding: 0 12px; border-radius: 18px; background: var(--accent-soft); color: var(--accent); font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Eating out</button>
+<button style="height: 36px; padding: 0 12px; border-radius: 18px; border: 1px dashed var(--line); color: var(--muted); font-size: 14px; font-weight: 500">Other…</button>
+</div>
+
+</div>
+
+
+
+</div>
+
+
+
+
+
+</div>
+</body>
+</html>

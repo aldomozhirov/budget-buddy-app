@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Budget Buddy — Transaction</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit}a:hover{color:inherit}
+.bb-light{--bg:#F4F3EF;--surface:#FFFFFF;--ink:#15171A;--on-ink:#F4F3EF;--muted:#5C6168;--line:#E2E0D9;--soft:#EAE8E2;--accent:#1D5C45;--accent-soft:#DCEAE3;--warn:#A2470F;--warn-soft:#F5E2D4;--scrim:rgba(20,20,18,.36)}
+.bb-dark{--bg:#111214;--surface:#1A1C1F;--ink:#F1F0EC;--on-ink:#111214;--muted:#A3A8AF;--line:#2B2E33;--soft:#24272B;--accent:#7CC6A3;--accent-soft:#1D3229;--warn:#F2A574;--warn-soft:#3A2618;--scrim:rgba(0,0,0,.55)}
+.bb button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer}
+.bb .num{font-variant-numeric:tabular-nums}
+.bb svg{flex:none}
+.bb .scroll::-webkit-scrollbar{display:none}
+.bb .field{width:100%;min-height:54px;display:flex;align-items:center;gap:12px;text-align:left;border-bottom:1px solid var(--line)}
+.bb .field-l{flex:none;width:96px;font-size:14px;color:var(--muted)}
+.bb .field-v{flex:1;min-width:0;font-weight:500;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bb .field-link::after{transform:rotate(-45deg);margin-bottom:0}
+.bb .field::after{content:"";flex:none;width:7px;height:7px;margin:0 4px 3px 2px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .2s ease}
+.bb .field[aria-expanded="true"]::after{transform:rotate(-135deg);margin-bottom:-3px}
+.bb .field:active{background:var(--soft)}
+.bb .wrap{display:flex;flex-wrap:wrap;gap:8px;padding:4px 0 14px;border-bottom:1px solid var(--line)}
+.bb .chip{height:40px;padding:0 14px;border-radius:20px;background:var(--bg);border:1px solid var(--line);font-size:14px;font-weight:500;display:flex;align-items:center;white-space:nowrap}
+.bb .chip-on{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.bb .minput{width:100%;box-sizing:border-box;height:48px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:16px;padding:0 12px;outline:none}
+.bb .minput:focus{border-color:var(--ink)}
+.bb .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* motion */
+@keyframes bb-in-fwd{from{transform:translateX(100%)}to{transform:none}}
+@keyframes bb-in-back{from{transform:translateX(-28%);opacity:.6}to{transform:none;opacity:1}}
+@keyframes bb-fade{from{opacity:0}to{opacity:1}}
+@keyframes bb-sheet{from{transform:translateY(100%)}to{transform:none}}
+@keyframes bb-grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes bb-growy{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes bb-draw{from{stroke-dashoffset:1400}to{stroke-dashoffset:0}}
+@keyframes bb-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes bb-shake{0%,100%{transform:none}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+@keyframes bb-down{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.bb.nav-fwd{animation:bb-in-fwd .42s cubic-bezier(.32,.72,0,1) both;box-shadow:-12px 0 32px rgba(0,0,0,.12)}
+.bb.nav-back{animation:bb-in-back .38s cubic-bezier(.32,.72,0,1) both}
+.bb [role="dialog"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both;will-change:transform}
+.bb div[style*="var(--scrim)"],.bb div[style*="rgba(20,20,18,.36)"],.bb div[style*="rgba(20, 20, 18, 0.36)"]{animation:bb-fade .3s ease-out both}
+.bb div[style*="inset: 0"][style*="background: var(--bg)"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both}
+.bb span[style*="width: 72px; height: 72px"],.bb span[style*="width: 56px; height: 56px; border-radius: 28px; background: var(--accent-soft)"]{animation:bb-pop .4s cubic-bezier(.2,.8,.2,1) .25s both}
+.bb [style*="height: 6px"]>[style*="height: 6px"],.bb [style*="height: 4px"]>[style*="height: 4px"]{transform-origin:left center;animation:bb-grow .8s cubic-bezier(.2,.8,.2,1) .3s both;transition:width .45s cubic-bezier(.2,.8,.2,1),background-color .3s}
+.bb div[title][style*="border-radius: 6px 6px 0 0"]{transform-origin:bottom;animation:bb-growy .7s cubic-bezier(.2,.8,.2,1) .3s both}
+.bb polyline{stroke-dasharray:1400;animation:bb-draw 1.1s cubic-bezier(.4,0,.2,1) .3s both}
+.bb button,.bb a{transition:transform .12s ease,background-color .18s ease,color .18s ease,border-color .18s ease,opacity .18s ease}
+.bb button:active:not([disabled]),.bb a:active{transform:scale(.97)}
+.bb .key:active{transform:scale(.92)}
+.bb .knob{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb .switch{transition:background-color .22s}
+.bb span[style*="width: 27px; height: 27px"]{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb span[style*="width: 51px; height: 31px"]{transition:background-color .22s}
+.bb .pw-err{animation:bb-shake .4s ease}
+.bb [role="alert"]:not(:empty),.bb [role="status"]{animation:bb-fade .3s ease-out both}
+.bb .wrap{animation:bb-down .22s ease-out both}
+@media (prefers-reduced-motion: reduce){.bb,.bb *{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div class="bb {{themeClass}}" onClickCapture="{{navCapture}}" style="width: 390px; height: 844px; position: relative; overflow: hidden; background: var(--bg); color: var(--ink); font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.4; display: flex; flex-direction: column">
+
+<div style="padding: 48px 16px 8px; display: flex; align-items: center; gap: 12px">
+<a href="Transactions.dc.html" aria-label="Back to transactions" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+</a>
+<h1 style="flex: 1; margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em">Expense</h1>
+<span style="font-size: 13px; color: var(--muted)">{{savedState}}</span>
+</div>
+
+<div class="scroll" style="flex: 1; overflow-y: auto; padding: 8px 16px 32px; display: flex; flex-direction: column; gap: 14px">
+
+<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 0 8px">
+<button aria-label="Change amount" class="num" style="font-size: 44px; font-weight: 600; letter-spacing: -0.03em">−€64.20</button>
+<span style="font-size: 17px; font-weight: 500">{{merchantValue}}</span>
+<span style="font-size: 13px; color: var(--muted)">{{dateLong}} · paid by {{payerValue}}</span>
+</div>
+
+<sc-if value="{{rulePrompt}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 14px 16px; border-radius: 16px; background: var(--accent-soft); display: flex; flex-direction: column; gap: 10px">
+<span style="font-weight: 600">{{ruleText}}</span>
+<span style="font-size: 13px; color: var(--muted)">New {{merchantValue}} expenses will get this category automatically. You can edit rules in Settings.</span>
+<div style="display: flex; gap: 8px">
+<button onClick="{{saveRule}}" style="height: 40px; padding: 0 14px; border-radius: 20px; background: var(--ink); color: var(--on-ink); font-weight: 600; font-size: 14px">Save rule</button>
+<button onClick="{{dismissRule}}" style="height: 40px; padding: 0 14px; border-radius: 20px; font-weight: 600; font-size: 14px">Just this once</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ruleSaved}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 10px 14px; border-radius: 14px; background: var(--soft); font-size: 14px; display: flex; align-items: center; gap: 8px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>{{ruleSavedText}}</div>
+</sc-if>
+
+<div style="display: flex; flex-direction: column; border-radius: 18px; background: var(--surface); padding: 0 16px">
+<button class="field" onClick="{{toggleCat}}" aria-expanded="{{catOpen}}"><span class="field-l">Category</span><span class="field-v">{{catValue}}</span></button>
+<sc-if value="{{catOpen}}" hint-placeholder-val="{{ false }}">
+<div class="wrap">
+<sc-for list="{{cats}}" as="c" hint-placeholder-count="5">
+<button class="{{c.cls}}" aria-pressed="{{c.on}}" onClick="{{c.pick}}">{{c.label}}</button>
+</sc-for>
+</div>
+</sc-if>
+<button class="field" onClick="{{toggleEnv}}" aria-expanded="{{envOpen}}"><span class="field-l">Envelope</span><span class="field-v">{{envValue}}</span></button>
+<sc-if value="{{envOpen}}" hint-placeholder-val="{{ false }}">
+<div class="wrap">
+<sc-for list="{{envs}}" as="c" hint-placeholder-count="4">
+<button class="{{c.cls}}" aria-pressed="{{c.on}}" onClick="{{c.pick}}">{{c.label}}</button>
+</sc-for>
+</div>
+</sc-if>
+<a class="field field-link" href="AccountDetail.dc.html" style="text-decoration: none; color: var(--ink)"><span class="field-l">Paid from</span><span class="field-v">ING Visa · EUR</span></a>
+<button class="field" onClick="{{togglePayer}}" aria-expanded="{{payerOpen}}"><span class="field-l">Paid by</span><span class="field-v">{{payerValue}}</span></button>
+<sc-if value="{{payerOpen}}" hint-placeholder-val="{{ false }}">
+<div class="wrap">
+<sc-for list="{{payers}}" as="c" hint-placeholder-count="3">
+<button class="{{c.cls}}" aria-pressed="{{c.on}}" onClick="{{c.pick}}">{{c.label}}</button>
+</sc-for>
+</div>
+</sc-if>
+<button class="field" onClick="{{toggleDate}}" aria-expanded="{{dateOpen}}"><span class="field-l">Date</span><span class="field-v num">{{dateValue}}</span></button>
+<sc-if value="{{dateOpen}}" hint-placeholder-val="{{ false }}">
+<div class="wrap">
+<sc-for list="{{dates}}" as="c" hint-placeholder-count="4">
+<button class="{{c.cls}}" aria-pressed="{{c.on}}" onClick="{{c.pick}}">{{c.label}}</button>
+</sc-for>
+<button class="chip" style="border-style: dashed; color: var(--muted)">Other date…</button>
+</div>
+</sc-if>
+<button class="field" onClick="{{toggleMerchant}}" aria-expanded="{{merchantOpen}}"><span class="field-l">Merchant</span><span class="field-v">{{merchantValue}}</span></button>
+<sc-if value="{{merchantOpen}}" hint-placeholder-val="{{ false }}">
+<div class="wrap" style="flex-direction: column; flex-wrap: nowrap">
+<label for="m-in" class="sr">Merchant</label>
+<input id="m-in" class="minput" type="text" autocomplete="off" placeholder="Type a merchant" value="{{merchantDraft}}" onChange="{{onMerchant}}">
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{merchants}}" as="c" hint-placeholder-count="4">
+<button class="{{c.cls}}" onClick="{{c.pick}}">{{c.label}}</button>
+</sc-for>
+</div>
+<button onClick="{{saveMerchant}}" style="height: 44px; border-radius: 14px; background: var(--ink); color: var(--on-ink); font-weight: 600; text-align: center">Save merchant</button>
+</div>
+</sc-if>
+<button class="field" style="border-bottom: 0"><span class="field-l">Note</span><span class="field-v" style="color: var(--muted); font-weight: 400">Add a note</span></button>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 0 4px; font-size: 13px; font-weight: 500; color: var(--muted)">Record</h2>
+<div style="display: flex; flex-direction: column; border-radius: 18px; background: var(--surface); padding: 4px 16px">
+<div style="display: flex; gap: 12px; align-items: center; min-height: 48px; border-bottom: 1px solid var(--line)">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>
+<span style="flex: 1; font-size: 14px">Typed in by Alena</span>
+<span class="num" style="font-size: 13px; color: var(--muted)">12:04</span>
+</div>
+<sc-for list="{{history}}" as="h" hint-placeholder-count="1">
+<div style="display: flex; gap: 12px; align-items: center; min-height: 48px; border-bottom: 1px solid var(--line)">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"></path></svg>
+<span style="flex: 1; font-size: 14px">{{h.text}}</span>
+<span class="num" style="font-size: 13px; color: var(--muted)">{{h.time}}</span>
+</div>
+</sc-for>
+<div style="display: flex; gap: 12px; align-items: center; min-height: 48px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10"></path><path d="M17 17v6M14 20h6"></path></svg>
+<span style="flex: 1; font-size: 14px; color: var(--muted)">Attach receipt</span>
+</div>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<button style="height: 52px; border-radius: 16px; background: var(--surface); font-weight: 600; text-align: center">Split</button>
+<button onClick="{{askDelete}}" style="height: 52px; border-radius: 16px; background: var(--surface); color: var(--warn); font-weight: 600; text-align: center">Delete</button>
+</div>
+</div>
+
+<sc-if value="{{confirmDelete}}" hint-placeholder-val="{{ false }}">
+<div onClick="{{cancelDelete}}" style="position: absolute; inset: 0; background: var(--scrim)"></div>
+<div role="dialog" aria-label="Delete expense" style="position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 24px 24px 0 0; padding: 24px 16px 30px; display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 20px; font-weight: 600">Delete this expense?</h2>
+<p style="margin: 0 0 10px; color: var(--muted)">€64.20 goes back into Groceries. This can’t be undone.</p>
+<a href="Transactions.dc.html" style="height: 56px; border-radius: 18px; background: var(--warn); color: var(--surface); font-weight: 600; font-size: 16px; display: flex; align-items: center; justify-content: center; text-decoration: none">Delete</a>
+<button onClick="{{cancelDelete}}" style="height: 56px; border-radius: 18px; background: var(--bg); font-weight: 600; font-size: 16px; text-align: center">Keep it</button>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { cat: 'Groceries', env: 'Groceries', merchant: 'REWE', merchantDraft: 'REWE', day: 5, payer: 'Alena', open: null, catOpen: false, envOpen: false, rulePrompt: false, ruleSaved: false, history: [], confirmDelete: false };
+  }
+  renderVals() {
+    var self = this;
+    var st = this.state;
+    function dayShort(d) { return d === 5 ? 'Today' : (d === 4 ? 'Yesterday' : ['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed'][(d - 1) % 7] + ' ' + d + ' Oct'); }
+    function dayLong(d) { return (d === 5 ? 'Today, ' : (d === 4 ? 'Yesterday, ' : '')) + d + ' October 2026'; }
+    function toggle(k) { self.setState({ open: self.state.open === k ? null : k, catOpen: false, envOpen: false }); }
+    function change(patch, text) {
+      if (text) patch.history = self.state.history.concat([{ text: text + ' by Alena', time: 'now' }]);
+      self.setState(patch);
+    }
+    var CATS = ['Groceries', 'Eating out', 'Shopping', 'Household', 'Gifts', 'Other'];
+    var ENVS = ['Groceries', 'Eating out', 'Unexpected', 'None'];
+    var cats = CATS.map(function (c) {
+      var on = st.cat === c;
+      return { label: c, on: on, cls: on ? 'chip chip-on' : 'chip', pick: function () {
+        if (c === self.state.cat) { self.setState({ catOpen: false }); return; }
+        self.setState({ cat: c, catOpen: false, rulePrompt: true, ruleSaved: false, history: self.state.history.concat([{ text: 'Category changed to ' + c + ' by Alena', time: 'now' }]) });
+      } };
+    });
+    var envs = ENVS.map(function (e) {
+      var on = st.env === e;
+      return { label: e, on: on, cls: on ? 'chip chip-on' : 'chip', pick: function () {
+        self.setState({ env: e, envOpen: false, history: e === self.state.env ? self.state.history : self.state.history.concat([{ text: 'Envelope changed to ' + e + ' by Alena', time: 'now' }]) });
+      } };
+    });
+    return {
+      themeClass: (this.props.dark ? 'bb-dark' : 'bb-light') + ' ' + (function () { try { return sessionStorage.getItem('bb-nav') === 'back' ? 'nav-back' : 'nav-fwd'; } catch (e) { return 'nav-fwd'; } })(),
+      navCapture: function (e) {
+        var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+        if (!a) return;
+        var href = a.getAttribute('href') || '', label = (a.getAttribute('aria-label') || '') + ' ' + (a.textContent || '');
+        var back = href === 'Main.dc.html' || /^\s*(Back|Close|Cancel|Done|Later|Keep)/.test(label) || /^\s*(Back home|Back to)/.test(a.textContent || '');
+        try { sessionStorage.setItem('bb-nav', back ? 'back' : 'fwd'); if (!back) sessionStorage.setItem('bb-from:' + href, 'TransactionDetail.dc.html'); } catch (err) {}
+      },
+      savedState: st.history.length ? 'Saved' : '',
+      catValue: st.cat,
+      envValue: st.env,
+      catOpen: st.catOpen,
+      envOpen: st.envOpen,
+      toggleCat: function () { self.setState({ catOpen: !self.state.catOpen, envOpen: false, open: null }); },
+      toggleEnv: function () { self.setState({ envOpen: !self.state.envOpen, catOpen: false, open: null }); },
+      merchantValue: st.merchant || 'No merchant',
+      payerValue: st.payer,
+      dateValue: (st.day < 10 ? '0' : '') + st.day + '/10/2026',
+      dateLong: dayLong(st.day),
+      payerOpen: st.open === 'payer', dateOpen: st.open === 'date', merchantOpen: st.open === 'merchant',
+      togglePayer: function () { toggle('payer'); },
+      toggleDate: function () { toggle('date'); },
+      toggleMerchant: function () { toggle('merchant'); self.setState({ merchantDraft: self.state.merchant || '' }); },
+      payers: ['Alena', 'Max', 'Sofia'].map(function (m) {
+        var on = st.payer === m;
+        return { label: m, on: on, cls: on ? 'chip chip-on' : 'chip', pick: function () { change({ payer: m, open: null }, m === self.state.payer ? null : 'Paid by changed to ' + m); } };
+      }),
+      dates: [5, 4, 3, 2].map(function (d) {
+        var on = st.day === d;
+        return { label: dayShort(d), on: on, cls: on ? 'chip chip-on' : 'chip', pick: function () { change({ day: d, open: null }, d === self.state.day ? null : 'Date changed to ' + dayShort(d)); } };
+      }),
+      merchantDraft: st.merchantDraft,
+      onMerchant: function (e) { self.setState({ merchantDraft: e.target.value }); },
+      merchants: ['REWE', 'Lidl', 'Edeka', 'Aldi', 'Wochenmarkt'].filter(function (m) { var q = (st.merchantDraft || '').toLowerCase(); return !q || m.toLowerCase().indexOf(q) >= 0; }).map(function (m) {
+        return { label: m, cls: st.merchantDraft === m ? 'chip chip-on' : 'chip', pick: function () { self.setState({ merchantDraft: m }); } };
+      }),
+      saveMerchant: function () { var m = self.state.merchantDraft.trim(); change({ merchant: m || null, open: null }, m === self.state.merchant ? null : (m ? 'Merchant changed to ' + m : 'Merchant removed')); },
+      cats: cats,
+      envs: envs,
+      rulePrompt: st.rulePrompt,
+      ruleText: 'Always label ' + st.merchant + ' as ' + st.cat + '?',
+      saveRule: function () { self.setState({ rulePrompt: false, ruleSaved: true }); },
+      dismissRule: function () { self.setState({ rulePrompt: false }); },
+      ruleSaved: st.ruleSaved,
+      ruleSavedText: 'Rule saved: ' + st.merchant + ' → ' + st.cat,
+      history: st.history,
+      askDelete: function () { self.setState({ confirmDelete: true }); },
+      cancelDelete: function () { self.setState({ confirmDelete: false }); },
+      confirmDelete: st.confirmDelete
+    };
+  }
+}
+</script>
+</body>
+</html>

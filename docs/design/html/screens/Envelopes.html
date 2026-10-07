@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Budget Buddy — Envelopes</title>
+<!-- Static export of the prototype screen "Envelopes" (prototype file Envelopes.dc.html), default state.
+     Generated on 2026-10-06. Layout and copy are the reference; see docs/design/html/README.md. -->
+<link rel="stylesheet" href="../fonts/geist.css">
+<style>
+body{margin:0}
+a{color:inherit}a:hover{color:inherit}
+.bb-light{--bg:#F4F3EF;--surface:#FFFFFF;--ink:#15171A;--on-ink:#F4F3EF;--muted:#5C6168;--line:#E2E0D9;--soft:#EAE8E2;--accent:#1D5C45;--accent-soft:#DCEAE3;--warn:#A2470F;--warn-soft:#F5E2D4}
+.bb-dark{--bg:#111214;--surface:#1A1C1F;--ink:#F1F0EC;--on-ink:#111214;--muted:#A3A8AF;--line:#2B2E33;--soft:#24272B;--accent:#7CC6A3;--accent-soft:#1D3229;--warn:#F2A574;--warn-soft:#3A2618}
+.bb button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer}
+.bb .num{font-variant-numeric:tabular-nums}
+.bb svg{flex:none}
+.bb .scroll::-webkit-scrollbar{display:none}
+
+/* motion */
+@keyframes bb-in-fwd{from{transform:translateX(100%)}to{transform:none}}
+@keyframes bb-in-back{from{transform:translateX(-28%);opacity:.6}to{transform:none;opacity:1}}
+@keyframes bb-fade{from{opacity:0}to{opacity:1}}
+@keyframes bb-sheet{from{transform:translateY(100%)}to{transform:none}}
+@keyframes bb-grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes bb-growy{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes bb-draw{from{stroke-dashoffset:1400}to{stroke-dashoffset:0}}
+@keyframes bb-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes bb-shake{0%,100%{transform:none}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+@keyframes bb-down{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+
+.bb [role="dialog"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both;will-change:transform}
+.bb div[style*="var(--scrim)"],.bb div[style*="rgba(20,20,18,.36)"],.bb div[style*="rgba(20, 20, 18, 0.36)"]{animation:bb-fade .3s ease-out both}
+.bb div[style*="inset: 0"][style*="background: var(--bg)"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both}
+.bb span[style*="width: 72px; height: 72px"],.bb span[style*="width: 56px; height: 56px; border-radius: 28px; background: var(--accent-soft)"]{animation:bb-pop .4s cubic-bezier(.2,.8,.2,1) .25s both}
+.bb [style*="height: 6px"]>[style*="height: 6px"],.bb [style*="height: 4px"]>[style*="height: 4px"]{transform-origin:left center;animation:bb-grow .8s cubic-bezier(.2,.8,.2,1) .3s both;transition:width .45s cubic-bezier(.2,.8,.2,1),background-color .3s}
+.bb div[title][style*="border-radius: 6px 6px 0 0"]{transform-origin:bottom;animation:bb-growy .7s cubic-bezier(.2,.8,.2,1) .3s both}
+.bb polyline{stroke-dasharray:1400;animation:bb-draw 1.1s cubic-bezier(.4,0,.2,1) .3s both}
+.bb button,.bb a{transition:transform .12s ease,background-color .18s ease,color .18s ease,border-color .18s ease,opacity .18s ease}
+.bb button:active:not([disabled]),.bb a:active{transform:scale(.97)}
+.bb .key:active{transform:scale(.92)}
+.bb .knob{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb .switch{transition:background-color .22s}
+.bb span[style*="width: 27px; height: 27px"]{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb span[style*="width: 51px; height: 31px"]{transition:background-color .22s}
+.bb .pw-err{animation:bb-shake .4s ease}
+.bb [role="alert"]:not(:empty),.bb [role="status"]{animation:bb-fade .3s ease-out both}
+.bb .wrap{animation:bb-down .22s ease-out both}
+@media (prefers-reduced-motion: reduce){.bb,.bb *{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="bb bb-light" style="width: 390px; height: 844px; position: relative; overflow: hidden; background: var(--bg); color: var(--ink); font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.4; display: flex; flex-direction: column">
+
+<div style="padding: 48px 16px 8px; display: flex; align-items: center; gap: 12px">
+<a href="Main.dc.html" aria-label="Back to home" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+</a>
+<div style="flex: 1; display: flex; flex-direction: column">
+<h1 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em">Envelopes</h1>
+<span style="font-size: 13px; color: var(--muted)">October · next top-up on 1 November</span>
+</div>
+<button aria-label="New envelope" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+</button>
+</div>
+
+<div class="scroll" style="flex: 1; overflow-y: auto; padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 12px">
+
+<div style="display: flex; align-items: baseline; justify-content: space-between; padding: 0 4px">
+<span style="color: var(--muted); font-size: 14px">Left in all envelopes</span>
+<span class="num" style="font-size: 17px; font-weight: 600">€548.10</span>
+</div>
+
+<a href="EnvelopeDetail.dc.html" style="display: flex; flex-direction: column; gap: 10px; padding: 18px 16px; border-radius: 20px; background: var(--surface); text-decoration: none">
+<span style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-weight: 600; font-size: 17px">Groceries</span>
+<span style="font-size: 12px; font-weight: 500; color: var(--muted); padding: 3px 8px; border-radius: 6px; background: var(--soft)">Resets monthly</span>
+</span>
+<span class="num" style="font-size: 30px; font-weight: 600; letter-spacing: -0.02em">€187.60 <span style="font-size: 15px; font-weight: 500; color: var(--muted); letter-spacing: 0">left</span></span>
+<span style="display: block; height: 6px; border-radius: 3px; background: var(--soft); overflow: hidden"><span style="display: block; height: 6px; width: 62%; border-radius: 3px; background: var(--accent)"></span></span>
+<span class="num" style="font-size: 13px; color: var(--muted)">€312.40 spent of €500.00 · 6 expenses</span>
+</a>
+
+<a href="EnvelopeDetail.dc.html" style="display: flex; flex-direction: column; gap: 10px; padding: 18px 16px; border-radius: 20px; background: var(--surface); text-decoration: none; box-shadow: inset 0 0 0 1.5px var(--warn)">
+<span style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-weight: 600; font-size: 17px">Eating out</span>
+<span style="font-size: 12px; font-weight: 500; color: var(--muted); padding: 3px 8px; border-radius: 6px; background: var(--soft)">Resets monthly</span>
+</span>
+<span class="num" style="font-size: 30px; font-weight: 600; letter-spacing: -0.02em; color: var(--warn)">−€14.50 <span style="font-size: 15px; font-weight: 500; letter-spacing: 0">overspent</span></span>
+<span style="display: block; height: 6px; border-radius: 3px; background: var(--soft); overflow: hidden"><span style="display: block; height: 6px; width: 100%; border-radius: 3px; background: var(--warn)"></span></span>
+<span class="num" style="font-size: 13px; color: var(--muted)">€214.50 spent of €200.00 · 4 expenses</span>
+</a>
+
+<a href="EnvelopeDetail.dc.html" style="display: flex; flex-direction: column; gap: 10px; padding: 18px 16px; border-radius: 20px; background: var(--surface); text-decoration: none">
+<span style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-weight: 600; font-size: 17px">Unexpected</span>
+<span style="font-size: 12px; font-weight: 500; color: var(--muted); padding: 3px 8px; border-radius: 6px; background: var(--soft)">Carries over</span>
+</span>
+<span class="num" style="font-size: 30px; font-weight: 600; letter-spacing: -0.02em">€375.00 <span style="font-size: 15px; font-weight: 500; color: var(--muted); letter-spacing: 0">left</span></span>
+<span style="display: block; height: 6px; border-radius: 3px; background: var(--soft); overflow: hidden"><span style="display: block; height: 6px; width: 11%; border-radius: 3px; background: var(--accent)"></span></span>
+<span class="num" style="font-size: 13px; color: var(--muted)">€45.00 spent of €420.00 · €300.00 + €120.00 carried from September</span>
+</a>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 4px">
+<a href="EnvelopeDetail.dc.html" style="height: 52px; border-radius: 16px; background: var(--surface); font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; color: var(--ink)">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h15l-3-3"></path><path d="M20 16H5l3 3"></path></svg>Move money</a>
+<a href="EnvelopeDetail.dc.html" style="height: 52px; border-radius: 16px; background: var(--surface); font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; color: var(--ink)">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5"></path><path d="M4 19h16"></path><path d="M7 15l4-4 3 3 5-6"></path></svg>History</a>
+</div>
+
+<a href="#" style="display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0 4px; text-decoration: none; color: var(--muted); font-size: 14px">
+<span>Archived envelopes · 1</span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+</div>
+
+</div>
+</body>
+</html>

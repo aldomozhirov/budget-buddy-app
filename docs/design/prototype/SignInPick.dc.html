@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Budget Buddy — Choose profile</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit}a:hover{color:inherit}
+.bb-light{--bg:#F4F3EF;--surface:#FFFFFF;--ink:#15171A;--on-ink:#F4F3EF;--muted:#5C6168;--line:#E2E0D9;--soft:#EAE8E2;--accent:#1D5C45;--accent-soft:#DCEAE3;--warn:#A2470F;--warn-soft:#F5E2D4}
+.bb-dark{--bg:#111214;--surface:#1A1C1F;--ink:#F1F0EC;--on-ink:#111214;--muted:#A3A8AF;--line:#2B2E33;--soft:#24272B;--accent:#7CC6A3;--accent-soft:#1D3229;--warn:#F2A574;--warn-soft:#3A2618}
+.bb button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer}
+.bb svg{flex:none}
+.bb .primary{height:56px;border-radius:18px;background:var(--ink);color:var(--on-ink);font-weight:600;font-size:17px;display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;text-align:center}
+.bb .primary-off{background:var(--soft);color:var(--muted)}
+.bb .secondary{height:56px;border-radius:18px;background:var(--surface);font-weight:600;font-size:17px;display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;text-align:center}
+.bb .link{min-height:44px;font-size:15px;font-weight:500;color:var(--muted);text-align:center}
+.bb .pw{width:100%;box-sizing:border-box;height:56px;border-radius:16px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:17px;padding:0 52px 0 16px;outline:none}
+.bb .pw:focus{border-color:var(--ink)}
+.bb .pw-err{border-color:var(--warn)}
+.bb .who{width:100%;min-height:64px;display:flex;align-items:center;gap:14px;padding:0 16px;border-radius:18px;background:var(--surface);text-align:left;text-decoration:none}
+.bb .ava{width:40px;height:40px;border-radius:20px;background:var(--ink);color:var(--on-ink);display:flex;align-items:center;justify-content:center;font-weight:600;flex:none}
+.bb .switch{width:51px;height:31px;border-radius:16px;background:var(--line);position:relative;flex:none}
+.bb .switch-on{background:var(--accent)}
+.bb .knob{position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:14px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.bb .knob-on{left:22px}
+.bb .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* motion */
+@keyframes bb-in-fwd{from{transform:translateX(100%)}to{transform:none}}
+@keyframes bb-in-back{from{transform:translateX(-28%);opacity:.6}to{transform:none;opacity:1}}
+@keyframes bb-fade{from{opacity:0}to{opacity:1}}
+@keyframes bb-sheet{from{transform:translateY(100%)}to{transform:none}}
+@keyframes bb-grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes bb-growy{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes bb-draw{from{stroke-dashoffset:1400}to{stroke-dashoffset:0}}
+@keyframes bb-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes bb-shake{0%,100%{transform:none}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+@keyframes bb-down{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.bb.nav-fwd{animation:bb-in-fwd .42s cubic-bezier(.32,.72,0,1) both;box-shadow:-12px 0 32px rgba(0,0,0,.12)}
+.bb.nav-back{animation:bb-in-back .38s cubic-bezier(.32,.72,0,1) both}
+.bb [role="dialog"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both;will-change:transform}
+.bb div[style*="var(--scrim)"],.bb div[style*="rgba(20,20,18,.36)"],.bb div[style*="rgba(20, 20, 18, 0.36)"]{animation:bb-fade .3s ease-out both}
+.bb div[style*="inset: 0"][style*="background: var(--bg)"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both}
+.bb span[style*="width: 72px; height: 72px"],.bb span[style*="width: 56px; height: 56px; border-radius: 28px; background: var(--accent-soft)"]{animation:bb-pop .4s cubic-bezier(.2,.8,.2,1) .25s both}
+.bb [style*="height: 6px"]>[style*="height: 6px"],.bb [style*="height: 4px"]>[style*="height: 4px"]{transform-origin:left center;animation:bb-grow .8s cubic-bezier(.2,.8,.2,1) .3s both;transition:width .45s cubic-bezier(.2,.8,.2,1),background-color .3s}
+.bb div[title][style*="border-radius: 6px 6px 0 0"]{transform-origin:bottom;animation:bb-growy .7s cubic-bezier(.2,.8,.2,1) .3s both}
+.bb polyline{stroke-dasharray:1400;animation:bb-draw 1.1s cubic-bezier(.4,0,.2,1) .3s both}
+.bb button,.bb a{transition:transform .12s ease,background-color .18s ease,color .18s ease,border-color .18s ease,opacity .18s ease}
+.bb button:active:not([disabled]),.bb a:active{transform:scale(.97)}
+.bb .key:active{transform:scale(.92)}
+.bb .knob{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb .switch{transition:background-color .22s}
+.bb span[style*="width: 27px; height: 27px"]{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb span[style*="width: 51px; height: 31px"]{transition:background-color .22s}
+.bb .pw-err{animation:bb-shake .4s ease}
+.bb [role="alert"]:not(:empty),.bb [role="status"]{animation:bb-fade .3s ease-out both}
+.bb .wrap{animation:bb-down .22s ease-out both}
+@media (prefers-reduced-motion: reduce){.bb,.bb *{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div class="bb {{themeClass}}" onClickCapture="{{navCapture}}" style="width: 390px; height: 844px; position: relative; overflow: hidden; background: var(--bg); color: var(--ink); font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.4; display: flex; flex-direction: column; padding: 0 24px 40px; box-sizing: border-box">
+
+<div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 14px; padding-top: 40px">
+<span aria-hidden="true" style="width: 64px; height: 64px; border-radius: 18px; background: var(--ink); color: var(--on-ink); display: flex; align-items: center; justify-content: center">
+<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5"></rect><path d="M3 10h18"></path><path d="M15.5 14.5h2.5"></path><path d="M7 6V4.5h10V6"></path></svg>
+</span>
+<h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.02em">Budget Buddy</h1>
+</div>
+
+<sc-if value="{{isPassword}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<input class="sr" type="text" autocomplete="username" value="family" tabindex="-1" aria-hidden="true">
+<div style="position: relative">
+<label for="pw" class="sr">Family password</label>
+<input id="pw" class="{{pwCls}}" type="{{pwType}}" autocomplete="current-password" placeholder="Family password" value="{{pw}}" onChange="{{onPw}}" disabled="{{locked}}" aria-invalid="{{hasError}}" aria-describedby="pw-msg">
+<button onClick="{{toggleShow}}" aria-label="{{showLabel}}" style="position: absolute; right: 6px; top: 6px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: var(--muted)">
+<sc-if value="{{shown}}" hint-placeholder-val="{{ false }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"></path><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.2"></path><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.9 0 3.6-.6 5-1.5"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg></sc-if>
+<sc-if value="{{notShown}}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg></sc-if>
+</button>
+</div>
+<span id="pw-msg" role="alert" style="min-height: 20px; margin-top: -4px; padding: 0 4px; font-size: 14px; color: var(--warn)">{{error}}</span>
+<sc-if value="{{canGo}}" hint-placeholder-val="{{ false }}">
+<sc-if value="{{hasDefault}}" hint-placeholder-val="{{ true }}">
+<a href="Main.dc.html" class="primary">Sign in</a>
+</sc-if>
+<sc-if value="{{noDefault}}" hint-placeholder-val="{{ false }}">
+<button class="primary" onClick="{{toProfiles}}">Sign in</button>
+</sc-if>
+</sc-if>
+<sc-if value="{{cannotGo}}" hint-placeholder-val="{{ true }}">
+<button class="{{btnCls}}" onClick="{{tryWrong}}" disabled="{{btnDisabled}}">{{btnLabel}}</button>
+</sc-if>
+<sc-if value="{{hasDefault}}" hint-placeholder-val="{{ true }}">
+<a href="Main.dc.html" class="secondary">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"></path><path d="M9 9.5v1M15 9.5v1M12 9.5v3.5h-1"></path><path d="M9.5 15.5a3.5 3.5 0 0 0 5 0"></path></svg>
+Use Face ID</a>
+<span style="text-align: center; font-size: 13px; color: var(--muted)">Opens as Alena on this iPhone</span>
+</sc-if>
+<button class="link" onClick="{{toggleHelp}}" aria-expanded="{{help}}">Forgot password?</button>
+<sc-if value="{{help}}" hint-placeholder-val="{{ false }}">
+<p style="margin: -6px 0 0; padding: 12px 14px; border-radius: 14px; background: var(--soft); font-size: 14px">Anyone in the family who is still signed in can set a new one in Settings → Family password. If nobody is, reset it on the Mac mini as the README describes.</p>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{isProfile}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h2 style="margin: 0; font-size: 20px; font-weight: 600; text-align: center">Who’s using this iPhone?</h2>
+<p style="margin: 0 0 10px; text-align: center; font-size: 14px; color: var(--muted)">New expenses and check-ins are recorded under this name.</p>
+<sc-for list="{{profiles}}" as="m" hint-placeholder-count="3">
+<a href="Main.dc.html" class="who">
+<span class="ava">{{m.initial}}</span>
+<span style="flex: 1; font-weight: 500; font-size: 17px">{{m.name}}</span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+</sc-for>
+<button onClick="{{toggleRemember}}" role="switch" aria-checked="{{remember}}" style="display: flex; align-items: center; gap: 12px; min-height: 56px; margin-top: 8px; padding: 0 4px; text-align: left">
+<span style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 500">Remember on this device</span><span style="font-size: 13px; color: var(--muted)">Skip this question next time</span></span>
+<span class="{{remCls}}"><span class="{{remKnob}}"></span></span>
+</button>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"start":{"editor":"enum","options":["password","profile","locked"],"default":"profile"},"deviceDefault":{"editor":"boolean","default":true},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    var s = props.start || 'password';
+    this.state = { step: s === 'profile' ? 'profile' : 'password', pw: s === 'locked' ? 'wrong' : '', show: false, fails: s === 'locked' ? 3 : 0, lockLeft: s === 'locked' ? 30 : 0, lastWrong: s === 'locked' ? 'wrong' : null, help: false, remember: true };
+    this.timer = null;
+  }
+  componentDidMount() { if (this.state.lockLeft > 0) this.tick(); }
+  componentWillUnmount() { if (this.timer) clearInterval(this.timer); }
+  tick() {
+    var self = this;
+    if (this.timer) clearInterval(this.timer);
+    this.timer = setInterval(function () {
+      var n = self.state.lockLeft - 1;
+      if (n <= 0) { clearInterval(self.timer); self.timer = null; self.setState({ lockLeft: 0, pw: '', fails: 0 }); }
+      else self.setState({ lockLeft: n });
+    }, 1000);
+  }
+  renderVals() {
+    var self = this;
+    var st = this.state;
+    var hasDefault = (this.props.deviceDefault ?? true) && (this.props.start || 'password') !== 'profile';
+    var locked = st.lockLeft > 0;
+    var isWrong = st.pw.trim().toLowerCase() === 'wrong';
+    var filled = st.pw.length > 0;
+    var error = '';
+    if (locked) error = 'Too many tries. Try again in ' + st.lockLeft + ' s.';
+    else if (st.fails > 0 && st.lastWrong === st.pw) error = 'That password doesn’t match. ' + (3 - st.fails) + (3 - st.fails === 1 ? ' try' : ' tries') + ' before a short wait.';
+    return {
+      themeClass: (this.props.dark ? 'bb-dark' : 'bb-light') + ' ' + (function () { try { return sessionStorage.getItem('bb-nav') === 'back' ? 'nav-back' : 'nav-fwd'; } catch (e) { return 'nav-fwd'; } })(),
+      navCapture: function (e) {
+        var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+        if (!a) return;
+        var href = a.getAttribute('href') || '', label = (a.getAttribute('aria-label') || '') + ' ' + (a.textContent || '');
+        var back = href === 'Main.dc.html' || /^\s*(Back|Close|Cancel|Done|Later|Keep)/.test(label) || /^\s*(Back home|Back to)/.test(a.textContent || '');
+        try { sessionStorage.setItem('bb-nav', back ? 'back' : 'fwd'); } catch (err) {}
+      },
+      isPassword: st.step === 'password', isProfile: st.step === 'profile',
+      hasDefault: hasDefault, noDefault: !hasDefault,
+      pw: st.pw,
+      onPw: function (e) { self.setState({ pw: e.target.value }); },
+      pwType: st.show ? 'text' : 'password',
+      pwCls: error ? 'pw pw-err' : 'pw',
+      shown: st.show, notShown: !st.show,
+      showLabel: st.show ? 'Hide password' : 'Show password',
+      toggleShow: function () { self.setState({ show: !self.state.show }); },
+      locked: locked, hasError: !!error, error: error,
+      canGo: filled && !isWrong && !locked,
+      cannotGo: !(filled && !isWrong && !locked),
+      btnDisabled: !filled || locked,
+      btnCls: filled && !locked ? 'primary' : 'primary primary-off',
+      btnLabel: locked ? 'Wait ' + st.lockLeft + ' s' : 'Sign in',
+      tryWrong: function () {
+        if (!filled || locked) return;
+        var f = self.state.fails + 1;
+        if (f >= 3) { self.setState({ fails: 3, lockLeft: 30, lastWrong: self.state.pw }); self.tick(); }
+        else self.setState({ fails: f, lastWrong: self.state.pw });
+      },
+      toProfiles: function () { self.setState({ step: 'profile' }); },
+      help: st.help,
+      toggleHelp: function () { self.setState({ help: !self.state.help }); },
+      profiles: ['Alena', 'Max', 'Sofia'].map(function (m) { return { name: m, initial: m.charAt(0) }; }),
+      remember: st.remember,
+      remCls: st.remember ? 'switch switch-on' : 'switch',
+      remKnob: st.remember ? 'knob knob-on' : 'knob',
+      toggleRemember: function () { self.setState({ remember: !self.state.remember }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

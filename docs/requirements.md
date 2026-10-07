@@ -1,6 +1,6 @@
 # Budget Buddy: product requirements
 
-Status: approved by the owner on 2026-10-05. This document is the input for the `plan` agent. It is not a spec and contains no task list.
+Status: approved by the owner on 2026-10-05. Amended on 2026-10-06 after the prototype review: sign-in with a family password and profiles, the private home screen, and how category and envelope are filled in (section 3, MEM, DSH-1, DSH-4, CAT-1, CAT-5, SET-1, section 11). This document is the input for the `plan` agent. It is not a spec and contains no task list.
 
 ## How to use this document
 
@@ -11,6 +11,7 @@ Status: approved by the owner on 2026-10-05. This document is the input for the 
 - Requirement IDs such as `ACC-1` are stable. Cite them in tasks and acceptance criteria.
 - Priorities: **Must** means the spec is not done without it. **Should** is expected, and moves to a later spec only if the owner agrees. **Could** is built only when it is cheap.
 - `plan` cannot edit this file. If a requirement changes during planning, record the change in the spec and tell the owner.
+- How screens look and behave is in `docs/design-spec.md`, which cites these IDs. Read it before planning or building any screen.
 
 ## 1. Purpose and background
 
@@ -40,7 +41,7 @@ The product is successful when:
 
 | Topic | Fact |
 |---|---|
-| Members | Two or three adults who trust each other fully. Each has a login. |
+| Members | Two or three adults who trust each other fully. They share one family password, and each has a profile. |
 | Devices | iPhone and iPad, using the app installed on the Home Screen from Safari. Desktop browsers should work but are not the design target. |
 | Host | A Mac mini (Apple M6, 32 GB, macOS 27) at home, always on. |
 | Installed on the host | Docker through Rancher Desktop, Tailscale, Node 24, and LM Studio with a local model (Qwen 3.8 27B, MLX 4-bit). |
@@ -66,6 +67,8 @@ The product is successful when:
 | Common currency | Chosen in settings, EUR at first. | Owner's decision. |
 | Rates | Each figure is converted at the rate of its own date. Charts can switch to today's rates. | The bot converts all history at today's rate; both views are useful. |
 | Visibility | Every member sees and edits everything. There are no roles. | Full trust inside the family. |
+| Sign-in | One family password and one profile per member. A device remembers a default profile and opens it after the password. | Owner's decision after the prototype review: simpler than a login each. Attribution to a profile relies on the same trust. |
+| Privacy in public | The home screen hides amounts until a member reveals them (DSH-1). | The app is opened in shops and on public transport. |
 | Language | English only. | Owner's decision. The bot is in Russian; the change is deliberate. |
 | Reminders | An in-app banner and an iOS push notification. No Telegram. | Owner's decision. |
 | Investments | The Trade Republic portfolio is one EUR value, not a list of holdings. Each crypto coin is an account in its own unit. | Holdings are not needed to measure wealth or leaks. |
@@ -93,7 +96,7 @@ Outbound only: public price feeds, Apple push service
 
 | Term | Meaning |
 |---|---|
-| Member | A person with a login. |
+| Member | A person in the family, with a profile. Everything they record is attributed to their profile. |
 | Account | A place where money is or is owed. It belongs to one member and has a type, one currency or coin, an active flag and a data source (by hand, statement import or connector). |
 | Balance snapshot | The balance of an account at a moment, with its source: opening, by hand, check-in, carried forward, photo, statement or connector. |
 | Check-in | A round in which every active account gets a fresh snapshot. The owner also calls it "accounts sync". The bot calls it a poll. |
@@ -181,12 +184,12 @@ How a record arrives depends on its source:
 
 ### MEM: members and sign-in (spec 1)
 
-- **MEM-1 (Must).** On first start, when no member exists, the app shows a setup screen that creates the first member.
-- **MEM-2 (Must).** A member signs in with a name and a password. The device stays signed in until the member signs out or the session expires.
-- **MEM-3 (Must).** Any signed-in member can add a member, rename one, set a new password for one, and deactivate or reactivate one. A deactivated member cannot sign in. Their accounts and history stay.
+- **MEM-1 (Must).** On first start, when no member exists, the app shows a setup screen that sets the family password and creates a profile for each member, at least one.
+- **MEM-2 (Must).** A device signs in with the family password and then opens a profile: the device's default profile, or one the member picks, optionally remembered as the default. A signed-in member can switch to another profile and set or clear the device's default profile at any time. The device stays signed in until it signs out or the session expires.
+- **MEM-3 (Must).** Any signed-in member can add a profile, rename one, and deactivate or reactivate one. A deactivated profile cannot be opened. Its accounts and history stay. Any signed-in member can change the family password, which signs out every other device.
 - **MEM-4 (Must).** Every member can see and change all data. There are no roles and no private accounts.
 - **MEM-5 (Must).** Every snapshot, transaction and envelope adjustment stores who created it, who last changed it, and when. A corrected balance keeps its previous values in a change history.
-- **MEM-6 (Could).** Sign-in with a passkey (Face ID or Touch ID).
+- **MEM-6 (Could).** A device can be unlocked with a passkey (Face ID or Touch ID) instead of the family password.
 
 ### ACC: accounts (spec 1)
 
@@ -207,7 +210,7 @@ How a record arrives depends on its source:
 - **CHK-2 (Must).** Settings hold one check-in cadence for the family: off, monthly on a chosen day of the month, or every N weeks on a chosen weekday, each with a time of day. At that moment the app opens a check-in if none is open and reminds every active member (NTF-2).
 - **CHK-3 (Should).** While a check-in is open, each member who still has accounts without a value gets a follow-up reminder at an interval set in settings.
 - **CHK-4 (Must).** When a member starts a check-in by hand, the other members are notified and told who started it.
-- **CHK-5 (Must).** The check-in screen shows all active accounts of the signed-in member on one screen, each with its name, currency, last balance and the date of that balance. For each account the member either taps "unchanged" or enters a new amount (ACC-9). The member can switch to another member's accounts and fill those in too.
+- **CHK-5 (Must).** The check-in screen shows all active accounts of the signed-in member on one screen, each with its name, currency, last balance and the date of that balance. For each account the member either taps "unchanged" (labelled "Same" in the design) or enters a new amount (ACC-9). "Unchanged" stores a fresh snapshot equal to the previous balance; only an account left without a value is carried forward (CHK-8). The member can switch to another member's accounts and fill those in too.
 - **CHK-6 (Must).** Each value is saved on the server as soon as it is entered. An open check-in survives a restart of the app or the server and can be continued on another device.
 - **CHK-7 (Must).** A value can be changed until the check-in closes. After that it is corrected through ACC-7.
 - **CHK-8 (Must).** The check-in closes by itself when every active account of every member has a value. Any member can also close it earlier. Each account without a value then gets its previous balance, marked as carried forward.
@@ -228,10 +231,10 @@ How a record arrives depends on its source:
 
 ### DSH: home screen and wealth history (spec 1)
 
-- **DSH-1 (Must).** The home screen shows current wealth: the equivalent in the common currency, the total per currency, and the date of the oldest balance included. It shows a banner while a check-in is open.
+- **DSH-1 (Must).** The home screen shows current wealth as one equivalent in the common currency, with the change since the previous check-in and that check-in's date; the wealth figure opens the latest check-in summary, where the totals per currency are (SUM-2). Amounts on the home screen are hidden every time the app opens, are revealed for 30 seconds on request, and can be set to show by default per device. It shows a banner while a check-in is open; the banner contains no amounts.
 - **DSH-2 (Must).** A wealth history view charts wealth over time for a chosen period, broken down by currency, by account type or by member.
 - **DSH-3 (Should).** A balance older than the check-in cadence is marked as stale wherever it is shown.
-- **DSH-4 (Must, from spec 2).** The home screen offers "add expense" in one tap and shows the envelope balances.
+- **DSH-4 (Must, from spec 2).** The home screen offers "add expense" in one tap and shows the envelopes of the current month. While amounts are hidden (DSH-1) it shows each envelope's share used and whether it is overspent instead of its balance.
 
 ### CUR: currencies and rates (spec 1)
 
@@ -253,7 +256,7 @@ How a record arrives depends on its source:
 
 ### SET: settings (spec 1)
 
-- **SET-1 (Must).** One settings area holds the members, the common currency, the coin list, the check-in cadence and reminder interval, the notification opt-in for this device, the backup status and the time zone.
+- **SET-1 (Must).** One settings area holds the profiles, the family password, the common currency, the coin list, the check-in cadence and reminder interval, the notification opt-in and the hiding of home screen amounts for this device, the backup status and the time zone.
 - **SET-2 (Must).** Later specs add their settings to the same area: categories, envelopes and rules (spec 2), the model URL (spec 4), tokens and the card mapping (spec 5), connectors (spec 7).
 
 ### BKP: backup and export (spec 1)
@@ -279,11 +282,11 @@ How a record arrives depends on its source:
 
 ### CAT: categories (spec 2)
 
-- **CAT-1 (Must).** Members manage a flat list of categories. Each is either an expense category or an income category. It may name a default envelope, which is pre-selected when the category is picked. A category with transactions can be renamed or archived, not deleted.
+- **CAT-1 (Must).** Members manage a flat list of categories. Each is either an expense category or an income category. It may name a default envelope, which is filled in when an expense with this category is saved without an envelope (CAT-5). A category with transactions can be renamed or archived, not deleted.
 - **CAT-2 (Must).** A category is optional on an expense and on an income. A transaction without one is confirmed like any other, and reports show it under "Uncategorised". A split transaction can have one category per part.
 - **CAT-3 (Must).** First start offers a starter list of categories that the family can edit.
 - **CAT-4 (Could).** Categories can be merged, and grouped one level deep.
-- **CAT-5 (Must).** While a member enters an expense or an income, the app fills in or suggests the category. It pre-selects the category when a rule matches the merchant (CAT-6) or when the chosen envelope names a default category (ENV-1). Otherwise it offers one-tap suggestions: the categories used most often with the same merchant, with the chosen envelope, and by this member recently. The member can change the category or leave it empty.
+- **CAT-5 (Must).** While a member enters an expense or an income, a rule that matches the merchant (CAT-6) pre-selects its category and envelope, in fields the member has not set by hand. Otherwise the app offers one-tap category suggestions: the categories used most often with the same merchant, with the chosen envelope, and by this member recently. During entry, category and envelope do not fill each other. On saving, an empty envelope takes the category's default envelope (CAT-1) and an empty category takes the envelope's default category (ENV-1), and the confirmation says what was filled in. The member can change either field or leave it empty; to keep an expense out of every envelope despite a default, the member clears the envelope on the saved transaction.
 - **CAT-6 (Must).** A rule maps a merchant text pattern, optionally limited to one account, to a category and an envelope. When a member sets or changes the category of a transaction that has a merchant, the app offers to save that as a rule. Rules can be listed, edited, ordered and deleted in settings.
 - **CAT-7 (Must).** Transactions without a category are collected in a list for later labelling. Each shows a suggested category that is applied with one tap, and several can be labelled at once.
 - **CAT-8 (Must, from spec 4).** When the local model is reachable, it suggests a category for every item that rules and earlier transactions could not label, using the merchant, the note and the receipt content. A model suggestion is applied only when a member accepts it.
@@ -579,7 +582,13 @@ Each entry leaves the app usable on its own. Cross-cutting requirements (section
 
 ### 10.3 Host preparation by the owner
 
-- Set the Mac mini never to sleep and to restart after a power failure. On 2026-10-04 it was set to sleep after one idle minute and not to restart.
+Done on 2026-10-05:
+
+- The Mac mini never sleeps and restarts after a power failure.
+- Automatic login is on, so apps that start at login come back after an outage with nobody at the keyboard. FileVault is off as a result. The disk is therefore not encrypted: the database, images and backups can be read by anyone with physical access to the Mac.
+
+Still to do:
+
 - Make Rancher Desktop and LM Studio, with its local server, start at login.
 - Enable MagicDNS and HTTPS certificates for the Tailscale network. Tailscale publishes the machine's host name in public certificate logs, so the name should be neutral.
 - Install Tailscale on every family phone and tablet and join them to the same network.
@@ -598,7 +607,10 @@ The owner has not confirmed these. Use them as defaults, and change them if the 
 | Time zone (DEP-9) | Europe/Berlin. |
 | Display formats | Dates as DD/MM/YYYY, as in the bot. Amounts as `1,234.56`. |
 | Starter categories (CAT-3) | Expense: Groceries, Eating out, Housing, Utilities, Transport, Health, Insurance, Subscriptions, Shopping, Travel, Leisure, Gifts, Fees and taxes, Other. Income: Salary, Other income. |
-| Who may manage members (MEM-3) | Every member. |
+| Who may manage profiles and the family password (MEM-3) | Every member. |
+| Failed sign-ins (SEC-2) | After three wrong passwords, sign-in waits 30 seconds. |
+| Family password length | At least 10 characters. |
+| Revealed home screen amounts (DSH-1) | Hidden again after 30 seconds. |
 | Within budget (section 4.4) | A month counts as within budget when its closing balance is zero or more. For a carry-over envelope this includes what was carried in. |
 | Category on income (CAT-2) | Optional, as on expenses. |
 | Category suggestions from the model (CAT-8) | Shown as suggestions and never applied without a tap. |

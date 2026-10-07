@@ -4,6 +4,8 @@ Instructions for every agent working in this repository.
 
 Product requirements are in `docs/requirements.md`. Read it before writing or building a spec: it records what the owner has already decided, including the main stack choices.
 
+The design spec is in `docs/design-spec.md`. Read it before planning or building anything on screen: it records the layout, behaviour, copy and visual system the owner approved in the prototype. Build styling on `docs/design/html/bb.css` (documented in `docs/design/html/styleguide.html`), and use `docs/design/html/screens/` (HTML and PNG per screen) as the visual reference. The raw prototype files are in `docs/design/prototype/`.
+
 ## Stack and commands
 
 Not decided yet. The first spec in `docs/specs/` chooses the stack; once it does, record here:

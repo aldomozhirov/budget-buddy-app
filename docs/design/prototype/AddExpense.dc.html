@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Budget Buddy — Add expense</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit}a:hover{color:inherit}
+.bb-light{--bg:#F4F3EF;--surface:#FFFFFF;--ink:#15171A;--on-ink:#F4F3EF;--muted:#5C6168;--line:#E2E0D9;--soft:#EAE8E2;--accent:#1D5C45;--accent-soft:#DCEAE3;--warn:#A2470F;--warn-soft:#F5E2D4;--scrim:rgba(20,20,18,.36)}
+.bb-dark{--bg:#111214;--surface:#1A1C1F;--ink:#F1F0EC;--on-ink:#111214;--muted:#A3A8AF;--line:#2B2E33;--soft:#24272B;--accent:#7CC6A3;--accent-soft:#1D3229;--warn:#F2A574;--warn-soft:#3A2618;--scrim:rgba(0,0,0,.55)}
+.bb button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer}
+.bb .num{font-variant-numeric:tabular-nums}
+.bb svg{flex:none}
+.bb .row{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px}
+.bb .row::-webkit-scrollbar{display:none}
+.bb .chip{flex:none;height:44px;padding:0 16px;border-radius:22px;background:var(--surface);border:1px solid var(--line);font-size:15px;font-weight:500;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.bb .chip-on{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.bb .chip-ghost{background:transparent;color:var(--muted);border-style:dashed}
+.bb .seg{flex:1;height:36px;border-radius:10px;font-size:14px;font-weight:500;color:var(--muted)}
+.bb .seg-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.bb .key{height:42px;border-radius:12px;background:var(--surface);font-size:21px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.bb .key:active{background:var(--soft)}
+.bb .key-op{background:var(--soft);font-size:19px}
+.bb .lbl{font-size:12px;font-weight:500;color:var(--muted);letter-spacing:.02em}
+.bb .search{width:100%;box-sizing:border-box;height:48px;border-radius:14px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:17px;padding:0 14px 0 42px;outline:none}
+.bb .search:focus{border-color:var(--ink)}
+.bb .search::placeholder{color:var(--muted)}
+.bb .opt{width:100%;min-height:56px;display:flex;align-items:center;gap:12px;padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
+.bb .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.bb .sheet-scroll::-webkit-scrollbar{display:none}
+.bb .field-btn{width:100%;height:48px;display:flex;align-items:center;gap:10px;padding:0 12px 0 14px;border-radius:14px;background:var(--surface);border:1px solid var(--line);font-size:15px;box-sizing:border-box}
+.bb .meta{height:52px;padding:0 10px 0 12px;border-radius:14px;background:var(--surface);border:1px solid var(--line);box-shadow:0 1px 0 rgba(0,0,0,.04);display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;min-width:0;text-align:left}
+.bb .meta-set{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.bb .meta-l{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.02em}
+.bb .meta-v{width:100%;display:flex;align-items:center;justify-content:space-between;gap:4px;font-size:14px;font-weight:600}
+.bb .meta-t{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bb .chip-set{background:var(--surface);color:var(--ink);border-style:solid}
+.bb .day{height:44px;border-radius:12px;font-size:16px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.bb .day-on{background:var(--ink);color:var(--on-ink)}
+.bb .day-off{color:var(--line);cursor:default}
+.bb .noteinput{width:100%;box-sizing:border-box;min-height:96px;border-radius:14px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:16px;padding:12px 14px;outline:none;resize:none}
+.bb .noteinput:focus{border-color:var(--ink)}
+
+/* motion */
+@keyframes bb-in-fwd{from{transform:translateX(100%)}to{transform:none}}
+@keyframes bb-in-back{from{transform:translateX(-28%);opacity:.6}to{transform:none;opacity:1}}
+@keyframes bb-fade{from{opacity:0}to{opacity:1}}
+@keyframes bb-sheet{from{transform:translateY(100%)}to{transform:none}}
+@keyframes bb-grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes bb-growy{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes bb-draw{from{stroke-dashoffset:1400}to{stroke-dashoffset:0}}
+@keyframes bb-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes bb-shake{0%,100%{transform:none}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+@keyframes bb-down{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.bb.nav-fwd{animation:bb-in-fwd .42s cubic-bezier(.32,.72,0,1) both;box-shadow:-12px 0 32px rgba(0,0,0,.12)}
+.bb.nav-back{animation:bb-in-back .38s cubic-bezier(.32,.72,0,1) both}
+.bb [role="dialog"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both;will-change:transform}
+.bb div[style*="var(--scrim)"],.bb div[style*="rgba(20,20,18,.36)"],.bb div[style*="rgba(20, 20, 18, 0.36)"]{animation:bb-fade .3s ease-out both}
+.bb div[style*="inset: 0"][style*="background: var(--bg)"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both}
+.bb span[style*="width: 72px; height: 72px"],.bb span[style*="width: 56px; height: 56px; border-radius: 28px; background: var(--accent-soft)"]{animation:bb-pop .4s cubic-bezier(.2,.8,.2,1) .25s both}
+.bb [style*="height: 6px"]>[style*="height: 6px"],.bb [style*="height: 4px"]>[style*="height: 4px"]{transform-origin:left center;animation:bb-grow .8s cubic-bezier(.2,.8,.2,1) .3s both;transition:width .45s cubic-bezier(.2,.8,.2,1),background-color .3s}
+.bb div[title][style*="border-radius: 6px 6px 0 0"]{transform-origin:bottom;animation:bb-growy .7s cubic-bezier(.2,.8,.2,1) .3s both}
+.bb polyline{stroke-dasharray:1400;animation:bb-draw 1.1s cubic-bezier(.4,0,.2,1) .3s both}
+.bb button,.bb a{transition:transform .12s ease,background-color .18s ease,color .18s ease,border-color .18s ease,opacity .18s ease}
+.bb button:active:not([disabled]),.bb a:active{transform:scale(.97)}
+.bb .key:active{transform:scale(.92)}
+.bb .knob{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb .switch{transition:background-color .22s}
+.bb span[style*="width: 27px; height: 27px"]{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb span[style*="width: 51px; height: 31px"]{transition:background-color .22s}
+.bb .pw-err{animation:bb-shake .4s ease}
+.bb [role="alert"]:not(:empty),.bb [role="status"]{animation:bb-fade .3s ease-out both}
+.bb .wrap{animation:bb-down .22s ease-out both}
+@media (prefers-reduced-motion: reduce){.bb,.bb *{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div class="bb {{themeClass}}" onClickCapture="{{navCapture}}" style="width: 390px; height: 844px; position: relative; overflow: hidden; background: var(--bg); color: var(--ink); font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.4; display: flex; flex-direction: column; padding: 46px 16px 20px; box-sizing: border-box; gap: 9px">
+
+<div style="display: flex; align-items: center; gap: 12px">
+<a href="Main.dc.html" aria-label="Close" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</a>
+<div role="tablist" aria-label="Kind" style="flex: 1; display: flex; gap: 2px; padding: 3px; border-radius: 13px; background: var(--soft)">
+<sc-for list="{{kinds}}" as="k" hint-placeholder-count="3">
+<button role="tab" aria-selected="{{k.on}}" class="{{k.cls}}" onClick="{{k.pick}}" style="text-align: center">{{k.label}}</button>
+</sc-for>
+</div>
+</div>
+
+<sc-if value="{{offline}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 10px; background: var(--warn-soft); color: var(--warn); font-size: 13px; font-weight: 500">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"></path><path d="M9 19h8a4 4 0 0 0 1.6-7.7"></path><path d="M6 9.6A5 5 0 0 0 7 19"></path></svg>
+Offline. It stays on this phone and sends itself later.
+</div>
+</sc-if>
+
+<div style="display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0 2px">
+<span class="num" style="height: 18px; font-size: 14px; color: var(--muted)">{{exprLine}}</span>
+<div style="display: flex; align-items: baseline; gap: 8px">
+<span class="num" style="font-size: 46px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; color: {{amountColor}}">{{amountText}}</span>
+<button aria-label="Change currency" style="height: 30px; padding: 0 10px; border-radius: 8px; background: var(--soft); font-size: 13px; font-weight: 600">{{currency}}</button>
+</div>
+<span style="height: 16px; font-size: 12px; color: var(--warn)">{{errorText}}</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="lbl">{{fromLabel}}</span>
+<div class="row">
+<sc-for list="{{accounts}}" as="a" hint-placeholder-count="4">
+<button class="{{a.cls}}" aria-pressed="{{a.on}}" onClick="{{a.pick}}">{{a.label}}</button>
+</sc-for>
+<button class="chip chip-ghost" onClick="{{openAccounts}}" aria-label="All accounts">All…</button>
+</div>
+</div>
+
+<sc-if value="{{isTransfer}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="lbl">To</span>
+<div class="row">
+<sc-for list="{{toAccounts}}" as="a" hint-placeholder-count="4">
+<button class="{{a.cls}}" aria-pressed="{{a.on}}" onClick="{{a.pick}}">{{a.label}}</button>
+</sc-for>
+<button class="chip chip-ghost" onClick="{{openTo}}" aria-label="All accounts">All…</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isExpense}}" hint-placeholder-val="{{ true }}">
+<button class="field-btn" onClick="{{openMerchant}}" aria-label="{{merchantAria}}">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted)"><path d="M4 10l1.5-5h13L20 10"></path><path d="M4 10v9h16v-9"></path><path d="M4 10c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3"></path></svg>
+<span style="flex: 1; min-width: 0; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: {{merchantWeight}}; color: {{merchantColor}}">{{merchantText}}</span>
+<span style="font-size: 12px; color: var(--muted)">{{merchantHint}}</span>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted)"><path d="M9 6l6 6-6 6"></path></svg>
+</button>
+</sc-if>
+
+<sc-if value="{{showCategory}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="lbl">{{catLabel}}</span>
+<div class="row">
+<sc-for list="{{categories}}" as="c" hint-placeholder-count="4">
+<button class="{{c.cls}}" aria-pressed="{{c.on}}" onClick="{{c.pick}}">{{c.label}}</button>
+</sc-for>
+<button class="chip chip-ghost" onClick="{{openCategories}}" aria-label="All categories">All…</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isExpense}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="lbl">{{envLabelText}}</span>
+<div class="row">
+<sc-for list="{{envelopes}}" as="e" hint-placeholder-count="3">
+<button class="{{e.cls}}" aria-pressed="{{e.on}}" onClick="{{e.pick}}">{{e.label}}</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+<button class="{{dateMetaCls}}" onClick="{{openDate}}" aria-label="{{dateAria}}">
+<span class="meta-l"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="13" height="15" rx="2"></rect><path d="M4 10h13M9 3v4M15 3v4"></path></svg>Date</span>
+<span class="meta-v"><span class="meta-t">{{dateLabel}}</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted)"><path d="M6 9l6 6 6-6"></path></svg></span>
+</button>
+<button class="{{payerMetaCls}}" onClick="{{openPayer}}">
+<span class="meta-l"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>{{payerVerbLabel}}</span>
+<span class="meta-v"><span class="meta-t">{{payerValue}}</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted)"><path d="M6 9l6 6 6-6"></path></svg></span>
+</button>
+<button class="{{noteMetaCls}}" onClick="{{openNote}}">
+<span class="meta-l"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"></path></svg>Note</span>
+<span class="meta-v"><span class="meta-t">{{noteValue}}</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted)"><path d="M6 9l6 6 6-6"></path></svg></span>
+</button>
+</div>
+
+<div style="flex: 1"></div>
+
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px">
+<sc-for list="{{keys}}" as="key" hint-placeholder-count="20">
+<button class="{{key.cls}}" aria-label="{{key.aria}}" onClick="{{key.press}}">{{key.label}}</button>
+</sc-for>
+</div>
+
+<button onClick="{{save}}" disabled="{{saveDisabled}}" style="height: 58px; border-radius: 18px; background: {{saveBg}}; color: {{saveFg}}; font-size: 17px; font-weight: 600; text-align: center" class="num">{{saveLabel}}</button>
+
+<sc-if value="{{pickerOpen}}" hint-placeholder-val="{{ false }}">
+<div onClick="{{closePicker}}" style="position: absolute; inset: 0; background: var(--scrim)"></div>
+<div role="dialog" aria-label="{{pickerTitle}}" style="position: absolute; left: 0; right: 0; bottom: 0; top: 96px; background: var(--surface); border-radius: 24px 24px 0 0; padding: 10px 16px 0; display: flex; flex-direction: column; gap: 12px">
+<div aria-hidden="true" style="align-self: center; width: 36px; height: 5px; border-radius: 3px; background: var(--line)"></div>
+<div style="display: flex; align-items: center; gap: 12px">
+<h2 style="flex: 1; margin: 0; font-size: 18px; font-weight: 600">{{pickerTitle}}</h2>
+<button onClick="{{closePicker}}" aria-label="Close" style="width: 44px; height: 44px; border-radius: 22px; background: var(--bg); display: flex; align-items: center; justify-content: center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+</div>
+<div style="position: relative">
+<label for="picker-q" class="sr">{{pickerTitle}}</label>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 14px; top: 15px"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4 4"></path></svg>
+<input id="picker-q" type="search" class="search" autocomplete="off" placeholder="{{pickerPlaceholder}}" value="{{query}}" onChange="{{onQuery}}">
+</div>
+<div class="sheet-scroll" style="flex: 1; overflow-y: auto; margin: 0 -16px; padding: 0 16px 34px">
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
+<div style="display: flex; flex-direction: column">
+<h3 style="margin: 10px 0 2px; font-size: 12px; font-weight: 500; letter-spacing: .02em; color: var(--muted)">{{g.title}}</h3>
+<sc-for list="{{g.items}}" as="o" hint-placeholder-count="4">
+<button class="opt" onClick="{{o.pick}}" aria-pressed="{{o.on}}">
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+<span style="font-weight: 500">{{o.label}}</span>
+<sc-if value="{{o.sub}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 13px; color: var(--muted)">{{o.sub}}</span>
+</sc-if>
+</span>
+<sc-if value="{{o.on}}" hint-placeholder-val="{{ false }}">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+</sc-if>
+</button>
+</sc-for>
+</div>
+</sc-for>
+<sc-if value="{{canCreate}}" hint-placeholder-val="{{ false }}">
+<button class="opt" onClick="{{createCat}}" style="color: var(--accent); font-weight: 600; border-bottom: 0">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+{{createLabel}}
+</button>
+</sc-if>
+<sc-if value="{{noMatch}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 16px 4px; color: var(--muted); font-size: 14px">{{noMatchText}}</p>
+</sc-if>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{miniOpen}}" hint-placeholder-val="{{ false }}">
+<div onClick="{{closeMini}}" style="position: absolute; inset: 0; background: var(--scrim)"></div>
+<div role="dialog" aria-label="{{miniTitle}}" style="position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 24px 24px 0 0; padding: 10px 16px 30px; display: flex; flex-direction: column; gap: 14px">
+<div aria-hidden="true" style="align-self: center; width: 36px; height: 5px; border-radius: 3px; background: var(--line)"></div>
+<div style="display: flex; align-items: center; gap: 12px">
+<h2 style="flex: 1; margin: 0; font-size: 18px; font-weight: 600">{{miniTitle}}</h2>
+<button onClick="{{closeMini}}" aria-label="Close" style="width: 44px; height: 44px; border-radius: 22px; background: var(--bg); display: flex; align-items: center; justify-content: center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+</div>
+<sc-if value="{{isDateSheet}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<sc-for list="{{quickDates}}" as="d" hint-placeholder-count="3">
+<button class="{{d.cls}}" aria-pressed="{{d.on}}" onClick="{{d.pick}}">{{d.label}}</button>
+</sc-for>
+</div>
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 0 4px">
+<button aria-label="Previous month" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg></button>
+<span style="font-weight: 600">October 2026</span>
+<button aria-label="Next month" disabled="{{ true }}" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; opacity: .3"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; text-align: center; font-size: 12px; color: var(--muted)">
+<span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px">
+<sc-for list="{{calDays}}" as="d" hint-placeholder-count="35">
+<button class="{{d.cls}}" onClick="{{d.pick}}" disabled="{{d.off}}" aria-label="{{d.aria}}" aria-pressed="{{d.on}}">{{d.label}}</button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{isPayerSheet}}" hint-placeholder-val="{{ false }}">
+<p style="margin: -6px 0 0; font-size: 13px; color: var(--muted)">{{payerHint}}</p>
+<div role="radiogroup" style="display: flex; flex-direction: column">
+<sc-for list="{{payers}}" as="m" hint-placeholder-count="3">
+<button class="opt" role="radio" aria-checked="{{m.on}}" onClick="{{m.pick}}">
+<span style="width: 36px; height: 36px; border-radius: 18px; background: var(--ink); color: var(--on-ink); display: flex; align-items: center; justify-content: center; font-weight: 600; flex: none">{{m.initial}}</span>
+<span style="flex: 1; font-weight: 500">{{m.label}}</span>
+<sc-if value="{{m.on}}" hint-placeholder-val="{{ false }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></sc-if>
+</button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{isNoteSheet}}" hint-placeholder-val="{{ false }}">
+<label for="note-in" class="sr">Note</label>
+<textarea id="note-in" class="noteinput" placeholder="e.g. Birthday cake for Sofia" value="{{noteDraft}}" onChange="{{onNote}}"></textarea>
+<button onClick="{{saveNote}}" style="height: 56px; border-radius: 18px; background: var(--ink); color: var(--on-ink); font-weight: 600; font-size: 16px; text-align: center">Done</button>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{saved}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 32px; box-sizing: border-box; text-align: center">
+<span style="width: 72px; height: 72px; border-radius: 36px; background: var(--accent-soft); display: flex; align-items: center; justify-content: center">
+<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+</span>
+<h2 style="margin: 0; font-size: 22px; font-weight: 600">{{savedTitle}}</h2>
+<p class="num" style="margin: 0; color: var(--muted)">{{savedSummary}}</p>
+<sc-if value="{{savedNoCat}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; font-size: 13px; color: var(--muted); max-width: 260px">No category yet. It waits in <a href="ToLabel.dc.html" style="color: var(--accent); font-weight: 500">Needs a category</a>, with a suggestion.</p>
+</sc-if>
+<sc-if value="{{savedAuto}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; font-size: 13px; color: var(--muted); max-width: 280px">{{savedAutoText}}</p>
+</sc-if>
+<div style="display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 16px">
+<a href="Main.dc.html" style="height: 56px; border-radius: 18px; background: var(--ink); color: var(--on-ink); display: flex; align-items: center; justify-content: center; text-decoration: none; font-weight: 600; font-size: 17px">Done</a>
+<button onClick="{{again}}" style="height: 56px; border-radius: 18px; background: var(--surface); font-weight: 600; font-size: 17px; text-align: center">Add another</button>
+<button onClick="{{undo}}" style="height: 44px; color: var(--muted); font-weight: 500; text-align: center">Undo</button>
+</div>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"offline":{"editor":"boolean","default":false},"picker":{"editor":"enum","options":["none","account","category"],"default":"none"},"pickerQuery":{"editor":"text","default":""},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    var p = props.picker && props.picker !== 'none' ? props.picker : null;
+    this.state = { kind: 'expense', expr: p ? '23.80' : '', acc: 'ing', to: 'cash', env: null, cat: null, envSrc: null, saved: false, picker: p, query: props.pickerQuery || '', customCats: [], extraAcc: null, extraTo: null, extraCat: null, merchant: null, catSrc: null, day: 5, payer: 'Alena', note: '', noteDraft: '', mini: null };
+  }
+  evaluate(s) {
+    var t = s.replace(/−/g, '-').replace(/×/g, '*').replace(/÷/g, '/');
+    var i = 0;
+    function peek() { return t[i]; }
+    function num() {
+      var st = i;
+      while (i < t.length && /[0-9.]/.test(t[i])) i++;
+      var str = t.slice(st, i);
+      if (!str || !/^(\d+\.?\d*|\.\d+)$/.test(str)) throw new Error('num');
+      return parseFloat(str);
+    }
+    function factor() {
+      if (peek() === '-') { i++; return -factor(); }
+      if (peek() === '+') { i++; return factor(); }
+      var v;
+      if (peek() === '(') { i++; v = expr(); if (peek() !== ')') throw new Error('paren'); i++; }
+      else v = num();
+      while (peek() === '%') { i++; v = v / 100; }
+      return v;
+    }
+    function term() {
+      var v = factor();
+      while (peek() === '*' || peek() === '/') {
+        var op = t[i++]; var r = factor();
+        if (op === '/') { if (r === 0) throw new Error('div0'); v = v / r; } else v = v * r;
+      }
+      return v;
+    }
+    function expr() {
+      var v = term();
+      while (peek() === '+' || peek() === '-') {
+        var op = t[i++]; var r = term();
+        v = op === '+' ? v + r : v - r;
+      }
+      return v;
+    }
+    var v = expr();
+    if (i !== t.length) throw new Error('trailing');
+    return Math.round(v * 100) / 100;
+  }
+  tryEval(s) {
+    try { return this.evaluate(s); } catch (e) { return null; }
+  }
+  renderVals() {
+    var self = this;
+    var st = this.state;
+    function fmt(v) { return Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function A(id, label, name, owner, cur, sym, type) { return { id: id, label: label, name: name, owner: owner, cur: cur, sym: sym, type: type }; }
+    var ACC = [
+      A('ing', 'ING Visa', 'ING Girokonto', 'You', 'EUR', '€', 'Bank'),
+      A('cash', 'Cash €', 'Cash', 'You', 'EUR', '€', 'Cash'),
+      A('rev', 'Revolut', 'Revolut', 'You', 'EUR', '€', 'Bank'),
+      A('wise', 'Wise $', 'Wise', 'You', 'USD', '$', 'Bank'),
+      A('cashusd', 'Cash $', 'Cash', 'You', 'USD', '$', 'Cash'),
+      A('ingx', 'ING Extra', 'ING Extra-Konto', 'You', 'EUR', '€', 'Bank'),
+      A('revusd', 'Revolut $', 'Revolut', 'You', 'USD', '$', 'Bank'),
+      A('tbank', 'T-Bank ₽', 'T-Bank', 'You', 'RUB', '₽', 'Bank'),
+      A('tr', 'Trade Republic', 'Trade Republic', 'You', 'EUR', '€', 'Investment'),
+      A('m-ing', 'Max · ING', 'ING Girokonto', 'Max', 'EUR', '€', 'Bank'),
+      A('m-dkb', 'Max · DKB', 'DKB', 'Max', 'EUR', '€', 'Bank'),
+      A('m-rev', 'Max · Revolut', 'Revolut', 'Max', 'EUR', '€', 'Bank'),
+      A('m-wise', 'Max · Wise', 'Wise', 'Max', 'EUR', '€', 'Bank'),
+      A('m-cash', 'Max · Cash €', 'Cash', 'Max', 'EUR', '€', 'Cash'),
+      A('s-n26', 'Sofia · N26', 'N26', 'Sofia', 'EUR', '€', 'Bank'),
+      A('s-rev', 'Sofia · Revolut', 'Revolut', 'Sofia', 'EUR', '€', 'Bank'),
+      A('s-cash', 'Sofia · Cash €', 'Cash', 'Sofia', 'EUR', '€', 'Cash'),
+      A('s-tbank', 'Sofia · T-Bank ₽', 'T-Bank', 'Sofia', 'RUB', '₽', 'Bank')
+    ];
+    var TOP = ['ing', 'cash', 'rev', 'wise', 'cashusd'];
+    function accById(id) { return ACC.filter(function (a) { return a.id === id; })[0]; }
+    var ENV = [
+      { id: 'groceries', label: 'Groceries', cat: 'Groceries' },
+      { id: 'eating', label: 'Eating out', cat: 'Eating out' },
+      { id: 'unexpected', label: 'Unexpected', cat: null }
+    ];
+    var ALL_EXP = ['Groceries', 'Eating out', 'Housing', 'Utilities', 'Transport', 'Health', 'Insurance', 'Subscriptions', 'Shopping', 'Travel', 'Leisure', 'Gifts', 'Fees and taxes', 'Other'].concat(st.customCats);
+    var ALL_INC = ['Salary', 'Other income'];
+    var SUGG_EXP = ['Groceries', 'Eating out', 'Transport', 'Shopping'];
+    var RECENT_EXP = ['Groceries', 'Eating out', 'Transport'];
+    var CAT_ENV = { 'Groceries': 'groceries', 'Eating out': 'eating', 'Health': 'unexpected', 'Gifts': 'unexpected' };
+    this.chooseCat = function (c, toggle) {
+      if (toggle && self.state.cat === c) { self.setState({ cat: null, catSrc: null }); return; }
+      var patch = { cat: c, catSrc: null };
+      if ((isIncome ? ALL_INC : SUGG_EXP).indexOf(c) < 0) patch.extraCat = c;
+      self.setState(patch);
+    };
+    var MERCH = [
+      { n: 'REWE', cat: 'Groceries', env: 'groceries' }, { n: 'Lidl', cat: 'Groceries', env: 'groceries' },
+      { n: 'Bäckerei Müller', cat: 'Groceries', env: 'groceries' }, { n: 'Lieferando', cat: 'Eating out', env: 'eating' },
+      { n: 'Shell', cat: 'Transport', env: null }, { n: 'dm', cat: null, env: null },
+      { n: 'Edeka', cat: 'Groceries', env: 'groceries' }, { n: 'Aldi', cat: 'Groceries', env: 'groceries' },
+      { n: 'Sushi Ya', cat: 'Eating out', env: 'eating' }, { n: 'Apotheke', cat: 'Health', env: 'unexpected' },
+      { n: 'Amazon', cat: 'Shopping', env: 'unexpected' }
+    ];
+    // a merchant rule pre-selects category and envelope, but never overrides a manual pick
+    this.applyMerchant = function (m) {
+      var s = self.state, patch = { merchant: m.n, picker: null, query: '' };
+      if (s.kind === 'expense') {
+        if (!s.cat || s.catSrc === 'rule') {
+          patch.cat = m.cat || null; patch.catSrc = m.cat ? 'rule' : null;
+          if (m.cat && SUGG_EXP.indexOf(m.cat) < 0) patch.extraCat = m.cat;
+        }
+        if (!s.env || s.envSrc === 'rule') { patch.env = m.env || null; patch.envSrc = m.env ? 'rule' : null; }
+      }
+      self.setState(patch);
+    };
+
+    var acc = accById(st.acc);
+    var isExpense = st.kind === 'expense';
+    var isIncome = st.kind === 'income';
+    var isTransfer = st.kind === 'transfer';
+
+    var expr = st.expr;
+    var hasOp = /[+−×÷%()]/.test(expr.replace(/^−/, ''));
+    var value = expr ? this.tryEval(expr) : null;
+    var partial = value;
+    if (expr && value === null) {
+      var trimmed = expr.replace(/[+−×÷(]+$/, '');
+      partial = trimmed ? this.tryEval(trimmed) : null;
+    }
+    var typingOp = expr && value === null && /[+−×÷(]$/.test(expr);
+    var shown = value !== null ? value : partial;
+    var amountText = shown === null ? acc.sym + '0' : (shown < 0 ? '−' : '') + acc.sym + fmt(shown);
+    var errorText = expr && value === null && !typingOp ? 'Can’t calculate that. Check the brackets.' : '';
+    var valid = value !== null && value !== 0;
+
+    function press(k) {
+      return function () {
+        var e = self.state.expr;
+        if (k === 'C') e = '';
+        else if (k === '⌫') e = e.slice(0, -1);
+        else e = (e + k).slice(0, 40);
+        self.setState({ expr: e });
+      };
+    }
+    var KEYS = ['7', '8', '9', '(', ')', '4', '5', '6', '×', '÷', '1', '2', '3', '+', '−', '.', '0', '%', '⌫', 'C'];
+    var ARIA = { '(': 'Open bracket', ')': 'Close bracket', '×': 'Multiply', '÷': 'Divide', '+': 'Plus', '−': 'Minus', '%': 'Percent', '⌫': 'Delete', 'C': 'Clear', '.': 'Decimal point' };
+    var keys = KEYS.map(function (k) {
+      var op = !/[0-9.]/.test(k);
+      return { label: k, aria: ARIA[k] || k, cls: op ? 'key key-op' : 'key', press: press(k) };
+    });
+
+    var kinds = [
+      { id: 'expense', label: 'Expense' },
+      { id: 'income', label: 'Income' },
+      { id: 'transfer', label: 'Transfer' }
+    ].map(function (k) {
+      var on = st.kind === k.id;
+      return { label: k.label, on: on, cls: on ? 'seg seg-on' : 'seg', pick: function () { self.setState({ kind: k.id, cat: null, catSrc: null, env: null, envSrc: null }); } };
+    });
+
+    function pickFrom(id) {
+      var to = self.state.to === id ? (id === 'cash' ? 'ing' : 'cash') : self.state.to;
+      var patch = { acc: id, to: to };
+      if (TOP.indexOf(id) < 0) patch.extraAcc = id;
+      self.setState(patch);
+    }
+    function pickTo(id) {
+      var patch = { to: id };
+      if (TOP.indexOf(id) < 0) patch.extraTo = id;
+      self.setState(patch);
+    }
+    var fromIds = (st.extraAcc ? [st.extraAcc] : []).concat(TOP);
+    var accounts = fromIds.map(function (id) {
+      var a = accById(id); var on = st.acc === id;
+      return { label: a.label, on: on, cls: on ? 'chip chip-on' : 'chip', pick: function () { pickFrom(id); } };
+    });
+    var toIds = (st.extraTo ? [st.extraTo] : []).concat(TOP).filter(function (id) { return id !== st.acc; });
+    var toAccounts = toIds.map(function (id) {
+      var a = accById(id); var on = st.to === id;
+      return { label: a.label, on: on, cls: on ? 'chip chip-on' : 'chip', pick: function () { pickTo(id); } };
+    });
+
+    var envelopes = ENV.map(function (e) {
+      var on = st.env === e.id;
+      return { label: e.label, on: on, cls: on ? 'chip chip-on' : 'chip', pick: function () {
+        self.setState({ env: self.state.env === e.id ? null : e.id, envSrc: null });
+      } };
+    });
+
+    function pickCat(c) {
+      self.chooseCat(c, false);
+    }
+    var catRow = isIncome ? ALL_INC.slice() : SUGG_EXP.slice();
+    if (st.extraCat && catRow.indexOf(st.extraCat) < 0 && !isIncome) catRow.unshift(st.extraCat);
+    var categories = catRow.map(function (c) {
+      var on = st.cat === c;
+      return { label: c, on: on, cls: on ? 'chip chip-on' : 'chip', pick: function () {
+        self.chooseCat(c, true);
+      } };
+    });
+
+    // ---- search sheet ----
+    var q = (st.query || '').trim().toLowerCase();
+    var tokens = q ? q.split(/\s+/) : [];
+    function matches(hay) {
+      var words = hay.toLowerCase();
+      return tokens.every(function (t) { return words.indexOf(t) >= 0; });
+    }
+    var groups = [];
+    var canCreate = false, createLabel = '', noMatch = false, noMatchText = '';
+    var pickerTitle = '', pickerPlaceholder = '';
+    if (st.picker === 'account' || st.picker === 'to') {
+      var forTo = st.picker === 'to';
+      pickerTitle = forTo ? 'Transfer to' : (isIncome ? 'Paid into' : 'Paid from');
+      pickerPlaceholder = 'Search: bank, person, currency';
+      var selected = forTo ? st.to : st.acc;
+      var pool = ACC.filter(function (a) { return !(forTo && a.id === st.acc); });
+      function item(a) {
+        return { label: a.name + ' · ' + a.cur, sub: (a.owner === 'You' ? 'Yours' : a.owner + '’s') + ' · ' + a.type, on: a.id === selected,
+          pick: function () { if (forTo) pickTo(a.id); else pickFrom(a.id); self.setState({ picker: null, query: '' }); } };
+      }
+      if (!tokens.length) {
+        ['You', 'Max', 'Sofia'].forEach(function (o) {
+          var items = pool.filter(function (a) { return a.owner === o; }).map(item);
+          if (items.length) groups.push({ title: o === 'You' ? 'Yours' : o + '’s', items: items });
+        });
+      } else {
+        var hits = pool.filter(function (a) {
+          return matches([a.name, a.label, a.cur, a.type, a.owner, a.owner === 'You' ? 'mine alena' : ''].join(' '));
+        }).map(item);
+        if (hits.length) groups.push({ title: hits.length + (hits.length === 1 ? ' match' : ' matches'), items: hits });
+        else { noMatch = true; noMatchText = 'No account matches “' + st.query.trim() + '”. Accounts are added in Accounts.'; }
+      }
+    } else if (st.picker === 'category') {
+      pickerTitle = 'Category';
+      pickerPlaceholder = 'Search or add a category';
+      var all = isIncome ? ALL_INC : ALL_EXP;
+      function citem(c) {
+        return { label: c, sub: '', on: st.cat === c, pick: function () { pickCat(c); self.setState({ picker: null, query: '' }); } };
+      }
+      if (!tokens.length) {
+        if (!isIncome) groups.push({ title: 'Recent', items: RECENT_EXP.map(citem) });
+        groups.push({ title: 'All categories', items: all.slice().sort().map(citem) });
+      } else {
+        var chits = all.filter(function (c) { return matches(c); }).sort().map(citem);
+        if (chits.length) groups.push({ title: chits.length + (chits.length === 1 ? ' match' : ' matches'), items: chits });
+        var exact = all.some(function (c) { return c.toLowerCase() === q; });
+        if (!exact) {
+          canCreate = true;
+          var name = st.query.trim();
+          name = name.charAt(0).toUpperCase() + name.slice(1);
+          createLabel = 'Add category “' + name + '”';
+        }
+      }
+    } else if (st.picker === 'merchant') {
+      pickerTitle = 'Merchant';
+      pickerPlaceholder = 'Search or type a merchant';
+      var mitem = function (m) {
+        var envL = m.env ? ENV.filter(function (e) { return e.id === m.env; })[0].label : null;
+        return { label: m.n, sub: m.cat ? 'Rule: ' + m.cat + (envL && envL !== m.cat ? ' · ' + envL : '') : 'Used before', on: st.merchant === m.n,
+          pick: function () { self.applyMerchant(m); } };
+      };
+      if (!tokens.length) {
+        groups.push({ title: 'Recent', items: MERCH.slice(0, 6).map(mitem) });
+      } else {
+        var mh = MERCH.filter(function (m) { return matches(m.n); }).map(mitem);
+        if (mh.length) groups.push({ title: mh.length + (mh.length === 1 ? ' match' : ' matches'), items: mh });
+        var mexact = MERCH.some(function (m) { return m.n.toLowerCase() === q; });
+        if (!mexact) { canCreate = true; createLabel = 'Use “' + st.query.trim() + '”'; }
+      }
+    }
+
+    // date, payer, note
+    var WDN = ['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed'];
+    function dayName(d) { return d === 5 ? 'Today' : (d === 4 ? 'Yesterday' : WDN[(d - 1) % 7] + ' ' + d + ' Oct'); }
+    var quickDates = [5, 4, 3].map(function (d) {
+      var on = st.day === d;
+      return { label: dayName(d), on: on, cls: on ? 'chip chip-on' : 'chip', pick: function () { self.setState({ day: d, mini: null }); } };
+    });
+    var calDays = [];
+    for (var b = 0; b < 3; b++) calDays.push({ label: '', cls: 'day', off: true, aria: '', on: false, pick: function () {} });
+    for (var dd = 1; dd <= 31; dd++) (function (d) {
+      var future = d > 5, on = st.day === d;
+      calDays.push({ label: String(d), off: future, on: on, aria: d + ' October', cls: on ? 'day day-on' : (future ? 'day day-off' : 'day'), pick: function () { if (!future) self.setState({ day: d, mini: null }); } });
+    })(dd);
+    var MEMBERS = ['Alena', 'Max', 'Sofia'];
+    var payers = MEMBERS.map(function (m) {
+      var on = st.payer === m;
+      return { label: m === 'Alena' ? 'Alena (you)' : m, initial: m.charAt(0), on: on, pick: function () { self.setState({ payer: m, mini: null }); } };
+    });
+    var payerVerb = isIncome ? 'Received by' : (isTransfer ? 'Done by' : 'Paid by');
+
+    // merchant rules pre-select; otherwise empty fields are filled post-factum on save
+    function envById(id) { return ENV.filter(function (e) { return e.id === id; })[0]; }
+    var rule = st.merchant ? MERCH.filter(function (m) { return m.n === st.merchant; })[0] : null;
+    var finalCat = st.cat, catFrom = null;
+    if (!finalCat && isExpense && st.env && envById(st.env).cat) { finalCat = envById(st.env).cat; catFrom = 'the ' + envById(st.env).label + ' envelope'; }
+    if (!finalCat && isExpense && rule && rule.cat) { finalCat = rule.cat; catFrom = 'the ' + rule.n + ' rule'; }
+    var finalEnv = st.env, envFrom = null;
+    if (!st.env && isExpense && st.cat && CAT_ENV[st.cat]) { finalEnv = CAT_ENV[st.cat]; envFrom = 'the ' + st.cat + ' category'; }
+    if (!st.env && !finalEnv && isExpense && rule && rule.env) { finalEnv = rule.env; envFrom = 'the ' + rule.n + ' rule'; }
+    if (!st.env && !finalEnv && isExpense && !st.cat && finalCat && CAT_ENV[finalCat]) { finalEnv = CAT_ENV[finalCat]; envFrom = 'the ' + rule.n + ' rule'; }
+    var envLabel = finalEnv ? envById(finalEnv).label : null;
+    var toAcc = accById(st.to);
+    var parts = [];
+    if (value !== null) parts.push((value < 0 ? '−' : '') + acc.sym + fmt(value));
+    if (st.merchant && isExpense) parts.push(st.merchant);
+    if (st.day !== 5) parts.push(dayName(st.day));
+    if (st.payer !== 'Alena') parts.push(payerVerb.toLowerCase() + ' ' + st.payer);
+    parts.push(isTransfer ? acc.label + ' → ' + toAcc.label : acc.label);
+    if (envLabel) parts.push(envLabel);
+    if (finalCat && finalCat !== envLabel) parts.push(finalCat);
+
+    var offline = !!this.props.offline;
+    var noun = isExpense ? 'Expense' : isIncome ? 'Income' : 'Transfer';
+    return {
+      themeClass: (this.props.dark ? 'bb-dark' : 'bb-light') + ' ' + (function () { try { return sessionStorage.getItem('bb-nav') === 'back' ? 'nav-back' : 'nav-fwd'; } catch (e) { return 'nav-fwd'; } })(),
+      navCapture: function (e) {
+        var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+        if (!a) return;
+        var href = a.getAttribute('href') || '', label = (a.getAttribute('aria-label') || '') + ' ' + (a.textContent || '');
+        var back = href === 'Main.dc.html' || /^\s*(Back|Close|Cancel|Done|Later|Keep)/.test(label) || /^\s*(Back home|Back to)/.test(a.textContent || '');
+        try { sessionStorage.setItem('bb-nav', back ? 'back' : 'fwd'); } catch (err) {}
+      },
+      offline: offline,
+      kinds: kinds,
+      isExpense: isExpense,
+      isTransfer: isTransfer,
+      showCategory: !isTransfer,
+      fromLabel: isExpense ? 'Paid from' : isIncome ? 'Paid into' : 'From',
+      catLabel: st.cat && st.catSrc === 'rule' ? 'Category · from ' + st.merchant + ' rule' : !st.cat && catFrom ? 'Category · optional · if empty, ' + finalCat : 'Category · optional',
+      accounts: accounts,
+      toAccounts: toAccounts,
+      envelopes: envelopes,
+      categories: categories,
+      keys: keys,
+      currency: acc.cur,
+      exprLine: hasOp ? expr : '',
+      amountText: amountText,
+      amountColor: shown === null ? 'var(--muted)' : 'var(--ink)',
+      errorText: errorText,
+      saveDisabled: !valid,
+      saveBg: valid ? 'var(--ink)' : 'var(--soft)',
+      saveFg: valid ? 'var(--on-ink)' : 'var(--muted)',
+      saveLabel: valid ? 'Save ' + (value < 0 ? '−' : '') + acc.sym + fmt(value) : 'Enter an amount',
+      save: function () { if (valid) self.setState({ saved: true }); },
+      saved: st.saved,
+      savedTitle: offline ? noun + ' saved on this phone' : noun + ' saved',
+      savedSummary: parts.join(' · '),
+      savedNoCat: !isTransfer && !finalCat,
+      savedAuto: !!(catFrom || envFrom),
+      savedAutoText: [envFrom ? envLabel + ' envelope added from ' + envFrom : '', catFrom ? finalCat + ' category added from ' + catFrom : ''].filter(Boolean).join('. ') + '.',
+      again: function () { self.setState({ saved: false, expr: '', env: null, envSrc: null, cat: null, catSrc: null, merchant: null, note: '' }); },
+      undo: function () { self.setState({ saved: false }); },
+      openAccounts: function () { self.setState({ picker: 'account', query: '' }); },
+      openTo: function () { self.setState({ picker: 'to', query: '' }); },
+      openCategories: function () { self.setState({ picker: 'category', query: '' }); },
+      closePicker: function () { self.setState({ picker: null, query: '' }); },
+      pickerOpen: !!st.picker,
+      pickerTitle: pickerTitle,
+      pickerPlaceholder: pickerPlaceholder,
+      query: st.query,
+      onQuery: function (e) { self.setState({ query: e.target.value }); },
+      groups: groups,
+      canCreate: canCreate,
+      createLabel: createLabel,
+      createCat: function () {
+        if (self.state.picker === 'merchant') { self.applyMerchant({ n: self.state.query.trim(), cat: null, env: null }); return; }
+        var name = self.state.query.trim();
+        name = name.charAt(0).toUpperCase() + name.slice(1);
+        self.setState({ customCats: self.state.customCats.concat([name]), cat: name, catSrc: null, extraCat: name, picker: null, query: '' });
+      },
+      noMatch: noMatch,
+      noMatchText: noMatchText,
+      merchantLabel: st.merchant ? st.merchant : '+ Merchant',
+      envLabelText: st.env && st.envSrc === 'rule' ? 'Envelope · from ' + st.merchant + ' rule' : (!st.env && envFrom ? 'Envelope · optional · if empty, ' + envLabel : 'Envelope · optional'),
+      merchantText: st.merchant ? st.merchant : 'Add merchant',
+      merchantHint: st.merchant ? ((st.catSrc === 'rule' || st.envSrc === 'rule') ? 'Rule applied · change' : 'Change') : 'Optional',
+      merchantWeight: st.merchant ? '600' : '400',
+      merchantColor: st.merchant ? 'var(--ink)' : 'var(--muted)',
+      dateMetaCls: st.day !== 5 ? 'meta meta-set' : 'meta',
+      payerMetaCls: st.payer !== 'Alena' ? 'meta meta-set' : 'meta',
+      noteMetaCls: st.note ? 'meta meta-set' : 'meta',
+      payerVerbLabel: payerVerb,
+      payerValue: st.payer,
+      noteValue: st.note ? st.note : 'Add',
+      merchantCls: st.merchant ? 'chip chip-set' : 'chip chip-ghost',
+      merchantAria: st.merchant ? 'Merchant: ' + st.merchant + '. Change' : 'Add merchant',
+      openMerchant: function () { self.setState({ picker: 'merchant', query: '' }); },
+      dateLabel: dayName(st.day),
+      dateCls: st.day !== 5 ? 'chip chip-set' : 'chip chip-ghost',
+      dateAria: 'Date: ' + dayName(st.day) + '. Change',
+      openDate: function () { self.setState({ mini: 'date' }); },
+      payerLabel: payerVerb + ' ' + st.payer,
+      payerCls: st.payer !== 'Alena' ? 'chip chip-set' : 'chip chip-ghost',
+      openPayer: function () { self.setState({ mini: 'payer' }); },
+      noteLabel: st.note ? '“' + (st.note.length > 18 ? st.note.slice(0, 18) + '…' : st.note) + '”' : '+ Note',
+      noteCls: st.note ? 'chip chip-set' : 'chip chip-ghost',
+      openNote: function () { self.setState({ mini: 'note', noteDraft: self.state.note }); },
+      miniOpen: !!st.mini,
+      miniTitle: st.mini === 'date' ? 'Date' : (st.mini === 'payer' ? payerVerb : 'Note'),
+      closeMini: function () { self.setState({ mini: null }); },
+      isDateSheet: st.mini === 'date', isPayerSheet: st.mini === 'payer', isNoteSheet: st.mini === 'note',
+      quickDates: quickDates, calDays: calDays, payers: payers,
+      payerHint: isIncome ? 'Who received the money.' : 'Who paid. The account above stays as picked.',
+      noteDraft: st.noteDraft,
+      onNote: function (e) { self.setState({ noteDraft: e.target.value }); },
+      saveNote: function () { self.setState({ note: self.state.noteDraft.trim(), mini: null }); }
+    };
+  }
+}
+</script>
+</body>
+</html>
