@@ -22,6 +22,7 @@ Tasks:
 Options:
   --spec <file>    spec to build from (default: docs/specs/01-foundation-and-wealth.md)
   --model <model>  model for the build agent, e.g. openai/gpt-6.1-sol#high
+                   (default: the model and effort in .opencode/agents/build.md)
   --dry-run        show what would be built and stop
   -h, --help       show this help
 
@@ -101,8 +102,17 @@ done
 # Build in spec order, each task once.
 TASKS=($(printf '%s\n' "${TASKS[@]}" | sort -n -u))
 
+# `opencode run` does not apply the agent's own model, so pass it explicitly.
+if [ -z "$MODEL" ]; then
+  AGENT_FILE=".opencode/agents/build.md"
+  MODEL=$(sed -n 's/^model: *//p' "$AGENT_FILE" | head -1)
+  EFFORT=$(sed -n 's/^reasoningEffort: *//p' "$AGENT_FILE" | head -1)
+  [ -n "$MODEL" ] || die "no model in $AGENT_FILE; pass --model"
+  [ -n "$EFFORT" ] && MODEL="$MODEL#$EFFORT"
+fi
+
 echo "Spec: $SPEC"
-[ -n "$MODEL" ] && echo "Model: $MODEL"
+echo "Model: $MODEL"
 echo "Plan:"
 TODO=0
 for t in "${TASKS[@]}"; do
@@ -155,8 +165,7 @@ for t in "${TASKS[@]}"; do
   echo
   echo "── Task $t: $(title_of "$t") ── $(date '+%H:%M')"
   TASK_START=$(date +%s)
-  ARGS=(run --agent build --auto --title "Task $t")
-  [ -n "$MODEL" ] && ARGS+=(--model "$MODEL")
+  ARGS=(run --agent build --auto --title "Task $t" --model "$MODEL")
   opencode "${ARGS[@]}" "Build task $t of $SPEC." 2>&1 | tee "$LOG_DIR/task-$t.log"
 
   if ! is_done "$t"; then
