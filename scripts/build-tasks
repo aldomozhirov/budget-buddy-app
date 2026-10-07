@@ -1,0 +1,180 @@
+#!/usr/bin/env bash
+# Build spec tasks unattended: one OpenCode build session per task, in order.
+# Stops at the first task that does not end ticked, committed and pushed.
+
+set -u
+
+SPEC="docs/specs/01-foundation-and-wealth.md"
+MODEL=""
+DRY_RUN=0
+SELECTORS=()
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/build-tasks <tasks>... [options]
+
+Tasks:
+  6-9          a range
+  4 5 12       single tasks
+  B            every task of milestone B
+  Any mix works: scripts/build-tasks 4 5 B 10-12
+
+Options:
+  --spec <file>    spec to build from (default: docs/specs/01-foundation-and-wealth.md)
+  --model <model>  model for the build agent, e.g. openai/gpt-6.1-sol#high
+  --dry-run        show what would be built and stop
+  -h, --help       show this help
+
+Tasks already ticked are skipped, so the same command resumes a stopped run.
+Logs go to .data/build-logs/.
+EOF
+}
+
+die() {
+  echo "build-tasks: $*" >&2
+  exit 1
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --spec) [ $# -ge 2 ] || die "--spec needs a file"; SPEC="$2"; shift 2 ;;
+    --model) [ $# -ge 2 ] || die "--model needs a value"; MODEL="$2"; shift 2 ;;
+    --dry-run) DRY_RUN=1; shift ;;
+    -h | --help) usage; exit 0 ;;
+    -*) die "unknown option $1 (see --help)" ;;
+    *) SELECTORS+=("$1"); shift ;;
+  esac
+done
+
+[ ${#SELECTORS[@]} -gt 0 ] || { usage; exit 1; }
+
+cd "$(git -C "$(dirname "$0")" rev-parse --show-toplevel)" || die "not in a git repository"
+[ -f "$SPEC" ] || die "spec not found: $SPEC"
+command -v opencode >/dev/null || die "opencode is not on PATH"
+
+is_task() { grep -q "^- \[[ x]\] \*\*$1\. " "$SPEC"; }
+is_done() { grep -q "^- \[x\] \*\*$1\. " "$SPEC"; }
+title_of() { sed -n "s/^- \[[ x]\] \*\*$1\. \(.*\)\*\*.*/\1/p" "$SPEC" | sed 's/\.$//'; }
+
+milestone_tasks() {
+  awk -v m="$1" '
+    /^### Milestone / { inside = ($3 == m ":") }
+    /^## / { inside = 0 }
+    inside && /^- \[[ x]\] \*\*[0-9]+\. / { n = $0; sub(/^- \[[ x]\] \*\*/, "", n); sub(/\..*/, "", n); print n }
+  ' "$SPEC"
+}
+
+# Task numbers on the "Depends:" line of a task; "all" means every other task.
+depends_of() {
+  local line
+  line=$(awk -v t="$1" '
+    /^- \[[ x]\] \*\*[0-9]+\. / { n = $0; sub(/^- \[[ x]\] \*\*/, "", n); sub(/\..*/, "", n); inside = (n == t) }
+    inside && /Depends:/ { print; exit }
+  ' "$SPEC" | sed -e 's/.*Depends: //' -e 's/Parallel:.*//' -e 's/\. .*//')
+  if echo "$line" | grep -qw "all"; then
+    grep -o "^- \[[ x]\] \*\*[0-9]*\. " "$SPEC" | grep -o "[0-9]\+" | grep -vx "$1"
+  else
+    echo "$line" | grep -o "[0-9]\+"
+  fi
+}
+
+TASKS=()
+for sel in "${SELECTORS[@]}"; do
+  if [[ "$sel" =~ ^[0-9]+$ ]]; then
+    TASKS+=("$sel")
+  elif [[ "$sel" =~ ^([0-9]+)-([0-9]+)$ ]]; then
+    [ "${BASH_REMATCH[1]}" -le "${BASH_REMATCH[2]}" ] || die "range $sel runs backwards"
+    for ((t = BASH_REMATCH[1]; t <= BASH_REMATCH[2]; t++)); do TASKS+=("$t"); done
+  elif [[ "$sel" =~ ^[A-Za-z]$ ]]; then
+    letter=$(echo "$sel" | tr '[:lower:]' '[:upper:]')
+    found=$(milestone_tasks "$letter")
+    [ -n "$found" ] || die "no milestone $letter in $SPEC"
+    for t in $found; do TASKS+=("$t"); done
+  else
+    die "cannot read '$sel' as a task, a range or a milestone letter"
+  fi
+done
+
+for t in "${TASKS[@]}"; do
+  is_task "$t" || die "no task $t in $SPEC"
+done
+# Build in spec order, each task once.
+TASKS=($(printf '%s\n' "${TASKS[@]}" | sort -n -u))
+
+echo "Spec: $SPEC"
+[ -n "$MODEL" ] && echo "Model: $MODEL"
+echo "Plan:"
+TODO=0
+for t in "${TASKS[@]}"; do
+  if is_done "$t"; then
+    printf "  %3s  done   %s\n" "$t" "$(title_of "$t")"
+  else
+    printf "  %3s  build  %s\n" "$t" "$(title_of "$t")"
+    TODO=$((TODO + 1))
+  fi
+done
+
+[ "$TODO" -gt 0 ] || { echo "Nothing to build."; exit 0; }
+[ "$DRY_RUN" -eq 1 ] && exit 0
+
+[ -z "$(git status --porcelain)" ] || die "the working tree has uncommitted changes; commit or stash them first"
+
+# Keep the Mac awake for as long as this script runs.
+command -v caffeinate >/dev/null && caffeinate -i -w $$ &
+
+LOG_DIR=".data/build-logs/$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$LOG_DIR"
+echo "Logs: $LOG_DIR"
+
+RUN_START=$(date +%s)
+BUILT=()
+STOP_REASON=""
+
+minutes() { echo "$((($(date +%s) - $1) / 60)) min"; }
+
+summary() {
+  echo
+  echo "── Run ended $(date '+%Y-%m-%d %H:%M'), $(minutes "$RUN_START") ──"
+  echo "Built: ${BUILT[*]:-none}"
+  [ -n "$STOP_REASON" ] && echo "Stopped: $STOP_REASON"
+  echo "Logs: $LOG_DIR"
+}
+
+trap 'STOP_REASON="interrupted"; summary; exit 130' INT TERM
+
+for t in "${TASKS[@]}"; do
+  is_done "$t" && continue
+
+  for dep in $(depends_of "$t"); do
+    if ! is_done "$dep"; then
+      STOP_REASON="task $t depends on task $dep, which is not done"
+      break 2
+    fi
+  done
+
+  echo
+  echo "── Task $t: $(title_of "$t") ── $(date '+%H:%M')"
+  TASK_START=$(date +%s)
+  ARGS=(run --agent build --auto --title "Task $t")
+  [ -n "$MODEL" ] && ARGS+=(--model "$MODEL")
+  opencode "${ARGS[@]}" "Build task $t of $SPEC." 2>&1 | tee "$LOG_DIR/task-$t.log"
+
+  if ! is_done "$t"; then
+    STOP_REASON="task $t was not ticked in the spec (see $LOG_DIR/task-$t.log)"
+    break
+  fi
+  if [ -n "$(git status --porcelain)" ]; then
+    STOP_REASON="task $t is ticked but left uncommitted changes"
+    break
+  fi
+  if [ -n "$(git log --oneline '@{upstream}..HEAD' 2>/dev/null)" ]; then
+    STOP_REASON="task $t is committed but not pushed"
+    break
+  fi
+
+  BUILT+=("$t")
+  echo "── Task $t done in $(minutes "$TASK_START") ──"
+done
+
+summary
+[ -z "$STOP_REASON" ]

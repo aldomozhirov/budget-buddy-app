@@ -26,6 +26,7 @@ From a fresh clone, run `pnpm install --frozen-lockfile`. Use `pnpm dev` for the
 ## Agent tooling
 
 - One build session builds one task. Start a new session for the next task, so context and cost stay small.
+- `scripts/build-tasks 6-9` (or a milestone letter, `scripts/build-tasks B`) runs one build session per task unattended, in spec order, and stops at the first task that is not ticked, committed and pushed. `--dry-run` shows the plan.
 - `build` and `tester` run on `openai/gpt-6-luna`, `plan` and `reviewer` on `openai/gpt-6.1-sol`, `explore` on Luna at low effort. For a hard task, start build with `--model openai/gpt-6.1-sol#high`.
 - `opencode.json` turns on the language servers (`lsp`), which give agents TypeScript, Vue and ESLint diagnostics once the workspace exists.
 - Skills in `.opencode/skills/` hold rules that only some tasks need. Load `design-system` before any markup or styling, `build-a-screen` for a screen task, `money-rules` before code that touches amounts, rates or dates, and `webkit-e2e` before a Playwright test.
