@@ -243,7 +243,7 @@ How to read a task: **Refs** are requirement and design IDs. **Depends** lists t
 
 Try it: `pnpm dev` shows the component gallery in light and dark, and `/api/health` answers.
 
-- [ ] **1. Trial: price feeds.**
+- [x] **1. Trial: price feeds.**
   Refs: CUR-2, CUR-3, CUR-7, requirements 10.1 #1, SEC-8. Depends: none. Parallel: 2, 3, 4.
   Files: this spec (section "Trial results" below), `server/test/fixtures/rates/`.
   Do: Test free feeds that need no key and have history for EUR, USD, RUB and the coins of O1. Candidates: the ECB reference rates (daily and historical files), the Bank of Russia daily rates by date, and a public coin price API with daily history (for example the coin APIs of large exchanges, or CoinGecko if it still has a keyless tier). For each feed, record: URL, format, history depth, publishing time, time zone of its dates, rate limits, terms of use, and whether a key is needed. Save one real response per feed as a fixture.
@@ -475,10 +475,67 @@ To be filled in by tasks 1, 25, 30 and 31.
 
 | Trial | Date | Result | Decision |
 |---|---|---|---|
-| Price feeds (task 1) | | | |
+| Price feeds (task 1) | 2026-10-07 | Seven keyless feeds were called from the Mac mini (a German IP address). The ECB, the Bank of Russia and Coinbase Exchange cover EUR, USD, RUB, BTC, ETH and USDT with daily history and no key. Details are in "Price feeds (task 1)" below. | EUR↔USD and other ISO currencies: ECB reference rates. RUB: Bank of Russia. BTC, ETH, USDT: Coinbase Exchange daily candles against EUR. Fallback for coins, tested but not built: Binance market-data API. |
 | Web Push on the family's devices (task 25) | | | |
 | Tailscale Serve to a Rancher Desktop port (task 30) | | | |
 | Spec acceptance (task 31) | | | |
+
+### Price feeds (task 1)
+
+Tested on 2026-10-07 between 20:50 and 20:55 UTC with `curl` from the Mac mini, without a key, cookie or special header. Fixtures are in `server/test/fixtures/rates/` (see the README there).
+
+#### Chosen feeds
+
+| Pair | Feed | Reason |
+|---|---|---|
+| EUR↔USD (and every other ISO currency the ECB lists, about 30) | ECB euro foreign exchange reference rates | Official, no key, one small file per day, history back to 1999 in one file, free reuse when the ECB is named as the source. |
+| RUB (RUB per EUR, RUB per USD) | Bank of Russia, `XML_daily_eng.asp` and `XML_dynamic.asp` | The ECB's last RUB rate is 2022-03-01 (confirmed in `eurofxref-hist.xml`). The Bank of Russia is the official source, needs no key, answers by date and by date range, and reaches back to 1992. |
+| BTC, ETH, USDT (each against EUR) | Coinbase Exchange, public product candles | No key, a documented limit, a direct EUR pair for all three coins (no inversion, no second pivot), and daily history deep enough for the app. |
+
+#### What each chosen feed does
+
+| | ECB | Bank of Russia | Coinbase Exchange |
+|---|---|---|---|
+| URL | `https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml` (latest day), `eurofxref-hist-90d.xml` (64 dates), `eurofxref-hist.xml` (everything) | `https://www.cbr.ru/scripts/XML_daily_eng.asp?date_req=DD/MM/YYYY` (all currencies of one date), `https://www.cbr.ru/scripts/XML_dynamic.asp?date_req1=DD/MM/YYYY&date_req2=DD/MM/YYYY&VAL_NM_RQ=<id>` (one currency over a range; EUR is `R01239`, USD is `R01235`) | `https://api.exchange.coinbase.com/products/<COIN>-EUR/candles?granularity=86400&start=<ISO>&end=<ISO>` |
+| Format | XML, UTF-8. `<Cube time='2026-10-07'><Cube currency='USD' rate='1.1177'/>`: units of the currency per 1 EUR, as a decimal string. | XML declared `windows-1251`, decimal comma, `Nominal` plus `Value`, and `VunitRate` per one unit: RUB per unit of the currency. | JSON array, newest first, of `[time, low, high, open, close, volume]`. `time` is the start of the UTC day in seconds. Prices are JSON numbers. |
+| History | 1999-01-04 to today, 7,109 dates. The full file is 8.2 MB (957 kB gzipped; `eurofxref-hist.zip` holds the same as CSV in 641 kB). | Daily file answers for 1992-07-01. The EUR series starts 1999-01-01: one range request for 1999 to today returned 6,886 records in 818 kB and 1.2 s. | BTC-EUR from 2015-04-23, ETH-EUR from 2017-05-23, USDT-EUR from 2021-05-04. At most 300 candles per request (a larger range gets HTTP 400). BTC-EUR had a candle for every day of a nine-month sample in 2019. |
+| Publishing time | "Around 16:00 CET every working day, except on TARGET closing days" (ECB page). Seen: `Last-Modified` 13:56 GMT = 15:56 CEST on 2026-10-07. No file on weekends. | A rate is dated with the day it takes effect and is published the evening before: at 23:51 Moscow time on 7 October the rate of 08.10.2026 was there. Saturdays have a rate (set on Friday); Sundays and Mondays do not. | Continuous. The candle of the current UTC day is returned while it is still changing; a day is final at 00:00 UTC of the next day. |
+| Time zone of its dates | Frankfurt working day (CET/CEST). | Moscow date. | UTC day. |
+| A date without a rate | Not in the file. | The daily file answers with the latest earlier date and says so in `ValCurs Date=` (asked 04/10/2026, a Sunday, got `03.10.2026`; asked a future date, got the latest). The range file leaves the date out. | No candle in the array. |
+| Rate limit | None documented. `Cache-Control: max-age=300`. | None documented. The user agreement forbids "actions that may disrupt the normal operation of the site's services". | 10 requests per second per IP, bursts to 15, then HTTP 429 (Coinbase docs). |
+| Terms | "May make free use of the information", the ECB must be cited as the source; rates are "for information purposes only" (ECB copyright page). | A link to the site is required when its materials are quoted (user agreement, clause 3.2). | Public market data needs no authentication (Coinbase docs). |
+| Key needed | No | No | No |
+| Hosts for the allowlist (task 20) | `www.ecb.europa.eu` | `www.cbr.ru` | `api.exchange.coinbase.com` |
+
+#### Feeds tested and not chosen
+
+| Feed | Finding |
+|---|---|
+| Binance market data, `https://data-api.binance.vision/api/v3/klines?symbol=BTCEUR&interval=1d` | Works without a key from Germany. BTCEUR, ETHEUR and EURUSDT all start 2020-01-03, 1,000 days per request, prices as strings, 6,000 request weight per minute per IP (a 1,000-day request cost 2). USDT has no EUR pair of its own (`USDTEUR` is "Invalid symbol"), so its rate is the inverse of EURUSDT. Kept as the fallback: it would fit behind the `RateFeed` interface unchanged. Not first choice because of the inverted pair and because Binance refuses some countries. |
+| CoinGecko, `https://api.coingecko.com/api/v3/coins/<id>/history?date=DD-MM-YYYY` | The keyless tier still answers, and gives EUR, USD and RUB prices in one call. Rejected: history is limited to the past 365 days (HTTP 401, error 10012, for a 2023 date), and the fourth request within a few seconds got HTTP 429. |
+| Kraken, `https://api.kraken.com/0/public/OHLC?pair=XBTEUR&interval=1440` | No key, XBT, ETH and USDT against EUR. Rejected: it returns only the latest 720 daily candles (from 2024-10-17), whatever `since` says, so it cannot backfill. |
+| Bitstamp, `https://www.bitstamp.net/api/v2/ohlc/btceur/?step=86400&limit=1000` | No key, 1,000 candles per request, USDT/EUR from 2021-06-10. Not chosen: nothing over Coinbase, and a `start` before the pair's first candle returns an empty list instead of the first candles. |
+| ECB Data Portal API, `https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A?startPeriod=…&endPeriod=…&format=csvdata` | Works, gives the same figures by date range as CSV. Not needed: the three files cover every case with less parsing. Usable if the file URLs ever change. |
+| Frankfurter, `https://api.frankfurter.dev` | Works, but it only republishes the ECB rates through a third party. |
+
+#### Notes for task 20
+
+- **Which candle value is a coin's rate.** Use the close of the UTC-day candle: the rate of date D is the close of D, and it is stored only once D is over (from 00:00 UTC of D + 1), because stored rates are never rewritten. The 06:00 job therefore stores yesterday's coin rate, and today's figures use it through the "nearest earlier date" rule until the next day. This is the same as with the ECB, whose rate of D arrives around 16:00.
+- **"Published" per feed**, for the hourly retry: ECB, the daily file's `time` equals today (never on weekends and TARGET closing days, so the retry must stop at the end of the day without recording an error); Bank of Russia, `ValCurs Date` equals the asked date (already true at 06:00, except Sundays and Mondays); Coinbase, yesterday's candle is in the answer.
+- **Pairs to store.** ECB: EUR→each currency in use. Bank of Russia: EUR→RUB and USD→RUB (stored as RUB per unit). Coinbase: coin→EUR. Every pair then reaches EUR directly or through one pivot, as `convert` expects.
+- **Backfill.** ECB: `eurofxref-hist-90d.xml` when the gap is inside it, otherwise `eurofxref-hist.xml` once (ask for gzip). Bank of Russia: one `XML_dynamic.asp` request per currency for the whole range. Coinbase: windows of at most 300 days per coin.
+- **Exact decimals.** ECB and Bank of Russia rates arrive as text and are stored as they are (comma replaced by a point). Coinbase prices are JSON numbers: store the number's shortest decimal form (`String(n)`), never the result of arithmetic on it.
+- **Dates.** Each feed's date label is stored as it is given. The three calendars differ by a few hours (Frankfurt, Moscow, UTC), which is accepted.
+- **Attribution.** The ECB and the Bank of Russia ask to be named as the source. The read-only rates sheet (task 20) should name the source of each rate; the `rate.source` column already holds it.
+
+#### Unconfirmed
+
+- The Bank of Russia's publishing time of day. Only seen: the next day's rate existed at 23:51 Moscow time, and a third-party mirror stamped it 20:00.
+- Request limits of the ECB files and of `cbr.ru`: none are documented, and none were hit with about ten requests each.
+- Coinbase's terms for reusing its market data beyond "public, no authentication". The app only stores the prices for the family's own use.
+- What the ECB daily file contains on a TARGET closing day (expected: the previous working day's rates, unchanged). No such day fell in the trial.
+- Whether `cbr.ru` and `api.exchange.coinbase.com` are reachable from inside the Docker container on the Mac mini. The trial ran on the host itself; task 30 will show it.
+- Gaps in Coinbase's ETH-EUR and USDT-EUR daily history. Only BTC-EUR was checked for gaps (2019, none); a missing day is covered by the "nearest earlier date" rule.
 
 ## Change log
 
@@ -487,3 +544,4 @@ To be filled in by tasks 1, 25, 30 and 31.
 - 2026-10-07: the owner accepted the defaults of O1–O4; the section is now "Settled open items".
 - 2026-10-07: task 2 gained quiet test reporters and a pre-commit hook (typecheck, lint, unit tests), after the pre-implementation audit of the agent setup.
 - 2026-10-07: task 4 reads the style guide by section from `docs/design/styleguide/` instead of the whole `styleguide.html`.
+- 2026-10-07: task 1 done. Price feeds chosen: ECB, Bank of Russia, Coinbase Exchange; results, notes for task 20 and unconfirmed points are in "Trial results".
