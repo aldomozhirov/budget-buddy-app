@@ -3,7 +3,9 @@
 
 # Dependencies and builds
 node_modules/
+**/node_modules/
 dist/
+**/dist/
 coverage/
 
 # Tests
@@ -18,3 +20,4 @@ test-results/
 # App state (never commit real data)
 data/
 backups/
+.data/
