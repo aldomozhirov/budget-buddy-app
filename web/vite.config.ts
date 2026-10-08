@@ -13,6 +13,9 @@ export default defineConfig(({ mode }) => {
     envDir,
     plugins: [vue()],
     server: {
+      // Lets the dev server answer on the Mac's Tailscale name
+      // (`tailscale serve`); Vite rejects unknown hostnames otherwise.
+      allowedHosts: ['.ts.net'],
       proxy: {
         '/api': env.API_TARGET ?? process.env.API_TARGET ?? 'http://127.0.0.1:3000',
       },
