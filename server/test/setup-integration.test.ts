@@ -281,6 +281,29 @@ describe('first-start setup integration', () => {
     expect(database.prepare('SELECT 1 FROM family').get()).toBeUndefined();
   });
 
+  it('requires at least one profile name', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/setup',
+      headers: setupHeaders,
+      payload: {
+        password: 'long-enough-password',
+        passwordConfirmation: 'long-enough-password',
+        profiles: [],
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: {
+        code: 'validation',
+        fields: { profiles: expect.any(String) },
+      },
+    });
+    expect(database.prepare('SELECT 1 FROM family').get()).toBeUndefined();
+    expect(database.prepare('SELECT 1 FROM member').get()).toBeUndefined();
+  });
+
   it('rejects a foreign origin and a request without JSON content type', async () => {
     const payload = {
       password: 'long-enough-password',
