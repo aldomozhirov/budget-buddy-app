@@ -24,6 +24,8 @@ test('wrong passwords show the remaining tries and a controlled lockout', async 
   await expect(page.getByText(`Opens as Alex on ${deviceName}`)).toBeVisible();
   if (testInfo.project.name === 'iphone') {
     await saveScreenshot(page, 'SignIn.png');
+  } else {
+    await saveScreenshot(page, 'SignIn-ipad.png');
   }
 
   await page.getByRole('textbox', { name: 'Family password' }).fill('wrong');
@@ -57,6 +59,8 @@ test('wrong passwords show the remaining tries and a controlled lockout', async 
   await expect(waitButton).toHaveCSS('color', 'rgb(92, 97, 104)');
   if (testInfo.project.name === 'iphone') {
     await saveScreenshot(page, 'SignInLocked.png');
+  } else {
+    await saveScreenshot(page, 'SignInLocked-ipad.png');
   }
 
   await page.clock.runFor(1_000);
@@ -97,9 +101,65 @@ test('sign-in without a remembered profile opens the picker and records the choi
   ).toHaveAttribute('aria-checked', 'true');
   if (testInfo.project.name === 'iphone') {
     await saveScreenshot(page, 'SignInPick.png');
+  } else {
+    await saveScreenshot(page, 'SignInPick-ipad.png');
   }
 
+  await page.getByRole('switch', { name: 'Remember on this device' }).click();
+  await expect(
+    page.getByRole('switch', { name: 'Remember on this device' }),
+  ).toHaveAttribute('aria-checked', 'false');
   await page.getByRole('radio', { name: 'Blair' }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('heading', { name: 'Hi, Blair' })).toBeVisible();
+
+  await page
+    .getByRole('button', { name: 'Blair — switch profile or sign out' })
+    .click();
+  await page.getByRole('dialog', { name: 'Who’s using the app?' })
+    .getByRole('button', { name: 'Sign out' })
+    .click();
+  await expect(page).toHaveURL(/\/sign-in$/);
+  await page
+    .getByRole('textbox', { name: 'Family password' })
+    .fill('family password');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(
+    page.getByRole('heading', { name: `Who’s using ${deviceName}?` }),
+  ).toBeVisible();
+  await expectExternalRequests(page, testInfo);
+});
+
+test('remembering the selected profile opens Home next time', async ({
+  page,
+}, testInfo) => {
+  await installApi(page, testInfo, { defaultMemberId: null });
+  await page.goto('/');
+  await page
+    .getByRole('textbox', { name: 'Family password' })
+    .fill('family password');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(
+    page.getByRole('heading', { name: /Who’s using this (iPhone|iPad)\?/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('switch', { name: 'Remember on this device' }),
+  ).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('radio', { name: 'Blair' }).click();
+  await expect(page.getByRole('heading', { name: 'Hi, Blair' })).toBeVisible();
+
+  await page
+    .getByRole('button', { name: 'Blair — switch profile or sign out' })
+    .click();
+  await page
+    .getByRole('dialog', { name: 'Who’s using the app?' })
+    .getByRole('button', { name: 'Sign out' })
+    .click();
+  await expect(page).toHaveURL(/\/sign-in$/);
+  await page
+    .getByRole('textbox', { name: 'Family password' })
+    .fill('family password');
+  await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole('heading', { name: 'Hi, Blair' })).toBeVisible();
   await expectExternalRequests(page, testInfo);
@@ -125,16 +185,18 @@ test('a remembered profile opens Home and switching in the sheet changes the gre
   await expect(
     page.getByRole('button', { name: 'Alex — switch profile or sign out' }),
   ).toBeVisible();
+  const home = page
+    .getByRole('main')
+    .filter({ has: page.getByRole('heading', { name: 'Hi, Alex' }) });
+  await expect
+    .poll(() =>
+      home.evaluate((element) => getComputedStyle(element).animationName),
+    )
+    .toBe('none');
   if (testInfo.project.name === 'iphone') {
-    const home = page
-      .getByRole('main')
-      .filter({ has: page.getByRole('heading', { name: 'Hi, Alex' }) });
-    await expect
-      .poll(() =>
-        home.evaluate((element) => getComputedStyle(element).animationName),
-      )
-      .toBe('none');
     await saveScreenshot(page, 'Main.png');
+  } else {
+    await saveScreenshot(page, 'Main-ipad.png');
   }
   await page
     .getByRole('button', { name: 'Alex — switch profile or sign out' })
@@ -154,13 +216,15 @@ test('a remembered profile opens Home and switching in the sheet changes the gre
   await expect(
     profileSheet.getByRole('button', { name: 'Sign out' }),
   ).toBeVisible();
+  await expect
+    .poll(() =>
+      profileSheet.evaluate((element) => getComputedStyle(element).transform),
+    )
+    .toBe('matrix(1, 0, 0, 1, 0, 0)');
   if (testInfo.project.name === 'iphone') {
-    await expect
-      .poll(() =>
-        profileSheet.evaluate((element) => getComputedStyle(element).transform),
-      )
-      .toBe('matrix(1, 0, 0, 1, 0, 0)');
     await saveScreenshot(page, 'Main-profile-sheet.png');
+  } else {
+    await saveScreenshot(page, 'Main-profile-sheet-ipad.png');
   }
 
   await profileSheet.getByRole('radio', { name: 'Blair' }).click();
