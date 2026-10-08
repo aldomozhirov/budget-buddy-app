@@ -167,6 +167,193 @@ body,
   text-decoration: none;
 }
 
+.bb .home-header {
+  justify-content: space-between;
+}
+
+.bb .home-profile-button {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.bb .auth-screen {
+  width: 100%;
+  max-width: 480px;
+  height: 100dvh;
+  box-sizing: border-box;
+  margin-inline: auto;
+  overflow-y: auto;
+  padding: 0 24px max(40px, calc(env(safe-area-inset-bottom) + 16px));
+}
+
+.bb .auth-brand {
+  display: flex;
+  min-height: 180px;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding-top: 40px;
+}
+
+.bb .auth-mark {
+  display: flex;
+  width: 64px;
+  height: 64px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  background: var(--ink);
+  color: var(--on-ink);
+}
+
+.bb .auth-brand h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.bb .auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bb .auth-screen .primary:disabled {
+  background: var(--soft);
+  color: var(--muted);
+}
+
+.bb .auth-error {
+  min-height: 20px;
+  margin: -4px 4px 0;
+  font-size: 14px;
+}
+
+.bb .auth-device-copy,
+.bb .auth-forgot-copy {
+  margin: 0;
+  text-align: center;
+}
+
+.bb .auth-forgot-copy {
+  padding: 0 4px;
+  line-height: 1.5;
+}
+
+.bb .auth-picker {
+  gap: 8px;
+}
+
+.bb .auth-picker-heading {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.bb .auth-picker-copy {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.bb .auth-profile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bb .auth-profile-option {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  gap: 14px;
+  padding: 0 16px;
+  border-radius: 18px;
+  background: var(--surface);
+  text-align: left;
+}
+
+.bb .auth-avatar {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--on-ink);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.bb .auth-profile-name {
+  flex: 1;
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.bb .auth-profile-chevron {
+  color: var(--muted);
+}
+
+.bb .auth-remember-row {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 0 4px;
+}
+
+.bb .auth-remember-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  font-weight: 500;
+}
+
+.bb .auth-remember-row .switch-target {
+  margin-right: -4px;
+}
+
+.bb .auth-profile-option:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.bb .profile-sheet-list {
+  margin-top: 4px;
+}
+
+.bb .profile-sheet-option:last-child {
+  border-bottom: 0;
+}
+
+.bb .profile-sheet-name {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bb .profile-sheet-switch-row {
+  min-height: 64px;
+}
+
+.bb .profile-sheet-error {
+  margin: 4px 0;
+}
+
+.bb .profile-sheet-signout {
+  align-self: flex-start;
+}
+
 .bb .screen.enter-fwd,
 .bb .screen.enter-back {
   position: relative;

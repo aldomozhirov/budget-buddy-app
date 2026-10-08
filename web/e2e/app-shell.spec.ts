@@ -7,6 +7,18 @@ test.beforeEach(async ({ page }) => {
       ? route.fulfill({ json: { needed: false } })
       : route.continue(),
   );
+  await page.route('**/api/auth/me', (route) =>
+    route.fulfill({
+      json: {
+        member: { id: 1, name: 'Alex' },
+        profiles: [
+          { id: 1, name: 'Alex' },
+          { id: 2, name: 'Blair' },
+        ],
+        device: { defaultMemberId: 1, hasPasskey: false },
+      },
+    }),
+  );
 });
 
 test('the Home screen shows its placeholder navigation and fits the viewport', async ({
@@ -22,7 +34,7 @@ test('the Home screen shows its placeholder navigation and fits the viewport', a
     }
   });
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Hi, Alex' })).toBeVisible();
   await expect(
     page.getByRole('heading', { name: 'Everything', level: 2 }),
   ).toBeVisible();
@@ -62,12 +74,6 @@ test('the Home screen shows its placeholder navigation and fits the viewport', a
     path: `${screenshotDirectory}/Home-${testInfo.project.name}.png`,
     scale: 'css',
   });
-  if (testInfo.project.name === 'iphone') {
-    await page.screenshot({
-      path: `${screenshotDirectory}/Main.png`,
-      scale: 'css',
-    });
-  }
 });
 
 test('Home remains usable in a desktop-width browser', async ({
@@ -84,8 +90,17 @@ test('Home remains usable in a desktop-width browser', async ({
         ? route.fulfill({ json: { needed: false } })
         : route.continue(),
     );
+    await page.route('**/api/auth/me', (route) =>
+      route.fulfill({
+        json: {
+          member: { id: 1, name: 'Alex' },
+          profiles: [{ id: 1, name: 'Alex' }],
+          device: { defaultMemberId: 1, hasPasskey: false },
+        },
+      }),
+    );
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Hi, Alex' })).toBeVisible();
     const everything = page.getByRole('navigation', { name: 'Everything' });
     await expect(everything.getByRole('link')).toHaveCount(4);
     const content = await page.getByRole('main').boundingBox();
@@ -105,7 +120,6 @@ test('all Design section 8 routes load their placeholder screen', async ({
   page,
 }) => {
   const routes = [
-    ['/sign-in', 'Sign in'],
     ['/check-in', 'Check-in'],
     ['/check-ins', 'Check-ins'],
     ['/check-ins/1', 'Check-in summary'],
@@ -132,7 +146,7 @@ test('Home to Accounts and Back returns Home with the destination label', async 
   await expect(back).toBeVisible();
   await back.click();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Hi, Alex' })).toBeVisible();
 });
 
 test('reloading a summary preserves Home as the next Wealth history Back target', async ({
@@ -151,7 +165,7 @@ test('reloading a summary preserves Home as the next Wealth history Back target'
   ).toBeVisible();
   await page.goBack();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Hi, Alex' })).toBeVisible();
 
   await page.getByRole('link', { name: 'Wealth history' }).click();
   await expect(page).toHaveURL(/\/check-ins\/1$/);
@@ -159,7 +173,7 @@ test('reloading a summary preserves Home as the next Wealth history Back target'
   await expect(back).toBeVisible();
   await back.click();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Hi, Alex' })).toBeVisible();
 });
 
 test('browser Back from Accounts returns Home with a back transition', async ({
@@ -201,7 +215,7 @@ test('browser Back from Accounts returns Home with a back transition', async ({
 
   await page.goBack();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Hi, Alex' })).toBeVisible();
   await expect
     .poll(() =>
       page.evaluate(
@@ -240,7 +254,7 @@ test('an interrupted push cannot cancel the Back screen transition', async ({
   await expect(page).toHaveURL(/\/$/);
   const home = page
     .getByRole('main')
-    .filter({ has: page.getByRole('heading', { name: 'Home' }) });
+    .filter({ has: page.getByRole('heading', { name: 'Hi, Alex' }) });
   await expect(home).toHaveClass(/enter-back/);
 
   await page.clock.runFor(220);
@@ -342,7 +356,7 @@ test('the Home sheet closes when the dimmed area is tapped', async ({
   expect(box).not.toBeNull();
   await page.mouse.click(10, Math.max(1, (box?.y ?? 1) / 2));
   await expect(dialog).toBeHidden();
-  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Hi, Alex' })).toBeVisible();
 });
 
 test('reduced motion prevents screen animations and transitions', async ({
@@ -474,17 +488,17 @@ test('normal push and Back animate with opaque screens coexisting', async ({
     ).__motionEvents.find((event) => event.name === 'bb-in-fwd'),
   );
   expect(forward?.headings).toEqual(
-    expect.arrayContaining(['Home', 'Accounts']),
+    expect.arrayContaining(['Hi, Alex', 'Accounts']),
   );
   expect(
     isOpaqueComputedColor(forward?.backgroundColor),
     `push background: ${forward?.backgroundColor}`,
   ).toBe(true);
-  await expect(page.getByRole('heading', { name: 'Home' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Hi, Alex' })).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Back to home' }).click();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Hi, Alex' })).toBeVisible();
   await expect
     .poll(() =>
       page.evaluate(() =>
@@ -511,7 +525,9 @@ test('normal push and Back animate with opaque screens coexisting', async ({
       }
     ).__motionEvents.find((event) => event.name === 'bb-in-back'),
   );
-  expect(back?.headings).toEqual(expect.arrayContaining(['Accounts', 'Home']));
+  expect(back?.headings).toEqual(
+    expect.arrayContaining(['Accounts', 'Hi, Alex']),
+  );
   expect(
     isOpaqueComputedColor(back?.backgroundColor),
     `Back background: ${back?.backgroundColor}`,

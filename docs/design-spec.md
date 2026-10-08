@@ -176,7 +176,7 @@ This replaces per-member logins (MEM-2 and MEM-3 as amended).
 - **UI-AUTH-5 (Must).** The Home avatar opens "Who’s using the app?": the profiles as a radio list (the device default marked "Default on this iPhone"), a switch "Open as Alena on this iPhone", and "Sign out". Picking a profile switches at once and changes the greeting.
 - **UI-AUTH-6 (Must).** Changing the family password asks for the current one and a new one of at least 10 characters, and says "Everyone uses the new one. Other phones and iPads are signed out and ask for it next time."
 - **UI-AUTH-7 (Should).** "Unlock with Face ID" is a per-device switch in Settings (MEM-6).
-- **UI-AUTH-8 (Must).** First start asks for the family password twice and the profiles' names ("+ Add a profile"; "The first one opens on this device."), then shows next steps: "Add your accounts" and "Pick the check-in schedule", with "Later, go to Home".
+- **UI-AUTH-8 (Must).** First start asks for the family password twice and the profiles' names ("+ Add a profile"; "The first one opens on this device."), then shows next steps: "Add your accounts" and "Pick the check-in schedule", with "Later, go to Home". Create stays enabled (amended 2026-10-08; the prototype shows it disabled): tapping it with a password under 10 characters, a repeat that does not match or no profile name shows the error under that field and focuses the first one; editing a field clears its error.
 
 ## 14. Settings
 

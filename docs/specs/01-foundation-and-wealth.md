@@ -289,7 +289,7 @@ Try it: first start on an iPhone-sized browser, sign in, switch profiles, change
   Do: `GET/POST /api/setup`. The password is entered twice and must have at least 10 characters; at least one profile name; "+ Add a profile"; the first profile becomes this device's default and the session opens as it. Then show the next steps. `POST /api/setup` returns `forbidden_state` once any member exists.
   Acceptance: integration tests: setup creates the family row with an argon2id hash (never the plain password), the members, a device with its default and a session; a second setup is refused; mismatched or short passwords are refused with field errors. E2E: a fresh install opens `/setup`, completes it, and lands on the next-steps view; a reload then opens Home.
 
-- [ ] **8. Sign-in, sessions and the profile sheet.**
+- [x] **8. Sign-in, sessions and the profile sheet.**
   Refs: MEM-2, MEM-4, SEC-1, SEC-2, SEC-3, UI-AUTH-1–5, UI-HOME-1 (greeting and avatar only). Depends: 7.
   Files: `server/src/modules/auth/*`, `server/src/plugins/{session,csrf}.ts`, `web/src/screens/sign-in/`, `web/src/screens/home/ProfileSheet.vue`, `web/src/router/guards.ts`.
   Do: Sign-in per Design section 7; the profile picker with "Remember on this device"; the locked view with the countdown ("Wait 30 s"); "Forgot password?" text (UI-AUTH-4); route guards (no session → `/sign-in`, no members → `/setup`, no profile → picker). Profile sheet from the Home avatar: radio list, "Default on this iPhone" marker (use the device type in the copy: iPhone, iPad, or "this device"), "Open as … on this iPhone" switch, "Sign out". Sessions last 90 days, extended on use.

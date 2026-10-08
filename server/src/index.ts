@@ -22,7 +22,7 @@ try {
   database = await openDatabase(config);
   app = await createApp({
     database,
-    appOrigin: config.appOrigin,
+    appOrigins: config.appOrigins,
     secureCookies: config.nodeEnv !== 'development',
   });
   await app.listen({ host: config.host, port: config.port });

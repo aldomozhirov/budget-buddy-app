@@ -5,7 +5,17 @@ const envSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'test', 'production'])
     .default('development'),
-  APP_ORIGIN: z.url().default('http://127.0.0.1:5173'),
+  // One origin, or several separated by commas (e.g. localhost and Tailscale).
+  APP_ORIGIN: z
+    .string()
+    .default('http://127.0.0.1:5173')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean),
+    )
+    .pipe(z.array(z.url()).min(1)),
   HOST: z.string().min(1).default('127.0.0.1'),
   PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
   DATA_DIR: z.string().min(1).optional(),
@@ -16,7 +26,8 @@ const envSchema = z.object({
 /** Environment settings normalized for the API process and its SQLite files. */
 export type AppConfig = {
   nodeEnv: 'development' | 'test' | 'production';
-  appOrigin: string;
+  /** Web origins allowed to make state-changing requests, without paths. */
+  appOrigins: string[];
   host: string;
   port: number;
   dataDir: string;
@@ -40,7 +51,7 @@ export function parseConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 
   return {
     nodeEnv: parsed.NODE_ENV,
-    appOrigin: parsed.APP_ORIGIN,
+    appOrigins: parsed.APP_ORIGIN.map((origin) => new URL(origin).origin),
     host: parsed.HOST,
     port: parsed.PORT,
     dataDir,

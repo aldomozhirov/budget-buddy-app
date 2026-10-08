@@ -4,6 +4,9 @@ import {
   createWebHistory,
   type RouteRecordRaw,
 } from 'vue-router';
+import { installRouteGuards } from './guards.js';
+
+export { completeFirstStart } from './guards.js';
 
 /** CSS class used for the most recent screen navigation. */
 export type ScreenTransitionClass = '' | 'enter-fwd' | 'enter-back';
@@ -33,7 +36,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/sign-in',
     name: 'SignIn',
-    component: () => import('../screens/PlaceholderScreen.vue'),
+    component: () => import('../screens/sign-in/SignInScreen.vue'),
     meta: { title: 'Sign in' },
   },
   {
@@ -109,31 +112,7 @@ export const router = createRouter({
   history,
   routes,
 });
-
-let setupNeeded: boolean | undefined;
-
-/** Records successful first start so later navigation can leave the setup flow. */
-export function completeFirstStart(): void {
-  setupNeeded = false;
-}
-
-router.beforeEach(async (to) => {
-  if (to.name === 'ComponentsGallery') return;
-
-  if (setupNeeded === undefined) {
-    try {
-      const response = await fetch('/api/setup');
-      if (!response.ok) throw new Error('Could not read setup status.');
-      const status = (await response.json()) as { needed: boolean };
-      setupNeeded = status.needed;
-    } catch {
-      return;
-    }
-  }
-
-  if (setupNeeded && to.path !== '/setup') return { name: 'Setup' };
-  if (!setupNeeded && to.path === '/setup') return { name: 'Home' };
-});
+installRouteGuards(router);
 
 let pendingNavigation: 'back' | 'fallback' | null = null;
 

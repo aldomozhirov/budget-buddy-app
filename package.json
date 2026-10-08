@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "pnpm --parallel --filter @budget-buddy/server --filter @budget-buddy/web dev",
     "build": "pnpm --filter @budget-buddy/shared build && pnpm --filter @budget-buddy/web build && pnpm --filter @budget-buddy/server build",
-    "typecheck": "pnpm --filter @budget-buddy/shared typecheck && pnpm --filter @budget-buddy/server typecheck && pnpm --filter @budget-buddy/web typecheck",
+    "typecheck": "pnpm --filter @budget-buddy/shared build && pnpm --filter @budget-buddy/shared typecheck && pnpm --filter @budget-buddy/server typecheck && pnpm --filter @budget-buddy/web typecheck",
     "lint": "eslint .",
     "test": "node scripts/test.mjs",
     "e2e": "VITE_COMPONENT_GALLERY=true pnpm build && node scripts/e2e.mjs",

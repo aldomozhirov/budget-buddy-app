@@ -12,6 +12,7 @@ import { migrateDatabase } from '../src/db/migrate.js';
 const migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url));
 const fixedNow = new Date('2026-10-08T12:34:56.000Z');
 const setupOrigin = 'https://budget-buddy.test';
+const secondOrigin = 'https://mac.tailnet.ts.net:5443';
 const setupHeaders = {
   origin: setupOrigin,
   'content-type': 'application/json',
@@ -34,7 +35,7 @@ describe('first-start setup integration', () => {
     app = await createApp({
       database,
       logger: false,
-      appOrigin: setupOrigin,
+      appOrigins: [setupOrigin, secondOrigin],
       clock: { now: () => fixedNow },
     });
   });
@@ -326,6 +327,20 @@ describe('first-start setup integration', () => {
     });
     expect(missingContentType.statusCode).toBe(403);
     expect(database.prepare('SELECT 1 FROM family').get()).toBeUndefined();
+  });
+
+  it('accepts any configured origin, not only the first', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/setup',
+      headers: { ...setupHeaders, origin: secondOrigin },
+      payload: {
+        password: 'long-enough-password',
+        passwordConfirmation: 'long-enough-password',
+        profiles: ['Alex'],
+      },
+    });
+    expect(response.statusCode).toBe(201);
   });
 
   it('accepts same-origin fetch metadata when Origin is absent', async () => {

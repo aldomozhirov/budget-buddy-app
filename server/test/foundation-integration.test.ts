@@ -396,6 +396,17 @@ describe('foundation server integration', () => {
     });
   });
 
+  it('reads APP_ORIGIN as a comma-separated list of origins', () => {
+    expect(parseConfig({}).appOrigins).toEqual(['http://127.0.0.1:5173']);
+    expect(
+      parseConfig({
+        APP_ORIGIN: 'http://127.0.0.1:5173, https://mac.tailnet.ts.net:5443/',
+      }).appOrigins,
+    ).toEqual(['http://127.0.0.1:5173', 'https://mac.tailnet.ts.net:5443']);
+    expect(() => parseConfig({ APP_ORIGIN: 'not a url' })).toThrow();
+    expect(() => parseConfig({ APP_ORIGIN: ' , ' })).toThrow();
+  });
+
   it('rejects every ISO 4217 code as a coin code regardless of letter case', async () => {
     const root = await makeTempDirectory();
     const database = trackDatabase(

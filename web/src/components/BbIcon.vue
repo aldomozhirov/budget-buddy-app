@@ -2,13 +2,13 @@
 import type { Component } from 'vue';
 import {
   ArrowLeftRight,
-  ArrowRight,
   CalendarCheck,
   CalendarDays,
   ChartColumnIncreasing,
   Check,
   ChevronDown,
   ChevronLeft,
+  ChevronRight,
   ChevronUp,
   CircleDollarSign,
   CircleDot,
@@ -26,16 +26,15 @@ import {
   Store,
   Tag,
   UserRound,
-  Wallet,
   WalletCards,
   WifiOff,
   X,
 } from 'lucide-vue-next';
 
-/** Lucide icon per BbIconName; `satisfies` makes a missing one a type error. */
+/** Icon component per BbIconName except the custom Budget Buddy app mark. */
 const icons = {
   back: ChevronLeft,
-  forward: ArrowRight,
+  forward: ChevronRight,
   down: ChevronDown,
   up: ChevronUp,
   close: X,
@@ -62,8 +61,7 @@ const icons = {
   record: CircleDot,
   receipt: Receipt,
   faceid: ScanFace,
-  wallet: Wallet,
-} satisfies Record<BbIconName, Component>;
+} satisfies Record<Exclude<BbIconName, 'wallet'>, Component>;
 
 /** Names of the icons available to BbIcon. */
 export type BbIconName =
@@ -115,8 +113,26 @@ defineOptions({ inheritAttrs: false });
 </script>
 
 <template>
+  <svg
+    v-if="name === 'wallet'"
+    v-bind="$attrs"
+    :width="size"
+    :height="size"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    :stroke-width="strokeWidth"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+    focusable="false"
+  >
+    <rect x="3" y="6" width="18" height="13" rx="2.5" />
+    <path d="M3 10h18M15.5 14.5H18M7 6V4.5h10V6" />
+  </svg>
   <component
     :is="icons[name]"
+    v-else
     v-bind="$attrs"
     :size="size"
     :stroke-width="strokeWidth"

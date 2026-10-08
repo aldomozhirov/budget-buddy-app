@@ -7,13 +7,22 @@ test.beforeEach(async ({ page }) => {
       ? route.fulfill({ json: { needed: false } })
       : route.continue(),
   );
+  await page.route('**/api/auth/me', (route) =>
+    route.fulfill({
+      json: {
+        member: { id: 1, name: 'Alex' },
+        profiles: [{ id: 1, name: 'Alex' }],
+        device: { defaultMemberId: 1, hasPasskey: false },
+      },
+    }),
+  );
 });
 
 test('the production app opens at the configured viewport', async ({
   page,
 }, testInfo) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Hi, Alex' })).toBeVisible();
 
   const expectedViewport =
     testInfo.project.name === 'iphone'

@@ -10,6 +10,9 @@ import {
 } from 'fastify-type-provider-zod';
 import type Database from 'better-sqlite3';
 import { systemClock, type Clock } from './clock.js';
+import { installCsrfPlugin } from './plugins/csrf.js';
+import { installSessionPlugin } from './plugins/session.js';
+import { authRoutes } from './modules/auth/index.js';
 import { healthRoutes } from './modules/health/index.js';
 import { setupRoutes } from './modules/setup/index.js';
 
@@ -49,8 +52,8 @@ export type AppOptions = {
   staticRoot?: string;
   /** Whether authentication cookies should carry the Secure attribute. */
   secureCookies?: boolean;
-  /** Expected web origin for same-origin state-changing requests. */
-  appOrigin?: string;
+  /** Web origins allowed to make state-changing requests. */
+  appOrigins?: string[];
   /** Clock supplied to setup so persisted timestamps can be tested. */
   clock?: Clock;
 };
@@ -72,12 +75,26 @@ export async function createApp(options: AppOptions) {
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
 
+  const appOrigins = options.appOrigins ?? ['http://127.0.0.1:5173'];
+  const secureCookies = options.secureCookies ?? true;
+  const clock = options.clock ?? systemClock;
+  await installCsrfPlugin(app, { appOrigins });
+  await installSessionPlugin(app, {
+    database: options.database,
+    secureCookies,
+    clock,
+  });
+
   await app.register(healthRoutes, { database: options.database });
   await app.register(setupRoutes, {
     database: options.database,
-    appOrigin: options.appOrigin ?? 'http://127.0.0.1:5173',
-    secureCookies: options.secureCookies ?? true,
-    clock: options.clock ?? systemClock,
+    secureCookies,
+    clock,
+  });
+  await app.register(authRoutes, {
+    database: options.database,
+    secureCookies,
+    clock,
   });
 
   app.setErrorHandler((error, request, reply) => {

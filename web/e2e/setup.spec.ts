@@ -23,6 +23,20 @@ test('a fresh install completes setup and offers the next steps', async ({
       setupCompleted = true;
       return route.fulfill({ status: 201, json: { needed: false } });
     });
+    await page.route('**/api/auth/me', (route) =>
+      setupCompleted
+        ? route.fulfill({
+            json: {
+              member: { id: 1, name: 'Alex' },
+              profiles: [{ id: 1, name: 'Alex' }],
+              device: { defaultMemberId: 1, hasPasskey: false },
+            },
+          })
+        : route.fulfill({
+            status: 401,
+            json: { error: { code: 'unauthenticated' } },
+          }),
+    );
   }
 
   await page.goto('/');
@@ -43,11 +57,29 @@ test('a fresh install completes setup and offers the next steps', async ({
   await expect(
     page.getByRole('button', { name: '+ Add a profile' }),
   ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Create' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Create' })).toBeEnabled();
   await saveScreenshot(page, `Setup-form-${testInfo.project.name}.png`);
   if (testInfo.project.name === 'iphone') {
     await saveScreenshot(page, 'Setup.png');
   }
+
+  // Tapping Create on an incomplete form explains what is missing.
+  await page.getByRole('button', { name: 'Create' }).click();
+  await expect(page.getByText('Use at least 10 characters.')).toBeVisible();
+  await expect(page.getByText('Repeat the family password.')).toBeVisible();
+  await expect(page.getByText('Enter a profile name.')).toBeVisible();
+  await expect(
+    page.getByRole('textbox', { name: 'Family password', exact: true }),
+  ).toBeFocused();
+  await page
+    .getByRole('textbox', { name: 'Family password', exact: true })
+    .fill('short');
+  await page
+    .getByRole('textbox', { name: 'Repeat family password', exact: true })
+    .fill('different');
+  await page.getByRole('button', { name: 'Create' }).click();
+  await expect(page.getByText('Use at least 10 characters.')).toBeVisible();
+  await expect(page.getByText('The passwords do not match.')).toBeVisible();
 
   await page
     .getByRole('textbox', { name: 'Family password', exact: true })
@@ -77,18 +109,18 @@ test('a fresh install completes setup and offers the next steps', async ({
   if (testInfo.project.name === 'iphone') {
     await page.reload();
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Hi, Alex' })).toBeVisible();
   } else {
     await page.getByRole('link', { name: 'Later, go to Home' }).click();
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Hi, Alex' })).toBeVisible();
     await page.reload();
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Hi, Alex' })).toBeVisible();
   }
 });
 
-test('a failed setup check stays unknown and can be retried', async ({
+test('a failed setup check retries before exposing the setup flow', async ({
   page,
 }) => {
   let statusChecks = 0;
@@ -103,8 +135,6 @@ test('a failed setup check stays unknown and can be retried', async ({
   });
 
   await page.goto('/');
-  await expect(page).toHaveURL(/\/$/);
-  await page.getByRole('link', { name: 'Accounts' }).click();
   await expect(page).toHaveURL(/\/setup$/);
   await expect(
     page.getByRole('heading', { name: 'Set up Budget Buddy' }),
