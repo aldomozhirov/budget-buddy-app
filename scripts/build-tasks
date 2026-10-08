@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Build spec tasks unattended: one OpenCode build session per task, in order.
-# Stops at the first task that does not end ticked, committed and pushed.
+# A task whose session ends unfinished gets a new session that continues it;
+# the run stops when a task is still unfinished after the allowed attempts.
 
 set -u
 
 SPEC="docs/specs/01-foundation-and-wealth.md"
 MODEL=""
+ATTEMPTS=3
 DRY_RUN=0
 SELECTORS=()
 
@@ -23,6 +25,7 @@ Options:
   --spec <file>    spec to build from (default: docs/specs/01-foundation-and-wealth.md)
   --model <model>  model for the build agent, e.g. openai/gpt-6.1-sol#high
                    (default: the model and effort in .opencode/agents/build.md)
+  --attempts <n>   sessions allowed per task before the run stops (default: 3)
   --dry-run        show what would be built and stop
   -h, --help       show this help
 
@@ -40,6 +43,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --spec) [ $# -ge 2 ] || die "--spec needs a file"; SPEC="$2"; shift 2 ;;
     --model) [ $# -ge 2 ] || die "--model needs a value"; MODEL="$2"; shift 2 ;;
+    --attempts) [ $# -ge 2 ] || die "--attempts needs a number"; ATTEMPTS="$2"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h | --help) usage; exit 0 ;;
     -*) die "unknown option $1 (see --help)" ;;
@@ -48,6 +52,7 @@ while [ $# -gt 0 ]; do
 done
 
 [ ${#SELECTORS[@]} -gt 0 ] || { usage; exit 1; }
+[[ "$ATTEMPTS" =~ ^[1-9][0-9]*$ ]] || die "--attempts must be 1 or more"
 
 cd "$(git -C "$(dirname "$0")" rev-parse --show-toplevel)" || die "not in a git repository"
 [ -f "$SPEC" ] || die "spec not found: $SPEC"
@@ -127,7 +132,9 @@ done
 [ "$TODO" -gt 0 ] || { echo "Nothing to build."; exit 0; }
 [ "$DRY_RUN" -eq 1 ] && exit 0
 
-[ -z "$(git status --porcelain)" ] || die "the working tree has uncommitted changes; commit or stash them first"
+if [ -n "$(git status --porcelain)" ]; then
+  echo "Note: the working tree has uncommitted changes; the first task will continue from them."
+fi
 
 # Keep the Mac awake for as long as this script runs.
 command -v caffeinate >/dev/null && caffeinate -i -w $$ &
@@ -152,6 +159,23 @@ summary() {
 
 trap 'STOP_REASON="interrupted"; summary; exit 130' INT TERM
 
+BLOCKED_RULE="If you cannot finish because the task needs the owner, real devices or a correction to the spec, end your reply with one line starting with 'BLOCKED:' and the reason."
+
+continue_prompt() {
+  echo "Continue task $1 of $SPEC. An earlier session ended before the task was finished: $2. Its work is in the working tree and in the latest commits; read git status and git diff first, keep what is sound, then finish the task through tester, reviewer, commit and push."
+}
+
+# Why task $1 is not finished; empty when it is ticked, committed and pushed.
+unfinished() {
+  if ! is_done "$1"; then
+    echo "it is not ticked in the spec"
+  elif [ -n "$(git status --porcelain)" ]; then
+    echo "it is ticked but has uncommitted changes"
+  elif [ -n "$(git log --oneline '@{upstream}..HEAD' 2>/dev/null)" ]; then
+    echo "it is committed but not pushed"
+  fi
+}
+
 for t in "${TASKS[@]}"; do
   is_done "$t" && continue
 
@@ -165,21 +189,29 @@ for t in "${TASKS[@]}"; do
   echo
   echo "── Task $t: $(title_of "$t") ── $(date '+%H:%M')"
   TASK_START=$(date +%s)
-  ARGS=(run --agent build --auto --title "Task $t" --model "$MODEL")
-  opencode "${ARGS[@]}" "Build task $t of $SPEC." 2>&1 | tee "$LOG_DIR/task-$t.log"
+  PROMPT="Build task $t of $SPEC."
+  # Leftovers of a stopped run: continue from them instead of starting over.
+  [ -n "$(git status --porcelain)" ] && PROMPT=$(continue_prompt "$t" "it left uncommitted changes")
+  attempt=1
+  while :; do
+    LOG="$LOG_DIR/task-$t-attempt-$attempt.log"
+    opencode run --agent build --auto --title "Task $t, attempt $attempt" --model "$MODEL" \
+      "$PROMPT $BLOCKED_RULE" 2>&1 | tee "$LOG"
 
-  if ! is_done "$t"; then
-    STOP_REASON="task $t was not ticked in the spec (see $LOG_DIR/task-$t.log)"
-    break
-  fi
-  if [ -n "$(git status --porcelain)" ]; then
-    STOP_REASON="task $t is ticked but left uncommitted changes"
-    break
-  fi
-  if [ -n "$(git log --oneline '@{upstream}..HEAD' 2>/dev/null)" ]; then
-    STOP_REASON="task $t is committed but not pushed"
-    break
-  fi
+    PROBLEM=$(unfinished "$t")
+    [ -z "$PROBLEM" ] && break
+    if grep -q "^[^[:alpha:]]*BLOCKED:" "$LOG"; then
+      STOP_REASON="task $t is blocked: $(grep -m1 "^[^[:alpha:]]*BLOCKED:" "$LOG" | sed 's/.*BLOCKED: *//') (see $LOG)"
+      break 2
+    fi
+    if [ "$attempt" -ge "$ATTEMPTS" ]; then
+      STOP_REASON="task $t: $PROBLEM after $attempt attempts (see $LOG)"
+      break 2
+    fi
+    echo "── Task $t: $PROBLEM; starting attempt $((attempt + 1)) of $ATTEMPTS ──"
+    attempt=$((attempt + 1))
+    PROMPT=$(continue_prompt "$t" "$PROBLEM")
+  done
 
   BUILT+=("$t")
   echo "── Task $t done in $(minutes "$TASK_START") ──"
