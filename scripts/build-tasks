@@ -135,7 +135,20 @@ done
 [ "$TODO" -gt 0 ] || { echo "Nothing to build."; exit 0; }
 [ "$DRY_RUN" -eq 1 ] && exit 0
 
-if [ -n "$(git status --porcelain)" ]; then
+# Untracked files that are here before the run are not a task's work.
+BASELINE=$(git ls-files --others --exclude-standard)
+
+# Uncommitted changes, without the untracked files of BASELINE.
+dirty() {
+  git status --porcelain --untracked-files=no
+  git ls-files --others --exclude-standard | grep -vxF -f <(echo "$BASELINE") | sed 's/^/?? /'
+}
+
+if [ -n "$BASELINE" ]; then
+  echo "Note: ignoring untracked files that were here before the run:"
+  echo "$BASELINE" | sed 's/^/  /'
+fi
+if [ -n "$(dirty)" ]; then
   echo "Note: the working tree has uncommitted changes; the first task will continue from them."
 fi
 
@@ -172,8 +185,8 @@ continue_prompt() {
 unfinished() {
   if ! is_done "$1"; then
     echo "it is not ticked in the spec"
-  elif [ -n "$(git status --porcelain)" ]; then
-    echo "it is ticked but has uncommitted changes"
+  elif [ -n "$(dirty)" ]; then
+    echo "it is ticked but has uncommitted changes: $(dirty | head -5 | tr '\n' ' ')"
   elif [ -n "$(git log --oneline '@{upstream}..HEAD' 2>/dev/null)" ]; then
     echo "it is committed but not pushed"
   fi
@@ -194,7 +207,7 @@ for t in "${TASKS[@]}"; do
   TASK_START=$(date +%s)
   PROMPT="Build task $t of $SPEC."
   # Leftovers of a stopped run: continue from them instead of starting over.
-  [ -n "$(git status --porcelain)" ] && PROMPT=$(continue_prompt "$t" "it left uncommitted changes")
+  [ -n "$(dirty)" ] && PROMPT=$(continue_prompt "$t" "it left uncommitted changes")
   attempt=1
   while :; do
     LOG="$LOG_DIR/task-$t-attempt-$attempt.log"
