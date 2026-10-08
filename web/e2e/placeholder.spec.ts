@@ -5,9 +5,7 @@ test('the production app opens at the configured viewport', async ({
   page,
 }, testInfo) => {
   await page.goto('/');
-  await expect(
-    page.getByRole('heading', { name: 'Budget Buddy' }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
 
   const expectedViewport =
     testInfo.project.name === 'iphone'

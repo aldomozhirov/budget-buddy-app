@@ -277,7 +277,7 @@ Try it: `pnpm dev` shows the component gallery in light and dark, and `/api/heal
 
 Try it: first start on an iPhone-sized browser, sign in, switch profiles, change the password.
 
-- [ ] **6. App shell and navigation.**
+- [x] **6. App shell and navigation.**
   Refs: UI-NAV-1, UI-NAV-2, UI-NAV-4, UI-MOT-1, UI-MOT-3, IOS-2. Depends: 4. Parallel: 7 (API part).
   Files: `web/src/router/*`, `web/src/App.vue`, `web/src/screens/home/HomeScreen.vue` (placeholder content), `web/src/composables/useBack.ts`.
   Do: Routes of Design section 8 as placeholders, an in-memory history stack, push and pop transitions, Back labels per UI-NAV-2 ("Back to home", "Back to check-ins", …), and the fallback parent when there is no history. Layout uses the width on iPad (content column up to 640 px, centred) and stays usable in a desktop browser.
