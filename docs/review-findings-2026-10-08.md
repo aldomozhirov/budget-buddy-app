@@ -2,7 +2,7 @@
 
 Found while documenting `shared/` and `web/`. Line numbers refer to the files as they were after the documentation pass.
 
-**Status:** A and C were fixed on 2026-10-08 (commit "Fix component accessibility and shared clean-ups"). B is still open and needs the owner's decisions.
+**Status:** A and C were fixed on 2026-10-08 (commit "Fix component accessibility and shared clean-ups"). B1, B3 and B4 were decided the same day (see spec 01's change log); B2 and B5 are still open.
 
 ## A. Accessibility bugs in the design-system components (fixed)
 

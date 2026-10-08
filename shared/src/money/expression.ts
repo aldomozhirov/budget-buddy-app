@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js';
 import type { Currency } from './currency.js';
+import { isMinorInRange } from './minor.js';
 import { roundHalfAwayFromZero } from './rounding.js';
 
 /**
@@ -109,11 +110,11 @@ function parseTokens(tokens: readonly string[]): Decimal {
 
 /**
  * Rounds a value to the currency's minor units, half away from zero.
- * @throws {ExpressionError} if the result has more than 20 digits.
+ * @throws {ExpressionError} if the result doesn't fit a 64-bit integer.
  */
 function minorResult(value: Decimal, currency: Currency): bigint {
   const minor = roundHalfAwayFromZero(value, currency.decimals);
-  if (minor.toString().replace('-', '').length > 20) throw new ExpressionError('Amount is too large');
+  if (!isMinorInRange(minor)) throw new ExpressionError('Amount is too large');
   return minor;
 }
 

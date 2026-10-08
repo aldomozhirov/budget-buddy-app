@@ -58,8 +58,13 @@ describe('minor-unit and rounding rules', () => {
     expect(() => parseMinor('')).toThrow();
     expect(() => parseMinor('1.0')).toThrow();
     expect(() => parseMinor('+1')).toThrow();
-    expect(() => parseMinor('1'.repeat(21))).toThrow();
-    expect(() => toMinorString(10n ** 20n)).toThrow();
+    expect(() => parseMinor('1'.repeat(20))).toThrow(RangeError);
+    expect(parseMinor('9223372036854775807')).toBe(2n ** 63n - 1n);
+    expect(parseMinor('-9223372036854775808')).toBe(-(2n ** 63n));
+    expect(() => parseMinor('9223372036854775808')).toThrow(/too large/);
+    expect(() => parseMinor('-9223372036854775809')).toThrow(/too large/);
+    expect(toMinorString(-(2n ** 63n))).toBe('-9223372036854775808');
+    expect(() => toMinorString(2n ** 63n)).toThrow(/too large/);
   });
 
   it('rounds half away from zero and validates decimal precision', () => {
@@ -114,11 +119,12 @@ describe('expression evaluator', () => {
     expect(lastCompleteValue('1 + 2', eur)).toBeUndefined();
   });
 
-  it('keeps valid 20-digit results exact and evaluates balanced groups before an open operator', () => {
-    expect(evaluate('(999999999999999999.99 * 2) / 2')).toEqual({
+  it('keeps results up to the 64-bit limit exact and evaluates balanced groups before an open operator', () => {
+    expect(evaluate('(92233720368547758.07 * 2) / 2')).toEqual({
       ok: true,
-      value: 99999999999999999999n,
+      value: 9223372036854775807n,
     });
+    expect(evaluate('92233720368547758.08')).toEqual({ ok: false, reason: 'Amount is too large' });
     expect(lastCompleteValue('1*(2+3)+', eur)).toBe(500n);
     expect(lastCompleteValue('2*(3+4+', eur)).toBe(1400n);
   });

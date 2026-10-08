@@ -8,7 +8,7 @@ The source is `docs/specs/01-foundation-and-wealth.md`, Design sections 3, 5 and
 
 ## Amounts
 
-- An amount is an integer in minor units: `bigint` in code, `INTEGER` in SQLite (read with `safeIntegers`), a decimal-integer string in JSON (`"-198630"`, matching `/^-?\d{1,20}$/`).
+- An amount is an integer in minor units: `bigint` in code, `INTEGER` in SQLite (read with `safeIntegers`), a decimal-integer string in JSON (`"-198630"`, matching `/^-?\d{1,19}$/`), capped to the 64-bit range −2^63 to 2^63 − 1 that SQLite can store. Check with `isMinorInRange`.
 - Never floating point. No `parseFloat` and no `Number(` on money paths. `decimal.js` is only for rates and conversion.
 - A currency's decimals come from the ISO 4217 table; a coin's from the `coin` table, at most 8.
 - One rounding function everywhere: `roundHalfAwayFromZero` (`0.005` gives `0.01`, `−0.005` gives `−0.01`).

@@ -1,22 +1,33 @@
-/** Wire format of an amount: an optionally negative integer of 1-20 digits. */
-const MINOR_PATTERN = /^-?\d{1,20}$/;
+/** Largest amount SQLite's 64-bit INTEGER can store: 2^63 - 1. */
+export const MAX_MINOR = 2n ** 63n - 1n;
+/** Smallest amount SQLite's 64-bit INTEGER can store: -2^63. */
+export const MIN_MINOR = -(2n ** 63n);
+
+/** Wire format of an amount: an optionally negative integer of 1-19 digits. */
+const MINOR_PATTERN = /^-?\d{1,19}$/;
+
+/** Whether an amount fits SQLite's 64-bit INTEGER. */
+export function isMinorInRange(value: bigint): boolean {
+  return value >= MIN_MINOR && value <= MAX_MINOR;
+}
 
 /**
  * Parses a JSON decimal-integer string, such as `"-198630"`, into minor units.
- * @throws {RangeError} if `value` is not an integer string of at most 20
- * digits (a leading `+`, decimal point or whitespace is rejected).
+ * @throws {RangeError} if `value` is not an integer string (a leading `+`,
+ * decimal point or whitespace is rejected) or is outside the 64-bit range.
  */
 export function parseMinor(value: string): bigint {
-  if (!MINOR_PATTERN.test(value)) throw new RangeError('Amount must be a decimal integer with at most 20 digits');
-  return BigInt(value);
+  if (!MINOR_PATTERN.test(value)) throw new RangeError('Amount must be a decimal integer with at most 19 digits');
+  const amount = BigInt(value);
+  if (!isMinorInRange(amount)) throw new RangeError('Amount is too large');
+  return amount;
 }
 
 /**
  * Converts minor units to the JSON decimal-integer string form.
- * @throws {RangeError} if `value` has more than 20 digits.
+ * @throws {RangeError} if `value` is outside the 64-bit range.
  */
 export function toMinorString(value: bigint): string {
-  const serialized = value.toString();
-  if (!MINOR_PATTERN.test(serialized)) throw new RangeError('Amount must have at most 20 digits');
-  return serialized;
+  if (!isMinorInRange(value)) throw new RangeError('Amount is too large');
+  return value.toString();
 }
