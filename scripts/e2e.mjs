@@ -17,16 +17,24 @@ const env = {
   E2E_PORT: String(port),
   HOST: '127.0.0.1',
   PORT: String(port),
+  APP_ORIGIN: `http://127.0.0.1:${port}`,
   RATES_FEED: 'fixture',
 };
-const server = spawn(process.execPath, ['server/dist/index.js'], { env, stdio: 'inherit' });
+const server = spawn(process.execPath, ['server/dist/index.js'], {
+  env,
+  stdio: 'inherit',
+});
 
 try {
   await waitForServer(`http://127.0.0.1:${port}/api/health`, server);
-  const result = spawn('pnpm', ['exec', 'playwright', 'test', '--config', 'web/playwright.config.ts'], {
-    env,
-    stdio: 'inherit',
-  });
+  const result = spawn(
+    'pnpm',
+    ['exec', 'playwright', 'test', '--config', 'web/playwright.config.ts'],
+    {
+      env,
+      stdio: 'inherit',
+    },
+  );
   const [code] = await once(result, 'exit');
   if (code !== 0) process.exitCode = code ?? 1;
 } finally {
@@ -43,15 +51,19 @@ async function availablePort() {
   listener.listen(0, '127.0.0.1');
   await once(listener, 'listening');
   const address = listener.address();
-  if (!address || typeof address === 'string') throw new Error('Could not allocate a port');
+  if (!address || typeof address === 'string')
+    throw new Error('Could not allocate a port');
   const { port: selectedPort } = address;
-  await new Promise((resolve, reject) => listener.close((error) => (error ? reject(error) : resolve())));
+  await new Promise((resolve, reject) =>
+    listener.close((error) => (error ? reject(error) : resolve())),
+  );
   return selectedPort;
 }
 
 async function waitForServer(url, child) {
   for (let attempt = 0; attempt < 100; attempt += 1) {
-    if (child.exitCode !== null) throw new Error(`Server exited with code ${child.exitCode}`);
+    if (child.exitCode !== null)
+      throw new Error(`Server exited with code ${child.exitCode}`);
     try {
       const response = await fetch(url);
       if (response.ok) return;

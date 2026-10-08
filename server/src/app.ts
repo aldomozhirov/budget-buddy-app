@@ -9,7 +9,9 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 import type Database from 'better-sqlite3';
+import { systemClock, type Clock } from './clock.js';
 import { healthRoutes } from './modules/health/index.js';
+import { setupRoutes } from './modules/setup/index.js';
 
 const webDistPath = fileURLToPath(new URL('../../web/dist', import.meta.url));
 
@@ -45,6 +47,12 @@ export type AppOptions = {
   loggerStream?: { write(message: string): void };
   /** Override the production `web/dist` root, primarily for isolated tests. */
   staticRoot?: string;
+  /** Whether authentication cookies should carry the Secure attribute. */
+  secureCookies?: boolean;
+  /** Expected web origin for same-origin state-changing requests. */
+  appOrigin?: string;
+  /** Clock supplied to setup so persisted timestamps can be tested. */
+  clock?: Clock;
 };
 
 /**
@@ -65,6 +73,12 @@ export async function createApp(options: AppOptions) {
   app.setSerializerCompiler(serializerCompiler);
 
   await app.register(healthRoutes, { database: options.database });
+  await app.register(setupRoutes, {
+    database: options.database,
+    appOrigin: options.appOrigin ?? 'http://127.0.0.1:5173',
+    secureCookies: options.secureCookies ?? true,
+    clock: options.clock ?? systemClock,
+  });
 
   app.setErrorHandler((error, request, reply) => {
     const fastifyError = error as Error & {

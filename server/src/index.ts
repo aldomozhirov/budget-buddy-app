@@ -20,7 +20,11 @@ let app: Awaited<ReturnType<typeof createApp>> | undefined;
 try {
   const config = parseConfig();
   database = await openDatabase(config);
-  app = await createApp({ database });
+  app = await createApp({
+    database,
+    appOrigin: config.appOrigin,
+    secureCookies: config.nodeEnv !== 'development',
+  });
   await app.listen({ host: config.host, port: config.port });
 } catch (error) {
   if (app) {

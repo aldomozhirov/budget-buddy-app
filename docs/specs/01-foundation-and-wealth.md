@@ -283,7 +283,7 @@ Try it: first start on an iPhone-sized browser, sign in, switch profiles, change
   Do: Routes of Design section 8 as placeholders, an in-memory history stack, push and pop transitions, Back labels per UI-NAV-2 ("Back to home", "Back to check-ins", …), and the fallback parent when there is no history. Layout uses the width on iPad (content column up to 640 px, centred) and stays usable in a desktop browser.
   Acceptance: E2E: Home → Accounts → Back returns to Home with the label "Back to home"; opening `/check-ins/1` directly and pressing Back goes to `/check-ins`; a sheet closes on its Close button and on a tap on the dimmed area; with reduced motion no transition runs.
 
-- [ ] **7. First start.**
+- [x] **7. First start.**
   Refs: MEM-1, UI-AUTH-8, SEC-2, SEC-4. Depends: 5, 6.
   Files: `server/src/modules/auth/`, `server/src/modules/setup/`, `web/src/screens/setup/`.
   Do: `GET/POST /api/setup`. The password is entered twice and must have at least 10 characters; at least one profile name; "+ Add a profile"; the first profile becomes this device's default and the session opens as it. Then show the next steps. `POST /api/setup` returns `forbidden_state` once any member exists.

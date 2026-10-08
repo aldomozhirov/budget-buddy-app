@@ -1,6 +1,14 @@
 import { expect, test } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/setup', (route) =>
+    route.request().method() === 'GET'
+      ? route.fulfill({ json: { needed: false } })
+      : route.continue(),
+  );
+});
+
 test('the Home screen shows its placeholder navigation and fits the viewport', async ({
   page,
 }, testInfo) => {
@@ -71,6 +79,11 @@ test('Home remains usable in a desktop-width browser', async ({
   });
   try {
     const page = await context.newPage();
+    await page.route('**/api/setup', (route) =>
+      route.request().method() === 'GET'
+        ? route.fulfill({ json: { needed: false } })
+        : route.continue(),
+    );
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
     const everything = page.getByRole('navigation', { name: 'Everything' });
@@ -92,7 +105,6 @@ test('all Design section 8 routes load their placeholder screen', async ({
   page,
 }) => {
   const routes = [
-    ['/setup', 'First start'],
     ['/sign-in', 'Sign in'],
     ['/check-in', 'Check-in'],
     ['/check-ins', 'Check-ins'],

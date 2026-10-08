@@ -27,7 +27,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/setup',
     name: 'Setup',
-    component: () => import('../screens/PlaceholderScreen.vue'),
+    component: () => import('../screens/setup/SetupScreen.vue'),
     meta: { title: 'First start' },
   },
   {
@@ -108,6 +108,31 @@ history.listen((to, from, information) => {
 export const router = createRouter({
   history,
   routes,
+});
+
+let setupNeeded: boolean | undefined;
+
+/** Records successful first start so later navigation can leave the setup flow. */
+export function completeFirstStart(): void {
+  setupNeeded = false;
+}
+
+router.beforeEach(async (to) => {
+  if (to.name === 'ComponentsGallery') return;
+
+  if (setupNeeded === undefined) {
+    try {
+      const response = await fetch('/api/setup');
+      if (!response.ok) throw new Error('Could not read setup status.');
+      const status = (await response.json()) as { needed: boolean };
+      setupNeeded = status.needed;
+    } catch {
+      return;
+    }
+  }
+
+  if (setupNeeded && to.path !== '/setup') return { name: 'Setup' };
+  if (!setupNeeded && to.path === '/setup') return { name: 'Home' };
 });
 
 let pendingNavigation: 'back' | 'fallback' | null = null;

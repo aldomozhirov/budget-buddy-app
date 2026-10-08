@@ -1,6 +1,14 @@
 import { expect, test } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/setup', (route) =>
+    route.request().method() === 'GET'
+      ? route.fulfill({ json: { needed: false } })
+      : route.continue(),
+  );
+});
+
 test('the production app opens at the configured viewport', async ({
   page,
 }, testInfo) => {
