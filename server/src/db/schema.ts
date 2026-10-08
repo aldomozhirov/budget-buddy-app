@@ -11,7 +11,10 @@ import {
   type AnySQLiteColumn,
 } from 'drizzle-orm/sqlite-core';
 
-// Frozen for migration determinism; the integration test compares this list with shared's ISO table.
+/**
+ * Snapshot of ISO 4217 codes used to generate a deterministic database CHECK.
+ * The schema test compares it with the shared ISO table so additions cannot drift.
+ */
 const ISO_4217_CODES = [
   'AED',
   'AFN',
@@ -197,6 +200,7 @@ const ISO_4217_CODES = [
   'ZWL',
 ] as const;
 
+/** Maps safe SQLite integers to JS numbers while rejecting precision loss. */
 const integer = customType<{
   data: number;
   driverData: bigint | number | string;
@@ -215,6 +219,7 @@ const integer = customType<{
 
 const booleanInteger = sqliteInteger;
 
+/** Amount columns stay SQLite INTEGER but are exposed as exact JavaScript BigInts. */
 const moneyInteger = customType<{
   data: bigint;
   driverData: bigint | number | string;
@@ -235,6 +240,10 @@ const isoCodesSql = sql.raw(
   ISO_4217_CODES.map((code) => `'${code}'`).join(', '),
 );
 
+/**
+ * Selects an integer column through TEXT so a SQL expression preserves every
+ * digit before conversion to BigInt. Use this for aggregates or casts too.
+ */
 export function exactMoneyInteger(column: AnySQLiteColumn | SQLWrapper) {
   return sql<bigint>`CAST(${column} AS TEXT)`.mapWith((value) =>
     BigInt(value as string),

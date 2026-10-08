@@ -4,6 +4,11 @@ import type { AppConfig } from '../config.js';
 import { systemClock, type Clock } from '../clock.js';
 import { migrateDatabase } from './migrate.js';
 
+/**
+ * Opens the configured database, enables WAL and foreign-key enforcement, then
+ * applies pending migrations before exposing the connection to the app.
+ * The connection is closed again if startup migration fails.
+ */
 export async function openDatabase(
   config: AppConfig,
   clock: Clock = systemClock,

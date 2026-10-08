@@ -15,6 +15,7 @@ const defaultMigrationsFolder = fileURLToPath(
 );
 const configuredDatabases = new WeakSet<Database.Database>();
 
+/** Registers the stable Unicode-folding function used by the member-name index. */
 function registerDatabaseFunctions(database: Database.Database): void {
   if (configuredDatabases.has(database)) return;
   database.function(
@@ -25,6 +26,7 @@ function registerDatabaseFunctions(database: Database.Database): void {
   configuredDatabases.add(database);
 }
 
+/** Compares the Drizzle journal with its applied-migration table. */
 async function pendingMigrations(
   database: Database.Database,
   migrationsFolder: string,
@@ -48,6 +50,15 @@ async function pendingMigrations(
   return journal.entries.some((entry) => !applied.has(entry.when));
 }
 
+/**
+ * Backs up the current file before applying pending Drizzle migrations. Drizzle
+ * applies the pending batch in one transaction; if the first migration fails,
+ * this removes the log table that Drizzle creates before starting that transaction.
+ * Safe-integer mode is enabled so schema mappers receive exact SQLite integers.
+ *
+ * @returns The number of migrations recorded as applied.
+ * @throws When backup creation or any migration fails; callers must fail startup.
+ */
 export async function migrateDatabase(
   database: Database.Database,
   options: {
@@ -87,6 +98,7 @@ export async function migrateDatabase(
   return migrationVersion(database);
 }
 
+/** Returns the number of applied migrations, or zero before the first migration. */
 export function migrationVersion(database: Database.Database): number {
   const exists = database
     .prepare(

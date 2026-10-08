@@ -37,12 +37,20 @@ const redactedPaths = [
 ];
 
 export type AppOptions = {
+  /** Database opened with WAL, foreign keys and migrations by `openDatabase`. */
   database: Database.Database;
+  /** Disable request logging in tests; production logging is redacted by default. */
   logger?: boolean;
+  /** Optional Pino-compatible sink used to inspect redaction in tests. */
   loggerStream?: { write(message: string): void };
+  /** Override the production `web/dist` root, primarily for isolated tests. */
   staticRoot?: string;
 };
 
+/**
+ * Creates the Fastify API and static shell. The database is opened and migrated
+ * by startup code; `staticRoot`, logging and the log stream are injectable for tests.
+ */
 export async function createApp(options: AppOptions) {
   const app = Fastify({
     logger:
@@ -116,6 +124,7 @@ export async function createApp(options: AppOptions) {
   return app;
 }
 
+/** Returns the resolved static asset directory used by the production server. */
 export function webAssetsPath(): string {
   return path.resolve(webDistPath);
 }

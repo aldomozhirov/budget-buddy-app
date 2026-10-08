@@ -13,6 +13,7 @@ const envSchema = z.object({
   RATES_FEED: z.string().min(1).default('fixture'),
 });
 
+/** Environment settings normalized for the API process and its SQLite files. */
 export type AppConfig = {
   nodeEnv: 'development' | 'test' | 'production';
   appOrigin: string;
@@ -24,6 +25,14 @@ export type AppConfig = {
   ratesFeed: string;
 };
 
+/**
+ * Validates environment variables once at startup and resolves the database path.
+ * The data and backup directories default to the production mount points; local
+ * development can override them through `.env`.
+ * @param env Environment values to validate (defaults to `process.env`).
+ * @returns Validated settings with `databasePath` derived from `dataDir`.
+ * @throws A Zod error when any provided value is invalid.
+ */
 export function parseConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const parsed = envSchema.parse(env);
   const dataDir = parsed.DATA_DIR ?? '/data';
