@@ -107,7 +107,7 @@ Choosing a package's version: use the latest stable release when the task starts
 
 ### 3. Money, rates and time (requirements 4.2, COR-1, COR-2)
 
-- **Currencies.** `shared/src/money/iso4217.ts` is a bundled table of ISO 4217 codes with their minor units and names. Coins live in the database (`coin` table) with their decimals; the cap is 8 (rule 4.2.1). A currency's symbol comes from `Intl.NumberFormat('en', {style:'currency', currencyDisplay:'narrowSymbol'})`, falling back to the code. Coins use a symbol from a small table (BTC ₿, ETH Ξ) or else the ticker.
+- **Currencies.** `shared/src/money/iso4217.ts` is a bundled table of ISO 4217 codes with their minor units and names. Coins live in the database (`coin` table) with their decimals; the cap is 8 (rule 4.2.1). A currency's symbol comes from `Intl.NumberFormat('en', {style:'currency', currencyDisplay:'narrowSymbol'})`, falling back to the code. Pickers offer `listCurrencies`, which leaves out the ISO codes that aren't money a family holds (`NON_MONEY_CODES`: precious metals, bond and IMF units, XTS, XXX); stored data may still use them. Coins use a symbol from a small table (BTC ₿, ETH Ξ) or else the ticker.
 - **Amounts** are `bigint` minor units in code, `INTEGER` in SQLite, and decimal-integer strings in JSON (`"-198630"`), validated by `/^-?\d{1,19}$/` and capped to SQLite's 64-bit `INTEGER` range (−2^63 to 2^63 − 1, `MIN_MINOR`/`MAX_MINOR` in `shared`); a larger result, typed or parsed, is rejected as "Amount is too large". Floating point is never used for money. A lint rule bans `parseFloat` and `Number(` in `shared/src/money` and in the server's money paths.
 - **Rounding.** One function, `roundHalfAwayFromZero(decimal, decimals): bigint`, is used everywhere.
 - **Formatting** (UI-TXT-2): `€1,234.56`, the currency's own decimals, minus as U+2212 (`−€14.50`), changes as `▲ €1,742.00`, `▼ ₽4,700.00` or `Unchanged`. Dates `DD/MM/YYYY` (UI-TXT-1).
@@ -546,3 +546,4 @@ Tested on 2026-10-07 between 20:50 and 20:55 UTC with `curl` from the Mac mini, 
 - 2026-10-07: task 4 reads the style guide by section from `docs/design/styleguide/` instead of the whole `styleguide.html`.
 - 2026-10-07: task 1 done. Price feeds chosen: ECB, Bank of Russia, Coinbase Exchange; results, notes for task 20 and unconfirmed points are in "Trial results".
 - 2026-10-08: the owner capped amounts to SQLite's 64-bit range (review finding B1), confirmed that commas in a typed amount are decimal points (B3), and left unary minus after an operator (`1 + -2`) as optional (B4).
+- 2026-10-08: the owner kept the direct-rate preference in `convert` as it is (B2), even when a route through a pivot has newer rates, and had the non-money ISO codes left out of currency pickers (B5).

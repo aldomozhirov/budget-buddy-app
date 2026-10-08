@@ -1,4 +1,4 @@
-import { getIsoCurrency, ISO_4217, type IsoCurrency } from './iso4217.js';
+import { getIsoCurrency, ISO_4217, NON_MONEY_CODES, type IsoCurrency } from './iso4217.js';
 
 /** A user-defined coin, such as a row of the `coin` table. */
 export interface CoinCurrency {
@@ -57,13 +57,14 @@ export function getCurrency(code: string, coins: readonly CoinCurrency[] = []): 
 }
 
 /**
- * Lists every ISO currency followed by `coins`, skipping coins whose code is
- * already an ISO code.
+ * Lists the currencies to offer in a picker: every ISO currency except
+ * `NON_MONEY_CODES`, then `coins`, skipping coins whose code is already an
+ * ISO code. `getCurrency` still resolves the hidden codes.
  * @throws {RangeError} if a coin's decimals are not an integer from 0 to 8.
  */
 export function listCurrencies(coins: readonly CoinCurrency[] = []): Currency[] {
   return [
-    ...Object.values(ISO_4217).map(fromIso),
+    ...Object.values(ISO_4217).filter(({ code }) => !NON_MONEY_CODES.has(code)).map(fromIso),
     ...coins.filter((coin) => !getIsoCurrency(coin.code)).map(fromCoin),
   ];
 }

@@ -2,7 +2,7 @@
 
 Found while documenting `shared/` and `web/`. Line numbers refer to the files as they were after the documentation pass.
 
-**Status:** A and C were fixed on 2026-10-08 (commit "Fix component accessibility and shared clean-ups"). B1, B3 and B4 were decided the same day (see spec 01's change log); B2 and B5 are still open.
+**Status:** A and C were fixed on 2026-10-08 (commit "Fix component accessibility and shared clean-ups"). All of B was decided the same day; see spec 01's change log. B1 and B5 were implemented; B2, B3 and B4 keep the current behaviour.
 
 ## A. Accessibility bugs in the design-system components (fixed)
 
@@ -23,7 +23,7 @@ Covered by `web/test/components.test.ts` and `web/e2e/components-a11y.spec.ts`. 
 | A11 | `web/src/components/BbSheet.vue`              | Nothing makes the page behind the sheet inert; it relies on `aria-modal` alone, which not every screen reader honours.                                                                 | Set `inert` on the app root while a sheet is open.                                                                                         |
 | A12 | `web/src/components/BbConfirmSheet.vue:40-48` | The cancel button gets `text-btn` twice (from `variant="text"` and an explicit `class`). `danger` renders as `secondary` plus a `danger` class instead of BbButton's `danger` variant. | Remove the duplicate class and check the danger button against the design spec.                                                            |
 
-## B. Decisions for the spec (spec 01, Design section 3)
+## B. Decisions for the spec (spec 01, Design section 3) (decided)
 
 These follow the spec as written, but each needs a deliberate decision. Ask `plan` to settle them in the spec first, then build.
 

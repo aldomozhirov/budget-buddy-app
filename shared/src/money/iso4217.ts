@@ -12,6 +12,14 @@ export const ISO_4217_CODES = [
 const ZERO_DECIMAL = new Set(['BIF', 'CLP', 'DJF', 'GNF', 'ISK', 'JPY', 'KMF', 'KRW', 'PYG', 'RWF', 'UGX', 'UYI', 'VND', 'VUV', 'XAF', 'XOF', 'XPF']);
 const THREE_DECIMAL = new Set(['BHD', 'IQD', 'JOD', 'KWD', 'LYD', 'OMR', 'TND']);
 const FOUR_DECIMAL = new Set(['CLF', 'UYW']);
+/**
+ * ISO codes with no minor unit that aren't money a family holds: precious
+ * metals, bond-market units, IMF units, and the testing and "no currency"
+ * codes. They stay valid but are left out of `listCurrencies`.
+ */
+export const NON_MONEY_CODES: ReadonlySet<string> = new Set([
+  'XAG', 'XAU', 'XPD', 'XPT', 'XBA', 'XBB', 'XBC', 'XBD', 'XDR', 'XSU', 'XUA', 'XTS', 'XXX',
+]);
 const displayNames = new Intl.DisplayNames(['en'], { type: 'currency' });
 
 /** A currency from the bundled ISO 4217 table. */

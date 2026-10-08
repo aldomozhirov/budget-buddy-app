@@ -47,6 +47,15 @@ describe('currency table and lookup', () => {
     });
     expect(() => listCurrencies([{ code: 'TOO', name: 'Too precise', decimals: 9 }])).toThrow(/between 0 and 8/);
   });
+
+  it('leaves non-money ISO codes out of the picker list but still resolves them', () => {
+    const listed = new Set(listCurrencies().map(({ code }) => code));
+    for (const code of ['XAU', 'XAG', 'XDR', 'XTS', 'XXX']) {
+      expect(listed.has(code), code).toBe(false);
+      expect(getCurrency(code)?.kind, code).toBe('fiat');
+    }
+    for (const code of ['EUR', 'XAF', 'XOF', 'XCD']) expect(listed.has(code), code).toBe(true);
+  });
 });
 
 describe('minor-unit and rounding rules', () => {
