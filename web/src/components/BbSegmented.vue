@@ -9,15 +9,16 @@ export interface BbSegmentOption {
 }
 
 /**
- * Segmented control for switching between a few options; use with `v-model`.
- * Exposed as a tab list; only the selected segment is in the tab order.
+ * Segmented control for picking one of a few options; use with `v-model`.
+ * Exposed as a radio group; only the selected segment, or the first if none
+ * matches, is in the tab order.
  */
 const props = withDefaults(
   defineProps<{
     /** Value of the selected option. */
     modelValue: string | number;
     options: BbSegmentOption[];
-    /** Accessible name of the tab list; not shown on screen. */
+    /** Accessible name of the radio group; not shown on screen. */
     label: string;
     /** Use the compact size. */
     small?: boolean;
@@ -30,18 +31,36 @@ const emit = defineEmits<{
   'update:modelValue': [value: string | number];
 }>();
 
-const tablist = ref<HTMLElement>();
+const radioGroup = ref<HTMLElement>();
 
 function select(option: BbSegmentOption) {
   emit('update:modelValue', option.value);
 }
 
+/** Whether the option is the keyboard tab stop. */
+function isTabStop(option: BbSegmentOption, index: number) {
+  if (props.options.some((item) => item.value === props.modelValue)) {
+    return option.value === props.modelValue;
+  }
+  return index === 0;
+}
+
 /**
- * Moves selection with Left/Right (wrapping), Home and End, following the
- * WAI-ARIA tabs pattern with automatic activation.
+ * Moves selection with the arrow keys (wrapping), Home and End, following
+ * the WAI-ARIA radio group pattern.
  */
 function onKeydown(event: KeyboardEvent) {
-  if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return;
+  if (
+    ![
+      'ArrowRight',
+      'ArrowDown',
+      'ArrowLeft',
+      'ArrowUp',
+      'Home',
+      'End',
+    ].includes(event.key)
+  )
+    return;
   event.preventDefault();
   if (props.options.length === 0) return;
 
@@ -53,7 +72,7 @@ function onKeydown(event: KeyboardEvent) {
       ? 0
       : event.key === 'End'
         ? props.options.length - 1
-        : event.key === 'ArrowRight'
+        : event.key === 'ArrowRight' || event.key === 'ArrowDown'
           ? (Math.max(currentIndex, 0) + 1) % props.options.length
           : (Math.max(currentIndex, 0) - 1 + props.options.length) %
             props.options.length;
@@ -62,8 +81,8 @@ function onKeydown(event: KeyboardEvent) {
   select(option);
   // Focus after the re-render, once the new segment is the tab stop.
   void nextTick(() => {
-    tablist.value
-      ?.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+    radioGroup.value
+      ?.querySelectorAll<HTMLButtonElement>('[role="radio"]')
       .item(index)
       ?.focus();
   });
@@ -72,21 +91,21 @@ function onKeydown(event: KeyboardEvent) {
 
 <template>
   <div
-    ref="tablist"
+    ref="radioGroup"
     class="segmented"
     :class="{ 'segmented-sm': small }"
-    role="tablist"
+    role="radiogroup"
     :aria-label="label"
     @keydown="onKeydown"
   >
     <button
-      v-for="option in options"
+      v-for="(option, index) in options"
       :key="option.value"
       class="seg-target"
       type="button"
-      role="tab"
-      :aria-selected="option.value === modelValue"
-      :tabindex="option.value === modelValue ? 0 : -1"
+      role="radio"
+      :aria-checked="option.value === modelValue"
+      :tabindex="isTabStop(option, index) ? 0 : -1"
       @click="select(option)"
     >
       <span

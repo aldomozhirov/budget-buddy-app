@@ -2,6 +2,9 @@
 import { onMounted, onUnmounted, ref, useId } from 'vue';
 import BbIcon from './BbIcon.vue';
 
+/** Mounted sheets, oldest first; only the last one handles keys. */
+const openSheets: object[] = [];
+
 /**
  * Modal bottom sheet with a title, close button and focus trap; the parent
  * shows it with `v-if`. Default slot: sheet body. `title` slot: heading.
@@ -25,16 +28,27 @@ const emit = defineEmits<{
 
 const dialog = ref<HTMLElement>();
 const titleId = `bb-sheet-title-${useId()}`;
+const layer = ref<HTMLElement>();
 /** Element to refocus when the sheet unmounts. */
 let previouslyFocused: HTMLElement | null = null;
+/** Elements this sheet made inert, restored when it unmounts. */
+let inertElements: HTMLElement[] = [];
+/** Identifies this sheet in `openSheets`. */
+const sheetToken = {};
 
 function close() {
   if (props.closable) emit('close');
 }
 
-/** Closes on Escape and keeps Tab and Shift+Tab focus inside the sheet. */
+/**
+ * Closes on Escape and keeps Tab and Shift+Tab focus inside the sheet. Only
+ * the topmost sheet reacts, so stacked sheets don't all close at once.
+ */
 function onKeydown(event: KeyboardEvent) {
+  if (openSheets.at(-1) !== sheetToken) return;
   if (event.key === 'Escape') {
+    // Leave Escape alone when it can't close this sheet.
+    if (!props.closable) return;
     event.preventDefault();
     close();
     return;
@@ -45,7 +59,7 @@ function onKeydown(event: KeyboardEvent) {
     dialog.value.querySelectorAll<HTMLElement>(
       'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
     ),
-  ).filter((element) => element.getAttribute('aria-hidden') !== 'true');
+  ).filter((element) => !element.closest('[aria-hidden="true"], [inert]'));
   // Nothing to tab to: keep focus on the dialog itself.
   if (focusable.length === 0) {
     event.preventDefault();
@@ -69,11 +83,36 @@ function onKeydown(event: KeyboardEvent) {
   }
 }
 
+/**
+ * Makes everything outside the sheet inert, so screen readers and pointers
+ * can't reach the page behind it (`aria-modal` alone isn't always honoured).
+ */
+function makeBackgroundInert() {
+  let node = layer.value;
+  while (node && node !== document.body) {
+    const parent: HTMLElement | null = node.parentElement;
+    for (const sibling of Array.from(parent?.children ?? [])) {
+      if (
+        sibling !== node &&
+        sibling instanceof HTMLElement &&
+        !sibling.inert
+      ) {
+        sibling.inert = true;
+        inertElements.push(sibling);
+      }
+    }
+    node = parent ?? undefined;
+  }
+}
+
 onMounted(() => {
+  // Read focus first: making its element inert would move focus away.
   previouslyFocused =
     document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
+  openSheets.push(sheetToken);
+  makeBackgroundInert();
   dialog.value?.focus();
   // On window, so Escape and Tab are handled wherever focus is.
   window.addEventListener('keydown', onKeydown);
@@ -81,12 +120,18 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown);
+  openSheets.splice(openSheets.indexOf(sheetToken), 1);
+  for (const element of inertElements) element.inert = false;
+  inertElements = [];
   previouslyFocused?.focus();
 });
 </script>
 
 <template>
-  <div class="sheet-layer">
+  <div
+    ref="layer"
+    class="sheet-layer"
+  >
     <div
       class="scrim"
       aria-hidden="true"

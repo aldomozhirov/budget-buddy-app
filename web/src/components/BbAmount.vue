@@ -7,11 +7,14 @@ withDefaults(
   defineProps<{
     /** Already formatted amount, e.g. `€84,215.00`. */
     value: string;
-    /** When false, shows `maskedValue` and labels it with `hiddenLabel`. */
+    /** When false, shows `maskedValue` and reads out `hiddenLabel`. */
     visible?: boolean;
     /** Placeholder text shown in place of the amount while hidden. */
     maskedValue?: string;
-    /** Accessible name used while the amount is hidden. */
+    /**
+     * Text read by screen readers while the amount is hidden. It is rendered
+     * as visually hidden text: a plain span can't carry `aria-label`.
+     */
     hiddenLabel?: string;
   }>(),
   {
@@ -24,10 +27,16 @@ withDefaults(
 
 <template>
   <span
+    v-if="visible"
     class="num"
-    :class="{ masked: !visible }"
-    :aria-label="visible ? undefined : hiddenLabel"
   >
-    {{ visible ? value : maskedValue }}
+    {{ value }}
+  </span>
+  <span
+    v-else
+    class="num masked"
+  >
+    <span aria-hidden="true">{{ maskedValue }}</span>
+    <span class="visually-hidden">{{ hiddenLabel }}</span>
   </span>
 </template>

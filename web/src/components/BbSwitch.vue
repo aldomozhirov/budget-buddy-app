@@ -32,7 +32,6 @@ function toggle() {
   >
     <span
       class="switch"
-      :aria-checked="modelValue"
       aria-hidden="true"
     >
       <span class="knob" />

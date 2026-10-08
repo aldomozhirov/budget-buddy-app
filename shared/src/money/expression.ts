@@ -139,7 +139,8 @@ export function evaluateExpression(expression: string, currency: Currency): Expr
 
 /**
  * Returns a preview value for an expression still being typed: trailing
- * operators are dropped and open brackets closed before evaluating.
+ * operators and empty brackets are dropped and open brackets closed before
+ * evaluating.
  * Returns `undefined` when the expression neither ends in an operator nor
  * has unclosed brackets (use `evaluateExpression`), or cannot be evaluated.
  */
@@ -154,7 +155,10 @@ export function lastCompleteValue(expression: string, currency: Currency): bigin
     if (token === ')') openBrackets -= 1;
   }
   if (!trailingOperator && openBrackets <= 0) return undefined;
-  while (['+', '-', '*', '/'].includes(tokens.at(-1) ?? '')) tokens.pop();
+  // Drop trailing operators and just-opened brackets: `1 + (` previews as 1.
+  while (['+', '-', '*', '/', '('].includes(tokens.at(-1) ?? '')) {
+    if (tokens.pop() === '(') openBrackets -= 1;
+  }
   while (openBrackets > 0) {
     tokens.push(')');
     openBrackets -= 1;

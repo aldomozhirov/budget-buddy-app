@@ -110,6 +110,8 @@ describe('local cadence slots', () => {
     const after = new Date('2026-01-10T00:00:00.000Z');
     const before = new Date('2026-01-01T00:00:00.000Z');
     expect(getCadenceSlots({ kind: 'monthly', day: 'last', time: '09:00' }, after, before, berlin)).toEqual([]);
+    expect(getCadenceSlots({ kind: 'weeks', every: 2, weekday: 1, anchorDate: '2026-01-05', time: '09:00' }, after, before, berlin)).toEqual([]);
+    expect(() => getCadenceSlots({ kind: 'monthly', day: 32, time: '09:00' }, after, before, berlin)).toThrow(/Monthly cadence day/);
     expect(() => getCadenceSlots({ kind: 'monthly', day: 32, time: '09:00' }, before, after, berlin)).toThrow(/Monthly cadence day/);
     expect(() => getCadenceSlots({ kind: 'weeks', every: 9, weekday: 1, anchorDate: '2026-01-05', time: '09:00' }, before, after, berlin)).toThrow(/Every-weeks cadence/);
     expect(() => getCadenceSlots({ kind: 'weeks', every: 1, weekday: 0, anchorDate: '2026-01-05', time: '09:00' }, before, after, berlin)).toThrow(/Weekday/);

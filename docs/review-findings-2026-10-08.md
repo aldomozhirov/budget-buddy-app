@@ -1,10 +1,12 @@
 # Review findings, 2026-10-08
 
-Found while documenting `shared/` and `web/`. Nothing here has been fixed yet. Line numbers refer to the files as they are after the documentation pass.
+Found while documenting `shared/` and `web/`. Line numbers refer to the files as they were after the documentation pass.
 
-## A. Accessibility bugs in the design-system components
+**Status:** A and C were fixed on 2026-10-08 (commit "Fix component accessibility and shared clean-ups"). B is still open and needs the owner's decisions.
 
-Fix these before screens are built on top of the components. Load the `design-system` skill and add a component test or E2E check for each fix.
+## A. Accessibility bugs in the design-system components (fixed)
+
+Covered by `web/test/components.test.ts` and `web/e2e/components-a11y.spec.ts`. A12: only the duplicate class was a bug. BbButton's `danger` variant only sets the text colour, so the confirm sheet keeps `secondary` plus the `danger` class on purpose; that is now documented on the prop.
 
 | #   | Where                                         | Problem                                                                                                                                                                                | Fix                                                                                                                                        |
 | --- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -33,7 +35,7 @@ These follow the spec as written, but each needs a deliberate decision. Ask `pla
 | B4  | `shared/src/money/expression.ts:59`                                 | Unary minus is allowed only at the start or after `(`, as spec 01 says, so `1 + -2` and `2 * -3` are rejected. Confirm that's the wanted behaviour.                                                                                                                              |
 | B5  | `shared/src/money/iso4217.ts:34`                                    | Codes with no minor unit in ISO 4217 (XAU, XAG, XDR, XTS, XXX and others) get 2 decimals, so `formatMoney(5n, XAU)` shows `XAU 0.05`. Exclude them from the list or give them their own rule.                                                                                    |
 
-## C. Small clean-ups
+## C. Small clean-ups (fixed)
 
 | #   | Where                                | Problem                                                                                                           |
 | --- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |

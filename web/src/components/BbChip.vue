@@ -1,17 +1,20 @@
 <script setup lang="ts">
+import { computed, inject } from 'vue';
+import { inChipGroupKey } from './chipGroup';
+
 /**
  * Single chip button. Extra attributes and listeners (e.g. `@click`) go to
  * the native `<button>`. Default slot: chip content.
  */
-withDefaults(
+const props = withDefaults(
   defineProps<{
     /**
      * Style and semantics: `choice`, `small` and `pill` are radio buttons
-     * (place them in a radiogroup, e.g. BbChipGroup), `filter` is a toggle
-     * button, `suggest` and `ghost` are plain buttons.
+     * inside BbChipGroup and toggle buttons on their own, `filter` is a
+     * toggle button, `suggest` and `ghost` are plain buttons.
      */
     variant?: 'choice' | 'small' | 'ghost' | 'suggest' | 'filter' | 'pill';
-    /** Checked (radio variants) or pressed (`filter`); unused otherwise. */
+    /** Checked or pressed; unused for `suggest` and `ghost`. */
     selected?: boolean;
     type?: 'button' | 'submit' | 'reset';
   }>(),
@@ -19,6 +22,20 @@ withDefaults(
 );
 
 defineOptions({ inheritAttrs: false });
+
+const inGroup = inject(inChipGroupKey, false);
+const isChoice = computed(
+  () =>
+    props.variant === 'choice' ||
+    props.variant === 'small' ||
+    props.variant === 'pill',
+);
+/** A radio inside BbChipGroup; ARIA doesn't allow a radio on its own. */
+const isRadio = computed(() => isChoice.value && inGroup);
+/** Stand-alone choice chips and filters report their state as pressed. */
+const isToggle = computed(
+  () => props.variant === 'filter' || (isChoice.value && !inGroup),
+);
 
 const classes = {
   choice: 'chip',
@@ -35,17 +52,9 @@ const classes = {
     v-bind="$attrs"
     :type="type"
     class="chip-target"
-    :role="
-      variant === 'choice' || variant === 'small' || variant === 'pill'
-        ? 'radio'
-        : undefined
-    "
-    :aria-checked="
-      variant === 'choice' || variant === 'small' || variant === 'pill'
-        ? selected
-        : undefined
-    "
-    :aria-pressed="variant === 'filter' ? selected : undefined"
+    :role="isRadio ? 'radio' : undefined"
+    :aria-checked="isRadio ? selected : undefined"
+    :aria-pressed="isToggle ? selected : undefined"
   >
     <span
       :class="[

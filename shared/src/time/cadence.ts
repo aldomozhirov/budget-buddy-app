@@ -66,7 +66,7 @@ function localMinuteToInstant(target: LocalDateTime, timeZone: string): Date | u
  * once, to the earlier instant.
  * @throws {RangeError} if no valid minute exists within 180 minutes.
  */
-function resolveLocalDateTime(date: string, hour: number, minute: number, timeZone: string): { instant: Date; localDate: string; localTime: string } {
+function resolveLocalDateTime(date: string, hour: number, minute: number, timeZone: string): Date {
   const [year, month, day] = date.split('-').map((part) => Number.parseInt(part ?? '', 10));
   const requested: LocalDateTime = { year: year ?? 0, month: month ?? 0, day: day ?? 0, hour, minute };
   for (let advance = 0; advance <= 180; advance += 1) {
@@ -76,11 +76,7 @@ function resolveLocalDateTime(date: string, hour: number, minute: number, timeZo
       hour: wall.getUTCHours(), minute: wall.getUTCMinutes(),
     };
     const instant = localMinuteToInstant(candidate, timeZone);
-    if (instant) {
-      const actual = localParts(instant, timeZone);
-      const localDate = `${actual.year.toString().padStart(4, '0')}-${actual.month.toString().padStart(2, '0')}-${actual.day.toString().padStart(2, '0')}`;
-      return { instant, localDate, localTime: `${actual.hour.toString().padStart(2, '0')}:${actual.minute.toString().padStart(2, '0')}` };
-    }
+    if (instant) return instant;
   }
   throw new RangeError(`Could not resolve local time ${date} ${hour}:${minute} in ${timeZone}`);
 }
@@ -111,11 +107,11 @@ function monthDate(year: number, month: number, day: number | 'last', timeZone: 
 
 /** Appends the slot for a local date and time if it falls within [from, to]. */
 function collectSlot(date: string, hour: number, minute: number, timeZone: string, from: Date, to: Date, result: ScheduleSlot[]): void {
-  const resolved = resolveLocalDateTime(date, hour, minute, timeZone);
-  if (resolved.instant >= from && resolved.instant <= to) {
+  const instant = resolveLocalDateTime(date, hour, minute, timeZone);
+  if (instant >= from && instant <= to) {
     result.push({
       key: `${date}T${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`,
-      instant: resolved.instant,
+      instant,
     });
   }
 }
@@ -124,13 +120,12 @@ function collectSlot(date: string, hour: number, minute: number, timeZone: strin
  * Returns the cadence's slots whose instants fall between `from` and `to`
  * inclusive, sorted by instant. Wall times are read in `timeZone`; a time
  * in a DST gap moves to the first valid minute after it, and a repeated
- * time occurs once, at its earlier instant. A reversed range returns `[]`
- * without validating the cadence.
+ * time occurs once, at its earlier instant. A reversed range returns `[]`.
  * @throws {RangeError} if the cadence's time, day, interval, weekday or
  * anchor date is invalid, or `timeZone` is unknown.
  */
 export function getCadenceSlots(cadence: Cadence, from: Date, to: Date, timeZone: string): ScheduleSlot[] {
-  if (from > to) return [];
+  // A reversed range needs no early return: both loops below are empty.
   const [hour, minute] = validateTime(cadence.time);
   // Validate the time zone even if the requested range contains no occurrence.
   new Intl.DateTimeFormat('en', { timeZone }).format(from);

@@ -14,7 +14,10 @@ withDefaults(
     message: string;
     confirmLabel: string;
     cancelLabel?: string;
-    /** Style the confirm button as a destructive action. */
+    /**
+     * Style the confirm button as a destructive action: the secondary shape
+     * in the warning colour (BbButton's `danger` variant only sets colour).
+     */
     danger?: boolean;
   }>(),
   { cancelLabel: 'Keep it open', danger: false },
@@ -45,7 +48,6 @@ const emit = defineEmits<{
     </BbButton>
     <BbButton
       variant="text"
-      class="text-btn"
       @click="emit('cancel')"
     >
       {{ cancelLabel }}

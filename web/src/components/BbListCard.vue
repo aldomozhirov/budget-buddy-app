@@ -5,7 +5,10 @@
  */
 withDefaults(
   defineProps<{
-    /** Accessible name for the card; applied only when non-empty. */
+    /**
+     * Accessible name for the card; applied only when non-empty. A labelled
+     * `div` becomes a group, since a plain `div` can't carry a name.
+     */
     label?: string;
     /**
      * Element to render: `section` with `label` for a named region, `ul` when
@@ -24,6 +27,7 @@ defineOptions({ inheritAttrs: false });
     :is="as"
     v-bind="$attrs"
     class="card"
+    :role="label && as === 'div' ? 'group' : undefined"
     :aria-label="label || undefined"
   >
     <slot />

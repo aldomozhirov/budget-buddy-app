@@ -18,17 +18,27 @@ export interface Currency extends CoinCurrency {
 /** Symbols for well-known coins; other coins display their code. */
 const COIN_SYMBOLS: Readonly<Record<string, string>> = { BTC: '₿', ETH: 'Ξ', USDT: '₮' };
 
-/** Marks an ISO currency as fiat and adds Intl's narrow symbol, or the code. */
+/**
+ * Marks an ISO currency as fiat and adds Intl's narrow symbol, or the code.
+ * Intl accepts any well-formed three-letter code, so this never throws.
+ */
 function fromIso(currency: IsoCurrency): Currency {
-  let symbol: string = currency.code;
-  try {
-    symbol = new Intl.NumberFormat('en', { style: 'currency', currency: currency.code, currencyDisplay: 'narrowSymbol' })
-      .formatToParts(1)
-      .find((part) => part.type === 'currency')?.value ?? currency.code;
-  } catch {
-    // Some ISO fund/testing codes are not supported by the current ICU data.
-  }
+  const symbol = new Intl.NumberFormat('en', { style: 'currency', currency: currency.code, currencyDisplay: 'narrowSymbol' })
+    .formatToParts(1)
+    .find((part) => part.type === 'currency')?.value ?? currency.code;
   return { ...currency, kind: 'fiat', symbol };
+}
+
+/**
+ * Resolves a coin for arithmetic and display, in upper case.
+ * @throws {RangeError} if its decimals are not an integer from 0 to 8.
+ */
+function fromCoin(coin: CoinCurrency): Currency {
+  if (!Number.isInteger(coin.decimals) || coin.decimals < 0 || coin.decimals > 8) {
+    throw new RangeError(`Coin decimals must be between 0 and 8: ${coin.code}`);
+  }
+  const code = coin.code.toUpperCase();
+  return { ...coin, code, kind: 'coin', symbol: COIN_SYMBOLS[code] ?? code };
 }
 
 /**
@@ -43,11 +53,7 @@ export function getCurrency(code: string, coins: readonly CoinCurrency[] = []): 
   const iso = getIsoCurrency(upperCode);
   if (iso) return fromIso(iso);
   const coin = coins.find((candidate) => candidate.code.toUpperCase() === upperCode);
-  if (!coin) return undefined;
-  if (!Number.isInteger(coin.decimals) || coin.decimals < 0 || coin.decimals > 8) {
-    throw new RangeError(`Coin decimals must be between 0 and 8: ${coin.code}`);
-  }
-  return { ...coin, code: upperCode, kind: 'coin', symbol: COIN_SYMBOLS[upperCode] ?? upperCode };
+  return coin ? fromCoin(coin) : undefined;
 }
 
 /**
@@ -58,10 +64,6 @@ export function getCurrency(code: string, coins: readonly CoinCurrency[] = []): 
 export function listCurrencies(coins: readonly CoinCurrency[] = []): Currency[] {
   return [
     ...Object.values(ISO_4217).map(fromIso),
-    ...coins.filter((coin) => !getIsoCurrency(coin.code)).map((coin) => {
-      const currency = getCurrency(coin.code, [coin]);
-      if (!currency) throw new Error(`Invalid coin currency: ${coin.code}`);
-      return currency;
-    }),
+    ...coins.filter((coin) => !getIsoCurrency(coin.code)).map(fromCoin),
   ];
 }

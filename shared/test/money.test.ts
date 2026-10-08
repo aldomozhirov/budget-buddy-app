@@ -42,7 +42,10 @@ describe('currency table and lookup', () => {
     });
     expect(() => getCurrency('TOO', [{ code: 'TOO', name: 'Too precise', decimals: 9 }])).toThrow(/between 0 and 8/);
     expect(listCurrencies([{ code: 'EUR', name: 'duplicate', decimals: 2 }]).filter(({ code }) => code === 'EUR')).toHaveLength(1);
-    expect(listCurrencies([{ code: 'BTC', name: 'Bitcoin', decimals: 8 }]).some(({ code }) => code === 'BTC')).toBe(true);
+    expect(listCurrencies([{ code: 'btc', name: 'Bitcoin', decimals: 8 }]).find(({ kind }) => kind === 'coin')).toMatchObject({
+      code: 'BTC', symbol: '₿', kind: 'coin',
+    });
+    expect(() => listCurrencies([{ code: 'TOO', name: 'Too precise', decimals: 9 }])).toThrow(/between 0 and 8/);
   });
 });
 
@@ -64,7 +67,9 @@ describe('minor-unit and rounding rules', () => {
     expect(roundHalfAwayFromZero('-0.005', 2)).toBe(-1n);
     expect(roundHalfAwayFromZero('1.234', 2)).toBe(123n);
     expect(roundHalfAwayFromZero('-1.235', 2)).toBe(-124n);
-    expect(() => roundHalfAwayFromZero('1', -1)).toThrow();
+    expect(() => roundHalfAwayFromZero('1', -1)).toThrow(RangeError);
+    expect(() => roundHalfAwayFromZero('abc', 2)).toThrow(RangeError);
+    expect(() => roundHalfAwayFromZero(Infinity, 2)).toThrow(RangeError);
   });
 });
 
@@ -116,6 +121,12 @@ describe('expression evaluator', () => {
     });
     expect(lastCompleteValue('1*(2+3)+', eur)).toBe(500n);
     expect(lastCompleteValue('2*(3+4+', eur)).toBe(1400n);
+  });
+
+  it('previews the value before a bracket that was just opened', () => {
+    expect(lastCompleteValue('1 + (', eur)).toBe(100n);
+    expect(lastCompleteValue('2 * (1 + (', eur)).toBe(200n);
+    expect(lastCompleteValue('(', eur)).toBeUndefined();
   });
 });
 

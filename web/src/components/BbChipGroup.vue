@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { nextTick, ref } from 'vue';
+import { nextTick, provide, ref } from 'vue';
 import BbChip from './BbChip.vue';
+import { inChipGroupKey } from './chipGroup';
 
 /** One choice in a BbChipGroup. */
 export interface BbChipOption {
@@ -32,6 +33,8 @@ const emit = defineEmits<{
 }>();
 
 const radioGroup = ref<HTMLElement>();
+
+provide(inChipGroupKey, true);
 
 function select(index: number) {
   const option = props.options[index];

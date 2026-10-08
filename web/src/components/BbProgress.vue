@@ -15,8 +15,14 @@ const props = withDefaults(
     label: string;
     /** Use the over-limit (e.g. overspent) style. */
     over?: boolean;
+    /**
+     * Value as screen readers should say it, e.g. `€120 of €100, over
+     * budget`. Defaults to the percentage, marked as over the limit when
+     * `over` is set.
+     */
+    valueText?: string;
   }>(),
-  { max: 100, over: false },
+  { max: 100, over: false, valueText: '' },
 );
 
 /** `max`, made safe to divide by and to expose as `aria-valuemax`. */
@@ -30,6 +36,16 @@ const percentage = computed(() =>
 const currentValue = computed(() =>
   Math.max(0, Math.min(safeMax.value, props.value)),
 );
+/**
+ * `aria-valuetext`. The clamped `aria-valuenow` would read an overspent
+ * budget as exactly 100%, so `over` states the real share and the overrun.
+ */
+const valueText = computed(() => {
+  if (props.valueText) return props.valueText;
+  if (!props.over) return undefined;
+  const share = Math.round((props.value / safeMax.value) * 100);
+  return `${share}%, over the limit`;
+});
 </script>
 
 <template>
@@ -41,6 +57,7 @@ const currentValue = computed(() =>
     aria-valuemin="0"
     :aria-valuemax="safeMax"
     :aria-valuenow="currentValue"
+    :aria-valuetext="valueText"
   >
     <span :style="{ width: `${percentage}%` }" />
   </span>
