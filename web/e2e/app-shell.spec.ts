@@ -208,6 +208,33 @@ test('browser Back from Accounts returns Home with a back transition', async ({
   ).not.toContain('bb-in-fwd');
 });
 
+test('an interrupted push cannot cancel the Back screen transition', async ({
+  page,
+}) => {
+  await page.clock.install();
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Accounts' }).click();
+  await expect(page).toHaveURL(/\/accounts$/);
+  const accounts = page
+    .getByRole('main')
+    .filter({ has: page.getByRole('heading', { name: 'Accounts' }) });
+  await expect(
+    accounts.getByRole('heading', { name: 'Accounts' }),
+  ).toBeVisible();
+
+  await page.clock.runFor(250);
+  await expect(accounts).toHaveClass(/enter-fwd/);
+  await page.getByRole('button', { name: 'Back to home' }).click();
+  await expect(page).toHaveURL(/\/$/);
+  const home = page
+    .getByRole('main')
+    .filter({ has: page.getByRole('heading', { name: 'Home' }) });
+  await expect(home).toHaveClass(/enter-back/);
+
+  await page.clock.runFor(220);
+  await expect(home).toHaveClass(/enter-back/);
+});
+
 test('a directly opened summary keeps its title and content during fallback', async ({
   page,
 }) => {
