@@ -11,6 +11,9 @@ const port = await availablePort();
 const env = {
   ...process.env,
   DATA_DIR: dataDir,
+  // Keep migration backups in the temporary folder too; the default,
+  // /backups, is the production mount and can't be created on a Mac.
+  BACKUP_DIR: path.join(dataDir, 'backups'),
   E2E_PORT: String(port),
   HOST: '127.0.0.1',
   PORT: String(port),
