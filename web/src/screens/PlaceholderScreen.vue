@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import BbBackButton from '../components/BbBackButton.vue';
 import { useBack } from '../composables/useBack';
@@ -7,8 +6,7 @@ import { useBack } from '../composables/useBack';
 /** Generic destination for routes whose feature screen arrives in a later task. */
 defineOptions({ name: 'PlaceholderScreen' });
 
-const route = useRoute();
-const title = computed(() => String(route.meta.title ?? 'Page'));
+const title = String(useRoute().meta.title ?? 'Page');
 const { label, goBack } = useBack();
 </script>
 

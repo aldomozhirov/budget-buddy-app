@@ -91,15 +91,35 @@ if (galleryEnabled) {
 
 routes.push({ path: '/:pathMatch(.*)*', redirect: '/' });
 
+const history = createWebHistory(import.meta.env.BASE_URL);
+const pendingPopNavigations: {
+  to: string;
+  from: string;
+  direction: 'back' | 'forward' | '';
+}[] = [];
+
+history.listen((to, from, information) => {
+  if (information.type === 'pop') {
+    pendingPopNavigations.push({ to, from, direction: information.direction });
+  }
+});
+
 /** Router for the app's screens and in-memory navigation. */
 export const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history,
   routes,
 });
 
 let pendingNavigation: 'back' | 'fallback' | null = null;
 
 router.afterEach((to, from, failure) => {
+  const popIndex = pendingPopNavigations.findIndex(
+    (navigation) =>
+      navigation.to === to.fullPath && navigation.from === from.fullPath,
+  );
+  const popNavigation =
+    popIndex >= 0 ? pendingPopNavigations.splice(popIndex, 1)[0] : undefined;
+
   if (failure) {
     pendingNavigation = null;
     return;
@@ -116,6 +136,22 @@ router.afterEach((to, from, failure) => {
     pendingNavigation = null;
     navigationStack.value = navigationStack.value.slice(0, -1);
     screenTransitionClass.value = 'enter-back';
+    return;
+  }
+
+  if (popNavigation?.direction === 'back') {
+    const destinationIndex = navigationStack.value.lastIndexOf(to.fullPath);
+    navigationStack.value =
+      destinationIndex >= 0
+        ? navigationStack.value.slice(0, destinationIndex)
+        : [];
+    screenTransitionClass.value = 'enter-back';
+    return;
+  }
+
+  if (popNavigation?.direction === 'forward') {
+    navigationStack.value = [...navigationStack.value, from.fullPath];
+    screenTransitionClass.value = 'enter-fwd';
     return;
   }
 
@@ -140,7 +176,7 @@ export function navigateBack(path: string): void {
 
   if (previous) {
     pendingNavigation = 'back';
-    void router.push(previous);
+    void router.back();
     return;
   }
 

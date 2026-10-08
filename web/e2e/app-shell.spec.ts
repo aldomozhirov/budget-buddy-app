@@ -54,6 +54,38 @@ test('the Home screen shows its placeholder navigation and fits the viewport', a
     path: `${screenshotDirectory}/Home-${testInfo.project.name}.png`,
     scale: 'css',
   });
+  if (testInfo.project.name === 'iphone') {
+    await page.screenshot({
+      path: `${screenshotDirectory}/Main.png`,
+      scale: 'css',
+    });
+  }
+});
+
+test('Home remains usable in a desktop-width browser', async ({
+  browser,
+}, testInfo) => {
+  const context = await browser.newContext({
+    baseURL: testInfo.project.use.baseURL as string,
+    viewport: { width: 1440, height: 900 },
+  });
+  try {
+    const page = await context.newPage();
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+    const everything = page.getByRole('navigation', { name: 'Everything' });
+    await expect(everything.getByRole('link')).toHaveCount(4);
+    const content = await page.getByRole('main').boundingBox();
+    expect(content?.width).toBeLessThanOrEqual(640);
+    expect(
+      Math.abs((content?.x ?? 0) + (content?.width ?? 0) / 2 - 720),
+    ).toBeLessThanOrEqual(1);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(1440);
+  } finally {
+    await context.close();
+  }
 });
 
 test('all Design section 8 routes load their placeholder screen', async ({
@@ -91,13 +123,147 @@ test('Home to Accounts and Back returns Home with the destination label', async 
   await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
 });
 
-test('a directly opened summary falls back to Check-ins', async ({ page }) => {
+test('reloading a summary preserves Home as the next Wealth history Back target', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Wealth history' }).click();
+  await expect(page).toHaveURL(/\/check-ins\/1$/);
+  await expect(
+    page.getByRole('heading', { name: 'Check-in summary' }),
+  ).toBeVisible();
+
+  await page.reload();
+  await expect(
+    page.getByRole('heading', { name: 'Check-in summary' }),
+  ).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+
+  await page.getByRole('link', { name: 'Wealth history' }).click();
+  await expect(page).toHaveURL(/\/check-ins\/1$/);
+  const back = page.getByRole('button', { name: 'Back to home' });
+  await expect(back).toBeVisible();
+  await back.click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+});
+
+test('browser Back from Accounts returns Home with a back transition', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const animations: string[] = [];
+    Object.assign(window, { __screenAnimations: animations });
+    document.addEventListener(
+      'animationstart',
+      (event) => animations.push((event as AnimationEvent).animationName),
+      true,
+    );
+    document.addEventListener(
+      'animationend',
+      (event) =>
+        animations.push(`ended:${(event as AnimationEvent).animationName}`),
+      true,
+    );
+  });
+
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Accounts' }).click();
+  await expect(page).toHaveURL(/\/accounts$/);
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (
+          window as unknown as { __screenAnimations: string[] }
+        ).__screenAnimations.includes('ended:bb-in-fwd'),
+      ),
+    )
+    .toBe(true);
+  await page.evaluate(() => {
+    (
+      window as unknown as { __screenAnimations: string[] }
+    ).__screenAnimations.length = 0;
+  });
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as unknown as { __screenAnimations: string[] })
+            .__screenAnimations,
+      ),
+    )
+    .toContain('bb-in-back');
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as { __screenAnimations: string[] })
+          .__screenAnimations,
+    ),
+  ).not.toContain('bb-in-fwd');
+});
+
+test('a directly opened summary keeps its title and content during fallback', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const starts: {
+      name: string;
+      headings: string[];
+      content: string[];
+    }[] = [];
+    Object.assign(window, { __screenAnimationStarts: starts });
+    document.addEventListener(
+      'animationstart',
+      (event) => {
+        const mains = Array.from(document.querySelectorAll('main'));
+        starts.push({
+          name: (event as AnimationEvent).animationName,
+          headings: mains.map(
+            (main) => main.querySelector('h1')?.textContent?.trim() ?? '',
+          ),
+          content: mains.map(
+            (main) => main.querySelector('p')?.textContent?.trim() ?? '',
+          ),
+        });
+      },
+      true,
+    );
+  });
+
   await page.goto('/check-ins/1');
   const back = page.getByRole('button', { name: 'Back to check-ins' });
   await expect(back).toBeVisible();
   await back.click();
   await expect(page).toHaveURL(/\/check-ins$/);
   await expect(page.getByRole('heading', { name: 'Check-ins' })).toBeVisible();
+
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (
+          window as unknown as {
+            __screenAnimationStarts: {
+              name: string;
+              headings: string[];
+              content: string[];
+            }[];
+          }
+        ).__screenAnimationStarts.find((event) => event.name === 'bb-in-back'),
+      ),
+    )
+    .toMatchObject({
+      headings: expect.arrayContaining(['Check-in summary', 'Check-ins']),
+      content: expect.arrayContaining([
+        'Check-in summary is not available yet.',
+        'Check-ins is not available yet.',
+      ]),
+    });
 });
 
 test('a directly opened account also uses its natural parent', async ({
