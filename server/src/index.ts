@@ -3,6 +3,7 @@ import { parseConfig } from './config.js';
 import { createApp } from './app.js';
 import { openDatabase } from './db/index.js';
 
+// `.env` is optional: config may come from the real environment instead.
 try {
   process.loadEnvFile(fileURLToPath(new URL('../../.env', import.meta.url)));
 } catch (error) {
@@ -28,6 +29,8 @@ try {
   } else {
     console.error('Server startup failed', error);
   }
+  // Close it even if the app was never created, so the file isn't left open.
   database?.close();
+  // Set exitCode instead of calling exit() so pending logs can flush.
   process.exitCode = 1;
 }

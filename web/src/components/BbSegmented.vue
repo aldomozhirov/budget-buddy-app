@@ -1,22 +1,32 @@
 <script setup lang="ts">
 import { nextTick, ref } from 'vue';
 
+/** One segment of a BbSegmented control. */
 export interface BbSegmentOption {
   label: string;
+  /** Emitted on selection; must be unique within the control (used as key). */
   value: string | number;
 }
 
+/**
+ * Segmented control for switching between a few options; use with `v-model`.
+ * Exposed as a tab list; only the selected segment is in the tab order.
+ */
 const props = withDefaults(
   defineProps<{
+    /** Value of the selected option. */
     modelValue: string | number;
     options: BbSegmentOption[];
+    /** Accessible name of the tab list; not shown on screen. */
     label: string;
+    /** Use the compact size. */
     small?: boolean;
   }>(),
   { small: false },
 );
 
 const emit = defineEmits<{
+  /** A segment was clicked or the selection moved by keyboard. */
   'update:modelValue': [value: string | number];
 }>();
 
@@ -26,6 +36,10 @@ function select(option: BbSegmentOption) {
   emit('update:modelValue', option.value);
 }
 
+/**
+ * Moves selection with Left/Right (wrapping), Home and End, following the
+ * WAI-ARIA tabs pattern with automatic activation.
+ */
 function onKeydown(event: KeyboardEvent) {
   if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return;
   event.preventDefault();
@@ -46,6 +60,7 @@ function onKeydown(event: KeyboardEvent) {
   const option = props.options[index];
   if (!option) return;
   select(option);
+  // Focus after the re-render, once the new segment is the tab stop.
   void nextTick(() => {
     tablist.value
       ?.querySelectorAll<HTMLButtonElement>('[role="tab"]')

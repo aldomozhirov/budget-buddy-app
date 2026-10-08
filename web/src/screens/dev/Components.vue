@@ -14,8 +14,13 @@ import BbSegmented from '../../components/BbSegmented.vue';
 import BbSwitch from '../../components/BbSwitch.vue';
 import BbTag from '../../components/BbTag.vue';
 
+/**
+ * Dev-only gallery at `/dev/components`: colour tokens, type and every Bb
+ * component with sample data, plus styled markup that has no component yet.
+ */
 defineOptions({ name: 'ComponentGallery' });
 
+/** OS colour scheme, shown in the title to tell the themes apart. */
 const colorScheme = ref<'light' | 'dark'>('light');
 const selectedKind = ref('expense');
 const selectedAccount = ref('ing');

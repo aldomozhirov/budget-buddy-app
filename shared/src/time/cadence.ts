@@ -2,17 +2,32 @@ import { addMonths, endOfMonth, format } from 'date-fns';
 import { TZDate } from '@date-fns/tz';
 import { addLocalDays, compareLocalDates, todayInTimeZone } from './calendar.js';
 
+/**
+ * A recurring schedule at a local wall time `time` (24-hour `HH:mm`).
+ * - `monthly`: on `day` 1-31 of each month, clamped to the month's last day,
+ *   or on its last day with `'last'`.
+ * - `weeks`: on ISO `weekday` (1 = Monday to 7 = Sunday) every `every` weeks
+ *   (1-8), starting with the first such weekday on or after `anchorDate`
+ *   (YYYY-MM-DD).
+ */
 export type Cadence =
   | { readonly kind: 'monthly'; readonly day: number | 'last'; readonly time: string }
   | { readonly kind: 'weeks'; readonly every: number; readonly weekday: number; readonly anchorDate: string; readonly time: string };
 
+/** One scheduled occurrence of a cadence. */
 export interface ScheduleSlot {
+  /**
+   * Scheduled local date and time, `YYYY-MM-DDTHH:mm`, as requested; it stays
+   * the same when a DST gap moves the instant.
+   */
   readonly key: string;
   readonly instant: Date;
 }
 
+/** Wall-clock fields in some time zone; `month` is 1-based. */
 interface LocalDateTime { year: number; month: number; day: number; hour: number; minute: number }
 
+/** Reads the wall-clock date and time of an instant in `timeZone`. */
 function localParts(instant: Date, timeZone: string): LocalDateTime {
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
@@ -25,6 +40,10 @@ function sameMinute(left: LocalDateTime, right: LocalDateTime): boolean {
   return left.year === right.year && left.month === right.month && left.day === right.day && left.hour === right.hour && left.minute === right.minute;
 }
 
+/**
+ * Finds the earliest instant whose wall time in `timeZone` is `target`, or
+ * `undefined` when that minute falls in a DST gap.
+ */
 function localMinuteToInstant(target: LocalDateTime, timeZone: string): Date | undefined {
   const wallMilliseconds = Date.UTC(target.year, target.month - 1, target.day, target.hour, target.minute);
   const offsets = new Set<number>();
@@ -41,7 +60,12 @@ function localMinuteToInstant(target: LocalDateTime, timeZone: string): Date | u
   return candidates[0];
 }
 
-/** Resolves nonexistent wall times to the first valid minute; folds resolve once to the earlier instant. */
+/**
+ * Converts a YYYY-MM-DD date and wall time in `timeZone` to an instant.
+ * Nonexistent wall times resolve to the first valid minute; folds resolve
+ * once, to the earlier instant.
+ * @throws {RangeError} if no valid minute exists within 180 minutes.
+ */
 function resolveLocalDateTime(date: string, hour: number, minute: number, timeZone: string): { instant: Date; localDate: string; localTime: string } {
   const [year, month, day] = date.split('-').map((part) => Number.parseInt(part ?? '', 10));
   const requested: LocalDateTime = { year: year ?? 0, month: month ?? 0, day: day ?? 0, hour, minute };
@@ -61,6 +85,10 @@ function resolveLocalDateTime(date: string, hour: number, minute: number, timeZo
   throw new RangeError(`Could not resolve local time ${date} ${hour}:${minute} in ${timeZone}`);
 }
 
+/**
+ * Parses a 24-hour `HH:mm` time into hour and minute.
+ * @throws {RangeError} if it is malformed or out of range.
+ */
 function validateTime(time: string): [number, number] {
   const match = /^(\d{2}):(\d{2})$/.exec(time);
   if (!match) throw new RangeError(`Invalid cadence time: ${time}`);
@@ -70,6 +98,10 @@ function validateTime(time: string): [number, number] {
   return [hour, minute];
 }
 
+/**
+ * Returns the YYYY-MM-DD date of `day` in a month, clamped to its last day.
+ * @param month 0-based month, as in `Date`.
+ */
 function monthDate(year: number, month: number, day: number | 'last', timeZone: string): string {
   const first = new TZDate(year, month, 1, 12, 0, 0, 0, timeZone);
   const lastDay = endOfMonth(first).getDate();
@@ -77,6 +109,7 @@ function monthDate(year: number, month: number, day: number | 'last', timeZone: 
   return format(new TZDate(year, month, actualDay, 12, 0, 0, 0, timeZone), 'yyyy-MM-dd');
 }
 
+/** Appends the slot for a local date and time if it falls within [from, to]. */
 function collectSlot(date: string, hour: number, minute: number, timeZone: string, from: Date, to: Date, result: ScheduleSlot[]): void {
   const resolved = resolveLocalDateTime(date, hour, minute, timeZone);
   if (resolved.instant >= from && resolved.instant <= to) {
@@ -87,7 +120,15 @@ function collectSlot(date: string, hour: number, minute: number, timeZone: strin
   }
 }
 
-/** Returns cadence occurrences in the inclusive instant range, in local-calendar order. */
+/**
+ * Returns the cadence's slots whose instants fall between `from` and `to`
+ * inclusive, sorted by instant. Wall times are read in `timeZone`; a time
+ * in a DST gap moves to the first valid minute after it, and a repeated
+ * time occurs once, at its earlier instant. A reversed range returns `[]`
+ * without validating the cadence.
+ * @throws {RangeError} if the cadence's time, day, interval, weekday or
+ * anchor date is invalid, or `timeZone` is unknown.
+ */
 export function getCadenceSlots(cadence: Cadence, from: Date, to: Date, timeZone: string): ScheduleSlot[] {
   if (from > to) return [];
   const [hour, minute] = validateTime(cadence.time);

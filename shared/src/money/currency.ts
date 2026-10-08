@@ -1,18 +1,24 @@
 import { getIsoCurrency, ISO_4217, type IsoCurrency } from './iso4217.js';
 
+/** A user-defined coin, such as a row of the `coin` table. */
 export interface CoinCurrency {
   readonly code: string;
   readonly name: string;
+  /** Decimal places of the minor unit; 0-8 for a coin. */
   readonly decimals: number;
 }
 
+/** A fiat or coin currency resolved for arithmetic and display. */
 export interface Currency extends CoinCurrency {
   readonly kind: 'fiat' | 'coin';
+  /** Narrow display symbol, such as `€` or `₿`, or else the code. */
   readonly symbol: string;
 }
 
+/** Symbols for well-known coins; other coins display their code. */
 const COIN_SYMBOLS: Readonly<Record<string, string>> = { BTC: '₿', ETH: 'Ξ', USDT: '₮' };
 
+/** Marks an ISO currency as fiat and adds Intl's narrow symbol, or the code. */
 function fromIso(currency: IsoCurrency): Currency {
   let symbol: string = currency.code;
   try {
@@ -25,6 +31,13 @@ function fromIso(currency: IsoCurrency): Currency {
   return { ...currency, kind: 'fiat', symbol };
 }
 
+/**
+ * Resolves a code, ignoring case, to an ISO currency or else to one of
+ * `coins`. ISO codes win over a coin with the same code; a coin's code is
+ * returned in upper case. Returns `undefined` when neither matches.
+ * @throws {RangeError} if the matching coin's decimals are not an integer
+ * from 0 to 8.
+ */
 export function getCurrency(code: string, coins: readonly CoinCurrency[] = []): Currency | undefined {
   const upperCode = code.toUpperCase();
   const iso = getIsoCurrency(upperCode);
@@ -37,6 +50,11 @@ export function getCurrency(code: string, coins: readonly CoinCurrency[] = []): 
   return { ...coin, code: upperCode, kind: 'coin', symbol: COIN_SYMBOLS[upperCode] ?? upperCode };
 }
 
+/**
+ * Lists every ISO currency followed by `coins`, skipping coins whose code is
+ * already an ISO code.
+ * @throws {RangeError} if a coin's decimals are not an integer from 0 to 8.
+ */
 export function listCurrencies(coins: readonly CoinCurrency[] = []): Currency[] {
   return [
     ...Object.values(ISO_4217).map(fromIso),

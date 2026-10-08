@@ -2,12 +2,23 @@ import Decimal from 'decimal.js';
 import type { Currency } from './currency.js';
 import { roundHalfAwayFromZero } from './rounding.js';
 
+/**
+ * Outcome of evaluating a typed amount: minor units, or a short user-facing
+ * reason such as `'Division by zero'`.
+ */
 export type ExpressionResult = { readonly ok: true; readonly value: bigint } | { readonly ok: false; readonly reason: string };
 
+/** Decimal context for expressions: 100 significant digits. */
 const ExpressionDecimal = Decimal.clone({ precision: 100, rounding: Decimal.ROUND_HALF_UP });
 
+/** Error whose message is shown to the user as the failure reason. */
 class ExpressionError extends Error {}
 
+/**
+ * Splits an expression into number, operator and bracket tokens, accepting
+ * typographic − × ÷ and reading commas as decimal points.
+ * @throws {ExpressionError} on an invalid character or malformed number.
+ */
 function tokenize(expression: string): string[] {
   const input = expression.replaceAll('−', '-').replaceAll('×', '*').replaceAll('÷', '/').replaceAll(',', '.');
   const tokens: string[] = [];
@@ -33,6 +44,12 @@ function tokenize(expression: string): string[] {
   return tokens;
 }
 
+/**
+ * Evaluates tokens with brackets binding tightest, then postfix `%`
+ * (divide by 100), then `*` `/`, then `+` `-`. Unary minus is allowed only
+ * at the start or straight after `(`.
+ * @throws {ExpressionError} on a syntax error or division by zero.
+ */
 function parseTokens(tokens: readonly string[]): Decimal {
   let position = 0;
   const current = (): string | undefined => tokens[position];
@@ -90,12 +107,26 @@ function parseTokens(tokens: readonly string[]): Decimal {
   return result;
 }
 
+/**
+ * Rounds a value to the currency's minor units, half away from zero.
+ * @throws {ExpressionError} if the result has more than 20 digits.
+ */
 function minorResult(value: Decimal, currency: Currency): bigint {
   const minor = roundHalfAwayFromZero(value, currency.decimals);
   if (minor.toString().replace('-', '').length > 20) throw new ExpressionError('Amount is too large');
   return minor;
 }
 
+/**
+ * Evaluates an amount typed as arithmetic into minor units of `currency`.
+ * Supports `+ - * /` (or `− × ÷`), brackets and postfix `%`, which divides
+ * the value before it by 100. Commas are decimal points, not separators.
+ * Unary minus is allowed only at the start or straight after `(`. Uses
+ * 100-digit decimals and rounds once, half away from zero. Never throws.
+ * @example
+ * evaluateExpression('200 + 10%', getCurrency('EUR')!);
+ * // { ok: true, value: 20010n }
+ */
 export function evaluateExpression(expression: string, currency: Currency): ExpressionResult {
   try {
     const result = parseTokens(tokenize(expression));
@@ -106,6 +137,12 @@ export function evaluateExpression(expression: string, currency: Currency): Expr
   }
 }
 
+/**
+ * Returns a preview value for an expression still being typed: trailing
+ * operators are dropped and open brackets closed before evaluating.
+ * Returns `undefined` when the expression neither ends in an operator nor
+ * has unclosed brackets (use `evaluateExpression`), or cannot be evaluated.
+ */
 export function lastCompleteValue(expression: string, currency: Currency): bigint | undefined {
   let tokens: string[];
   try { tokens = tokenize(expression); } catch { return undefined; }

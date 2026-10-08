@@ -1,7 +1,9 @@
 <script setup lang="ts">
+/** On/off switch, e.g. for a setting in a row; use with `v-model`. */
 const props = withDefaults(
   defineProps<{
     modelValue: boolean;
+    /** Accessible name; the switch shows no text of its own. */
     label: string;
     disabled?: boolean;
   }>(),
@@ -9,6 +11,7 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{
+  /** The switch was toggled; carries the new value. */
   'update:modelValue': [value: boolean];
 }>();
 

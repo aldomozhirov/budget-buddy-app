@@ -14,13 +14,16 @@ const THREE_DECIMAL = new Set(['BHD', 'IQD', 'JOD', 'KWD', 'LYD', 'OMR', 'TND'])
 const FOUR_DECIMAL = new Set(['CLF', 'UYW']);
 const displayNames = new Intl.DisplayNames(['en'], { type: 'currency' });
 
+/** A currency from the bundled ISO 4217 table. */
 export interface IsoCurrency {
   readonly code: (typeof ISO_4217_CODES)[number];
+  /** English name from Intl, or the code when Intl has none. */
   readonly name: string;
+  /** ISO minor-unit exponent: 0, 2, 3 or 4 decimal places. */
   readonly decimals: number;
 }
 
-/** Bundled ISO code and minor-unit table, with localized names supplied by Intl. */
+/** Bundled ISO 4217 table keyed by upper-case code, with English names. */
 export const ISO_4217: Readonly<Record<string, IsoCurrency>> = Object.freeze(
   Object.fromEntries(
     ISO_4217_CODES.map((code) => [
@@ -34,6 +37,7 @@ export const ISO_4217: Readonly<Record<string, IsoCurrency>> = Object.freeze(
   ),
 );
 
+/** Looks up an ISO 4217 currency by code, ignoring case. */
 export function getIsoCurrency(code: string): IsoCurrency | undefined {
   return ISO_4217[code.toUpperCase()];
 }

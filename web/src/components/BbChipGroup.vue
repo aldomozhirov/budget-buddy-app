@@ -2,22 +2,32 @@
 import { nextTick, ref } from 'vue';
 import BbChip from './BbChip.vue';
 
+/** One choice in a BbChipGroup. */
 export interface BbChipOption {
   label: string;
+  /** Emitted on selection; must be unique within the group (used as key). */
   value: string | number;
 }
 
+/**
+ * Single-select row of chips that works as a radio group; use with `v-model`.
+ * Only the selected chip, or the first if none matches, is in the tab order.
+ */
 const props = withDefaults(
   defineProps<{
+    /** Value of the selected option. */
     modelValue: string | number;
     options: BbChipOption[];
+    /** Accessible name of the radio group; not shown on screen. */
     label: string;
+    /** Chip style for every option; see BbChip. */
     variant?: 'choice' | 'small' | 'pill';
   }>(),
   { variant: 'choice' },
 );
 
 const emit = defineEmits<{
+  /** A chip was clicked or the selection moved by keyboard. */
   'update:modelValue': [value: string | number];
 }>();
 
@@ -29,6 +39,10 @@ function select(index: number) {
   emit('update:modelValue', option.value);
 }
 
+/**
+ * Moves selection with arrow/Home/End keys, wrapping at the ends, following
+ * the WAI-ARIA radio group pattern.
+ */
 function onKeydown(event: KeyboardEvent) {
   if (
     ![
@@ -57,6 +71,7 @@ function onKeydown(event: KeyboardEvent) {
   }
 
   select(nextIndex);
+  // Focus after the re-render, once the new chip is the tab stop.
   void nextTick(() => {
     radioGroup.value
       ?.querySelectorAll<HTMLButtonElement>('[role="radio"]')

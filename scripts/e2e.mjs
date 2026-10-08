@@ -34,6 +34,7 @@ try {
   await rm(dataDir, { recursive: true, force: true });
 }
 
+// Binds port 0 so the OS picks a free port, then releases it for the server.
 async function availablePort() {
   const listener = net.createServer();
   listener.listen(0, '127.0.0.1');

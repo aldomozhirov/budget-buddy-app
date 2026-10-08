@@ -1,7 +1,17 @@
 <script setup lang="ts">
+/**
+ * Single chip button. Extra attributes and listeners (e.g. `@click`) go to
+ * the native `<button>`. Default slot: chip content.
+ */
 withDefaults(
   defineProps<{
+    /**
+     * Style and semantics: `choice`, `small` and `pill` are radio buttons
+     * (place them in a radiogroup, e.g. BbChipGroup), `filter` is a toggle
+     * button, `suggest` and `ghost` are plain buttons.
+     */
     variant?: 'choice' | 'small' | 'ghost' | 'suggest' | 'filter' | 'pill';
+    /** Checked (radio variants) or pressed (`filter`); unused otherwise. */
     selected?: boolean;
     type?: 'button' | 'submit' | 'reset';
   }>(),

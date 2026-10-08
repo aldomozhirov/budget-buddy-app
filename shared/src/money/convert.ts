@@ -2,20 +2,37 @@ import Decimal from 'decimal.js';
 import type { Currency } from './currency.js';
 import { roundHalfAwayFromZero } from './rounding.js';
 
+/** Decimal context for rates: 34 significant digits, ties away from zero. */
 const RateDecimal = Decimal.clone({ precision: 34, rounding: Decimal.ROUND_HALF_UP });
 
+/** A stored exchange rate and the date it applies to. */
 export interface DatedRate {
+  /** Exact decimal string: units of quote per one unit of base. */
   readonly rate: string;
+  /** YYYY-MM-DD. */
   readonly date: string;
 }
 
-/** The lookup returns the latest stored rate on or before the requested date. */
+/**
+ * Rate source giving the latest stored `base`-to-`quote` rate dated on or
+ * before `onOrBefore` (YYYY-MM-DD), or `undefined` when there is none.
+ */
 export type RateLookup = (base: string, quote: string, onOrBefore: string) => DatedRate | undefined;
 
+/**
+ * A converted amount in the target's minor units with the date of the oldest
+ * rate used, or `{ missing: true }` when no rate path exists.
+ */
 export type ConversionResult = { readonly value: bigint; readonly rateDate: string } | { readonly missing: true };
 
+/** One conversion step: the rate to multiply by and the date it is from. */
 interface Leg { readonly value: Decimal; readonly date: string }
 
+/**
+ * Finds the `from`-to-`to` rate, inverting the `to`-to-`from` rate when there
+ * is no direct one.
+ * @throws {RangeError} if the stored rate is not a finite positive decimal.
+ */
 function getLeg(from: string, to: string, date: string, lookup: RateLookup): Leg | undefined {
   const direct = lookup(from, to, date);
   if (direct) return { value: parseRate(direct.rate), date: direct.date };
@@ -25,6 +42,10 @@ function getLeg(from: string, to: string, date: string, lookup: RateLookup): Leg
   return { value: new RateDecimal(1).div(rate), date: inverse.date };
 }
 
+/**
+ * Parses a stored rate string.
+ * @throws {RangeError} if it is not a finite positive decimal.
+ */
 function parseRate(value: string): Decimal {
   let rate: Decimal;
   try {
@@ -36,6 +57,18 @@ function parseRate(value: string): Decimal {
   return rate;
 }
 
+/**
+ * Converts minor units between currencies at the latest rates on or before
+ * `date`. A direct (or inverted) rate is used if one exists, even when older
+ * than a pivot route; otherwise the first pivot with rates for both legs.
+ * Works to 34 significant digits and rounds once, half away from zero, to
+ * the target's minor units. Same-code amounts are only rescaled.
+ * @param date YYYY-MM-DD date the rates must not be later than.
+ * @param pivots Currency codes tried in order as a single intermediate.
+ * @returns The value with `rateDate`, the oldest rate date used (`date` for
+ * the same currency), or `{ missing: true }` when no rate path exists.
+ * @throws {RangeError} if a stored rate is not a finite positive decimal.
+ */
 export function convert(
   amount: bigint,
   from: Currency,
@@ -62,6 +95,7 @@ export function convert(
   return { value: roundHalfAwayFromZero(targetMinor, 0), rateDate: legs.map((leg) => leg.date).sort()[0] ?? date };
 }
 
+/** Changes the decimal places of minor units, rounding half away from zero. */
 function rescale(amount: bigint, fromDecimals: number, toDecimals: number): bigint {
   if (toDecimals >= fromDecimals) return amount * 10n ** BigInt(toDecimals - fromDecimals);
   const divisor = 10n ** BigInt(fromDecimals - toDecimals);

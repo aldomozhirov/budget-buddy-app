@@ -52,3 +52,11 @@ A task is done when all of these hold:
 - Money is stored as integer minor units (cents), never as floating point.
 - No secrets in the repository; use `.env` and keep `.env.example` current.
 - Keep changes limited to the task at hand.
+
+## Code comments
+
+- Document every exported function, type and constant, and every Vue component, with TSDoc (`/** */`). For a component, put a summary above `defineProps` and comment its props, emits and slots. Document an internal helper only when its name does not make its purpose clear.
+- One line by default: what it does and why, not how. Use a longer block only for what a caller must know: units, rounding, time zones, edge cases, invariants.
+- Add `@param` only when a parameter's meaning or units are not obvious, `@returns` only when the result needs explaining, and `@throws` whenever the code throws. Add `@example` only for parsing and formatting, and check it against the code.
+- Use inline `//` comments only for lines that are not obvious, such as workarounds, focus or accessibility handling, and subtle invariants. Never narrate the code.
+- Keep comment lines at 80 characters or less, and update comments in the same change as the code they describe. `server/src/app.ts` and `shared/src/money/` show the style.

@@ -1,3 +1,4 @@
+/** Money: minor units, rounding, formatting, conversion and expressions. */
 export * from './convert.js';
 export * from './currency.js';
 export * from './expression.js';

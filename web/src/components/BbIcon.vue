@@ -32,6 +32,7 @@ import {
   X,
 } from 'lucide-vue-next';
 
+/** Lucide icon per BbIconName; `satisfies` makes a missing one a type error. */
 const icons = {
   back: ChevronLeft,
   forward: ArrowRight,
@@ -64,6 +65,7 @@ const icons = {
   wallet: Wallet,
 } satisfies Record<BbIconName, Component>;
 
+/** Names of the icons available to BbIcon. */
 export type BbIconName =
   | 'back'
   | 'forward'
@@ -95,9 +97,14 @@ export type BbIconName =
   | 'faceid'
   | 'wallet';
 
+/**
+ * Decorative icon from the app's Lucide-based set. It is hidden from
+ * assistive technology, so an icon-only control needs its own `aria-label`.
+ */
 withDefaults(
   defineProps<{
     name: BbIconName;
+    /** Width and height in pixels. */
     size?: number;
     strokeWidth?: number;
   }>(),
