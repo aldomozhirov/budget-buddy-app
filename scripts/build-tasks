@@ -56,7 +56,10 @@ done
 
 cd "$(git -C "$(dirname "$0")" rev-parse --show-toplevel)" || die "not in a git repository"
 [ -f "$SPEC" ] || die "spec not found: $SPEC"
-command -v opencode >/dev/null || die "opencode is not on PATH"
+# Non-interactive shells (ssh commands, cron, launchd) skip ~/.zshrc, where
+# the OpenCode installer puts its PATH entry.
+command -v opencode >/dev/null || PATH="$HOME/.opencode/bin:$PATH"
+command -v opencode >/dev/null || die "opencode not found on PATH or in ~/.opencode/bin"
 
 is_task() { grep -q "^- \[[ x]\] \*\*$1\. " "$SPEC"; }
 is_done() { grep -q "^- \[x\] \*\*$1\. " "$SPEC"; }
