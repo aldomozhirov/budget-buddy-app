@@ -15,6 +15,8 @@ import { installSessionPlugin } from './plugins/session.js';
 import { authRoutes } from './modules/auth/index.js';
 import { healthRoutes } from './modules/health/index.js';
 import { setupRoutes } from './modules/setup/index.js';
+import { memberRoutes } from './modules/members/index.js';
+import { familyRoutes } from './modules/family/index.js';
 
 const webDistPath = fileURLToPath(new URL('../../web/dist', import.meta.url));
 
@@ -96,6 +98,11 @@ export async function createApp(options: AppOptions) {
     secureCookies,
     clock,
   });
+  await app.register(memberRoutes, {
+    database: options.database,
+    clock,
+  });
+  await app.register(familyRoutes, { database: options.database });
 
   app.setErrorHandler((error, request, reply) => {
     const fastifyError = error as Error & {

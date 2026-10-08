@@ -78,7 +78,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/settings',
     name: 'Settings',
-    component: () => import('../screens/PlaceholderScreen.vue'),
+    component: () => import('../screens/settings/SettingsScreen.vue'),
     meta: { title: 'Settings' },
   },
 ];
