@@ -67,20 +67,18 @@ function onKeydown(event: KeyboardEvent) {
     return;
   }
 
-  const first = focusable[0];
-  const last = focusable[focusable.length - 1];
-  if (!first || !last) return;
-  const activeElement = document.activeElement;
-  if (activeElement === dialog.value) {
-    event.preventDefault();
-    (event.shiftKey ? last : first).focus();
-  } else if (event.shiftKey && activeElement === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && activeElement === last) {
-    event.preventDefault();
-    first.focus();
-  }
+  // Move focus ourselves on every Tab: browsers differ in what Tab reaches
+  // (WebKit skips buttons by default), so the default can leave the sheet.
+  event.preventDefault();
+  const current = focusable.indexOf(document.activeElement as HTMLElement);
+  const next =
+    current === -1
+      ? event.shiftKey
+        ? focusable.length - 1
+        : 0
+      : (current + (event.shiftKey ? -1 : 1) + focusable.length) %
+        focusable.length;
+  focusable[next]?.focus();
 }
 
 /**

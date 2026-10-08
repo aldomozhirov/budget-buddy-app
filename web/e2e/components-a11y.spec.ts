@@ -11,7 +11,10 @@ test('an open sheet makes the page behind it inert and restores it', async ({
   page,
 }) => {
   const opener = page.getByRole('button', { name: 'Open sheet preview' });
-  await opener.click();
+  // Open by keyboard: WebKit doesn't focus a button on click, so only a
+  // keyboard user has focus to return to.
+  await opener.focus();
+  await page.keyboard.press('Enter');
   const sheet = page.getByRole('dialog', { name: 'Close the check-in now?' });
   await expect(sheet).toBeVisible();
 
@@ -33,14 +36,22 @@ test('Tab stays inside an open sheet', async ({ page }) => {
   const sheet = page.getByRole('dialog', { name: 'Close the check-in now?' });
   await expect(sheet).toBeVisible();
 
-  for (let index = 0; index < 6; index += 1) {
-    await page.keyboard.press('Tab');
-    expect(
-      await sheet.evaluate((element) =>
-        element.contains(document.activeElement),
-      ),
-    ).toBe(true);
+  const buttons = await sheet.getByRole('button').count();
+  const visited = new Set<string>();
+  for (let index = 0; index < buttons * 2; index += 1) {
+    await page.keyboard.press(index % 3 === 2 ? 'Shift+Tab' : 'Tab');
+    const focused = await sheet.evaluate((element) =>
+      element.contains(document.activeElement)
+        ? document.activeElement?.textContent?.trim() ||
+          document.activeElement?.getAttribute('aria-label') ||
+          ''
+        : null,
+    );
+    expect(focused).not.toBeNull();
+    visited.add(focused ?? '');
   }
+  // Every button in the sheet is reachable, not just the first one.
+  expect(visited.size).toBe(buttons);
 });
 
 test('the segmented control is a radio group driven by arrow keys', async ({
