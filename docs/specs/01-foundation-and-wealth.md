@@ -329,7 +329,7 @@ Try it: create accounts for two profiles, run a check-in from two browser window
   Do: "Save" creates the account and opens its page, `/accounts/:id` (a placeholder until task 15). The account page and list are not part of this task.
   Acceptance: E2E: create "ING Girokonto", type Bank, EUR, opening balance `1986.30`, today → the app opens `/accounts/<new id>`, and `GET /api/accounts/:id/snapshots` returns one snapshot of 198630 with source `opening`; create a "Money we owe" account with `500` → the UI-ACC-4 hint is visible before saving, and the API returns a snapshot of −50000; "Other…" finds a coin from the coin list. (Showing these balances on screen is checked in task 15.)
 
-- [ ] **14. Accounts list.**
+- [x] **14. Accounts list.**
   Refs: ACC-3, DSH-3, UI-ACC-1. Depends: 12. Parallel: 13, 15.
   Files: `web/src/screens/accounts/AccountsScreen.vue`.
   Acceptance: E2E with seeded data: the owner control filters to one profile; the Type and Currency chips filter; "Show inactive" reveals an inactive account with its "Inactive" tag; an account whose balance is older than the cadence shows "Stale"; groups read "Yours" and "Max’s".

@@ -19,6 +19,27 @@ test.beforeEach(async ({ page }) => {
       },
     }),
   );
+  await page.route('**/api/members', (route) =>
+    route.fulfill({
+      json: {
+        members: [
+          { id: 1, name: 'Alex', active: true },
+          { id: 2, name: 'Blair', active: true },
+        ],
+      },
+    }),
+  );
+  await page.route('**/api/settings', (route) =>
+    route.fulfill({
+      json: { commonCurrency: 'EUR', timeZone: 'Europe/Berlin' },
+    }),
+  );
+  await page.route('**/api/currencies', (route) =>
+    route.fulfill({ json: { currencies: [], coins: [] } }),
+  );
+  await page.route('**/api/accounts*', (route) =>
+    route.fulfill({ json: { accounts: [] } }),
+  );
 });
 
 test('the Home screen shows its placeholder navigation and fits the viewport', async ({
