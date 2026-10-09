@@ -210,8 +210,12 @@ function balanceMeta(account: Account): string {
   const type =
     account.type === 'bank'
       ? ''
-      : (ACCOUNT_TYPES.find((option) => option.value === account.type)?.label ??
-        '');
+      : account.type === 'we_owe'
+        ? 'We owe'
+        : account.type === 'owed_to_us'
+          ? 'Owed to us'
+          : (ACCOUNT_TYPES.find((option) => option.value === account.type)
+              ?.label ?? '');
   if (account.balanceTakenAt === null || account.balanceSource === null) {
     return type ? `${type} · No balance yet` : 'No balance yet';
   }
@@ -271,7 +275,7 @@ onMounted(() => void loadOptions());
           :aria-selected="ownerSelection === option.value"
           @click="ownerSelection = option.value"
         >
-          {{ option.label }}
+          <span class="accounts-owner-label">{{ option.label }}</span>
         </button>
       </div>
       <div class="hrow accounts-filters" role="group" aria-label="Filters">
@@ -334,7 +338,7 @@ onMounted(() => void loadOptions());
           </div>
           <div class="card accounts-list">
             <RouterLink
-              v-for="(account, index) in group.accounts"
+              v-for="account in group.accounts"
               :key="account.id"
               class="row accounts-row"
               :class="{ 'accounts-row-inactive': !account.active }"
@@ -353,17 +357,16 @@ onMounted(() => void loadOptions());
                   :value="amountFor(account)"
                   :visible="balancesVisible"
                   :masked-value="maskFor(account)"
+                  :class="{
+                    'accounts-negative':
+                      balancesVisible && BigInt(account.balance) < 0n,
+                  }"
                 />
                 <span class="accounts-tags">
                   <BbTag v-if="account.stale" tone="warn">Stale</BbTag>
                   <BbTag v-if="!account.active">Inactive</BbTag>
                 </span>
               </span>
-              <span
-                v-if="index < group.accounts.length - 1"
-                class="accounts-row-divider"
-                aria-hidden="true"
-              />
             </RouterLink>
           </div>
         </section>
@@ -465,7 +468,7 @@ onMounted(() => void loadOptions());
   height: 100dvh;
 }
 .accounts-topbar {
-  padding-bottom: 10px;
+  padding-bottom: 12px;
 }
 .accounts-topbar h1 {
   flex: 1;
@@ -477,16 +480,37 @@ onMounted(() => void loadOptions());
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 0 16px 4px;
+  padding: 0 16px 10px;
 }
 .accounts-owners {
   flex: none;
-  min-height: 44px;
-  overflow-x: auto;
-  scrollbar-width: none;
+  height: 42px;
+  box-sizing: border-box;
 }
-.accounts-owners::-webkit-scrollbar {
-  display: none;
+.accounts-owners .seg {
+  position: relative;
+  height: 44px;
+  margin-block: -4px;
+}
+.accounts-owner-label {
+  position: relative;
+  z-index: 1;
+}
+.accounts-owners .seg[aria-selected='true'] {
+  background: transparent;
+  box-shadow: none;
+}
+.accounts-owners .seg::before {
+  position: absolute;
+  inset: 4px 0;
+  z-index: 0;
+  content: '';
+  pointer-events: none;
+}
+.accounts-owners .seg[aria-selected='true']::before {
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 .accounts-filters {
   margin-right: -16px;
@@ -531,7 +555,6 @@ onMounted(() => void loadOptions());
   position: relative;
   min-height: 64px;
   gap: 12px;
-  padding: 8px 0;
 }
 .accounts-row-inactive {
   opacity: 0.68;
@@ -548,6 +571,9 @@ onMounted(() => void loadOptions());
 .accounts-name {
   font-weight: 500;
 }
+.accounts-negative {
+  color: var(--warn);
+}
 .accounts-row-value {
   display: flex;
   flex: none;
@@ -560,14 +586,6 @@ onMounted(() => void loadOptions());
   display: flex;
   justify-content: flex-end;
   gap: 4px;
-}
-.accounts-row-divider {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 1px;
-  background: var(--line);
 }
 .accounts-footnote,
 .accounts-message {
