@@ -3,6 +3,7 @@ import {
   mkdtemp,
   mkdir,
   readdir,
+  readFile,
   rm,
   writeFile,
 } from 'node:fs/promises';
@@ -50,7 +51,7 @@ describe('foundation server integration', () => {
     return database;
   }
 
-  it('runs the complete first migration once, then treats the next startup as a no-op', async () => {
+  it('runs all migrations once, then treats the next startup as a no-op', async () => {
     const root = await makeTempDirectory();
     const dataDir = join(root, 'data');
     const backupDir = join(root, 'backups');
@@ -66,7 +67,7 @@ describe('foundation server integration', () => {
 
     expect(database.pragma('journal_mode', { simple: true })).toBe('wal');
     expect(database.pragma('foreign_keys', { simple: true })).toBe(1n);
-    expect(migrationVersion(database)).toBe(1);
+    expect(migrationVersion(database)).toBe(2);
 
     const tables = new Set(
       (
@@ -129,8 +130,108 @@ describe('foundation server integration', () => {
     expect(backupsBeforeNoOp).toHaveLength(1);
     expect(backupsBeforeNoOp[0]).toMatch(/^pre_migration-.*\.sqlite$/);
 
-    expect(await migrateDatabase(database, { backupDir })).toBe(1);
+    expect(await migrateDatabase(database, { backupDir })).toBe(2);
     expect(await readdir(backupDir)).toEqual(backupsBeforeNoOp);
+  });
+
+  it('preserves legacy snapshots and avoids reusing a snapshot ID retained by a revision', async () => {
+    const root = await makeTempDirectory();
+    const legacyMigrations = join(root, 'legacy-migrations');
+    await mkdir(join(legacyMigrations, 'meta'), { recursive: true });
+    const currentJournal = JSON.parse(
+      await readFile(
+        join(serverDirectory, 'drizzle', 'meta', '_journal.json'),
+        'utf8',
+      ),
+    ) as {
+      version: string;
+      dialect: string;
+      entries: Array<{
+        idx: number;
+        version: string;
+        when: number;
+        tag: string;
+        breakpoints: boolean;
+      }>;
+    };
+    const firstMigration = currentJournal.entries[0];
+    if (!firstMigration) throw new Error('Initial migration is missing.');
+    await writeFile(
+      join(legacyMigrations, `${firstMigration.tag}.sql`),
+      await readFile(
+        join(serverDirectory, 'drizzle', `${firstMigration.tag}.sql`),
+        'utf8',
+      ),
+    );
+    await writeFile(
+      join(legacyMigrations, 'meta', '_journal.json'),
+      JSON.stringify({
+        version: currentJournal.version,
+        dialect: currentJournal.dialect,
+        entries: [firstMigration],
+      }),
+    );
+
+    const database = trackDatabase(new Database(join(root, 'legacy.sqlite')));
+    database.pragma('foreign_keys = ON');
+    expect(
+      await migrateDatabase(database, {
+        backupDir: root,
+        migrationsFolder: legacyMigrations,
+      }),
+    ).toBe(1);
+    database
+      .prepare('INSERT INTO member (id, name, created_at) VALUES (1, ?, 1)')
+      .run('Alex');
+    database
+      .prepare(
+        `INSERT INTO account
+           (id, name, type, currency, created_by, created_at, updated_by, updated_at)
+         VALUES (1, 'Legacy account', 'bank', 'EUR', 1, 1, 1, 1)`,
+      )
+      .run();
+    database
+      .prepare(
+        `INSERT INTO snapshot
+           (id, account_id, taken_at, amount, source, created_by, created_at,
+            updated_by, updated_at)
+         VALUES (50, 1, 1000, 42000, 'manual', 1, 1, 1, 1)`,
+      )
+      .run();
+    database
+      .prepare(
+        `INSERT INTO snapshot_revision
+           (id, snapshot_id, account_id, action, old_amount, old_taken_at,
+            changed_by, changed_at)
+         VALUES (1, 100, 1, 'delete', 9900, 900, 1, 2)`,
+      )
+      .run();
+
+    expect(
+      await migrateDatabase(database, { backupDir: root }),
+    ).toBe(2);
+    expect(
+      database
+        .prepare('SELECT id, amount, source FROM snapshot WHERE account_id = 1')
+        .get(),
+    ).toEqual({ id: 50n, amount: 42000n, source: 'manual' });
+    expect(
+      database
+        .prepare(
+          'SELECT id, snapshot_id, old_amount FROM snapshot_revision WHERE id = 1',
+        )
+        .get(),
+    ).toEqual({ id: 1n, snapshot_id: 100n, old_amount: 9900n });
+
+    const inserted = database
+      .prepare(
+        `INSERT INTO snapshot
+           (account_id, taken_at, amount, source, created_by, created_at,
+            updated_by, updated_at)
+         VALUES (1, 2000, 50000, 'manual', 1, 3, 1, 3)`,
+      )
+      .run();
+    expect(inserted.lastInsertRowid).toBe(101n);
   });
 
   it('backs up before a failing pending migration, exits non-zero, and preserves the old database version', async () => {

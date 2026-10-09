@@ -35,7 +35,7 @@ describe('health route', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({
       status: 'ok',
-      migrationVersion: 1,
+      migrationVersion: 2,
     });
   });
 });

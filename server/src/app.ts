@@ -19,6 +19,8 @@ import { memberRoutes } from './modules/members/index.js';
 import { familyRoutes } from './modules/family/index.js';
 import { currenciesRoutes } from './modules/currencies/index.js';
 import { settingsRoutes } from './modules/settings/index.js';
+import { accountRoutes } from './modules/accounts/index.js';
+import { snapshotRoutes } from './modules/snapshots/index.js';
 
 const webDistPath = fileURLToPath(new URL('../../web/dist', import.meta.url));
 
@@ -58,7 +60,7 @@ export type AppOptions = {
   secureCookies?: boolean;
   /** Web origins allowed to make state-changing requests. */
   appOrigins?: string[];
-  /** Clock supplied to setup so persisted timestamps can be tested. */
+  /** Clock supplied to time-sensitive routes so timestamps can be tested. */
   clock?: Clock;
 };
 
@@ -110,6 +112,8 @@ export async function createApp(options: AppOptions) {
     clock,
   });
   await app.register(settingsRoutes, { database: options.database });
+  await app.register(accountRoutes, { database: options.database, clock });
+  await app.register(snapshotRoutes, { database: options.database, clock });
 
   app.setErrorHandler((error, request, reply) => {
     const fastifyError = error as Error & {

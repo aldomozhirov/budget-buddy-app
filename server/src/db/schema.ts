@@ -463,7 +463,7 @@ export const checkin = sqliteTable(
 export const snapshot = sqliteTable(
   'snapshot',
   {
-    id: integer('id').primaryKey(),
+    id: sqliteInteger('id').primaryKey({ autoIncrement: true }),
     accountId: integer('account_id')
       .notNull()
       .references(() => account.id),

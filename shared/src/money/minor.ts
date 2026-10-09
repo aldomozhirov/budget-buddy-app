@@ -17,7 +17,14 @@ export function isMinorInRange(value: bigint): boolean {
  * decimal point or whitespace is rejected) or is outside the 64-bit range.
  */
 export function parseMinor(value: string): bigint {
-  if (!MINOR_PATTERN.test(value)) throw new RangeError('Amount must be a decimal integer with at most 19 digits');
+  if (!MINOR_PATTERN.test(value)) {
+    if (/^-?\d+$/u.test(value) && !isMinorInRange(BigInt(value))) {
+      throw new RangeError('Amount is too large');
+    }
+    throw new RangeError(
+      'Amount must be a decimal integer with at most 19 digits',
+    );
+  }
   const amount = BigInt(value);
   if (!isMinorInRange(amount)) throw new RangeError('Amount is too large');
   return amount;

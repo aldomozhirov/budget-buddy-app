@@ -317,7 +317,7 @@ Try it: create accounts for two profiles, run a check-in from two browser window
   Do: Seed the coins of O1 on first start. Coin editor: code, name, decimals (capped at 8, with the hint "Stored with at most 8 decimals"); a coin in use cannot be deleted. Common currency picker (ISO currencies and coins in use). Time zone picker (IANA list from `Intl.supportedValuesOf('timeZone')`, searchable).
   Acceptance: integration tests: a coin code that clashes with ISO 4217 is refused; 18 decimals are refused; deleting a coin used by an account returns `conflict`; changing the common currency changes no stored amount (row count and sums of `snapshot.amount` unchanged).
 
-- [ ] **12. Accounts and snapshots API.**
+- [x] **12. Accounts and snapshots API.**
   Refs: ACC-1–8, ACC-10, MEM-5, COR-5, SEC-4, section 4.3. Depends: 9, 3. Parallel: 10, 11.
   Files: `server/src/modules/accounts/`, `server/src/modules/snapshots/`, `server/src/domain/balance.ts` (`balanceAt`).
   Do: The routes of Design section 7. Create with an optional opening snapshot (source `opening`). A "we owe" account takes a positive amount from the client form and stores it negated: the API receives the signed amount, and the form does the negation (task 13). Set balance now or at an earlier date (source `manual`). Correct and delete with revisions. Relabel the currency per Design section 5. Deactivate with a stored date. Delete only without snapshots (and, from spec 2, transactions). Set `created_by`/`updated_by` from the session's profile.
