@@ -17,7 +17,7 @@ import BbAmountInput from '../../components/BbAmountInput.vue';
 import BbBackButton from '../../components/BbBackButton.vue';
 import BbButton from '../../components/BbButton.vue';
 import BbChip from '../../components/BbChip.vue';
-import BbChipGroup from '../../components/BbChipGroup.vue';
+import BbSegmented from '../../components/BbSegmented.vue';
 import BbSheet from '../../components/BbSheet.vue';
 import { useBack } from '../../composables/useBack.js';
 import { authState, setAuthState } from '../../stores/auth.js';
@@ -63,6 +63,9 @@ const quickCurrencies = computed(() => {
     .map((code) => currencies.value.find((item) => item.code === code))
     .filter((item): item is CurrencyOption => item !== undefined);
 });
+const selectedCurrencyIsQuick = computed(() =>
+  quickCurrencies.value.some((item) => item.code === currencyCode.value),
+);
 const canSave = computed(
   () => name.value.trim().length > 0 && !loading.value && !saving.value,
 );
@@ -119,6 +122,7 @@ async function loadFormOptions(): Promise<void> {
 }
 
 function selectCurrency(code: string): void {
+  if (code !== currencyCode.value) openingAmount.value = null;
   currencyCode.value = code;
   currenciesOpen.value = false;
   currencySearch.value = '';
@@ -133,6 +137,14 @@ async function saveAccount(): Promise<void> {
   }
   if (!currency.value) {
     error.value = 'Choose a currency from the list.';
+    return;
+  }
+  if (
+    type.value === 'we_owe' &&
+    openingAmount.value !== null &&
+    openingAmount.value < 0n
+  ) {
+    error.value = 'Enter what you owe as a positive number.';
     return;
   }
   saving.value = true;
@@ -205,7 +217,7 @@ async function saveAccount(): Promise<void> {
         </div>
         <div class="new-account-field">
           <span class="lbl">Owner</span>
-          <BbChipGroup
+          <BbSegmented
             v-model="ownerId"
             :options="
               members.map((member) => ({
@@ -253,6 +265,14 @@ async function saveAccount(): Promise<void> {
             role="group"
             aria-label="Currency or coin"
           >
+            <BbChip
+              v-if="!selectedCurrencyIsQuick"
+              variant="choice"
+              :selected="true"
+              :aria-label="currencyCode"
+              @click="currenciesOpen = true"
+              >{{ currencyCode }}</BbChip
+            >
             <BbChip
               v-for="option in quickCurrencies"
               :key="option.code"
@@ -341,7 +361,8 @@ async function saveAccount(): Promise<void> {
     >
       <BbAmountInput
         :currency="currency"
-        :allow-negative="true"
+        :allow-negative="type !== 'we_owe'"
+        :initial-amount="openingAmount"
         label="Opening balance"
         @save="
           (amount) => {
