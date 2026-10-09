@@ -323,10 +323,11 @@ Try it: create accounts for two profiles, run a check-in from two browser window
   Do: The routes of Design section 7. Create with an optional opening snapshot (source `opening`). A "we owe" account takes a positive amount from the client form and stores it negated: the API receives the signed amount, and the form does the negation (task 13). Set balance now or at an earlier date (source `manual`). Correct and delete with revisions. Relabel the currency per Design section 5. Deactivate with a stored date. Delete only without snapshots (and, from spec 2, transactions). Set `created_by`/`updated_by` from the session's profile.
   Acceptance: integration tests: deleting an account with a snapshot returns `conflict`; deactivating sets `deactivated_at` and `balanceAt` after it returns 0; a correction writes a `snapshot_revision` row with the old amount and the profile; relabelling EUR→JPY rescales 198630 to 1986 and the confirmation payload names the example; an amount string with a decimal point is refused; listing 40 accounts with latest balances runs in one query (assert the query count); two snapshots of one account at the same `taken_at` with sources `manual` and `connector` (inserted directly in the test) resolve to the `connector` one in both `balanceAt` and the list; a `carried_forward` and a `checkin` snapshot at the same instant resolve to the `checkin` one; inserting two snapshots with the same `source_ref` and `external_id` fails on the unique index.
 
-- [ ] **13. New account screen.**
+- [x] **13. New account screen.**
   Refs: ACC-1, ACC-2, UI-ACC-4. Depends: 10, 11, 12.
   Files: `web/src/screens/accounts/NewAccountScreen.vue`.
-  Acceptance: E2E: create "ING Girokonto", type Bank, EUR, opening balance `1986.30`, today → the account shows €1,986.30 with source "Opening"; create a "Money we owe" account with `500` → its balance shows −€500.00 and the hint of UI-ACC-4 is visible; "Other…" finds a coin from the coin list.
+  Do: "Save" creates the account and opens its page, `/accounts/:id` (a placeholder until task 15). The account page and list are not part of this task.
+  Acceptance: E2E: create "ING Girokonto", type Bank, EUR, opening balance `1986.30`, today → the app opens `/accounts/<new id>`, and `GET /api/accounts/:id/snapshots` returns one snapshot of 198630 with source `opening`; create a "Money we owe" account with `500` → the UI-ACC-4 hint is visible before saving, and the API returns a snapshot of −50000; "Other…" finds a coin from the coin list. (Showing these balances on screen is checked in task 15.)
 
 - [ ] **14. Accounts list.**
   Refs: ACC-3, DSH-3, UI-ACC-1. Depends: 12. Parallel: 13, 15.
@@ -337,7 +338,7 @@ Try it: create accounts for two profiles, run a check-in from two browser window
   Refs: ACC-4–8, MEM-5, UI-ACC-2, UI-ACC-3, UI-NAV-4. Depends: 10, 12. Parallel: 14.
   Files: `web/src/screens/accounts/AccountScreen.vue`, `web/src/components/charts/LineChart.vue` (shared with task 22), sheets beside the screen.
   Do: Balance, chart with range options (3 M, 1 Y, All), "Set balance" (keypad with "Today" or "Earlier date…"), "Balance history · tap to correct" with "Save correction" and "Delete", and the settings of UI-ACC-3 including the relabel warning and the deactivate confirmation. When deletion isn't possible, say why. The `LineChart` is plain SVG: one line, high and low labelled, month ticks, accessible summary text, drawn in on open (UI-MOT-2), no animation with reduced motion.
-  Acceptance: E2E: set balance with `+120` after "Start from last" → the new balance is the old + 120 and is first in the history; correcting a snapshot changes it and the history sheet shows "Changed by <profile>"; the currency relabel sheet shows the example text and only proceeds after the confirming button "Relabel as USD"; deactivating asks first and the account then shows "Inactive".
+  Acceptance: E2E: set balance with `+120` after "Start from last" → the new balance is the old + 120 and is first in the history; correcting a snapshot changes it and the history sheet shows "Changed by <profile>"; the currency relabel sheet shows the example text and only proceeds after the confirming button "Relabel as USD"; deactivating asks first and the account then shows "Inactive"; an account created on New account with opening balance `1986.30` shows €1,986.30 with source "Opening" in its history, and a "Money we owe" account created with `500` shows −€500.00 (moved here from task 13).
 
 - [ ] **16. Check-in API.**
   Refs: CHK-1, CHK-4 (event only), CHK-5–8, CHK-10, CHK-12, MEM-5, Design section 5. Depends: 12.
@@ -547,3 +548,4 @@ Tested on 2026-10-07 between 20:50 and 20:55 UTC with `curl` from the Mac mini, 
 - 2026-10-07: task 1 done. Price feeds chosen: ECB, Bank of Russia, Coinbase Exchange; results, notes for task 20 and unconfirmed points are in "Trial results".
 - 2026-10-08: the owner capped amounts to SQLite's 64-bit range (review finding B1), confirmed that commas in a typed amount are decimal points (B3), and left unary minus after an operator (`1 + -2`) as optional (B4).
 - 2026-10-08: the owner kept the direct-rate preference in `convert` as it is (B2), even when a route through a pivot has newer rates, and had the non-money ISO codes left out of currency pickers (B5).
+- 2026-10-09: the owner settled a blocker in task 13: it checks the saved opening balance through the API and opens the new account's page after saving; the on-screen balance check moved to task 15.

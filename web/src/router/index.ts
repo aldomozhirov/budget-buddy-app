@@ -66,7 +66,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/accounts/new',
     name: 'NewAccount',
-    component: () => import('../screens/PlaceholderScreen.vue'),
+    component: () => import('../screens/accounts/NewAccountScreen.vue'),
     meta: { title: 'New account' },
   },
   {
