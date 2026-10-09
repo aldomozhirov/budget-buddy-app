@@ -21,6 +21,8 @@ import { currenciesRoutes } from './modules/currencies/index.js';
 import { settingsRoutes } from './modules/settings/index.js';
 import { accountRoutes } from './modules/accounts/index.js';
 import { snapshotRoutes } from './modules/snapshots/index.js';
+import { checkinRoutes } from './modules/checkins/index.js';
+import { createCheckinEventBus, type CheckinEventBus } from './events.js';
 
 const webDistPath = fileURLToPath(new URL('../../web/dist', import.meta.url));
 
@@ -62,6 +64,8 @@ export type AppOptions = {
   appOrigins?: string[];
   /** Clock supplied to time-sensitive routes so timestamps can be tested. */
   clock?: Clock;
+  /** Event bus shared with background consumers of check-in lifecycle events. */
+  events?: CheckinEventBus;
 };
 
 /**
@@ -80,6 +84,11 @@ export async function createApp(options: AppOptions) {
   }).withTypeProvider<ZodTypeProvider>();
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
+  const events =
+    options.events ??
+    createCheckinEventBus((error) =>
+      app.log.error(error, 'Check-in event failed'),
+    );
 
   const appOrigins = options.appOrigins ?? ['http://127.0.0.1:5173'];
   const secureCookies = options.secureCookies ?? true;
@@ -114,6 +123,11 @@ export async function createApp(options: AppOptions) {
   await app.register(settingsRoutes, { database: options.database });
   await app.register(accountRoutes, { database: options.database, clock });
   await app.register(snapshotRoutes, { database: options.database, clock });
+  await app.register(checkinRoutes, {
+    database: options.database,
+    clock,
+    events,
+  });
 
   app.setErrorHandler((error, request, reply) => {
     const fastifyError = error as Error & {
