@@ -9,7 +9,7 @@ Every amount is typed on this keypad. The expression shows above the result once
 | `.amount` | Result, 46 px, tabular. |
 | `.amount-expr` | Expression line. |
 | `.keypad` | 5 columns, 6 px gap. |
-| `.key / .key-op` | Digit key / operator key (soft fill). 42 high on a page, 48 in a sheet. |
+| `.key / .key-op` | Digit key / operator key (soft fill). 44 high on a page (the IOS-5 minimum), 48 in a sheet. |
 
 **Do**
 

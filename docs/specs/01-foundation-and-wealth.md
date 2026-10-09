@@ -305,7 +305,7 @@ Try it: first start on an iPhone-sized browser, sign in, switch profiles, change
 
 Try it: create accounts for two profiles, run a check-in from two browser windows, close it.
 
-- [ ] **10. Keypad and amount field.**
+- [x] **10. Keypad and amount field.**
   Refs: ACC-9, IOS-4, UI-AMT-1–4, UI-A11Y-3. Depends: 3, 4. Parallel: 11, 12.
   Files: `web/src/components/BbKeypad.vue`, `web/src/components/BbAmountInput.vue`.
   Do: The 4 × 5 keypad of UI-AMT-1; expression line; live result; error "Can’t calculate that. Check the brackets." with `role="alert"`; a leading minus only when the field allows negatives; "Start from last" puts the previous balance into the expression. A hardware keyboard on iPad and desktop works too. The system keyboard never opens.

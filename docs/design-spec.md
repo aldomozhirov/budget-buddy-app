@@ -226,7 +226,7 @@ The values below are implemented in `docs/design/html/bb.css`. Where a prototype
 | Field button | Height 48, `surface`, `line` border, value right-aligned, chevron. |
 | Meta tile | Height 52, small label above a bold value; stronger border when changed from the default. |
 | List card | `surface` card, rows at least 56 high, divided by `line`, chevron when the row opens something. |
-| Keypad key | Height 42 on Add expense, 46 to 48 in sheets; `surface` on the page and `bg` inside a sheet; operators on `soft`. |
+| Keypad key | Height 44 on Add expense (IOS-5 minimum touch target), 46 to 48 in sheets; `surface` on the page and `bg` inside a sheet; operators on `soft`. |
 | Progress bar | 6 high, `soft` track, `accent` fill, `warn` when over. |
 | Tag | 11 to 12 px semibold in a small rounded box: `warn-soft`/`warn` for warnings, `soft`/`muted` otherwise. |
 | Switch | 51 × 31, `accent` when on. |

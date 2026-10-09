@@ -189,7 +189,7 @@
 .bb .amount { font-size: 46px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .bb .amount-expr { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .bb .keypad { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
-.bb .key { height: 42px; border-radius: var(--r-key); background: var(--surface); font-size: 21px; font-weight: 500; display: flex; align-items: center; justify-content: center; }
+.bb .key { height: 44px; border-radius: var(--r-key); background: var(--surface); font-size: 21px; font-weight: 500; display: flex; align-items: center; justify-content: center; }
 .bb .sheet .key { height: 48px; background: var(--bg); }
 .bb .key-op, .bb .sheet .key-op { background: var(--soft); font-size: 19px; }
 
