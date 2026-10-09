@@ -114,6 +114,40 @@ body,
   margin-top: 12px;
 }
 
+.bb .settings-money-copy,
+.bb .settings-money-empty {
+  margin: 0;
+}
+
+.bb .settings-money-empty {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bb .settings-picker-list {
+  max-height: 46dvh;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.bb .settings-picker-list::-webkit-scrollbar {
+  display: none;
+}
+
+.bb .settings-picker-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bb .settings-picker-selected {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .bb .setup-screen {
   min-height: 100dvh;
 }

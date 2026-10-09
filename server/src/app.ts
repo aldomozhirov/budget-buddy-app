@@ -17,6 +17,8 @@ import { healthRoutes } from './modules/health/index.js';
 import { setupRoutes } from './modules/setup/index.js';
 import { memberRoutes } from './modules/members/index.js';
 import { familyRoutes } from './modules/family/index.js';
+import { currenciesRoutes } from './modules/currencies/index.js';
+import { settingsRoutes } from './modules/settings/index.js';
 
 const webDistPath = fileURLToPath(new URL('../../web/dist', import.meta.url));
 
@@ -103,6 +105,11 @@ export async function createApp(options: AppOptions) {
     clock,
   });
   await app.register(familyRoutes, { database: options.database });
+  await app.register(currenciesRoutes, {
+    database: options.database,
+    clock,
+  });
+  await app.register(settingsRoutes, { database: options.database });
 
   app.setErrorHandler((error, request, reply) => {
     const fastifyError = error as Error & {

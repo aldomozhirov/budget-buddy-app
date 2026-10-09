@@ -24,6 +24,12 @@ const setupBodySchema = z
 
 const sessionLifetimeMs = 90 * 24 * 60 * 60 * 1000;
 
+const initialCoins = [
+  { code: 'BTC', name: 'Bitcoin', decimals: 8, feedId: 'BTC-EUR' },
+  { code: 'ETH', name: 'Ethereum', decimals: 8, feedId: 'ETH-EUR' },
+  { code: 'USDT', name: 'Tether', decimals: 6, feedId: 'USDT-EUR' },
+] as const;
+
 /** Registers the open first-start status and family creation routes. */
 export const setupRoutes: FastifyPluginAsync<{
   database: Database.Database;
@@ -34,11 +40,9 @@ export const setupRoutes: FastifyPluginAsync<{
   const clock = options.clock ?? systemClock;
   const secureCookies = options.secureCookies ?? true;
 
-  app.get(
-    '/api/setup',
-    { config: { auth: 'open' } },
-    async () => ({ needed: !hasMembers(database) }),
-  );
+  app.get('/api/setup', { config: { auth: 'open' } }, async () => ({
+    needed: !hasMembers(database),
+  }));
 
   app.post(
     '/api/setup',
@@ -89,6 +93,18 @@ export const setupRoutes: FastifyPluginAsync<{
               'INSERT INTO family (id, password_hash, created_at) VALUES (1, ?, ?)',
             )
             .run(passwordHash, now);
+          const insertCoin = database.prepare(
+            'INSERT INTO coin (code, name, decimals, feed_id, created_at) VALUES (?, ?, ?, ?, ?)',
+          );
+          for (const coin of initialCoins) {
+            insertCoin.run(
+              coin.code,
+              coin.name,
+              coin.decimals,
+              coin.feedId,
+              now,
+            );
+          }
           const insertMember = database.prepare(
             'INSERT INTO member (name, created_at) VALUES (?, ?)',
           );

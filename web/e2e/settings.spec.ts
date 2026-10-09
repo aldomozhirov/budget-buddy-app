@@ -64,7 +64,17 @@ test('Settings shows every section in order and matches the screen copy', async 
   await expect(page.getByText('To profiles with accounts left')).toBeVisible();
   await expect(page.getByText('Totals across currencies')).toBeVisible();
   await expect(page.getByText('CSV files in one .zip')).toBeVisible();
-  await expect(page.getByText('—', { exact: true })).toHaveCount(11);
+  await expect(
+    page.getByRole('button', { name: /Common currency/u }),
+  ).toBeVisible();
+  await expect(page.getByText('EUR', { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: /Currencies and coins/u }),
+  ).toBeVisible();
+  await expect(page.getByText('BTC, ETH, USDT', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Time zone/u })).toBeVisible();
+  await expect(page.getByText('Europe/Berlin', { exact: true })).toBeVisible();
+  await expect(page.getByText('—', { exact: true })).toHaveCount(8);
   await expect(page.getByRole('heading', { name: 'Spending' })).toHaveCount(0);
 
   const screenshotPath =
@@ -185,12 +195,169 @@ test('profile refresh failures stay visible on Settings and can be retried', asy
   await expect(refreshError).toContainText(
     'Your profile change was saved, but Settings could not refresh. Check your connection and try again.',
   );
-  await expect(refreshError.getByRole('button', { name: 'Try again' })).toBeVisible();
+  await expect(
+    refreshError.getByRole('button', { name: 'Try again' }),
+  ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Casey' })).toHaveCount(0);
 
   await refreshError.getByRole('button', { name: 'Try again' }).click();
   await expect(refreshError).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Casey' })).toBeVisible();
+});
+
+test('money rows open common-currency and coin sheets', async ({
+  page,
+}, testInfo) => {
+  const settingsApi = await installSettingsApi(page, testInfo);
+  await page.goto('/settings');
+
+  await page.getByRole('button', { name: /Common currency/u }).click();
+  const currencySheet = page.getByRole('dialog', { name: 'Common currency' });
+  await expect(
+    currencySheet.getByRole('button', { name: 'BTC, Bitcoin' }),
+  ).toBeVisible();
+  await expect(
+    currencySheet.getByRole('button', { name: 'ETH, Ethereum' }),
+  ).toHaveCount(0);
+  await currencySheet
+    .getByRole('searchbox', { name: 'Search currencies' })
+    .fill('USD');
+  await expect(
+    currencySheet.getByRole('button', { name: 'USD, United States Dollar' }),
+  ).toBeVisible();
+  await currencySheet
+    .getByRole('button', { name: 'USD, United States Dollar' })
+    .click();
+  await expect(currencySheet).toBeHidden();
+  await expect(page.getByText('USD', { exact: true })).toBeVisible();
+  expect(settingsApi.settings.commonCurrency).toBe('USD');
+
+  await page.getByRole('button', { name: /Currencies and coins/u }).click();
+  const coinsSheet = page.getByRole('dialog', { name: 'Currencies and coins' });
+  await expect(
+    coinsSheet.getByRole('button', { name: 'Bitcoin, BTC, in use' }),
+  ).toBeVisible();
+  await coinsSheet
+    .getByRole('button', { name: 'Bitcoin, BTC, in use' })
+    .click();
+  const bitcoinEditor = page.getByRole('dialog', { name: 'Edit BTC' });
+  await expect(
+    bitcoinEditor.getByText(
+      'This coin is in use and can’t be deleted.',
+    ),
+  ).toBeVisible();
+  await expect(
+    bitcoinEditor.getByRole('button', { name: 'Delete coin' }),
+  ).toHaveCount(0);
+  await bitcoinEditor.getByRole('button', { name: 'Close' }).first().click();
+  await expect(bitcoinEditor).toBeHidden();
+  await expect(coinsSheet).toBeVisible();
+  await expect(
+    coinsSheet.getByRole('button', { name: 'Bitcoin, BTC, in use' }),
+  ).toBeVisible();
+
+  await coinsSheet.getByRole('button', { name: 'Add coin' }).click();
+  const coinEditor = page.getByRole('dialog', { name: 'Add coin' });
+  await expect(
+    coinEditor.getByText('Stored with at most 8 decimals', { exact: true }),
+  ).toBeVisible();
+  await coinEditor.getByRole('textbox', { name: 'Coin code' }).fill('DOGE');
+  await coinEditor.getByRole('textbox', { name: 'Coin name' }).fill('Dogecoin');
+  await coinEditor
+    .getByRole('spinbutton', { name: 'Coin decimals' })
+    .fill('18');
+  await coinEditor.getByRole('button', { name: 'Add coin' }).click();
+  await expect(coinEditor.getByRole('alert')).toHaveText(
+    'Stored with at most 8 decimals',
+  );
+  expect(settingsApi.coinCreateRequests()).toBe(0);
+
+  await coinEditor.getByRole('textbox', { name: 'Coin code' }).fill('USD');
+  await coinEditor.getByRole('spinbutton', { name: 'Coin decimals' }).fill('2');
+  await coinEditor.getByRole('button', { name: 'Add coin' }).click();
+  await expect(coinEditor.getByRole('alert')).toHaveText(
+    'Use a code that is not an ISO currency.',
+  );
+
+  await coinEditor.getByRole('textbox', { name: 'Coin code' }).fill('DOGE');
+  await coinEditor.getByRole('spinbutton', { name: 'Coin decimals' }).fill('8');
+  await coinEditor.getByRole('button', { name: 'Add coin' }).click();
+  await expect(coinEditor).toBeHidden();
+  await expect(
+    coinsSheet.getByRole('button', { name: /Dogecoin, DOGE/u }),
+  ).toBeVisible();
+  expect(settingsApi.coinCreateRequests()).toBe(2);
+
+  await coinsSheet.getByRole('button', { name: 'Dogecoin, DOGE' }).click();
+  const dogecoinEditor = page.getByRole('dialog', { name: 'Edit DOGE' });
+  await dogecoinEditor.getByRole('button', { name: 'Delete coin' }).click();
+  const deleteConfirmation = page.getByRole('dialog', { name: 'Delete DOGE?' });
+  await deleteConfirmation.getByRole('button', { name: 'Delete coin' }).click();
+  await expect(deleteConfirmation).toBeHidden();
+  await expect(dogecoinEditor).toBeHidden();
+  await expect(coinsSheet).toBeVisible();
+  await expect(
+    coinsSheet.getByRole('button', { name: /Dogecoin, DOGE/u }),
+  ).toHaveCount(0);
+  expect(settingsApi.coinDeleteRequests()).toEqual([
+    { code: 'DOGE', contentType: 'application/json', body: {} },
+  ]);
+
+});
+
+test('Escape closes the coin editor but leaves its list open', async ({
+  page,
+}, testInfo) => {
+  await installSettingsApi(page, testInfo);
+  await page.goto('/settings');
+  await page.getByRole('button', { name: /Currencies and coins/u }).click();
+  const coinsSheet = page.getByRole('dialog', { name: 'Currencies and coins' });
+  await coinsSheet
+    .getByRole('button', { name: 'Bitcoin, BTC, in use' })
+    .click();
+  const bitcoinEditor = page.getByRole('dialog', { name: 'Edit BTC' });
+  await expect(bitcoinEditor).toBeVisible();
+
+  await page.keyboard.press('Escape');
+
+  await expect(bitcoinEditor).toBeHidden();
+  await expect(coinsSheet).toBeVisible();
+});
+
+test('time-zone picker searches IANA names and reports no matches', async ({
+  page,
+}, testInfo) => {
+  const settingsApi = await installSettingsApi(page, testInfo);
+  await page.goto('/settings');
+  await page.getByRole('button', { name: /Time zone/u }).click();
+
+  const timeZoneSheet = page.getByRole('dialog', { name: 'Time zone' });
+  const search = timeZoneSheet.getByRole('searchbox', {
+    name: 'Search time zones',
+  });
+  await search.fill('New_York');
+  await expect(
+    timeZoneSheet.getByRole('button', { name: 'America/New_York' }),
+  ).toBeVisible();
+  await expect(
+    timeZoneSheet.getByRole('button', { name: 'Europe/Berlin' }),
+  ).toHaveCount(0);
+
+  await search.fill('No/Such_Zone');
+  await expect(timeZoneSheet.getByRole('status')).toHaveText(
+    'No time zones found.',
+  );
+
+  await search.fill('New_York');
+  await timeZoneSheet
+    .getByRole('button', { name: 'America/New_York' })
+    .click();
+  await expect(timeZoneSheet).toBeHidden();
+  await expect(
+    page.getByText('America/New_York', { exact: true }),
+  ).toBeVisible();
+  expect(settingsApi.settings.timeZone).toBe('America/New_York');
+  expect(settingsApi.externalRequests).toEqual([]);
 });
 
 test('family password sheet explains the change and validates both passwords', async ({
@@ -266,6 +433,13 @@ async function installSettingsApi(
   externalRequests: string[];
   rejectNextDeactivation: () => void;
   failNextAuthRefresh: () => void;
+  coinCreateRequests: () => number;
+  coinDeleteRequests: () => Array<{
+    code: string;
+    contentType: string | undefined;
+    body: unknown;
+  }>;
+  settings: { commonCurrency: string; timeZone: string };
 }> {
   const userAgent =
     testInfo.project.name === 'iphone'
@@ -288,6 +462,38 @@ async function installSettingsApi(
   let nextMemberId = 4;
   let rejectNextDeactivation = false;
   let failNextAuthRefresh = false;
+  let coinCreateRequests = 0;
+  const coinDeleteRequests: Array<{
+    code: string;
+    contentType: string | undefined;
+    body: unknown;
+  }> = [];
+  const settings = { commonCurrency: 'EUR', timeZone: 'Europe/Berlin' };
+  let coins = [
+    { code: 'BTC', name: 'Bitcoin', decimals: 8, inUse: true },
+    { code: 'ETH', name: 'Ethereum', decimals: 8, inUse: false },
+    { code: 'USDT', name: 'Tether', decimals: 6, inUse: false },
+  ];
+  let currencies = [
+    { code: 'EUR', name: 'Euro', decimals: 2, kind: 'fiat', symbol: '€' },
+    {
+      code: 'USD',
+      name: 'United States Dollar',
+      decimals: 2,
+      kind: 'fiat',
+      symbol: '$',
+    },
+    {
+      code: 'GBP',
+      name: 'British Pound',
+      decimals: 2,
+      kind: 'fiat',
+      symbol: '£',
+    },
+    { code: 'BTC', name: 'Bitcoin', decimals: 8, kind: 'coin', symbol: '₿' },
+    { code: 'ETH', name: 'Ethereum', decimals: 8, kind: 'coin', symbol: 'ETH' },
+    { code: 'USDT', name: 'Tether', decimals: 6, kind: 'coin', symbol: 'USDT' },
+  ];
 
   await page.route('**/api/**', async (route) => {
     const request = route.request();
@@ -303,10 +509,86 @@ async function installSettingsApi(
     if (url.pathname === '/api/setup' && method === 'GET') {
       return route.fulfill({ json: { needed: false } });
     }
+    if (url.pathname === '/api/settings' && method === 'GET') {
+      return route.fulfill({ json: { ...settings } });
+    }
+    if (url.pathname === '/api/settings' && method === 'PATCH') {
+      const body = request.postDataJSON() as {
+        commonCurrency?: string;
+        timeZone?: string;
+      };
+      if (body.commonCurrency) settings.commonCurrency = body.commonCurrency;
+      if (body.timeZone) settings.timeZone = body.timeZone;
+      return route.fulfill({ json: { ...settings } });
+    }
+    if (url.pathname === '/api/currencies' && method === 'GET') {
+      return route.fulfill({ json: { currencies, coins } });
+    }
+    if (url.pathname === '/api/coins' && method === 'POST') {
+      coinCreateRequests += 1;
+      const body = request.postDataJSON() as {
+        code: string;
+        name: string;
+        decimals: number;
+      };
+      if (['EUR', 'USD', 'GBP'].includes(body.code)) {
+        return route.fulfill({
+          status: 400,
+          json: {
+            error: {
+              code: 'validation',
+              message: 'A coin code cannot match an ISO currency.',
+              fields: { code: 'Use a code that is not an ISO currency.' },
+            },
+          },
+        });
+      }
+      const coin = { ...body, inUse: false };
+      coins = [...coins, coin].sort((left, right) =>
+        left.code.localeCompare(right.code),
+      );
+      currencies = [
+        ...currencies,
+        {
+          code: coin.code,
+          name: coin.name,
+          decimals: coin.decimals,
+          kind: 'coin',
+          symbol: coin.code,
+        },
+      ];
+      return route.fulfill({ status: 201, json: { coin } });
+    }
+    const coinPath = url.pathname.match(/^\/api\/coins\/([^/]+)$/u);
+    if (coinPath && method === 'DELETE') {
+      const code = decodeURIComponent(coinPath[1] ?? '');
+      coinDeleteRequests.push({
+        code,
+        contentType: request.headers()['content-type'],
+        body: request.postDataJSON(),
+      });
+      if (coins.find((coin) => coin.code === code)?.inUse) {
+        return route.fulfill({
+          status: 409,
+          json: {
+            error: {
+              code: 'conflict',
+              message: 'This coin is in use and cannot be deleted.',
+            },
+          },
+        });
+      }
+      coins = coins.filter((coin) => coin.code !== code);
+      currencies = currencies.filter((currency) => currency.code !== code);
+      return route.fulfill({ json: { deleted: true } });
+    }
     if (url.pathname === '/api/auth/me' && method === 'GET') {
       if (failNextAuthRefresh) {
         failNextAuthRefresh = false;
-        return route.fulfill({ status: 503, json: { error: { code: 'unavailable' } } });
+        return route.fulfill({
+          status: 503,
+          json: { error: { code: 'unavailable' } },
+        });
       }
       if (!signedIn) {
         return route.fulfill({
@@ -421,5 +703,8 @@ async function installSettingsApi(
     failNextAuthRefresh: () => {
       failNextAuthRefresh = true;
     },
+    coinCreateRequests: () => coinCreateRequests,
+    coinDeleteRequests: () => coinDeleteRequests,
+    settings,
   };
 }

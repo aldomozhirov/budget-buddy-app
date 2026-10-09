@@ -3,8 +3,12 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import {
   changeFamilyPasswordResponseSchema,
+  currenciesResponseSchema,
   memberResponseSchema,
   membersResponseSchema,
+  settingsResponseSchema,
+  type CoinSetting,
+  type CurrencyOption,
   type ManagedMember,
 } from '@budget-buddy/shared';
 import BbBackButton from '../../components/BbBackButton.vue';
@@ -12,6 +16,9 @@ import BbButton from '../../components/BbButton.vue';
 import BbListCard from '../../components/BbListCard.vue';
 import BbRow from '../../components/BbRow.vue';
 import BbSheet from '../../components/BbSheet.vue';
+import CommonCurrencySheet from './CommonCurrencySheet.vue';
+import CoinsSheet from './CoinsSheet.vue';
+import TimeZoneSheet from './TimeZoneSheet.vue';
 import { deviceName } from '../../device.js';
 import { useBack } from '../../composables/useBack.js';
 import {
@@ -44,14 +51,87 @@ const passwordError = ref('');
 const passwordChanged = ref(false);
 const passwordBusy = ref(false);
 const signOutBusy = ref(false);
+const moneySettingsLoading = ref(true);
+const moneySettingsError = ref('');
+const commonCurrency = ref('EUR');
+const timeZone = ref('Europe/Berlin');
+const currencyOptions = ref<CurrencyOption[]>([]);
+const coins = ref<CoinSetting[]>([]);
+const commonCurrencySheetOpen = ref(false);
+const coinsSheetOpen = ref(false);
+const timeZoneSheetOpen = ref(false);
 const defaultMemberId = computed(
   () => authState.value?.device.defaultMemberId ?? null,
+);
+const commonCurrencyOptions = computed(() =>
+  currencyOptions.value.filter(
+    (currency) =>
+      currency.kind === 'fiat' ||
+      currency.code === commonCurrency.value ||
+      coins.value.some((coin) => coin.code === currency.code && coin.inUse),
+  ),
+);
+const coinListSummary = computed(() =>
+  coins.value.length
+    ? coins.value.map(({ code }) => code).join(', ')
+    : 'No coins yet',
 );
 const editorTitle = computed(() =>
   editorMode.value === 'add' ? 'Add profile' : 'Edit profile',
 );
 
-onMounted(loadMembers);
+onMounted(() => {
+  void loadMembers();
+  void loadMoneySettings();
+});
+
+async function loadMoneySettings(): Promise<void> {
+  moneySettingsLoading.value = true;
+  moneySettingsError.value = '';
+  try {
+    const [settingsResponse, currenciesResponse] = await Promise.all([
+      fetch('/api/settings'),
+      fetch('/api/currencies'),
+    ]);
+    if (settingsResponse.status === 401 || currenciesResponse.status === 401) {
+      setAuthState(null);
+      await router.replace('/sign-in');
+      return;
+    }
+    if (!settingsResponse.ok || !currenciesResponse.ok) {
+      throw new Error('Could not load money settings. Try again.');
+    }
+    const [settings, currencyData] = await Promise.all([
+      settingsResponse.json(),
+      currenciesResponse.json(),
+    ]);
+    const parsedSettings = settingsResponseSchema.parse(settings);
+    const parsedCurrencies = currenciesResponseSchema.parse(currencyData);
+    commonCurrency.value = parsedSettings.commonCurrency;
+    timeZone.value = parsedSettings.timeZone;
+    currencyOptions.value = parsedCurrencies.currencies;
+    coins.value = parsedCurrencies.coins;
+  } catch {
+    moneySettingsError.value =
+      'Could not load money settings. Check your connection and try again.';
+  } finally {
+    moneySettingsLoading.value = false;
+  }
+}
+
+function showCommonCurrencySheet(): void {
+  commonCurrencySheetOpen.value = true;
+}
+
+function saveCommonCurrency(currency: string): void {
+  commonCurrency.value = currency;
+  commonCurrencySheetOpen.value = false;
+}
+
+function saveTimeZone(zone: string): void {
+  timeZone.value = zone;
+  timeZoneSheetOpen.value = false;
+}
 
 async function loadMembers(): Promise<void> {
   loading.value = true;
@@ -327,13 +407,8 @@ async function readApiError(response: Response): Promise<{
 <template>
   <main class="screen app-screen settings-screen">
     <header class="topbar">
-      <BbBackButton
-        :label="backLabel"
-        @click="goBack"
-      />
-      <h1 class="t-title">
-        Settings
-      </h1>
+      <BbBackButton :label="backLabel" @click="goBack" />
+      <h1 class="t-title">Settings</h1>
     </header>
 
     <div class="content app-content settings-content">
@@ -341,18 +416,9 @@ async function readApiError(response: Response): Promise<{
         class="settings-section"
         aria-labelledby="settings-profiles-heading"
       >
-        <h2
-          id="settings-profiles-heading"
-          class="h"
-        >
-          Profiles
-        </h2>
+        <h2 id="settings-profiles-heading" class="h">Profiles</h2>
         <BbListCard>
-          <p
-            v-if="loading"
-            class="settings-card-message"
-            role="status"
-          >
+          <p v-if="loading" class="settings-card-message" role="status">
             Loading profiles…
           </p>
           <template v-else>
@@ -380,9 +446,7 @@ async function readApiError(response: Response): Promise<{
               aria-label="Add profile"
               @click="openAddProfile"
             >
-              <template #title>
-                + Add profile
-              </template>
+              <template #title> + Add profile </template>
             </BbRow>
           </template>
         </BbListCard>
@@ -392,12 +456,7 @@ async function readApiError(response: Response): Promise<{
         class="settings-section"
         aria-labelledby="settings-signin-heading"
       >
-        <h2
-          id="settings-signin-heading"
-          class="h"
-        >
-          Sign-in
-        </h2>
+        <h2 id="settings-signin-heading" class="h">Sign-in</h2>
         <BbListCard>
           <BbRow
             title="Family password"
@@ -417,11 +476,7 @@ async function readApiError(response: Response): Promise<{
             :subtitle="`On ${deviceLabel}, instead of the password`"
           />
         </BbListCard>
-        <p
-          v-if="passwordChanged"
-          class="settings-notice"
-          role="status"
-        >
+        <p v-if="passwordChanged" class="settings-notice" role="status">
           Family password changed.
         </p>
       </section>
@@ -430,17 +485,9 @@ async function readApiError(response: Response): Promise<{
         class="settings-section"
         aria-labelledby="settings-checkin-heading"
       >
-        <h2
-          id="settings-checkin-heading"
-          class="h"
-        >
-          Check-in
-        </h2>
+        <h2 id="settings-checkin-heading" class="h">Check-in</h2>
         <BbListCard>
-          <BbRow
-            title="Schedule"
-            value="—"
-          />
+          <BbRow title="Schedule" value="—" />
           <BbRow
             title="Follow-up reminders"
             subtitle="To profiles with accounts left"
@@ -453,43 +500,52 @@ async function readApiError(response: Response): Promise<{
         class="settings-section"
         aria-labelledby="settings-money-heading"
       >
-        <h2
-          id="settings-money-heading"
-          class="h"
-        >
-          Money
-        </h2>
+        <h2 id="settings-money-heading" class="h">Money</h2>
         <BbListCard>
           <BbRow
             title="Common currency"
             subtitle="Totals across currencies"
-            value="—"
+            :value="moneySettingsLoading ? '—' : commonCurrency"
+            interactive
+            aria-haspopup="dialog"
+            :disabled="moneySettingsLoading || Boolean(moneySettingsError)"
+            @click="showCommonCurrencySheet"
           />
           <BbRow
             title="Currencies and coins"
-            value="—"
+            :value="moneySettingsLoading ? '—' : coinListSummary"
+            interactive
+            aria-haspopup="dialog"
+            :disabled="moneySettingsLoading || Boolean(moneySettingsError)"
+            @click="coinsSheetOpen = true"
           />
-          <BbRow
-            title="Exchange rates"
-            value="—"
-          />
+          <BbRow title="Exchange rates" value="—" />
           <BbRow
             title="Time zone"
-            value="—"
+            :value="moneySettingsLoading ? '—' : timeZone"
+            interactive
+            aria-haspopup="dialog"
+            :disabled="moneySettingsLoading || Boolean(moneySettingsError)"
+            @click="timeZoneSheetOpen = true"
           />
         </BbListCard>
+        <p
+          v-if="moneySettingsError"
+          class="error settings-screen-error"
+          role="alert"
+        >
+          {{ moneySettingsError }}
+          <button class="text-btn" type="button" @click="loadMoneySettings">
+            Try again
+          </button>
+        </p>
       </section>
 
       <section
         class="settings-section"
         aria-labelledby="settings-device-heading"
       >
-        <h2
-          id="settings-device-heading"
-          class="h"
-        >
-          This device
-        </h2>
+        <h2 id="settings-device-heading" class="h">This device</h2>
         <BbListCard>
           <BbRow
             title="Notifications"
@@ -510,21 +566,10 @@ async function readApiError(response: Response): Promise<{
         </BbListCard>
       </section>
 
-      <section
-        class="settings-section"
-        aria-labelledby="settings-data-heading"
-      >
-        <h2
-          id="settings-data-heading"
-          class="h"
-        >
-          Data
-        </h2>
+      <section class="settings-section" aria-labelledby="settings-data-heading">
+        <h2 id="settings-data-heading" class="h">Data</h2>
         <BbListCard>
-          <BbRow
-            title="Backup"
-            value="—"
-          />
+          <BbRow title="Backup" value="—" />
           <BbRow
             title="Export all data"
             subtitle="CSV files in one .zip"
@@ -533,17 +578,9 @@ async function readApiError(response: Response): Promise<{
         </BbListCard>
       </section>
 
-      <p
-        v-if="screenError"
-        class="error settings-screen-error"
-        role="alert"
-      >
+      <p v-if="screenError" class="error settings-screen-error" role="alert">
         {{ screenError }}
-        <button
-          class="text-btn"
-          type="button"
-          @click="loadMembers"
-        >
+        <button class="text-btn" type="button" @click="loadMembers">
           Try again
         </button>
       </p>
@@ -553,15 +590,8 @@ async function readApiError(response: Response): Promise<{
       </p>
     </div>
 
-    <BbSheet
-      v-if="editorMode"
-      :title="editorTitle"
-      @close="closeMemberEditor"
-    >
-      <form
-        class="settings-sheet-form"
-        @submit.prevent="saveMember"
-      >
+    <BbSheet v-if="editorMode" :title="editorTitle" @close="closeMemberEditor">
+      <form class="settings-sheet-form" @submit.prevent="saveMember">
         <label class="settings-field">
           <span class="lbl">Profile name</span>
           <input
@@ -572,26 +602,16 @@ async function readApiError(response: Response): Promise<{
             aria-label="Profile name"
             :aria-invalid="Boolean(memberError)"
             @input="memberError = ''"
-          >
+          />
         </label>
-        <p
-          v-if="memberError"
-          class="error settings-form-error"
-          role="alert"
-        >
+        <p v-if="memberError" class="error settings-form-error" role="alert">
           {{ memberError }}
         </p>
-        <BbButton
-          type="submit"
-          :disabled="memberBusy"
-        >
+        <BbButton type="submit" :disabled="memberBusy">
           {{ editorMode === 'add' ? 'Add profile' : 'Save profile' }}
         </BbButton>
       </form>
-      <div
-        v-if="editorMode === 'edit'"
-        class="settings-sheet-actions"
-      >
+      <div v-if="editorMode === 'edit'" class="settings-sheet-actions">
         <BbButton
           v-if="selectedMember?.active"
           variant="secondary"
@@ -621,11 +641,7 @@ async function readApiError(response: Response): Promise<{
         Their accounts and history will stay. This profile can’t be opened until
         it’s reactivated.
       </p>
-      <p
-        v-if="deactivateError"
-        class="error settings-form-error"
-        role="alert"
-      >
+      <p v-if="deactivateError" class="error settings-form-error" role="alert">
         {{ deactivateError }}
       </p>
       <div class="settings-sheet-actions">
@@ -652,10 +668,7 @@ async function readApiError(response: Response): Promise<{
       title="Change family password"
       @close="closePasswordSheet"
     >
-      <form
-        class="settings-sheet-form"
-        @submit.prevent="changePassword"
-      >
+      <form class="settings-sheet-form" @submit.prevent="changePassword">
         <p class="t-sub settings-password-copy">
           Everyone uses the new one. Other phones and iPads are signed out and
           ask for it next time.
@@ -670,7 +683,7 @@ async function readApiError(response: Response): Promise<{
             aria-label="Current password"
             :aria-invalid="Boolean(passwordErrors.currentPassword)"
             @input="clearPasswordError('currentPassword')"
-          >
+          />
         </label>
         <p
           v-if="passwordErrors.currentPassword"
@@ -689,7 +702,7 @@ async function readApiError(response: Response): Promise<{
             aria-label="New password"
             :aria-invalid="Boolean(passwordErrors.newPassword)"
             @input="clearPasswordError('newPassword')"
-          >
+          />
         </label>
         <p
           v-if="passwordErrors.newPassword"
@@ -698,20 +711,33 @@ async function readApiError(response: Response): Promise<{
         >
           {{ passwordErrors.newPassword }}
         </p>
-        <p
-          v-if="passwordError"
-          class="error settings-form-error"
-          role="alert"
-        >
+        <p v-if="passwordError" class="error settings-form-error" role="alert">
           {{ passwordError }}
         </p>
-        <BbButton
-          type="submit"
-          :disabled="passwordBusy"
-        >
+        <BbButton type="submit" :disabled="passwordBusy">
           Change password
         </BbButton>
       </form>
     </BbSheet>
+
+    <CommonCurrencySheet
+      v-if="commonCurrencySheetOpen"
+      :currencies="commonCurrencyOptions"
+      :selected="commonCurrency"
+      @saved="saveCommonCurrency"
+      @close="commonCurrencySheetOpen = false"
+    />
+    <CoinsSheet
+      v-if="coinsSheetOpen"
+      :coins="coins"
+      @saved="loadMoneySettings"
+      @close="coinsSheetOpen = false"
+    />
+    <TimeZoneSheet
+      v-if="timeZoneSheetOpen"
+      :selected="timeZone"
+      @saved="saveTimeZone"
+      @close="timeZoneSheetOpen = false"
+    />
   </main>
 </template>

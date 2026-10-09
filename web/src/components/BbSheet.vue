@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, useId } from 'vue';
 import BbIcon from './BbIcon.vue';
-
-/** Mounted sheets, oldest first; only the last one handles keys. */
-const openSheets: object[] = [];
+import {
+  isTopSheet,
+  registerSheet,
+  unregisterSheet,
+} from './sheetStack.js';
 
 /**
  * Modal bottom sheet with a title, close button and focus trap; the parent
@@ -35,6 +37,7 @@ let previouslyFocused: HTMLElement | null = null;
 let inertElements: HTMLElement[] = [];
 /** Identifies this sheet in `openSheets`. */
 const sheetToken = {};
+registerSheet(sheetToken);
 
 function close() {
   if (props.closable) emit('close');
@@ -45,11 +48,12 @@ function close() {
  * the topmost sheet reacts, so stacked sheets don't all close at once.
  */
 function onKeydown(event: KeyboardEvent) {
-  if (openSheets.at(-1) !== sheetToken) return;
+  if (!isTopSheet(sheetToken)) return;
   if (event.key === 'Escape') {
     // Leave Escape alone when it can't close this sheet.
     if (!props.closable) return;
     event.preventDefault();
+    event.stopImmediatePropagation();
     close();
     return;
   }
@@ -109,7 +113,6 @@ onMounted(() => {
     document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
-  openSheets.push(sheetToken);
   makeBackgroundInert();
   dialog.value?.focus();
   // On window, so Escape and Tab are handled wherever focus is.
@@ -118,7 +121,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown);
-  openSheets.splice(openSheets.indexOf(sheetToken), 1);
+  unregisterSheet(sheetToken);
   for (const element of inertElements) element.inert = false;
   inertElements = [];
   previouslyFocused?.focus();
@@ -126,15 +129,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div
-    ref="layer"
-    class="sheet-layer"
-  >
-    <div
-      class="scrim"
-      aria-hidden="true"
-      @click="close"
-    />
+  <div ref="layer" class="sheet-layer">
+    <div class="scrim" aria-hidden="true" @click="close" />
     <section
       ref="dialog"
       class="sheet"
@@ -143,15 +139,9 @@ onUnmounted(() => {
       :aria-labelledby="titleId"
       tabindex="-1"
     >
-      <div
-        class="sheet-handle"
-        aria-hidden="true"
-      />
+      <div class="sheet-handle" aria-hidden="true" />
       <header class="sheet-head">
-        <h2
-          :id="titleId"
-          class="t-sheet"
-        >
+        <h2 :id="titleId" class="t-sheet">
           <slot name="title">
             {{ title }}
           </slot>

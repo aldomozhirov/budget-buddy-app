@@ -311,7 +311,7 @@ Try it: create accounts for two profiles, run a check-in from two browser window
   Do: The 4 × 5 keypad of UI-AMT-1; expression line; live result; error "Can’t calculate that. Check the brackets." with `role="alert"`; a leading minus only when the field allows negatives; "Start from last" puts the previous balance into the expression. A hardware keyboard on iPad and desktop works too. The system keyboard never opens.
   Acceptance: component tests for typing `12+3×2` (expression shown, result 18.00), `(1+` (last complete result shown, save disabled), `C`, `⌫`, and a minus refused where negatives are not allowed; E2E on iPhone size: tapping the field does not focus a native input (no `inputmode` keyboard).
 
-- [ ] **11. Currencies, coins and money settings.**
+- [x] **11. Currencies, coins and money settings.**
   Refs: ACC-10, CUR-1, DEP-9, SET-1, O1. Depends: 9. Parallel: 10, 12.
   Files: `server/src/modules/currencies/`, `server/src/modules/settings/`, `web/src/screens/settings/{CommonCurrencySheet,CoinsSheet,TimeZoneSheet}.vue`.
   Do: Seed the coins of O1 on first start. Coin editor: code, name, decimals (capped at 8, with the hint "Stored with at most 8 decimals"); a coin in use cannot be deleted. Common currency picker (ISO currencies and coins in use). Time zone picker (IANA list from `Intl.supportedValuesOf('timeZone')`, searchable).
