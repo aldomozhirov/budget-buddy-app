@@ -67,6 +67,38 @@ test.beforeEach(async ({ page }) => {
       },
     }),
   );
+  await page.route('**/api/accounts/*/snapshots', (route) =>
+    route.fulfill({ json: { snapshots: [] } }),
+  );
+  await page.route('**/api/accounts/*', (route) => {
+    const id = Number(
+      new URL(route.request().url()).pathname.split('/').at(-1),
+    );
+    return route.fulfill({
+      json: {
+        account: {
+          id,
+          name: id === 43 ? 'Money we owe' : 'ING Girokonto',
+          ownerMemberId: 1,
+          ownerName: 'Alex',
+          ownerActive: true,
+          type: id === 43 ? 'we_owe' : 'bank',
+          currency: 'EUR',
+          active: true,
+          deactivatedAt: null,
+          balance: id === 43 ? '-50000' : '198630',
+          balanceTakenAt: null,
+          balanceSource: null,
+          balanceUpdatedBy: null,
+          stale: false,
+          createdBy: 1,
+          createdAt: 1,
+          updatedBy: 1,
+          updatedAt: 1,
+        },
+      },
+    });
+  });
 });
 
 test('creates an account with a dated opening balance and opens its page', async ({

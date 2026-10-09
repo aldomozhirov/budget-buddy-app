@@ -72,7 +72,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/accounts/:id',
     name: 'AccountDetail',
-    component: () => import('../screens/PlaceholderScreen.vue'),
+    component: () => import('../screens/accounts/AccountScreen.vue'),
     meta: { title: 'Account' },
   },
   {

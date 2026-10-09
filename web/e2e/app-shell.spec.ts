@@ -40,6 +40,35 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/accounts*', (route) =>
     route.fulfill({ json: { accounts: [] } }),
   );
+  await page.route('**/api/accounts/42', (route) =>
+    route.fulfill({
+      json: {
+        account: {
+          id: 42,
+          name: 'Test account',
+          ownerMemberId: 1,
+          ownerName: 'Alex',
+          ownerActive: true,
+          type: 'bank',
+          currency: 'EUR',
+          active: true,
+          deactivatedAt: null,
+          balance: '0',
+          balanceTakenAt: null,
+          balanceSource: null,
+          balanceUpdatedBy: null,
+          stale: false,
+          createdBy: 1,
+          createdAt: 1,
+          updatedBy: 1,
+          updatedAt: 1,
+        },
+      },
+    }),
+  );
+  await page.route('**/api/accounts/42/snapshots', (route) =>
+    route.fulfill({ json: { snapshots: [] } }),
+  );
 });
 
 test('the Home screen shows its placeholder navigation and fits the viewport', async ({

@@ -334,7 +334,7 @@ Try it: create accounts for two profiles, run a check-in from two browser window
   Files: `web/src/screens/accounts/AccountsScreen.vue`.
   Acceptance: E2E with seeded data: the owner control filters to one profile; the Type and Currency chips filter; "Show inactive" reveals an inactive account with its "Inactive" tag; an account whose balance is older than the cadence shows "Stale"; groups read "Yours" and "Max’s".
 
-- [ ] **15. Account page and account settings.**
+- [x] **15. Account page and account settings.**
   Refs: ACC-4–8, MEM-5, UI-ACC-2, UI-ACC-3, UI-NAV-4. Depends: 10, 12. Parallel: 14.
   Files: `web/src/screens/accounts/AccountScreen.vue`, `web/src/components/charts/LineChart.vue` (shared with task 22), sheets beside the screen.
   Do: Balance, chart with range options (3 M, 1 Y, All), "Set balance" (keypad with "Today" or "Earlier date…"), "Balance history · tap to correct" with "Save correction" and "Delete", and the settings of UI-ACC-3 including the relabel warning and the deactivate confirmation. When deletion isn't possible, say why. The `LineChart` is plain SVG: one line, high and low labelled, month ticks, accessible summary text, drawn in on open (UI-MOT-2), no animation with reduced motion.
