@@ -282,6 +282,13 @@ test('shows opening balances and supports balance entry, settings and history', 
   await expect(page.getByRole('button', { name: 'Transactions' })).toHaveCount(
     0,
   );
+  const settingsIcon = page
+    .getByRole('button', { name: 'Account settings' })
+    .locator('svg');
+  await expect(settingsIcon).toHaveClass(/lucide-settings/u);
+  await expect(settingsIcon.locator('circle')).toHaveCount(1);
+  await expect(settingsIcon.locator('path')).toHaveCount(1);
+  await expect(settingsIcon.locator('line')).toHaveCount(0);
   const chartLine = page
     .getByRole('img', { name: /Account balance from/u })
     .locator('polyline');

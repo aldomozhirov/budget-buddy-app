@@ -20,7 +20,9 @@ import BbChip from '../../components/BbChip.vue';
 import BbSegmented from '../../components/BbSegmented.vue';
 import BbSheet from '../../components/BbSheet.vue';
 import { useBack } from '../../composables/useBack.js';
+import { markAccountCreated } from '../../stores/account-creation.js';
 import { authState, setAuthState } from '../../stores/auth.js';
+import { replaceScreen } from '../../router/index.js';
 
 /** Creates an account and its optional opening balance. */
 defineOptions({ name: 'NewAccountScreen' });
@@ -180,7 +182,8 @@ async function saveAccount(): Promise<void> {
       throw new Error(message ?? 'Could not save this account. Try again.');
     }
     const { account } = accountResponseSchema.parse(payload);
-    await router.push(`/accounts/${account.id}`);
+    markAccountCreated(account.id);
+    await replaceScreen(`/accounts/${account.id}`);
   } catch (cause) {
     error.value =
       cause instanceof Error

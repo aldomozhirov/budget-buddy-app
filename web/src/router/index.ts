@@ -114,7 +114,7 @@ export const router = createRouter({
 });
 installRouteGuards(router);
 
-let pendingNavigation: 'back' | 'fallback' | null = null;
+let pendingNavigation: 'back' | 'fallback' | 'replace' | null = null;
 
 router.afterEach((to, from, failure) => {
   const popIndex = pendingPopNavigations.findIndex(
@@ -133,6 +133,12 @@ router.afterEach((to, from, failure) => {
   if (pendingNavigation === 'fallback') {
     pendingNavigation = null;
     screenTransitionClass.value = 'enter-back';
+    return;
+  }
+
+  if (pendingNavigation === 'replace') {
+    pendingNavigation = null;
+    screenTransitionClass.value = 'enter-fwd';
     return;
   }
 
@@ -189,4 +195,10 @@ export function navigateBack(path: string): void {
 
   pendingNavigation = 'fallback';
   void router.replace(parent);
+}
+
+/** Replaces the active screen without adding it to the in-memory Back stack. */
+export async function replaceScreen(path: string): Promise<void> {
+  pendingNavigation = 'replace';
+  await router.replace(path);
 }

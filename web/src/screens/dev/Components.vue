@@ -163,6 +163,13 @@ onUnmounted(() =>
           >
             <BbIcon name="plus" />
           </button>
+          <button
+            class="icon-btn"
+            type="button"
+            aria-label="Account settings"
+          >
+            <BbIcon name="settings" />
+          </button>
         </div>
         <div class="components-button-stack">
           <BbButton>Save €23.80</BbButton>

@@ -166,6 +166,111 @@ test('creates an account with today’s opening balance and reads its saved snap
   expect(snapshots[0]).toMatchObject({ amount: '198630', source: 'opening' });
 });
 
+test('replaces the form in app and browser history after creation', async ({
+  page,
+}) => {
+  await page.goto(`${origin}/accounts`);
+  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+  await page.getByRole('link', { name: 'New account' }).click();
+  await expect(
+    page.getByRole('button', { name: 'Back to accounts' }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/accounts\/new$/u);
+
+  const accountId = await createAccount(page, 'History check');
+  await expect(page).toHaveURL(new RegExp(`/accounts/${accountId}$`, 'u'));
+  const createdAccountScreen = page
+    .getByRole('main')
+    .filter({ hasText: 'History check' });
+  await expect(
+    createdAccountScreen.getByRole('heading', { name: 'Account added' }),
+  ).toBeVisible();
+  await expect(
+    createdAccountScreen.getByRole('button', { name: 'Back to accounts' }),
+  ).toBeVisible();
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\/accounts$/u);
+  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'New account' })).toHaveCount(
+    0,
+  );
+
+  await page.goForward();
+  await expect(page).toHaveURL(new RegExp(`/accounts/${accountId}$`, 'u'));
+  await expect(
+    page
+      .getByRole('main')
+      .filter({ hasText: 'History check' })
+      .getByRole('button', { name: 'Back to accounts' }),
+  ).toBeVisible();
+  await page
+    .getByRole('main')
+    .filter({ hasText: 'History check' })
+    .getByRole('button', { name: 'Back to accounts' })
+    .click();
+  await expect(page).toHaveURL(/\/accounts$/u);
+  await expect(page.getByRole('heading', { name: 'New account' })).toHaveCount(
+    0,
+  );
+});
+
+test('Add another opens an empty new-account form', async ({ page }) => {
+  await page.goto(`${origin}/accounts/new`);
+  const accountId = await createAccount(page, 'Add another action');
+  await expect(page).toHaveURL(new RegExp(`/accounts/${accountId}$`, 'u'));
+  await expect(
+    page.getByRole('heading', { name: 'Account added' }),
+  ).toBeVisible();
+
+  await page.getByRole('button', { name: 'Add another', exact: true }).click();
+  await expect(page).toHaveURL(/\/accounts\/new$/u);
+  await expect(
+    page.getByRole('heading', { name: 'New account' }),
+  ).toBeVisible();
+  await expect(page.getByLabel('Name')).toHaveValue('');
+  await expect(
+    page.getByRole('heading', { name: 'Account added' }),
+  ).toHaveCount(0);
+});
+
+test('Home on the creation confirmation opens Home', async ({ page }) => {
+  await page.goto(`${origin}/accounts/new`);
+  const accountId = await createAccount(page, 'Home action');
+  await expect(page).toHaveURL(new RegExp(`/accounts/${accountId}$`, 'u'));
+  await expect(
+    page.getByRole('heading', { name: 'Account added' }),
+  ).toBeVisible();
+
+  await page.getByRole('button', { name: 'Home', exact: true }).click();
+  await expect(page).toHaveURL(/\/$/u);
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+});
+
+test('the creation confirmation is one-time across reloads and later visits', async ({
+  page,
+}) => {
+  await page.goto(`${origin}/accounts/new`);
+  const accountId = await createAccount(page, 'One-time notice');
+  await expect(page).toHaveURL(new RegExp(`/accounts/${accountId}$`, 'u'));
+  await expect(
+    page.getByRole('heading', { name: 'Account added' }),
+  ).toBeVisible();
+
+  await page.reload();
+  await expect(page).toHaveURL(new RegExp(`/accounts/${accountId}$`, 'u'));
+  await expect(
+    page.getByRole('heading', { name: 'Account added' }),
+  ).toHaveCount(0);
+
+  await page.goto(`${origin}/accounts`);
+  await page.getByRole('link', { name: /One-time notice · EUR/u }).click();
+  await expect(page).toHaveURL(new RegExp(`/accounts/${accountId}$`, 'u'));
+  await expect(
+    page.getByRole('heading', { name: 'Account added' }),
+  ).toHaveCount(0);
+});
+
 test('uses the segmented owner choice and submits its selected member', async ({
   page,
 }) => {
@@ -371,6 +476,9 @@ test('keeps the form open and reports an unavailable account service', async ({
     'Account service is unavailable.',
   );
   await expect(page).toHaveURL(/\/accounts\/new$/u);
+  await expect(
+    page.getByRole('heading', { name: 'Account added' }),
+  ).toHaveCount(0);
 });
 
 test('clears an opening amount when its currency changes', async ({ page }) => {
@@ -464,6 +572,23 @@ function todayInTimeZone(timeZone: string): string {
   const part = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((item) => item.type === type)?.value;
   return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
+async function createAccount(
+  page: import('@playwright/test').Page,
+  name: string,
+): Promise<number> {
+  await page.getByLabel('Name').fill(name);
+  const responsePromise = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/accounts' &&
+      response.request().method() === 'POST',
+  );
+  await page.locator('footer').getByRole('button', { name: 'Save' }).click();
+  const response = await responsePromise;
+  expect(response.status()).toBe(201);
+  const { account } = (await response.json()) as { account: { id: number } };
+  return account.id;
 }
 
 async function availablePort(): Promise<number> {

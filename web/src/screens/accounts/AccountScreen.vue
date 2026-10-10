@@ -32,6 +32,7 @@ import BbSheet from '../../components/BbSheet.vue';
 import BbTag from '../../components/BbTag.vue';
 import LineChart from '../../components/charts/LineChart.vue';
 import { useBack } from '../../composables/useBack.js';
+import { consumeAccountAddedNotice } from '../../stores/account-creation.js';
 import { setAuthState } from '../../stores/auth.js';
 
 /** Shows an account's latest balance, history and editable settings. */
@@ -83,6 +84,7 @@ const type = ref<Account['type']>('bank');
 const currencyCode = ref('EUR');
 const relabelExample = ref<{ before: string; after: string } | null>(null);
 const relabelPending = ref(false);
+const showAccountAdded = ref(false);
 const previewing = ref(false);
 const saving = ref(false);
 const balanceDateChoice = ref<HTMLButtonElement>();
@@ -163,6 +165,7 @@ function refreshClockWhenVisible(): void {
 }
 
 onMounted(() => {
+  showAccountAdded.value = consumeAccountAddedNotice(Number(accountId.value));
   void load();
   document.addEventListener('visibilitychange', refreshClockWhenVisible);
   clockRefreshTimer = window.setInterval(refreshClock, 60_000);
@@ -593,6 +596,14 @@ function historyChange(index: number): string {
     currency.value,
   );
 }
+
+function addAnotherAccount(): void {
+  void router.push('/accounts/new');
+}
+
+function goHome(): void {
+  void router.push('/');
+}
 </script>
 
 <template>
@@ -628,6 +639,24 @@ function historyChange(index: number): string {
         <BbButton variant="secondary-sm" @click="load">Try again</BbButton>
       </div>
       <template v-else-if="account && currency">
+        <section
+          v-if="showAccountAdded"
+          class="banner account-added"
+          aria-labelledby="account-added-title"
+          role="status"
+        >
+          <h2 id="account-added-title" class="account-added-title">
+            Account added
+          </h2>
+          <div class="account-added-actions">
+            <BbButton variant="secondary-sm" @click="addAnotherAccount">
+              Add another
+            </BbButton>
+            <BbButton variant="secondary-sm" @click="goHome">
+              Home
+            </BbButton>
+          </div>
+        </section>
         <section class="card-hero account-hero" aria-label="Current balance">
           <BbTag v-if="!account.active">Inactive</BbTag>
           <BbTag v-if="account.stale" tone="warn">Stale</BbTag>
@@ -988,6 +1017,16 @@ function historyChange(index: number): string {
   gap: 4px;
   border-radius: var(--r-hero);
   padding: 18px 16px 14px;
+}
+.account-added-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.account-added-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 .account-balance {
   font-size: clamp(30px, 9vw, 40px);
