@@ -191,3 +191,67 @@ function isStale(
       : { kind: 'weeks', every: cadenceEveryWeeks ?? 1 },
   );
 }
+
+type TotalsRow = {
+  account_id: bigint;
+  currency: string;
+  deactivated_at: bigint | null;
+  taken_at: bigint;
+  amount: bigint;
+};
+
+/**
+ * Family totals per currency at each of `instants`, from one query over all
+ * snapshots instead of one `balanceAt` per instant. It applies the same rules
+ * as `balanceAt`: the latest snapshot at or before the instant wins, the
+ * source order and then the higher id settle ties, and an account counts as
+ * zero from its deactivation on.
+ * @returns One map of currency to minor units per instant, in the same order.
+ */
+export function currencyTotalsAt(
+  database: Database.Database,
+  instants: readonly number[],
+): Array<Map<string, bigint>> {
+  const totals = instants.map(() => new Map<string, bigint>());
+  const order = instants
+    .map((instant, index) => ({ instant, index }))
+    .sort((left, right) => left.instant - right.instant);
+
+  // Oldest first, and within one `taken_at` the winner last.
+  const rows = database
+    .prepare(
+      `SELECT s.account_id, a.currency, a.deactivated_at, s.taken_at, s.amount
+       FROM snapshot s JOIN account a ON a.id = s.account_id
+       ORDER BY s.account_id, s.taken_at ASC, (${snapshotSourceOrder}) DESC,
+                s.id ASC`,
+    )
+    .all() as TotalsRow[];
+
+  let start = 0;
+  while (start < rows.length) {
+    const first = rows[start] as TotalsRow;
+    let end = start;
+    while (end < rows.length && rows[end]?.account_id === first.account_id) {
+      end += 1;
+    }
+    const deactivatedAt =
+      first.deactivated_at === null ? null : Number(first.deactivated_at);
+    // `cursor` is the winning snapshot of the account at the current instant.
+    let cursor = start - 1;
+    for (const { instant, index } of order) {
+      while (
+        cursor + 1 < end &&
+        Number((rows[cursor + 1] as TotalsRow).taken_at) <= instant
+      ) {
+        cursor += 1;
+      }
+      if (cursor < start) continue;
+      if (deactivatedAt !== null && deactivatedAt <= instant) continue;
+      const row = rows[cursor] as TotalsRow;
+      const map = totals[index] as Map<string, bigint>;
+      map.set(row.currency, (map.get(row.currency) ?? 0n) + row.amount);
+    }
+    start = end;
+  }
+  return totals;
+}
