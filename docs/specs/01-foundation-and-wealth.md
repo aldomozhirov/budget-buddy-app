@@ -135,7 +135,7 @@ All tables have `id INTEGER PRIMARY KEY`, unless stated otherwise. Foreign keys 
 | `checkin` | `opened_at`, `opened_by` (null when the schedule opened it), `schedule_slot` (nullable, unique), `closed_at`, `closed_by` (null when it closed by itself) | Partial unique index: at most one row where `closed_at IS NULL` (CHK-1). |
 | `rate` | `base`, `quote`, `date` (`YYYY-MM-DD`), `rate TEXT`, `source`, `fetched_at` | `UNIQUE (base, quote, date)`. Never deleted (CUR-2). |
 | `rate_fetch` | `feed_id`, `date`, `status`, `error`, `at` | Feeds the "Updated today 06:00" and stale-rate display (CUR-4). |
-| `job_run` | `job`, `slot TEXT`, `status` (`running`/`done`/`failed`), `started_at`, `finished_at`, `error` | `UNIQUE (job, slot)`. A job inserts its slot before working, so a second run of the same slot does nothing (COR-3). |
+| `job_run` | `job`, `slot TEXT`, `status` (`running`/`done`/`failed`), `attempts` (default 1), `started_at`, `finished_at`, `error` | `UNIQUE (job, slot)`. A job inserts its slot before working, so a second run of the same slot does nothing (COR-3). A failed slot is claimed again at a later tick while `attempts` is below the job's limit (migration 0002 added the column in task 19). At start, rows still `running` are set to `failed` ("Interrupted by a restart"). |
 | `notification` | `event`, `checkin_id`, `member_id`, `slot TEXT`, `sent_at` | `UNIQUE (event, checkin_id, member_id, slot)`, so no notification is sent twice. |
 | `backup` | `kind` (`daily`/`monthly`/`pre_migration`), `path`, `bytes`, `started_at`, `finished_at`, `status`, `error` | BKP-4 status. |
 
@@ -361,9 +361,10 @@ Try it: create accounts for two profiles, run a check-in from two browser window
 
 Try it: close a second check-in and read its summary; reveal the wealth figure on Home.
 
-- [ ] **19. Job runner.**
+- [x] **19. Job runner.**
   Refs: COR-3, PRF-2, DEP-9. Depends: 5. Parallel: 16–18.
   Files: `server/src/jobs/runner.ts`, `server/src/jobs/types.ts`.
+  Built: `createJobRunner({ database, clock, jobs, logger })` with `start()`, `stop()` and `tick()`, started from `server/src/index.ts` with no jobs yet; each later job is added to its `jobs` list. `dueSlots` returns the due slots oldest first and the runner takes the last. A job also has a `maxAttempts` (default 3) and runs one slot at a time.
   Do: A runner that wakes every minute and at start. Each job declares `dueSlots(now, settings, lastDoneSlot)` and `run(slot)`. The runner claims a slot by inserting into `job_run` (unique), runs it off the request path, and records the result. At start, it makes up the latest missed slot of each job (not every missed slot). A job failing does not stop the others.
   Acceptance: unit tests with a fake clock: a slot runs once even when two ticks overlap; after a simulated downtime across two slots, only the latest is made up; a failed run is retried at the next tick, up to a limit per job, and then waits for the next slot.
 

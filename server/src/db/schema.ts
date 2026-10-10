@@ -580,6 +580,7 @@ export const jobRun = sqliteTable(
     job: text('job').notNull(),
     slot: text('slot').notNull(),
     status: text('status', { enum: ['running', 'done', 'failed'] }).notNull(),
+    attempts: integer('attempts').notNull().default(1),
     startedAt: integer('started_at').notNull(),
     finishedAt: integer('finished_at'),
     error: text('error'),
