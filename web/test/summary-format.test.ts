@@ -68,7 +68,16 @@ describe('trendsFromSeries', () => {
       null,
       null,
     ]);
-    expect(trendText(null)).toBe('Rate missing');
+  });
+});
+
+describe('trendText', () => {
+  it('words each direction, and says nothing without a comparison', () => {
+    expect(trendText('up')).toBe('▲ up');
+    expect(trendText('down')).toBe('▼ down');
+    expect(trendText('unchanged')).toBe('Unchanged');
+    expect(trendText('first')).toBe('Start');
+    expect(trendText(null)).toBe('');
   });
 });
 

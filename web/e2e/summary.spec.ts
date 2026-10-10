@@ -139,6 +139,37 @@ test('the summary shows the total, its two causes and the per-currency rows', as
   }
 });
 
+test('Check-ins says "Rate missing" once, and compares nothing across a gap', async ({
+  page,
+}) => {
+  const seed = await seedFamily(page.context());
+  const series = wealthSeriesSchema.parse(
+    await (
+      await page.context().request.get(`${origin}/api/wealth/series`)
+    ).json(),
+  );
+  // The oldest check-in lacks a rate: it has no total, and the newer one
+  // has a total but nothing to compare it with.
+  await page.route('**/api/wealth/series?*', (route) =>
+    route.fulfill({
+      json: {
+        ...series,
+        points: series.points.map((point) =>
+          point.checkinId === seed.first ? { ...point, amount: null } : point,
+        ),
+      },
+    }),
+  );
+  await page.goto(`${origin}/check-ins`);
+  await page.getByRole('button', { name: 'Show amounts' }).click();
+  const rows = page.locator('.closed-checkin-row');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(1).getByText('Rate missing')).toHaveCount(1);
+  await expect(rows.nth(1)).not.toContainText('Start');
+  await expect(rows.nth(0)).not.toContainText('Rate missing');
+  await expect(rows.nth(0)).not.toContainText(/▲|▼|Unchanged|Start/u);
+});
+
 test('the first check-in shows its totals without any comparison', async ({
   page,
 }) => {
@@ -381,7 +412,7 @@ test('Check-ins lists each closed check-in’s total, hidden until the eye is ta
   // The newest closed check-in is first, and the total is masked.
   await expect(rows.nth(0).getByText('€ • • • • •')).toBeVisible();
   await expect(rows.nth(0)).toContainText('▲ up');
-  await expect(rows.nth(1)).toContainText('First check-in');
+  await expect(rows.nth(1)).toContainText('Start');
   await expect(page.getByText(totalOf(seed.second))).toHaveCount(0);
 
   const eye = page.getByRole('button', { name: 'Show amounts' });

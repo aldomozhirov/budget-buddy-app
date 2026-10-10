@@ -74,11 +74,11 @@ const trends = computed(() =>
 const formatter = computed(() => createMoneyFormatter(coins.value));
 const commonCurrency = computed(() => series.value?.currency ?? '');
 
-function closedTotal(checkin: Checkin): string {
+/** The closed total, or null when a rate it needs is missing. */
+function closedTotal(checkin: Checkin): string | null {
   const total = trends.value.get(checkin.id)?.total;
-  if (!series.value) return '';
   return total == null
-    ? 'Rate missing'
+    ? null
     : formatter.value.money(total, commonCurrency.value);
 }
 
@@ -86,12 +86,19 @@ function closedTrend(checkin: Checkin): CheckinTrend | undefined {
   return trends.value.get(checkin.id)?.trend;
 }
 
+/** The direction text; none when the row has no total to compare. */
+function closedDirection(checkin: Checkin): string {
+  if (closedTotal(checkin) === null) return '';
+  return trendText(closedTrend(checkin) ?? null);
+}
+
 function closedLabel(checkin: Checkin): string {
   const base = `${closedDate(checkin)} · ${closedSummary(checkin)}`;
-  const trend = closedTrend(checkin);
-  if (!series.value || trend === undefined) return base;
-  const amount = totalsVisible.value ? closedTotal(checkin) : 'Amount hidden';
-  return `${base} · ${amount} · ${trendText(trend)}`;
+  if (!series.value || closedTrend(checkin) === undefined) return base;
+  const total = closedTotal(checkin);
+  const amount =
+    total === null ? 'Rate missing' : totalsVisible.value ? total : 'Amount hidden';
+  return [base, amount, closedDirection(checkin)].filter(Boolean).join(' · ');
 }
 
 function accountProgress(completed: number, total: number): string {
@@ -337,15 +344,21 @@ void load();
                 class="closed-checkin-total"
                 aria-hidden="true"
               >
+                <span
+                  v-if="closedTotal(checkin) === null"
+                  class="num closed-checkin-amount"
+                >Rate missing</span>
                 <BbAmount
-                  :value="closedTotal(checkin)"
+                  v-else
+                  :value="closedTotal(checkin) ?? ''"
                   :visible="totalsVisible"
                   :masked-value="formatter.masked(commonCurrency)"
                   class="closed-checkin-amount"
                 />
                 <span
+                  v-if="closedDirection(checkin)"
                   class="num t-sub"
-                >{{ trendText(closedTrend(checkin) ?? null) }}</span>
+                >{{ closedDirection(checkin) }}</span>
               </span>
               <BbIcon
                 name="forward"

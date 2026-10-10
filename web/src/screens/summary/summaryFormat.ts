@@ -95,13 +95,16 @@ export function trendsFromSeries(
   return result;
 }
 
-/** The words under a hidden total: `▲ up`, `▼ down`, `Unchanged`. */
+/**
+ * The words under a check-in total: `▲ up`, `▼ down`, `Unchanged`, `Start`.
+ * Empty when no comparison is possible, because a rate is missing.
+ */
 export function trendText(trend: CheckinTrend): string {
   if (trend === 'up') return '▲ up';
   if (trend === 'down') return '▼ down';
   if (trend === 'unchanged') return 'Unchanged';
-  if (trend === 'first') return 'First check-in';
-  return 'Rate missing';
+  if (trend === 'first') return 'Start';
+  return '';
 }
 
 /** The points of the chart, leaving out those that lack a rate. */
