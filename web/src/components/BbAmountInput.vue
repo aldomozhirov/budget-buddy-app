@@ -26,6 +26,8 @@ const props = withDefaults(
     label?: string;
     /** Text shown on the enabled save button. */
     saveLabel?: string;
+    /** Prevents further saves while the caller's request is pending. */
+    saving?: boolean;
   }>(),
   {
     allowNegative: false,
@@ -33,6 +35,7 @@ const props = withDefaults(
     lastAmount: null,
     label: 'Amount',
     saveLabel: 'Save',
+    saving: false,
   },
 );
 
@@ -147,6 +150,7 @@ function startFromLast(): void {
 
 /** Saves only a complete expression that the shared money parser accepts. */
 function save(): void {
+  if (props.saving) return;
   const result = evaluation.value;
   if (result?.ok) emit('save', result.value);
 }
@@ -199,20 +203,14 @@ function onKeydown(event: KeyboardEvent): void {
 </script>
 
 <template>
-  <div
-    class="amount-entry"
-    @keydown="onKeydown"
-  >
+  <div class="amount-entry" @keydown="onKeydown">
     <div
       class="amount-entry-display"
       role="group"
       :aria-label="label"
       tabindex="0"
     >
-      <div
-        v-if="hasOperator"
-        class="amount-expr"
-      >
+      <div v-if="hasOperator" class="amount-expr">
         {{ expression }}
       </div>
       <div
@@ -223,11 +221,7 @@ function onKeydown(event: KeyboardEvent): void {
       >
         {{ resultText }}
       </div>
-      <div
-        v-if="error"
-        class="error"
-        role="alert"
-      >
+      <div v-if="error" class="error" role="alert">
         {{ error }}
       </div>
     </div>
@@ -241,15 +235,12 @@ function onKeydown(event: KeyboardEvent): void {
       Start from last
     </button>
 
-    <BbKeypad
-      :minus-disabled="minusDisabled"
-      @press="press"
-    />
+    <BbKeypad :minus-disabled="minusDisabled" @press="press" />
 
     <button
       class="primary"
       type="button"
-      :disabled="!canSave"
+      :disabled="!canSave || saving"
       @click="save"
     >
       {{ canSave ? saveLabel : 'Enter an amount' }}

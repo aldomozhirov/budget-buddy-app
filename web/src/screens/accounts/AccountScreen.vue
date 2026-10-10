@@ -1,9 +1,16 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
-import { RouterLink, useRoute, useRouter } from 'vue-router';
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+} from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import {
   accountResponseSchema,
   currenciesResponseSchema,
+  formatChange,
   formatDate,
   formatMoney,
   getCurrency,
@@ -22,6 +29,7 @@ import BbBackButton from '../../components/BbBackButton.vue';
 import BbButton from '../../components/BbButton.vue';
 import BbIcon from '../../components/BbIcon.vue';
 import BbSheet from '../../components/BbSheet.vue';
+import BbTag from '../../components/BbTag.vue';
 import LineChart from '../../components/charts/LineChart.vue';
 import { useBack } from '../../composables/useBack.js';
 import { setAuthState } from '../../stores/auth.js';
@@ -66,6 +74,7 @@ const sheet = ref<Sheet>(null);
 const selectedSnapshot = ref<Snapshot | null>(null);
 const revisionsBySnapshot = ref<Record<number, string>>({});
 const selectedRange = ref<Range>('1 Y');
+const clockNow = ref(new Date());
 const balanceDate = ref('');
 const correctionDate = ref('');
 const name = ref('');
@@ -74,7 +83,10 @@ const type = ref<Account['type']>('bank');
 const currencyCode = ref('EUR');
 const relabelExample = ref<{ before: string; after: string } | null>(null);
 const relabelPending = ref(false);
+const previewing = ref(false);
 const saving = ref(false);
+const balanceDateChoice = ref<HTMLButtonElement>();
+const balanceDateInput = ref<HTMLInputElement>();
 
 const currency = computed(() =>
   getCurrency(account.value?.currency ?? currencyCode.value, coins.value),
@@ -91,11 +103,12 @@ const sourceLabels: Record<Snapshot['source'], string> = {
 const chartPoints = computed(() => {
   const accountCurrency = currency.value;
   if (!accountCurrency) return [];
+  const now = clockNow.value.getTime();
   const cutoff =
     selectedRange.value === '3 M'
-      ? Date.now() - 92 * 24 * 60 * 60 * 1000
+      ? now - 92 * 24 * 60 * 60 * 1000
       : selectedRange.value === '1 Y'
-        ? Date.now() - 366 * 24 * 60 * 60 * 1000
+        ? now - 366 * 24 * 60 * 60 * 1000
         : Number.NEGATIVE_INFINITY;
   return [...snapshots.value]
     .filter((snapshot) => snapshot.takenAt >= cutoff)
@@ -118,7 +131,9 @@ const chartSummary = computed(
   () =>
     `Account balance from ${chartPoints.value[0]?.date ?? 'the first date'} to ${chartPoints.value.at(-1)?.date ?? 'the latest date'}`,
 );
-const today = computed(() => todayInTimeZone(new Date(), timeZone.value));
+const today = computed(() =>
+  todayInTimeZone(clockNow.value, timeZone.value),
+);
 const formattedBalance = computed(() => {
   if (!account.value || !currency.value) return '';
   return formatMoney(BigInt(account.value.balance), currency.value);
@@ -134,10 +149,31 @@ const latestMeta = computed(() => {
 const deletionReason = computed(() =>
   snapshots.value.length
     ? 'This account has balance history and cannot be deleted. Deactivate it to keep its history.'
-    : 'This account cannot be deleted while it has transactions. Deactivate it instead.',
+    : '',
 );
 
-onMounted(() => void load());
+let clockRefreshTimer: number | undefined;
+
+function refreshClock(): void {
+  clockNow.value = new Date();
+}
+
+function refreshClockWhenVisible(): void {
+  if (document.visibilityState === 'visible') refreshClock();
+}
+
+onMounted(() => {
+  void load();
+  document.addEventListener('visibilitychange', refreshClockWhenVisible);
+  clockRefreshTimer = window.setInterval(refreshClock, 60_000);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', refreshClockWhenVisible);
+  if (clockRefreshTimer !== undefined) {
+    window.clearInterval(clockRefreshTimer);
+  }
+});
 
 async function request(
   path: string,
@@ -233,12 +269,48 @@ async function loadRevisions(): Promise<void> {
 }
 
 function openBalance(): void {
+  refreshClock();
   balanceDate.value = today.value;
   actionError.value = '';
   sheet.value = 'balance';
 }
 
+function openBalanceDate(): void {
+  refreshClock();
+  sheet.value = 'balance-date';
+  void nextTick(() => balanceDateInput.value?.focus());
+}
+
+function returnToBalance(): void {
+  refreshClock();
+  if (!balanceDate.value || balanceDate.value > today.value) {
+    balanceDate.value = today.value;
+  }
+  sheet.value = 'balance';
+  void nextTick(() => balanceDateChoice.value?.focus());
+}
+
+function closeBalanceSheet(): void {
+  if (sheet.value === 'balance-date') {
+    returnToBalance();
+  } else {
+    sheet.value = null;
+  }
+}
+
+function chooseTodayForBalance(): void {
+  refreshClock();
+  balanceDate.value = today.value;
+  returnToBalance();
+}
+
 async function saveBalance(amount: bigint): Promise<void> {
+  if (saving.value) return;
+  if (!balanceDate.value) {
+    actionError.value = 'Choose a balance date.';
+    return;
+  }
+  refreshClock();
   saving.value = true;
   actionError.value = '';
   try {
@@ -270,6 +342,7 @@ async function saveBalance(amount: bigint): Promise<void> {
 }
 
 async function openCorrection(snapshot: Snapshot): Promise<void> {
+  refreshClock();
   selectedSnapshot.value = snapshot;
   correctionDate.value = todayInTimeZone(
     new Date(snapshot.takenAt),
@@ -280,7 +353,11 @@ async function openCorrection(snapshot: Snapshot): Promise<void> {
 }
 
 async function saveCorrection(amount: bigint): Promise<void> {
-  if (!selectedSnapshot.value) return;
+  if (!selectedSnapshot.value || saving.value) return;
+  const originalDate = todayInTimeZone(
+    new Date(selectedSnapshot.value.takenAt),
+    timeZone.value,
+  );
   saving.value = true;
   actionError.value = '';
   try {
@@ -291,7 +368,9 @@ async function saveCorrection(amount: bigint): Promise<void> {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: amount.toString(),
-          date: correctionDate.value,
+          ...(correctionDate.value === originalDate
+            ? {}
+            : { date: correctionDate.value }),
         }),
       },
     );
@@ -311,22 +390,29 @@ async function saveCorrection(amount: bigint): Promise<void> {
 }
 
 async function deleteSnapshot(): Promise<void> {
-  if (!selectedSnapshot.value) return;
-  const response = await request(
-    `/api/snapshots/${selectedSnapshot.value.id}`,
-    { method: 'DELETE' },
-  );
-  if (!response.ok) {
-    actionError.value = 'Could not delete this balance. Try again.';
-    return;
+  if (!selectedSnapshot.value || saving.value) return;
+  saving.value = true;
+  actionError.value = '';
+  try {
+    const response = await request(
+      `/api/snapshots/${selectedSnapshot.value.id}`,
+      { method: 'DELETE' },
+    );
+    if (!response.ok)
+      throw new Error('Could not delete this balance. Try again.');
+    sheet.value = null;
+    selectedSnapshot.value = null;
+    await load();
+  } catch {
+    actionError.value =
+      'Could not delete this balance. Check your connection and try again.';
+  } finally {
+    saving.value = false;
   }
-  sheet.value = null;
-  selectedSnapshot.value = null;
-  await load();
 }
 
 async function saveSettings(): Promise<void> {
-  if (!account.value) return;
+  if (!account.value || saving.value || previewing.value) return;
   saving.value = true;
   actionError.value = '';
   try {
@@ -354,7 +440,20 @@ async function saveSettings(): Promise<void> {
 }
 
 async function previewRelabel(): Promise<void> {
-  if (!account.value || currencyCode.value === account.value.currency) return;
+  if (
+    !account.value ||
+    currencyCode.value === account.value.currency ||
+    saving.value ||
+    previewing.value
+  )
+    return;
+  const requestedCurrency = currencyCode.value;
+  const sourceCurrency = currency.value;
+  const targetCurrency = getCurrency(requestedCurrency, coins.value);
+  if (!sourceCurrency || !targetCurrency) return;
+  previewing.value = true;
+  relabelPending.value = false;
+  relabelExample.value = null;
   actionError.value = '';
   try {
     const response = await request(
@@ -362,7 +461,7 @@ async function previewRelabel(): Promise<void> {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currency: currencyCode.value }),
+        body: JSON.stringify({ currency: requestedCurrency }),
       },
     );
     const payload = (await response.json()) as {
@@ -374,29 +473,51 @@ async function previewRelabel(): Promise<void> {
       throw new Error(
         payload.error?.message ?? 'Could not preview this currency change.',
       );
-    const target = getCurrency(currencyCode.value, coins.value);
-    relabelExample.value =
-      payload.example && currency.value && target
-        ? {
-            before: formatMoney(
-              BigInt(payload.example.beforeAmount),
-              currency.value,
-            ),
-            after: formatMoney(BigInt(payload.example.afterAmount), target),
-          }
-        : null;
+    if (sheet.value !== 'settings') return;
+    if (currencyCode.value !== requestedCurrency) {
+      actionError.value = 'Currency changed. Preview it again.';
+      return;
+    }
+    relabelExample.value = payload.example
+      ? {
+          before: formatMoney(
+            BigInt(payload.example.beforeAmount),
+            sourceCurrency,
+          ),
+          after: formatMoney(
+            BigInt(payload.example.afterAmount),
+            targetCurrency,
+          ),
+        }
+      : null;
     relabelPending.value = true;
     sheet.value = 'relabel';
   } catch (cause) {
-    actionError.value =
-      cause instanceof Error
-        ? cause.message
-        : 'Could not preview this currency change.';
+    if (sheet.value === 'settings') {
+      actionError.value =
+        cause instanceof Error
+          ? cause.message
+          : 'Could not preview this currency change.';
+    }
+  } finally {
+    previewing.value = false;
   }
 }
 
+function cancelRelabelPreview(): void {
+  sheet.value = 'settings';
+  relabelPending.value = false;
+  relabelExample.value = null;
+}
+
 async function confirmRelabel(): Promise<void> {
-  if (!account.value) return;
+  if (
+    !account.value ||
+    saving.value ||
+    previewing.value ||
+    !relabelPending.value
+  )
+    return;
   saving.value = true;
   actionError.value = '';
   try {
@@ -424,28 +545,53 @@ async function confirmRelabel(): Promise<void> {
 }
 
 async function setActive(active: boolean): Promise<void> {
-  const response = await request(
-    `/api/accounts/${accountId.value}/${active ? 'reactivate' : 'deactivate'}`,
-    { method: 'POST' },
-  );
-  if (!response.ok) {
-    actionError.value = 'Could not update this account. Try again.';
-    return;
+  if (saving.value || previewing.value) return;
+  saving.value = true;
+  actionError.value = '';
+  try {
+    const response = await request(
+      `/api/accounts/${accountId.value}/${active ? 'reactivate' : 'deactivate'}`,
+      { method: 'POST' },
+    );
+    if (!response.ok)
+      throw new Error('Could not update this account. Try again.');
+    account.value = accountResponseSchema.parse(await response.json()).account;
+    sheet.value = null;
+  } catch {
+    actionError.value =
+      'Could not update this account. Check your connection and try again.';
+  } finally {
+    saving.value = false;
   }
-  account.value = accountResponseSchema.parse(await response.json()).account;
-  sheet.value = null;
 }
 
 async function deleteAccount(): Promise<void> {
-  const response = await request(`/api/accounts/${accountId.value}`, {
-    method: 'DELETE',
-  });
-  if (!response.ok) {
+  if (snapshots.value.length > 0 || saving.value || previewing.value) return;
+  saving.value = true;
+  actionError.value = '';
+  try {
+    const response = await request(`/api/accounts/${accountId.value}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok)
+      throw new Error('Could not delete this account. Try again.');
+    await router.replace('/accounts');
+  } catch {
     actionError.value =
-      'This account cannot be deleted. Deactivate it instead.';
-    return;
+      'Could not delete this account. Check your connection and try again.';
+  } finally {
+    saving.value = false;
   }
-  await router.replace('/accounts');
+}
+
+function historyChange(index: number): string {
+  const current = snapshots.value[index];
+  const older = snapshots.value[index + 1];
+  if (!current || !older || !currency.value) return 'First balance';
+  return formatChange(
+    BigInt(current.amount) - BigInt(older.amount),
+    currency.value,
+  );
 }
 </script>
 
@@ -482,7 +628,7 @@ async function deleteAccount(): Promise<void> {
         <BbButton variant="secondary-sm" @click="load">Try again</BbButton>
       </div>
       <template v-else-if="account && currency">
-        <section class="card account-hero" aria-label="Current balance">
+        <section class="card-hero account-hero" aria-label="Current balance">
           <BbTag v-if="!account.active">Inactive</BbTag>
           <BbTag v-if="account.stale" tone="warn">Stale</BbTag>
           <div class="account-balance num">{{ formattedBalance }}</div>
@@ -509,9 +655,6 @@ async function deleteAccount(): Promise<void> {
 
         <div class="account-actions">
           <BbButton @click="openBalance">Set balance</BbButton>
-          <RouterLink class="secondary account-transactions" to="/transactions"
-            >Transactions</RouterLink
-          >
         </div>
         <section class="account-history-section">
           <h2 class="t-sub account-history-title">
@@ -538,9 +681,14 @@ async function deleteAccount(): Promise<void> {
                   ></span
                 >
               </span>
-              <span class="history-right num">{{
-                formatMoney(BigInt(snapshot.amount), currency)
-              }}</span>
+              <span class="history-right">
+                <span class="num">{{
+                  formatMoney(BigInt(snapshot.amount), currency)
+                }}</span>
+                <span class="history-change num">{{
+                  historyChange(index)
+                }}</span>
+              </span>
               <span
                 v-if="index < snapshots.length - 1"
                 class="account-divider"
@@ -550,64 +698,71 @@ async function deleteAccount(): Promise<void> {
           </div>
           <p v-else class="t-sub">No balance history yet.</p>
         </section>
-        <p class="account-delete-note">{{ deletionReason }}</p>
-        <p v-if="actionError" class="error" role="alert">{{ actionError }}</p>
+        <p v-if="deletionReason" class="account-delete-note">
+          {{ deletionReason }}
+        </p>
+        <p v-if="actionError && sheet === null" class="error" role="alert">
+          {{ actionError }}
+        </p>
       </template>
     </div>
 
     <BbSheet
-      v-if="sheet === 'balance' && currency"
-      title="Set balance"
-      @close="sheet = null"
+      v-if="(sheet === 'balance' || sheet === 'balance-date') && currency"
+      :title="sheet === 'balance' ? 'Set balance' : 'Balance date'"
+      @close="closeBalanceSheet"
     >
       <div class="account-sheet-body">
-        <button
-          class="account-date-choice"
-          type="button"
-          @click="sheet = 'balance-date'"
+        <div
+          v-show="sheet === 'balance'"
+          :aria-hidden="sheet === 'balance-date' ? 'true' : undefined"
+          :inert="sheet === 'balance-date'"
         >
-          {{
-            balanceDate === today ? 'Today' : formatDate(balanceDate, timeZone)
-          }}
-          · Change date
-        </button>
-        <BbAmountInput
-          :currency="currency"
-          :allow-negative="true"
-          :last-amount="account ? BigInt(account.balance) : null"
-          label="Account balance"
-          save-label="Save balance"
-          @save="saveBalance"
-        />
-        <p v-if="actionError" class="error" role="alert">{{ actionError }}</p>
-      </div>
-    </BbSheet>
-
-    <BbSheet
-      v-if="sheet === 'balance-date'"
-      title="Balance date"
-      @close="sheet = 'balance'"
-    >
-      <div class="account-sheet-body">
-        <button
-          class="account-date-choice"
-          type="button"
-          @click="
-            balanceDate = today;
-            sheet = 'balance';
-          "
-        >
-          Today
-        </button>
-        <label class="lbl" for="balance-date">Earlier date…</label>
-        <input
-          id="balance-date"
-          v-model="balanceDate"
-          class="text"
-          type="date"
-          :max="today"
-        />
-        <BbButton @click="sheet = 'balance'">Done</BbButton>
+          <button
+            ref="balanceDateChoice"
+            class="account-date-choice"
+            type="button"
+            @click="openBalanceDate"
+          >
+            {{
+              !balanceDate || balanceDate === today
+                ? 'Today'
+                : formatDate(balanceDate, timeZone)
+            }}
+            · Change date
+          </button>
+          <BbAmountInput
+            :currency="currency"
+            :allow-negative="true"
+            :last-amount="account ? BigInt(account.balance) : null"
+            :saving="saving"
+            label="Account balance"
+            save-label="Save balance"
+            @save="saveBalance"
+          />
+          <p v-if="actionError" class="error" role="alert">
+            {{ actionError }}
+          </p>
+        </div>
+        <div v-if="sheet === 'balance-date'" class="account-date-editor">
+          <button
+            class="account-date-choice"
+            type="button"
+            @click="chooseTodayForBalance"
+          >
+            Today
+          </button>
+          <label class="lbl" for="balance-date">Earlier date…</label>
+          <input
+            ref="balanceDateInput"
+            id="balance-date"
+            v-model="balanceDate"
+            class="text"
+            type="date"
+            :max="today"
+          />
+          <BbButton @click="returnToBalance">Done</BbButton>
+        </div>
       </div>
     </BbSheet>
 
@@ -633,6 +788,7 @@ async function deleteAccount(): Promise<void> {
           :key="selectedSnapshot.id"
           :currency="currency"
           :allow-negative="true"
+          :saving="saving"
           :initial-amount="BigInt(selectedSnapshot.amount)"
           label="Corrected balance"
           save-label="Save correction"
@@ -641,7 +797,9 @@ async function deleteAccount(): Promise<void> {
         <p v-if="revisionsBySnapshot[selectedSnapshot.id]" class="t-sub">
           Changed by {{ revisionsBySnapshot[selectedSnapshot.id] }}
         </p>
-        <BbButton variant="danger" @click="deleteSnapshot">Delete</BbButton>
+        <BbButton variant="danger" :disabled="saving" @click="deleteSnapshot"
+          >Delete</BbButton
+        >
         <p v-if="actionError" class="error" role="alert">{{ actionError }}</p>
       </div>
     </BbSheet>
@@ -672,7 +830,12 @@ async function deleteAccount(): Promise<void> {
           </option>
         </select>
         <label class="lbl" for="account-currency">Currency</label>
-        <select id="account-currency" v-model="currencyCode" class="text">
+        <select
+          id="account-currency"
+          v-model="currencyCode"
+          class="text"
+          :disabled="saving || previewing"
+        >
           <option
             v-for="option in currencies"
             :key="option.code"
@@ -684,27 +847,38 @@ async function deleteAccount(): Promise<void> {
             {{ coin.code }} · {{ coin.name }}
           </option>
         </select>
-        <BbButton @click="saveSettings">Save settings</BbButton>
+        <BbButton :disabled="saving || previewing" @click="saveSettings"
+          >Save settings</BbButton
+        >
         <BbButton
           v-if="currencyCode !== account?.currency"
           variant="secondary"
+          :disabled="saving || previewing"
           @click="previewRelabel"
           >Change currency</BbButton
         >
-        <p class="account-delete-note">{{ deletionReason }}</p>
+        <p v-if="deletionReason" class="account-delete-note">
+          {{ deletionReason }}
+        </p>
         <BbButton
           v-if="snapshots.length === 0"
           variant="danger"
+          :disabled="saving || previewing"
           @click="sheet = 'delete'"
           >Delete account</BbButton
         >
         <BbButton
           v-if="account?.active"
           variant="danger"
+          :disabled="saving || previewing"
           @click="sheet = 'deactivate'"
           >Deactivate account</BbButton
         >
-        <BbButton v-else variant="secondary" @click="setActive(true)"
+        <BbButton
+          v-else
+          variant="secondary"
+          :disabled="saving || previewing"
+          @click="setActive(true)"
           >Reactivate account</BbButton
         >
         <p v-if="actionError" class="error" role="alert">{{ actionError }}</p>
@@ -721,21 +895,19 @@ async function deleteAccount(): Promise<void> {
           This account will become inactive. Its balance history stays, and its
           balance becomes zero from today.
         </p>
-        <BbButton variant="danger" @click="setActive(false)"
+        <BbButton variant="danger" :disabled="saving" @click="setActive(false)"
           >Deactivate account</BbButton
         ><BbButton variant="text" @click="sheet = 'settings'"
           >Keep account active</BbButton
         >
+        <p v-if="actionError" class="error" role="alert">{{ actionError }}</p>
       </div>
     </BbSheet>
 
     <BbSheet
       v-if="sheet === 'relabel' && account"
       :title="`Relabel as ${currencyCode}?`"
-      @close="
-        sheet = 'settings';
-        relabelPending = false;
-      "
+      @close="cancelRelabelPreview"
     >
       <div class="account-sheet-body">
         <p class="t-sub">
@@ -748,9 +920,14 @@ async function deleteAccount(): Promise<void> {
         <p v-if="relabelPending" class="t-sub">
           Stored history and revisions will use the new currency label.
         </p>
-        <BbButton @click="confirmRelabel"
+        <BbButton :disabled="saving" @click="confirmRelabel"
           >Relabel as {{ currencyCode }}</BbButton
-        ><BbButton variant="text" @click="sheet = 'settings'">Cancel</BbButton>
+        ><BbButton
+          variant="text"
+          :disabled="saving"
+          @click="cancelRelabelPreview"
+          >Cancel</BbButton
+        >
         <p v-if="actionError" class="error" role="alert">{{ actionError }}</p>
       </div>
     </BbSheet>
@@ -761,8 +938,10 @@ async function deleteAccount(): Promise<void> {
       @close="sheet = 'settings'"
     >
       <div class="account-sheet-body">
-        <p class="t-sub">{{ deletionReason }}</p>
-        <BbButton variant="danger" @click="deleteAccount"
+        <p class="t-sub">
+          This account has no balance history and will be deleted.
+        </p>
+        <BbButton variant="danger" :disabled="saving" @click="deleteAccount"
           >Delete account</BbButton
         ><BbButton variant="text" @click="sheet = 'settings'"
           >Keep account</BbButton
@@ -806,7 +985,8 @@ async function deleteAccount(): Promise<void> {
 .account-hero {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
+  border-radius: var(--r-hero);
   padding: 18px 16px 14px;
 }
 .account-balance {
@@ -822,23 +1002,12 @@ async function deleteAccount(): Promise<void> {
   margin-top: 6px;
 }
 .account-ranges .seg {
-  min-height: 40px;
+  min-height: 44px;
 }
 .account-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
-}
-.account-transactions {
-  display: flex;
-  min-height: 56px;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--r-card);
-  background: var(--surface);
-  color: var(--ink);
-  text-decoration: none;
-  font-weight: 600;
 }
 .account-history-section {
   display: flex;
@@ -847,6 +1016,9 @@ async function deleteAccount(): Promise<void> {
 }
 .account-history-title {
   margin: 0 4px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
 }
 .account-history {
   display: flex;
@@ -858,7 +1030,7 @@ async function deleteAccount(): Promise<void> {
   position: relative;
   display: flex;
   width: 100%;
-  min-height: 64px;
+  min-height: 58px;
   align-items: center;
   gap: 12px;
   border: 0;
@@ -873,14 +1045,25 @@ async function deleteAccount(): Promise<void> {
   min-width: 0;
   flex-direction: column;
 }
+.history-left > .num {
+  font-weight: 500;
+}
 .history-left .t-sub {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .history-right {
+  display: flex;
   flex: none;
+  flex-direction: column;
+  align-items: flex-end;
   font-weight: 500;
+}
+.history-change {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
 }
 .account-divider {
   position: absolute;

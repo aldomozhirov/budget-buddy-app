@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import {
+  computed,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue';
 
 /** Draws a labelled, accessible SVG line chart for dated account balances. */
 defineOptions({ name: 'LineChart' });
@@ -55,10 +61,63 @@ const monthTicks = computed(() => {
   });
   return ticks;
 });
+
+const chartContainer = ref<HTMLDivElement | null>(null);
+const monthTickContainer = ref<HTMLDivElement | null>(null);
+const visibleMonthTicks = ref<Set<number> | null>(null);
+let chartResizeObserver: ResizeObserver | undefined;
+
+function layoutMonthTicks(): void {
+  const container = monthTickContainer.value;
+  if (!container) return;
+
+  const width = container.clientWidth;
+  const labels = container.querySelectorAll('span');
+  if (!width || labels.length !== monthTicks.value.length) return;
+
+  const lastIndex = monthTicks.value.length - 1;
+  const candidates = monthTicks.value.map((tick, index) => {
+    const labelWidth = labels[index]?.getBoundingClientRect().width ?? 0;
+    const atRightEdge = index === lastIndex && tick.position === 100;
+    const left =
+      index === 0
+        ? 0
+        : atRightEdge
+          ? width - labelWidth
+          : (tick.position / 100) * width - labelWidth / 2;
+    return { index, left, right: left + labelWidth };
+  });
+
+  const visible: { index: number; right: number }[] = [];
+  const gap = 4;
+  for (const candidate of candidates) {
+    if (candidate.index === lastIndex) {
+      while (
+        visible.length &&
+        candidate.left < visible.at(-1)!.right + gap
+      ) {
+        visible.pop();
+      }
+    }
+    const previous = visible.at(-1);
+    if (!previous || candidate.left >= previous.right + gap) {
+      visible.push({ index: candidate.index, right: candidate.right });
+    }
+  }
+  visibleMonthTicks.value = new Set(visible.map((tick) => tick.index));
+}
+
+watch(monthTicks, layoutMonthTicks, { flush: 'post' });
+onMounted(() => {
+  layoutMonthTicks();
+  chartResizeObserver = new ResizeObserver(layoutMonthTicks);
+  if (chartContainer.value) chartResizeObserver.observe(chartContainer.value);
+});
+onBeforeUnmount(() => chartResizeObserver?.disconnect());
 </script>
 
 <template>
-  <div class="line-chart">
+  <div ref="chartContainer" class="line-chart">
     <svg
       v-if="points.length > 1"
       class="chart-svg"
@@ -78,10 +137,22 @@ const monthTicks = computed(() => {
       <span>{{ points[0]?.date }}</span
       ><span>{{ points.at(-1)?.date }}</span>
     </div>
-    <div v-if="points.length > 1" class="chart-month-ticks" aria-hidden="true">
+    <div
+      v-if="points.length > 1"
+      ref="monthTickContainer"
+      class="chart-month-ticks"
+      aria-hidden="true"
+    >
       <span
-        v-for="tick in monthTicks"
+        v-for="(tick, index) in monthTicks"
         :key="`${tick.position}-${tick.label}`"
+        :class="{
+          'chart-tick-start': index === 0,
+          'chart-tick-end':
+            index === monthTicks.length - 1 && tick.position === 100,
+          'chart-tick-hidden':
+            visibleMonthTicks !== null && !visibleMonthTicks.has(index),
+        }"
         :style="{ left: `${tick.position}%` }"
         >{{ tick.label }}</span
       >
@@ -92,6 +163,7 @@ const monthTicks = computed(() => {
 <style scoped>
 .line-chart {
   min-width: 0;
+  margin-top: 12px;
 }
 .chart-svg {
   display: block;
@@ -132,6 +204,15 @@ const monthTicks = computed(() => {
   position: absolute;
   transform: translateX(-50%);
   white-space: nowrap;
+}
+.chart-month-ticks .chart-tick-start {
+  transform: none;
+}
+.chart-month-ticks .chart-tick-end {
+  transform: translateX(-100%);
+}
+.chart-month-ticks .chart-tick-hidden {
+  visibility: hidden;
 }
 .chart-empty {
   margin: 24px 0;

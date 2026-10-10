@@ -146,6 +146,14 @@ test('creates an account with today’s opening balance and reads its saved snap
   });
 
   await expect(page).toHaveURL(new RegExp(`/accounts/${account.id}$`, 'u'));
+  await expect(
+    page
+      .getByRole('region', { name: 'Current balance' })
+      .getByText('€1,986.30', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: /Opening · Alex/ }),
+  ).toContainText('€1,986.30');
   const snapshotsResponse = await snapshotsResponsePromise;
   expect(new URL(snapshotsResponse.url()).pathname).toBe(
     `/api/accounts/${account.id}/snapshots`,
@@ -291,6 +299,11 @@ test('shows debt guidance before saving and reads the negative opening snapshot'
   };
   expect(snapshots).toHaveLength(1);
   expect(snapshots[0]).toMatchObject({ amount: '-50000', source: 'opening' });
+  await expect(
+    page
+      .getByRole('region', { name: 'Current balance' })
+      .getByText('−€500.00', { exact: true }),
+  ).toBeVisible();
 });
 
 test('Other currency or coin searches and saves a coin from the full list', async ({

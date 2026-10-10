@@ -127,10 +127,7 @@ describe('accounts and snapshots integration', () => {
   });
 
   it('reports oversized opening and snapshot integer amounts', async () => {
-    const oversizedAmounts = [
-      '9223372036854775808',
-      '10000000000000000000',
-    ];
+    const oversizedAmounts = ['9223372036854775808', '10000000000000000000'];
 
     for (const amount of oversizedAmounts) {
       const opening = await app.inject({
@@ -153,7 +150,9 @@ describe('accounts and snapshots integration', () => {
         },
       });
     }
-    expect(database.prepare('SELECT COUNT(*) AS count FROM account').get()).toEqual({
+    expect(
+      database.prepare('SELECT COUNT(*) AS count FROM account').get(),
+    ).toEqual({
       count: 0n,
     });
 
@@ -174,7 +173,9 @@ describe('accounts and snapshots integration', () => {
         },
       });
     }
-    expect(database.prepare('SELECT COUNT(*) AS count FROM snapshot').get()).toEqual({
+    expect(
+      database.prepare('SELECT COUNT(*) AS count FROM snapshot').get(),
+    ).toEqual({
       count: 0n,
     });
   });
@@ -344,6 +345,45 @@ describe('accounts and snapshots integration', () => {
       oldAmount: '12345',
       changedBy: 2,
       changedByName: 'Blair',
+    });
+  });
+
+  it('keeps a corrected snapshot at its original instant without changing the latest balance', async () => {
+    const accountId = await createAccount({ openingBalance: '10000' });
+    const opening = database
+      .prepare(
+        "SELECT id, taken_at FROM snapshot WHERE account_id = ? AND source = 'opening'",
+      )
+      .get(accountId) as { id: number; taken_at: number };
+    now = fixedTime + 10_000;
+    const later = await app.inject({
+      method: 'POST',
+      url: `/api/accounts/${accountId}/snapshots`,
+      headers: requestHeaders(),
+      payload: { amount: '20000' },
+    });
+    expect(later.statusCode).toBe(201);
+
+    now = fixedTime + 20_000;
+    const corrected = await app.inject({
+      method: 'PATCH',
+      url: `/api/snapshots/${opening.id}`,
+      headers: requestHeaders(),
+      payload: { amount: '15000' },
+    });
+    expect(corrected.statusCode).toBe(200);
+    expect(corrected.json().snapshot.takenAt).toBe(Number(opening.taken_at));
+
+    const current = await app.inject({
+      method: 'GET',
+      url: `/api/accounts/${accountId}`,
+      headers: { cookie: cookies },
+    });
+    expect(current.statusCode).toBe(200);
+    expect(current.json().account).toMatchObject({
+      balance: '20000',
+      balanceTakenAt: fixedTime + 10_000,
+      balanceSource: 'manual',
     });
   });
 
