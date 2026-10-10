@@ -22,7 +22,9 @@ import { settingsRoutes } from './modules/settings/index.js';
 import { accountRoutes } from './modules/accounts/index.js';
 import { snapshotRoutes } from './modules/snapshots/index.js';
 import { checkinRoutes } from './modules/checkins/index.js';
+import { ratesRoutes } from './modules/rates/index.js';
 import { createCheckinEventBus, type CheckinEventBus } from './events.js';
+import { createRatesService, type RatesService } from './rates/service.js';
 
 const webDistPath = fileURLToPath(new URL('../../web/dist', import.meta.url));
 
@@ -66,6 +68,11 @@ export type AppOptions = {
   clock?: Clock;
   /** Event bus shared with background consumers of check-in lifecycle events. */
   events?: CheckinEventBus;
+  /**
+   * Rates service behind `/api/rates/status` and the background backfill.
+   * Without one, the app has no feeds: status works, nothing is fetched.
+   */
+  rates?: RatesService;
 };
 
 /**
@@ -93,6 +100,9 @@ export async function createApp(options: AppOptions) {
   const appOrigins = options.appOrigins ?? ['http://127.0.0.1:5173'];
   const secureCookies = options.secureCookies ?? true;
   const clock = options.clock ?? systemClock;
+  const rates =
+    options.rates ??
+    createRatesService({ database: options.database, clock, feeds: [] });
   await installCsrfPlugin(app, { appOrigins });
   await installSessionPlugin(app, {
     database: options.database,
@@ -120,9 +130,18 @@ export async function createApp(options: AppOptions) {
     database: options.database,
     clock,
   });
-  await app.register(settingsRoutes, { database: options.database });
-  await app.register(accountRoutes, { database: options.database, clock });
-  await app.register(snapshotRoutes, { database: options.database, clock });
+  await app.register(settingsRoutes, { database: options.database, rates });
+  await app.register(accountRoutes, {
+    database: options.database,
+    clock,
+    rates,
+  });
+  await app.register(snapshotRoutes, {
+    database: options.database,
+    clock,
+    rates,
+  });
+  await app.register(ratesRoutes, { rates });
   await app.register(checkinRoutes, {
     database: options.database,
     clock,

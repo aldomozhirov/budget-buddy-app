@@ -15,6 +15,7 @@ import {
   updateSnapshotRequestSchema,
 } from '@budget-buddy/shared';
 import { systemClock, type Clock } from '../../clock.js';
+import type { BackfillRequester } from '../../rates/service.js';
 
 const sourceOrder = `CASE s.source
   WHEN 'connector' THEN 0 WHEN 'statement' THEN 1 WHEN 'photo' THEN 2
@@ -41,8 +42,9 @@ type SnapshotRow = {
 export const snapshotRoutes: FastifyPluginAsync<{
   database: Database.Database;
   clock?: Clock;
+  rates?: BackfillRequester;
 }> = async (app, options) => {
-  const { database } = options;
+  const { database, rates } = options;
   const clock = options.clock ?? systemClock;
 
   app.get('/api/accounts/:id/snapshots', async (request, reply) => {
@@ -122,6 +124,7 @@ export const snapshotRoutes: FastifyPluginAsync<{
       .run(parsedParams.data.id, takenAt, amount, memberId, now, memberId, now);
     const snapshot = findSnapshot(database, Number(result.lastInsertRowid));
     if (!snapshot) throw new Error('Created snapshot could not be reloaded.');
+    rates?.requestBackfill();
     return reply.code(201).send(snapshotResponseSchema.parse({ snapshot }));
   });
 
@@ -209,6 +212,8 @@ export const snapshotRoutes: FastifyPluginAsync<{
     }
     const snapshot = findSnapshot(database, parsedParams.data.id);
     if (!snapshot) return sendNotFound(reply, 'Snapshot not found.');
+    // A snapshot moved to an earlier date may be before the stored rates.
+    if (changed) rates?.requestBackfill();
     return snapshotResponseSchema.parse({ snapshot });
   });
 
