@@ -412,9 +412,9 @@ test('the Home sheet closes when the dimmed area is tapped', async ({
   await page.getByRole('button', { name: 'Open example sheet' }).click();
   const dialog = page.getByRole('dialog', { name: 'Example sheet' });
   await expect(dialog).toBeVisible();
-  const box = await dialog.boundingBox();
-  expect(box).not.toBeNull();
-  await page.mouse.click(10, Math.max(1, (box?.y ?? 1) / 2));
+  const bounds = await dialog.boundingBox();
+  expect(bounds).not.toBeNull();
+  await page.touchscreen.tap(12, Math.max(1, bounds!.y / 2));
   await expect(dialog).toBeHidden();
   await expect(page.getByRole('heading', { name: 'Hi, Alex' })).toBeVisible();
 });

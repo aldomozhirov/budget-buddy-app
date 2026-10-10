@@ -836,6 +836,7 @@
   position: fixed;
   inset: 0;
   background: var(--scrim);
+  transition: opacity 0.24s ease-out;
 }
 .bb .sheet {
   position: fixed;
@@ -850,6 +851,9 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  transition: transform 0.24s var(--ease-out);
 }
 .bb .sheet-handle {
   align-self: center;
@@ -857,11 +861,13 @@
   height: 5px;
   border-radius: 3px;
   background: var(--line);
+  touch-action: none;
 }
 .bb .sheet-head {
   display: flex;
   align-items: center;
   gap: 12px;
+  touch-action: none;
 }
 .bb .sheet .icon-btn {
   background: var(--bg);
@@ -976,8 +982,20 @@
   animation: bb-sheet 0.42s var(--ease-nav) both;
   will-change: transform;
 }
+.bb .sheet-interacted {
+  animation: none;
+}
+.bb .sheet-dragging {
+  transition: none;
+}
 .bb .scrim {
   animation: bb-fade 0.3s ease-out both;
+}
+.bb .scrim-interacted {
+  animation: none;
+}
+.bb .scrim-dragging {
+  transition: none;
 }
 .bb .progress > span {
   transform-origin: left center;
