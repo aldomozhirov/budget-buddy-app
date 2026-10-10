@@ -224,7 +224,7 @@ describe('rates service and daily job', () => {
     expect(await ratesService.ensureHistory()).toEqual([]);
 
     const dates = rates("quote = 'USD'").map(({ date }) => date);
-    expect(dates).toEqual(weekdays('2023-10-09', '2026-10-09'));
+    expect(dates).toEqual(weekdays('2023-09-25', '2026-10-09'));
     expect(dates.length).toBeGreaterThan(780);
     expect(feed.fetch).toHaveBeenCalledTimes(1);
 
@@ -236,12 +236,29 @@ describe('rates service and daily job', () => {
     await ratesService.ensureHistory();
     expect(feed.fetch).toHaveBeenCalledTimes(2);
     expect(feed.fetch.mock.calls[1]?.[0]).toMatchObject({
-      from: '2021-01-04',
-      to: '2023-10-09',
+      from: '2020-12-21',
+      to: '2023-09-25',
     });
     expect(rates("quote = 'USD'").map(({ date }) => date)).toEqual(
-      weekdays('2021-01-04', '2026-10-09'),
+      weekdays('2020-12-21', '2026-10-09'),
     );
+  });
+
+  it('stores a rate on or before a snapshot dated on a weekend, once', async () => {
+    // Saturday 2026-01-03: the fixture feed publishes from Friday the 2nd.
+    addAccount('USD', '2026-01-03');
+    const feed = spiedFixtureFeed();
+    const ratesService = service(feed);
+
+    await ratesService.ensureHistory();
+    const first = rates("quote = 'USD'")[0]?.date;
+    expect(first).toBeDefined();
+    expect(first! <= '2026-01-03').toBe(true);
+    expect(feed.fetch.mock.calls[0]?.[0]).toMatchObject({ from: '2025-12-20' });
+
+    // The days before the first published rate are not asked for again.
+    await ratesService.ensureHistory();
+    expect(feed.fetch).toHaveBeenCalledTimes(1);
   });
 
   it('gives a currency that comes into use its own history only', async () => {
@@ -250,15 +267,15 @@ describe('rates service and daily job', () => {
     await ratesService.ensureHistory();
     addAccount('GBP', '2025-06-02');
     await ratesService.ensureHistory();
-    expect(rates("quote = 'GBP'")[0]?.date).toBe('2025-06-02');
-    expect(rates("quote = 'USD'")[0]?.date).toBe('2024-01-02');
+    expect(rates("quote = 'GBP'")[0]?.date).toBe('2025-05-19');
+    expect(rates("quote = 'USD'")[0]?.date).toBe('2023-12-19');
   });
 
   it('reaches back to the earliest snapshot for a new common currency', async () => {
     addAccount('EUR', '2024-01-02');
     database.prepare("UPDATE family SET common_currency = 'GBP'").run();
     await service(spiedFixtureFeed()).ensureHistory();
-    expect(rates("quote = 'GBP'")[0]?.date).toBe('2024-01-02');
+    expect(rates("quote = 'GBP'")[0]?.date).toBe('2023-12-19');
   });
 
   it('leaves stored rates untouched when a feed throws, and records the error', async () => {
@@ -727,7 +744,7 @@ describe('rates API', () => {
     expect(created.statusCode).toBe(201);
     await ratesService.idle();
 
-    expect(usdDates()).toEqual(weekdays('2024-10-09', '2026-10-09'));
+    expect(usdDates()).toEqual(weekdays('2024-09-25', '2026-10-09'));
     const status = await app.inject({
       method: 'GET',
       url: '/api/rates/status',
@@ -756,7 +773,7 @@ describe('rates API', () => {
     });
     const accountId = created.json().account.id as number;
     await ratesService.idle();
-    expect(usdDates()[0]).toBe('2026-09-01');
+    expect(usdDates()[0]).toBe('2026-08-18');
 
     const added = await app.inject({
       method: 'POST',
@@ -766,7 +783,7 @@ describe('rates API', () => {
     });
     expect(added.statusCode).toBe(201);
     await ratesService.idle();
-    expect(usdDates()[0]).toBe('2026-06-01');
+    expect(usdDates()[0]).toBe('2026-05-18');
 
     const moved = await app.inject({
       method: 'PATCH',
@@ -776,7 +793,7 @@ describe('rates API', () => {
     });
     expect(moved.statusCode).toBe(200);
     await ratesService.idle();
-    expect(usdDates()[0]).toBe('2026-03-02');
+    expect(usdDates()[0]).toBe('2026-02-16');
   });
 
   it('fetches a new currency when an account is relabelled or the common currency changes', async () => {
@@ -804,7 +821,7 @@ describe('rates API', () => {
     });
     expect(relabel.statusCode).toBe(200);
     await ratesService.idle();
-    expect(usdDates()[0]).toBe('2026-08-03');
+    expect(usdDates()[0]).toBe('2026-07-20');
 
     const common = await app.inject({
       method: 'PATCH',
@@ -820,6 +837,6 @@ describe('rates API', () => {
           .prepare("SELECT MIN(date) AS first FROM rate WHERE quote = 'GBP'")
           .get() as { first: string }
       ).first,
-    ).toBe('2026-08-03');
+    ).toBe('2026-07-20');
   });
 });

@@ -64,6 +64,12 @@ export interface RatesService extends BackfillRequester {
 
 /** Days of rates fetched for a currency with no snapshot to reach back to. */
 const defaultLookbackDays = 7;
+/**
+ * Days fetched before the earliest snapshot, so a snapshot on a day with no
+ * published rate (weekend, closing day, Russian January holidays) still has
+ * an earlier rate to convert with (requirements 3.4).
+ */
+const historyMarginDays = 14;
 /** A currency whose newest rate trails its feed's by more days is stale. */
 const staleTailDays = 7;
 const maxErrorLength = 500;
@@ -202,7 +208,12 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
       // history, while the others need only their own.
       const from =
         code === commonCurrency ? overall : (earliest.get(code) ?? undefined);
-      wanted.set(code, from === undefined || from > today ? fallback : from);
+      wanted.set(
+        code,
+        from === undefined || from > today
+          ? fallback
+          : shiftDate(from, -historyMarginDays),
+      );
     }
     return wanted;
   }
