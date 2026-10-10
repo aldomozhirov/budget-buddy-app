@@ -5,6 +5,7 @@ import {
   settingsResponseSchema,
   updateSettingsRequestSchema,
 } from '@budget-buddy/shared';
+import type { BackfillRequester } from '../../rates/service.js';
 
 const supportedTimeZones = new Set([
   ...Intl.supportedValuesOf('timeZone'),
@@ -14,7 +15,8 @@ const supportedTimeZones = new Set([
 /** Registers family-wide money and time zone settings routes. */
 export const settingsRoutes: FastifyPluginAsync<{
   database: Database.Database;
-}> = async (app, { database }) => {
+  rates?: BackfillRequester;
+}> = async (app, { database, rates }) => {
   app.get('/api/settings', async (_request, reply) => {
     const settings = database
       .prepare('SELECT common_currency, time_zone FROM family WHERE id = 1')
@@ -113,6 +115,15 @@ export const settingsRoutes: FastifyPluginAsync<{
         parsed.data.commonCurrency ?? current.common_currency,
         parsed.data.timeZone ?? current.time_zone,
       );
+
+    // Every figure is converted into the common currency, so a new one needs
+    // rates for the whole history.
+    if (
+      parsed.data.commonCurrency !== undefined &&
+      parsed.data.commonCurrency !== current.common_currency
+    ) {
+      rates?.requestBackfill();
+    }
 
     return settingsResponseSchema.parse({
       commonCurrency: parsed.data.commonCurrency ?? current.common_currency,

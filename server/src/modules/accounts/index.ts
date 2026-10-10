@@ -20,14 +20,16 @@ import {
   type Currency,
 } from '@budget-buddy/shared';
 import { systemClock, type Clock } from '../../clock.js';
+import type { BackfillRequester } from '../../rates/service.js';
 import { balanceAt, type AccountBalance } from '../../domain/balance.js';
 
 /** Registers account listing, maintenance, balance and currency routes. */
 export const accountRoutes: FastifyPluginAsync<{
   database: Database.Database;
   clock?: Clock;
+  rates?: BackfillRequester;
 }> = async (app, options) => {
-  const { database } = options;
+  const { database, rates } = options;
   const clock = options.clock ?? systemClock;
 
   app.get('/api/accounts', async (request, reply) => {
@@ -163,6 +165,7 @@ export const accountRoutes: FastifyPluginAsync<{
     })();
     const account = findAccount(database, result, clock.now().getTime(), true);
     if (!account) throw new Error('Created account could not be reloaded.');
+    rates?.requestBackfill();
     return reply.code(201).send(accountResponseSchema.parse({ account }));
   });
 
@@ -378,6 +381,7 @@ export const accountRoutes: FastifyPluginAsync<{
         reply,
         'Account changed before the currency was relabelled.',
       );
+    rates?.requestBackfill();
     return currencyRelabelResponseSchema.parse({
       ...preview.response,
       requiresConfirmation: false,

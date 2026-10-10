@@ -4,6 +4,11 @@ import { createApp } from './app.js';
 import { openDatabase } from './db/index.js';
 import { systemClock } from './clock.js';
 import { createJobRunner } from './jobs/runner.js';
+import { createRatesJob } from './jobs/rates.js';
+import { createFixtureFeed } from './rates/fixtureFeed.js';
+import { createLiveFeeds } from './rates/feeds/index.js';
+import { createRateHttpClient } from './rates/http.js';
+import { createRatesService } from './rates/service.js';
 
 // `.env` is optional: config may come from the real environment instead.
 try {
@@ -22,19 +27,34 @@ let app: Awaited<ReturnType<typeof createApp>> | undefined;
 try {
   const config = parseConfig();
   database = await openDatabase(config);
+  const rates = createRatesService({
+    database,
+    clock: systemClock,
+    feeds:
+      config.ratesFeed === 'live'
+        ? createLiveFeeds(
+            createRateHttpClient({ allowedHosts: config.ratesAllowedHosts }),
+          )
+        : [createFixtureFeed()],
+    logger: { error: (error, message) => app?.log.error(error, message) },
+  });
   app = await createApp({
     database,
     appOrigins: config.appOrigins,
     secureCookies: config.nodeEnv !== 'development',
+    rates,
   });
-  // Jobs are added here as they are built (rates, schedule, reminders, backup).
+  // Jobs are added here as they are built (schedule, reminders, backup).
   const jobRunner = createJobRunner({
     database,
     clock: systemClock,
-    jobs: [],
+    jobs: [createRatesJob(rates)],
     logger: app.log,
   });
-  app.addHook('onClose', () => jobRunner.stop());
+  app.addHook('onClose', async () => {
+    await jobRunner.stop();
+    await rates.idle();
+  });
   await app.listen({ host: config.host, port: config.port });
   jobRunner.start();
 } catch (error) {

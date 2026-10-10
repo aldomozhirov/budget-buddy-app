@@ -74,7 +74,7 @@ test('Settings shows every section in order and matches the screen copy', async 
   await expect(page.getByText('BTC, ETH, USDT', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /Time zone/u })).toBeVisible();
   await expect(page.getByText('Europe/Berlin', { exact: true })).toBeVisible();
-  await expect(page.getByText('—', { exact: true })).toHaveCount(8);
+  await expect(page.getByText('—', { exact: true })).toHaveCount(7);
   await expect(page.getByRole('heading', { name: 'Spending' })).toHaveCount(0);
 
   const screenshotPath =
@@ -84,6 +84,99 @@ test('Settings shows every section in order and matches the screen copy', async 
   await mkdir('test-results/screens', { recursive: true });
   await page.screenshot({ path: screenshotPath, scale: 'css' });
   expect(externalRequests).toEqual([]);
+});
+
+test('Exchange rates shows when rates were fetched and opens a read-only status sheet', async ({
+  page,
+}, testInfo) => {
+  const { externalRequests } = await installSettingsApi(page, testInfo);
+  await page.goto('/settings');
+  const row = page.getByRole('button', { name: /Exchange rates/u });
+  await expect(row).toContainText('Updated today 06:00');
+
+  await row.click();
+  const sheet = page.getByRole('dialog', { name: 'Exchange rates' });
+  await expect(sheet).toBeVisible();
+  await expect(sheet).toContainText('Updated today 06:00');
+
+  const currencies = sheet.getByRole('group', {
+    name: 'Latest rate per currency',
+  });
+  const usd = currencies.locator('.row', { hasText: 'USD' });
+  await expect(usd).toContainText('European Central Bank');
+  await expect(usd).toContainText('Today');
+  await expect(usd.getByText('Stale')).toHaveCount(0);
+  const rub = currencies.locator('.row', { hasText: 'RUB' });
+  await expect(rub).toContainText('Bank of Russia · 3 days old');
+  await expect(rub).toContainText('06/10/2026');
+  await expect(rub.getByText('Stale')).toHaveCount(0);
+  const gbp = currencies.locator('.row', { hasText: 'GBP' });
+  await expect(gbp).toContainText('No rate yet');
+  await expect(gbp.getByText('Stale')).toBeVisible();
+
+  const feeds = sheet.getByRole('group', { name: 'Price feeds' });
+  await expect(
+    feeds.locator('.row', { hasText: 'European Central Bank' }),
+  ).toContainText('Last answer: today 06:00');
+  const failing = feeds.locator('.row', { hasText: 'Bank of Russia' });
+  await expect(failing).toContainText('Last answer: yesterday 06:00');
+  await expect(feeds.getByRole('alert')).toHaveText(
+    'Last error: www.cbr.ru could not be reached: fetch failed',
+  );
+
+  // Let the sheet finish sliding up before the picture is taken.
+  await page.waitForTimeout(600);
+  await mkdir('test-results/screens', { recursive: true });
+  await page.screenshot({
+    path: `test-results/screens/Settings-rates-${testInfo.project.name}.png`,
+    scale: 'css',
+  });
+
+  // Read-only: nothing to type into and no row to tap, only Close.
+  await expect(sheet.locator('input, textarea, select')).toHaveCount(0);
+  await expect(sheet.locator('.row').first()).not.toHaveJSProperty(
+    'tagName',
+    'BUTTON',
+  );
+  await sheet
+    .getByRole('button', { name: 'Close', exact: true })
+    .last()
+    .click();
+  await expect(sheet).toHaveCount(0);
+  expect(externalRequests).toEqual([]);
+});
+
+test('Exchange rates explains an empty status and survives an unavailable one', async ({
+  page,
+}, testInfo) => {
+  const { ratesStatus } = await installSettingsApi(page, testInfo);
+  ratesStatus.value = {
+    ...defaultRatesStatus(),
+    lastUpdatedAt: null,
+    currencies: [],
+    feeds: [],
+  };
+  await page.goto('/settings');
+  const row = page.getByRole('button', { name: /Exchange rates/u });
+  await expect(row).toContainText('Not updated yet');
+  await row.click();
+  const sheet = page.getByRole('dialog', { name: 'Exchange rates' });
+  await expect(sheet).toContainText('No rates fetched yet');
+  await expect(sheet).toContainText(
+    'Only EUR is in use, so no rates are needed.',
+  );
+  await sheet
+    .getByRole('button', { name: 'Close', exact: true })
+    .last()
+    .click();
+
+  await page.route('**/api/rates/status', (route) =>
+    route.fulfill({ status: 500, json: { error: { code: 'internal' } } }),
+  );
+  await page.reload();
+  const unavailable = page.getByRole('button', { name: /Exchange rates/u });
+  await expect(unavailable).toBeDisabled();
+  await expect(unavailable).toContainText('—');
 });
 
 test('Settings scrolls its content without scrolling the shell or document', async ({
@@ -506,6 +599,7 @@ async function installSettingsApi(
     body: unknown;
   }>;
   settings: { commonCurrency: string; timeZone: string };
+  ratesStatus: { value: unknown };
 }> {
   const userAgent =
     testInfo.project.name === 'iphone'
@@ -535,6 +629,7 @@ async function installSettingsApi(
     body: unknown;
   }> = [];
   const settings = { commonCurrency: 'EUR', timeZone: 'Europe/Berlin' };
+  const ratesStatus = { value: defaultRatesStatus() as unknown };
   let coins = [
     { code: 'BTC', name: 'Bitcoin', decimals: 8, inUse: true },
     { code: 'ETH', name: 'Ethereum', decimals: 8, inUse: false },
@@ -574,6 +669,9 @@ async function installSettingsApi(
 
     if (url.pathname === '/api/setup' && method === 'GET') {
       return route.fulfill({ json: { needed: false } });
+    }
+    if (url.pathname === '/api/rates/status' && method === 'GET') {
+      return route.fulfill({ json: ratesStatus.value });
     }
     if (url.pathname === '/api/settings' && method === 'GET') {
       return route.fulfill({ json: { ...settings } });
@@ -772,5 +870,56 @@ async function installSettingsApi(
     coinCreateRequests: () => coinCreateRequests,
     coinDeleteRequests: () => coinDeleteRequests,
     settings,
+    ratesStatus,
+  };
+}
+
+/** Rates status for Friday 09/10/2026: fetched at 06:00 Berlin time. */
+function defaultRatesStatus() {
+  const fetchedAt = Date.parse('2026-10-09T04:00:00Z');
+  return {
+    today: '2026-10-09',
+    timeZone: 'Europe/Berlin',
+    commonCurrency: 'EUR',
+    lastUpdatedAt: fetchedAt,
+    currencies: [
+      {
+        code: 'GBP',
+        latestDate: null,
+        ageDays: null,
+        source: null,
+      },
+      {
+        code: 'RUB',
+        latestDate: '2026-10-06',
+        ageDays: 3,
+        source: 'Bank of Russia',
+      },
+      {
+        code: 'USD',
+        latestDate: '2026-10-09',
+        ageDays: 0,
+        source: 'European Central Bank',
+      },
+    ],
+    feeds: [
+      {
+        id: 'ecb',
+        name: 'European Central Bank',
+        lastFetchAt: fetchedAt,
+        lastSuccessAt: fetchedAt,
+        lastError: null,
+      },
+      {
+        id: 'cbr',
+        name: 'Bank of Russia',
+        lastFetchAt: fetchedAt,
+        lastSuccessAt: Date.parse('2026-10-08T04:00:00Z'),
+        lastError: {
+          message: 'www.cbr.ru could not be reached: fetch failed',
+          at: fetchedAt,
+        },
+      },
+    ],
   };
 }

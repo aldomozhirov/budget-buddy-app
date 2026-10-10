@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { z } from 'zod';
+import { liveFeedHosts } from './rates/feeds/index.js';
 
 const envSchema = z.object({
   NODE_ENV: z
@@ -20,7 +21,18 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
   DATA_DIR: z.string().min(1).optional(),
   BACKUP_DIR: z.string().min(1).optional(),
-  RATES_FEED: z.string().min(1).default('fixture'),
+  // Unset means the real feeds in production and fixtures everywhere else.
+  RATES_FEED: z.enum(['fixture', 'live']).optional(),
+  // Hosts the rates client may call, separated by commas (SEC-8).
+  RATES_ALLOWED_HOSTS: z
+    .string()
+    .default(liveFeedHosts.join(','))
+    .transform((value) =>
+      value
+        .split(',')
+        .map((host) => host.trim().toLowerCase())
+        .filter(Boolean),
+    ),
 });
 
 /** Environment settings normalized for the API process and its SQLite files. */
@@ -33,7 +45,10 @@ export type AppConfig = {
   dataDir: string;
   backupDir: string;
   databasePath: string;
-  ratesFeed: string;
+  /** `live` calls the price feeds; `fixture` uses made-up rates. */
+  ratesFeed: 'fixture' | 'live';
+  /** Host names the rates HTTP client may call; all others are refused. */
+  ratesAllowedHosts: string[];
 };
 
 /**
@@ -57,6 +72,9 @@ export function parseConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     dataDir,
     backupDir,
     databasePath: join(dataDir, 'budget-buddy.sqlite'),
-    ratesFeed: parsed.RATES_FEED,
+    ratesFeed:
+      parsed.RATES_FEED ??
+      (parsed.NODE_ENV === 'production' ? 'live' : 'fixture'),
+    ratesAllowedHosts: parsed.RATES_ALLOWED_HOSTS,
   };
 }
