@@ -351,7 +351,7 @@ Try it: create accounts for two profiles, run a check-in from two browser window
   Do: Per design. Saving is immediate, and a failed save shows the row as not saved with "Try again". When another member's value arrives, it shows on the next load or when the window regains focus (no live push of values is needed). For CHK-12, show the prompt to create an account, linking to New account.
   Acceptance: E2E with two browser contexts as two profiles: A taps "Same" on one account and types `2140.55 + 120` on another with "Save & next" → the next account's sheet opens; B reloads and sees A's tab as "N left"; B fills the rest of their own accounts and then A's last one from A's tab → the check-in closes by itself and B sees "See summary"; Back from the summary goes to Home (UI-NAV-3). Second scenario: "Close now" shows "3 accounts without a value will keep the last balance, marked as “wasn’t changed”." with "Keep it open".
 
-- [ ] **18. Check-ins list.**
+- [x] **18. Check-ins list.**
   Refs: SUM-1, CHK-1, UI-SUM-1. Depends: 16. Parallel: 17.
   Files: `web/src/screens/checkins/CheckInsScreen.vue`.
   Do: Build the screen from the check-in API of task 16: the open check-in card, per-member progress, "Start a check-in now", and the closed list. Not part of this task: the family total, its direction and the eye button on closed check-ins (task 22), and the cadence line in the header and the "Next scheduled" date (task 24). Until those tasks, closed rows show no total and no eye button, and "Start a check-in now" shows no date.

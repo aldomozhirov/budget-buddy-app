@@ -40,6 +40,9 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/checkins/current', (route) =>
     route.fulfill({ json: { checkin: null } }),
   );
+  await page.route('**/api/checkins', (route) =>
+    route.fulfill({ json: { checkins: [] } }),
+  );
   await page.route('**/api/accounts*', (route) =>
     route.fulfill({ json: { accounts: [] } }),
   );
@@ -182,7 +185,9 @@ test('all Design section 8 routes load their screen', async ({ page }) => {
 
   for (const [route, title] of routes) {
     await page.goto(route);
-    await expect(page.getByRole('heading', { name: title })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: title, exact: true }),
+    ).toBeVisible();
   }
 });
 
@@ -345,7 +350,9 @@ test('a directly opened summary keeps its title and content during fallback', as
   await expect(back).toBeVisible();
   await back.click();
   await expect(page).toHaveURL(/\/check-ins$/);
-  await expect(page.getByRole('heading', { name: 'Check-ins' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Check-ins', exact: true }),
+  ).toBeVisible();
 
   await expect
     .poll(() =>
@@ -365,7 +372,9 @@ test('a directly opened summary keeps its title and content during fallback', as
       headings: expect.arrayContaining(['Check-in summary', 'Check-ins']),
       content: expect.arrayContaining([
         'Check-in summary is not available yet.',
-        'Check-ins is not available yet.',
+        expect.stringMatching(
+          /^(?:Loading check-ins…|Everyone gets a notification\.)$/u,
+        ),
       ]),
     });
 });
