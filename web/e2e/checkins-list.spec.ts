@@ -111,7 +111,7 @@ test('an open check-in shows its time and each member’s remaining progress', a
       page.getByRole('progressbar', { name: 'Check-in progress' }),
     ).toHaveAttribute('aria-valuenow', '1');
 
-    await expectDeferredTask22And24ContentAbsent(page);
+    await expectDeferredTask24ContentAbsent(page);
     await expect(page.getByText('No closed check-ins yet.')).toBeVisible();
 
     if (testInfo.project.name === 'iphone') {
@@ -142,7 +142,7 @@ test('starting from an empty list creates and opens a check-in', async ({
   ).toBeVisible();
   await expect(page.getByText('Everyone gets a notification.')).toBeVisible();
   await expect(page.getByText('No closed check-ins yet.')).toBeVisible();
-  await expectDeferredTask22And24ContentAbsent(page);
+  await expectDeferredTask24ContentAbsent(page);
 
   await page.route('**/api/checkins', (route) =>
     route.request().method() === 'POST'
@@ -194,23 +194,18 @@ test('closed rows show the date, closer and carried-forward count', async ({
   });
   await expect(manualRow).toBeVisible();
   await expect(automaticRow).toBeVisible();
-  await expect(
-    page.getByText(/^\d{2}\/\d{2}\/\d{4}$/u),
-  ).toHaveCount(2);
-  await expectDeferredTask22And24ContentAbsent(page);
-  await expect(manualRow.getByRole('button')).toHaveCount(0);
-  await expect(automaticRow.getByRole('button')).toHaveCount(0);
-  await expect(page.getByText(/€|▲|▼|family total in/u)).toHaveCount(0);
+  await expect(page.getByText(/^\d{2}\/\d{2}\/\d{4}$/u)).toHaveCount(2);
+  await expectDeferredTask24ContentAbsent(page);
+  // Totals sit behind the eye button until it is tapped (task 22).
+  await expect(page.getByText('€ • • • • •')).toHaveCount(2);
+  await expect(page.getByText(/€\d/u)).toHaveCount(0);
 });
 
-async function expectDeferredTask22And24ContentAbsent(
+async function expectDeferredTask24ContentAbsent(
   page: import('@playwright/test').Page,
 ): Promise<void> {
   await expect(page.getByText('Monthly on the 5th, 09:00')).toHaveCount(0);
   await expect(page.getByText(/Next scheduled/u)).toHaveCount(0);
-  await expect(
-    page.getByRole('button', { name: /show|hide|reveal|amount|total|eye/iu }),
-  ).toHaveCount(0);
 }
 
 async function setupFamily(

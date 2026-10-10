@@ -32,6 +32,8 @@ export const summaryCurrencySchema = z.object({
 
 /** One change of an account, in its own currency and the common one. */
 export const summaryAccountChangeSchema = summaryAccountSchema.extend({
+  /** The account's type, for the row's subtitle. */
+  type: accountType,
   /** Closing minus opening balance, in the account's currency. */
   change: minorStringSchema,
   /** The change in the common currency at this check-in's rates. */

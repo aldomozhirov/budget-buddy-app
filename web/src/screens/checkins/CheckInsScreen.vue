@@ -3,19 +3,30 @@ import { computed, ref } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import {
   checkinsResponseSchema,
+  currenciesResponseSchema,
   formatDate,
   formatRecentDate,
   settingsResponseSchema,
   startCheckinResponseSchema,
+  wealthSeriesSchema,
   type Checkin,
+  type CoinSetting,
+  type WealthSeries,
 } from '@budget-buddy/shared';
 import BbBackButton from '../../components/BbBackButton.vue';
+import BbAmount from '../../components/BbAmount.vue';
 import BbButton from '../../components/BbButton.vue';
 import BbIcon from '../../components/BbIcon.vue';
 import BbListCard from '../../components/BbListCard.vue';
 import BbProgress from '../../components/BbProgress.vue';
 import { useBack } from '../../composables/useBack.js';
 import { authState, setAuthState } from '../../stores/auth.js';
+import {
+  createMoneyFormatter,
+  trendsFromSeries,
+  trendText,
+  type CheckinTrend,
+} from '../summary/summaryFormat';
 
 /** Lists the family's open and closed check-ins. */
 defineOptions({ name: 'CheckInsScreen' });
@@ -28,6 +39,10 @@ const loading = ref(true);
 const loadError = ref('');
 const startError = ref('');
 const starting = ref(false);
+const series = ref<WealthSeries | null>(null);
+const coins = ref<CoinSetting[]>([]);
+// Totals are hidden on every visit and never stored (UI-SUM-1).
+const totalsVisible = ref(false);
 
 const currentMemberId = computed(() => authState.value?.member?.id ?? null);
 const openCheckin = computed(
@@ -52,6 +67,39 @@ const openProgressText = computed(() => {
   });
   return `${accountProgress(checkin.completedAccounts, checkin.totalAccounts)} · ${members.join(' · ')}`;
 });
+
+const trends = computed(() =>
+  series.value ? trendsFromSeries(series.value) : new Map(),
+);
+const formatter = computed(() => createMoneyFormatter(coins.value));
+const commonCurrency = computed(() => series.value?.currency ?? '');
+
+/** The closed total, or null when a rate it needs is missing. */
+function closedTotal(checkin: Checkin): string | null {
+  const total = trends.value.get(checkin.id)?.total;
+  return total == null
+    ? null
+    : formatter.value.money(total, commonCurrency.value);
+}
+
+function closedTrend(checkin: Checkin): CheckinTrend | undefined {
+  return trends.value.get(checkin.id)?.trend;
+}
+
+/** The direction text; none when the row has no total to compare. */
+function closedDirection(checkin: Checkin): string {
+  if (closedTotal(checkin) === null) return '';
+  return trendText(closedTrend(checkin) ?? null);
+}
+
+function closedLabel(checkin: Checkin): string {
+  const base = `${closedDate(checkin)} · ${closedSummary(checkin)}`;
+  if (!series.value || closedTrend(checkin) === undefined) return base;
+  const total = closedTotal(checkin);
+  const amount =
+    total === null ? 'Rate missing' : totalsVisible.value ? total : 'Amount hidden';
+  return [base, amount, closedDirection(checkin)].filter(Boolean).join(' · ');
+}
 
 function accountProgress(completed: number, total: number): string {
   const noun = total === 1 ? 'account' : 'accounts';
@@ -118,13 +166,36 @@ async function load(): Promise<void> {
   loading.value = true;
   loadError.value = '';
   try {
-    const [checkinsResponse, settingsResponse] = await Promise.all([
-      fetch('/api/checkins'),
-      fetch('/api/settings'),
-    ]);
-    if (await handleUnauthorized([checkinsResponse, settingsResponse])) return;
+    const [checkinsResponse, settingsResponse, seriesResponse, currenciesResponse] =
+      await Promise.all([
+        fetch('/api/checkins'),
+        fetch('/api/settings'),
+        fetch('/api/wealth/series?view=equivalent&rates=dated'),
+        fetch('/api/currencies'),
+      ]);
+    if (
+      await handleUnauthorized([
+        checkinsResponse,
+        settingsResponse,
+        seriesResponse,
+        currenciesResponse,
+      ])
+    )
+      return;
     if (!checkinsResponse.ok || !settingsResponse.ok) {
       throw new Error('Could not load check-ins.');
+    }
+    // The totals are an extra: the list still works without them.
+    series.value = null;
+    if (seriesResponse.ok && currenciesResponse.ok) {
+      try {
+        series.value = wealthSeriesSchema.parse(await seriesResponse.json());
+        coins.value = currenciesResponseSchema.parse(
+          await currenciesResponse.json(),
+        ).coins;
+      } catch {
+        series.value = null;
+      }
     }
     const [checkinsData, settingsData] = await Promise.all([
       checkinsResponse.json(),
@@ -167,12 +238,22 @@ void load();
 
 <template>
   <main class="screen app-screen">
-    <header class="topbar">
+    <header class="topbar checkins-topbar">
       <BbBackButton
         :label="backLabel"
         @click="goBack"
       />
       <h1 class="t-title">Check-ins</h1>
+      <button
+        v-if="closedCheckins.length && series"
+        class="icon-btn checkins-eye"
+        type="button"
+        :aria-label="totalsVisible ? 'Hide amounts' : 'Show amounts'"
+        :aria-pressed="totalsVisible"
+        @click="totalsVisible = !totalsVisible"
+      >
+        <BbIcon :name="totalsVisible ? 'eye' : 'eye-off'" />
+      </button>
     </header>
 
     <div class="content app-content checkins-content">
@@ -244,7 +325,7 @@ void load();
             id="closed-checkins-heading"
             class="section-label"
           >
-            Closed check-ins
+            {{ commonCurrency ? `Closed · family total in ${commonCurrency}` : 'Closed check-ins' }}
           </h2>
           <BbListCard v-if="closedCheckins.length">
             <RouterLink
@@ -252,11 +333,32 @@ void load();
               :key="checkin.id"
               class="row closed-checkin-row"
               :to="`/check-ins/${checkin.id}`"
-              :aria-label="`${closedDate(checkin)} · ${closedSummary(checkin)}`"
+              :aria-label="closedLabel(checkin)"
             >
               <span class="row-l">
                 <span class="closed-checkin-date">{{ closedDate(checkin) }}</span>
                 <span class="t-sub">{{ closedSummary(checkin) }}</span>
+              </span>
+              <span
+                v-if="series"
+                class="closed-checkin-total"
+                aria-hidden="true"
+              >
+                <span
+                  v-if="closedTotal(checkin) === null"
+                  class="num closed-checkin-amount"
+                >Rate missing</span>
+                <BbAmount
+                  v-else
+                  :value="closedTotal(checkin) ?? ''"
+                  :visible="totalsVisible"
+                  :masked-value="formatter.masked(commonCurrency)"
+                  class="closed-checkin-amount"
+                />
+                <span
+                  v-if="closedDirection(checkin)"
+                  class="num t-sub"
+                >{{ closedDirection(checkin) }}</span>
               </span>
               <BbIcon
                 name="forward"
@@ -277,6 +379,10 @@ void load();
 </template>
 
 <style scoped>
+.checkins-topbar h1 {
+  flex: 1;
+}
+
 .checkins-content {
   gap: 14px;
 }
@@ -365,6 +471,16 @@ void load();
 .closed-checkin-date {
   font-weight: 500;
   font-variant-numeric: tabular-nums;
+}
+
+.closed-checkin-total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.closed-checkin-amount {
+  font-weight: 500;
 }
 
 .empty-checkins {
