@@ -54,7 +54,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/check-ins/:id',
     name: 'CheckInSummary',
-    component: () => import('../screens/PlaceholderScreen.vue'),
+    component: () => import('../screens/summary/SummaryScreen.vue'),
     meta: { title: 'Check-in summary' },
   },
   {

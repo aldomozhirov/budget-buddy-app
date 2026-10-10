@@ -37,6 +37,48 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/currencies', (route) =>
     route.fulfill({ json: { currencies: [], coins: [] } }),
   );
+  await page.route('**/api/checkins/1/summary', (route) =>
+    route.fulfill({
+      json: {
+        checkin: {
+          id: 1,
+          closedAt: Date.parse('2026-09-02T09:00:00Z'),
+          date: '2026-09-02',
+          closedBy: null,
+        },
+        previous: null,
+        commonCurrency: 'EUR',
+        timeZone: 'Europe/Berlin',
+        currencies: [],
+        total: {
+          current: '0',
+          previous: null,
+          change: null,
+          direction: null,
+          complete: true,
+        },
+        missingRates: [],
+        fromBalances: null,
+        fromExchangeRates: null,
+        byMember: [],
+        byType: [],
+        biggestChanges: [],
+        alsoInThisCheckin: { notChanged: [], added: [], deactivated: [] },
+      },
+    }),
+  );
+  await page.route('**/api/wealth/series*', (route) =>
+    route.fulfill({
+      json: {
+        view: 'equivalent',
+        currency: 'EUR',
+        rates: 'dated',
+        currencies: [],
+        points: [],
+        incomplete: false,
+      },
+    }),
+  );
   await page.route('**/api/checkins/current', (route) =>
     route.fulfill({ json: { checkin: null } }),
   );
@@ -176,7 +218,7 @@ test('all Design section 8 routes load their screen', async ({ page }) => {
   const routes = [
     ['/check-in', 'No check-in is open'],
     ['/check-ins', 'Check-ins'],
-    ['/check-ins/1', 'Check-in summary'],
+    ['/check-ins/1', 'Check-in 02/09/2026'],
     ['/accounts', 'Accounts'],
     ['/accounts/1', 'Account'],
     ['/accounts/new', 'New account'],
@@ -212,12 +254,12 @@ test('reloading a summary preserves Home as the next Wealth history Back target'
   await page.getByRole('link', { name: 'Wealth history' }).click();
   await expect(page).toHaveURL(/\/check-ins\/1$/);
   await expect(
-    page.getByRole('heading', { name: 'Check-in summary' }),
+    page.getByRole('heading', { name: 'Check-in 02/09/2026' }),
   ).toBeVisible();
 
   await page.reload();
   await expect(
-    page.getByRole('heading', { name: 'Check-in summary' }),
+    page.getByRole('heading', { name: 'Check-in 02/09/2026' }),
   ).toBeVisible();
   await page.goBack();
   await expect(page).toHaveURL(/\/$/);
@@ -369,9 +411,11 @@ test('a directly opened summary keeps its title and content during fallback', as
       ),
     )
     .toMatchObject({
-      headings: expect.arrayContaining(['Check-in summary', 'Check-ins']),
+      headings: expect.arrayContaining([
+        expect.stringMatching(/^Check-in( summary| \d{2}\/\d{2}\/\d{4})$/u),
+        'Check-ins',
+      ]),
       content: expect.arrayContaining([
-        'Check-in summary is not available yet.',
         expect.stringMatching(
           /^(?:Loading check-ins…|Everyone gets a notification\.)$/u,
         ),

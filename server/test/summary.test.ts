@@ -294,6 +294,8 @@ describe('check-in summary and wealth series', () => {
         ['Old wallet', '-6000', '-6000'],
         ['Ruble cash', '-300000', '-3333'],
       ]);
+      expect(names[0]).toMatchObject({ type: 'investment', ownerName: 'Blair' });
+      expect(names[1]).toMatchObject({ type: 'bank', ownerName: 'Alex' });
       expect(names[0]).toMatchObject({
         accountId: ids.a6,
         ownerName: 'Blair',

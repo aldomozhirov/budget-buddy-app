@@ -224,7 +224,7 @@ test('profiles save balances together, close automatically, and return from summ
 
     await pageB.getByRole('button', { name: 'See summary' }).click();
     await expect(
-      pageB.getByRole('heading', { name: 'Check-in summary' }),
+      pageB.getByRole('heading', { name: /^Check-in \d{2}\/\d{2}\/\d{4}$/u }),
     ).toBeVisible();
     const backToHome = pageB.getByRole('button', { name: 'Back to home' });
     await expect(backToHome).toBeVisible();

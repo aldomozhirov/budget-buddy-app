@@ -265,6 +265,7 @@ export function getCheckinSummary(
     .slice(0, biggestChangeCount)
     .map((entry) => ({
       ...describeAccount(entry.line.account),
+      type: entry.line.account.type as AccountType,
       change: toMinorString(entry.own),
       changeEquivalent: toMinorString(entry.common),
     }));
