@@ -42,7 +42,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/check-in',
     name: 'CheckIn',
-    component: () => import('../screens/PlaceholderScreen.vue'),
+    component: () => import('../screens/checkin/CheckinScreen.vue'),
     meta: { title: 'Check-in' },
   },
   {

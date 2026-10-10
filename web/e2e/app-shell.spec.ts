@@ -37,6 +37,9 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/currencies', (route) =>
     route.fulfill({ json: { currencies: [], coins: [] } }),
   );
+  await page.route('**/api/checkins/current', (route) =>
+    route.fulfill({ json: { checkin: null } }),
+  );
   await page.route('**/api/accounts*', (route) =>
     route.fulfill({ json: { accounts: [] } }),
   );
@@ -166,11 +169,9 @@ test('Home remains usable in a desktop-width browser', async ({
   }
 });
 
-test('all Design section 8 routes load their placeholder screen', async ({
-  page,
-}) => {
+test('all Design section 8 routes load their screen', async ({ page }) => {
   const routes = [
-    ['/check-in', 'Check-in'],
+    ['/check-in', 'No check-in is open'],
     ['/check-ins', 'Check-ins'],
     ['/check-ins/1', 'Check-in summary'],
     ['/accounts', 'Accounts'],

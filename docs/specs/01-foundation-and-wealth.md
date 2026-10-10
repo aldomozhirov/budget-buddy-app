@@ -345,7 +345,7 @@ Try it: create accounts for two profiles, run a check-in from two browser window
   Files: `server/src/modules/checkins/`, `server/src/domain/checkin.ts`, `server/src/events.ts` (in-process event bus: `checkin.opened`, `checkin.closed`, consumed by task 25).
   Acceptance: integration tests: starting while one is open returns the open one (join), and two concurrent starts create one row; "Same" stores a `checkin` snapshot equal to the previous balance; saving a value twice keeps one snapshot and writes a revision; the last value closes the check-in in the same request, with `closed_by` null; "Close now" carries forward exactly the accounts without a value, at `closed_at`; a value after closing returns `forbidden_state`; an account created during the open check-in is required, and a deactivated one stops being required; progress per member matches the values; a profile with no active accounts gets `needsAccounts: true` (CHK-12).
 
-- [ ] **17. Check-in screen.**
+- [x] **17. Check-in screen.**
   Refs: CHK-5–10, CHK-12, UI-CHK-1–8, UI-NAV-3. Depends: 10, 16.
   Files: `web/src/screens/checkin/`.
   Do: Per design. Saving is immediate, and a failed save shows the row as not saved with "Try again". When another member's value arrives, it shows on the next load or when the window regains focus (no live push of values is needed). For CHK-12, show the prompt to create an account, linking to New account.
