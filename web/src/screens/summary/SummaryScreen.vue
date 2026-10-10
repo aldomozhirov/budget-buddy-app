@@ -101,6 +101,12 @@ function listText(
   return accounts.map(accountLabel).join(', ');
 }
 
+/** Group rows keep ink for a rise and use warn for a fall, as designed. */
+function groupChangeClass(minor: string | null): string {
+  if (minor === null) return 'muted';
+  return directionOfMinor(minor) === 'down' ? 'warn' : '';
+}
+
 function changeLine(minor: string | null, code: string): string {
   return minor === null ? 'Rate missing' : formatter.value.change(minor, code);
 }
@@ -303,11 +309,7 @@ void load();
               <span class="row-l">{{ row.name }}</span>
               <span
                 class="num fw-medium"
-                :class="
-                  row.change === null
-                    ? 'muted'
-                    : directionClass(directionOfMinor(row.change))
-                "
+                :class="groupChangeClass(row.change)"
                 >{{ changeLine(row.change, common) }}</span
               >
             </div>
