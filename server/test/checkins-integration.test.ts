@@ -99,11 +99,27 @@ describe('check-in integration', () => {
       checkinId: first.json().checkin.id,
       openedBy: 1,
     });
+
+    const joined = await app.inject({
+      method: 'POST',
+      url: '/api/checkins',
+      headers: requestHeaders(),
+      payload: {},
+    });
+    expect(joined.statusCode).toBe(200);
+    expect(joined.json()).toMatchObject({
+      checkin: { id: first.json().checkin.id },
+      joined: true,
+    });
+    expect(
+      database.prepare('SELECT COUNT(*) AS count FROM checkin').get(),
+    ).toEqual({ count: 1n });
+    expect(events).toHaveLength(1);
   });
 
   it('saves Same as a fresh snapshot and revisions when replacing a value', async () => {
     const accountId = await createAccount({ openingBalance: '12345' });
-    await createAccount({ name: 'Other account' });
+    const emptyAccountId = await createAccount({ name: 'Other account' });
     const checkinId = await start();
 
     const same = await app.inject({
@@ -146,6 +162,21 @@ describe('check-in integration', () => {
         )
         .get(accountId),
     ).toEqual({ old_amount: 12345n, changed_by: 1n });
+
+    const sameWithoutHistory = await app.inject({
+      method: 'PUT',
+      url: `/api/checkins/${checkinId}/values/${emptyAccountId}`,
+      headers: requestHeaders(),
+      payload: { same: true },
+    });
+    expect(sameWithoutHistory.statusCode).toBe(200);
+    expect(
+      database
+        .prepare(
+          'SELECT amount, source FROM snapshot WHERE account_id = ? AND checkin_id = ?',
+        )
+        .get(emptyAccountId, checkinId),
+    ).toEqual({ amount: 0n, source: 'checkin' });
   });
 
   it('auto-closes with no closer when the last active account is entered', async () => {
@@ -268,6 +299,9 @@ describe('check-in integration', () => {
     });
     const checkinId = await start();
     const createdDuring = await createAccount({ name: 'Added while open' });
+    const deactivatedDuring = await createAccount({
+      name: 'Deactivated while open',
+    });
 
     const current = await app.inject({
       method: 'GET',
@@ -275,9 +309,9 @@ describe('check-in integration', () => {
       headers: { cookie: cookies },
     });
     expect(current.json().checkin).toMatchObject({
-      totalAccounts: 3,
+      totalAccounts: 4,
       members: [
-        { memberId: 1, accounts: 2, completed: 0, done: false },
+        { memberId: 1, accounts: 3, completed: 0, done: false },
         { memberId: 2, accounts: 1, completed: 0, done: false },
       ],
       needsAccounts: false,
@@ -292,7 +326,7 @@ describe('check-in integration', () => {
       expect.arrayContaining([
         expect.objectContaining({
           memberId: 1,
-          accounts: 2,
+          accounts: 3,
           completed: 1,
           done: false,
         }),
@@ -305,14 +339,25 @@ describe('check-in integration', () => {
       ]),
     );
     await saveValue(checkinId, blair, '2');
+    const stillMissingDynamic = await app.inject({
+      method: 'GET',
+      url: '/api/checkins/current',
+      headers: { cookie: cookies },
+    });
+    expect(stillMissingDynamic.json().checkin).toMatchObject({
+      totalAccounts: 4,
+      completedAccounts: 2,
+      closedAt: null,
+    });
+
     const deactivated = await app.inject({
       method: 'POST',
-      url: `/api/accounts/${createdDuring}/deactivate`,
+      url: `/api/accounts/${deactivatedDuring}/deactivate`,
       headers: requestHeaders(),
       payload: {},
     });
     expect(deactivated.statusCode).toBe(200);
-    const done = await saveValue(checkinId, createdDuring, '3');
+    const done = await saveValue(checkinId, deactivatedDuring, '3');
     expect(done.statusCode).toBe(403);
     const afterDeactivation = await app.inject({
       method: 'GET',
@@ -320,20 +365,18 @@ describe('check-in integration', () => {
       headers: { cookie: cookies },
     });
     expect(afterDeactivation.json().checkin).toMatchObject({
-      totalAccounts: 2,
+      totalAccounts: 3,
       completedAccounts: 2,
       closedAt: null,
     });
-    await saveValue(checkinId, alex, '1');
-    const progress = await app.inject({
-      method: 'GET',
-      url: `/api/checkins/${checkinId}`,
-      headers: { cookie: cookies },
-    });
-    expect(progress.json().checkin).toMatchObject({
-      totalAccounts: 2,
-      completedAccounts: 2,
+
+    const createdValue = await saveValue(checkinId, createdDuring, '3');
+    expect(createdValue.statusCode).toBe(200);
+    expect(createdValue.json().checkin).toMatchObject({
+      totalAccounts: 3,
+      completedAccounts: 3,
       closedAt: fixedTime,
+      closedBy: null,
     });
   });
 
