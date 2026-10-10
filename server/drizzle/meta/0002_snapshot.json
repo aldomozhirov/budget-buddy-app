@@ -1,0 +1,1555 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "7923b9fb-ddf3-483b-8324-c5f3e38f256f",
+  "prevId": "7204ab47-6ada-42a9-bc83-98f218d5e85f",
+  "tables": {
+    "account": {
+      "name": "account",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "owner_member_id": {
+          "name": "owner_member_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "active": {
+          "name": "active",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "deactivated_at": {
+          "name": "deactivated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "account_owner_member_id_member_id_fk": {
+          "name": "account_owner_member_id_member_id_fk",
+          "tableFrom": "account",
+          "tableTo": "member",
+          "columnsFrom": [
+            "owner_member_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "account_created_by_member_id_fk": {
+          "name": "account_created_by_member_id_fk",
+          "tableFrom": "account",
+          "tableTo": "member",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "account_updated_by_member_id_fk": {
+          "name": "account_updated_by_member_id_fk",
+          "tableFrom": "account",
+          "tableTo": "member",
+          "columnsFrom": [
+            "updated_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "account_type_check": {
+          "name": "account_type_check",
+          "value": "\"account\".\"type\" IN ('bank', 'cash', 'investment', 'crypto', 'we_owe', 'owed_to_us')"
+        },
+        "account_active_boolean_check": {
+          "name": "account_active_boolean_check",
+          "value": "\"account\".\"active\" IN (0, 1)"
+        }
+      }
+    },
+    "backup": {
+      "name": "backup",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "path": {
+          "name": "path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bytes": {
+          "name": "bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "backup_kind_check": {
+          "name": "backup_kind_check",
+          "value": "\"backup\".\"kind\" IN ('daily', 'monthly', 'pre_migration')"
+        },
+        "backup_status_check": {
+          "name": "backup_status_check",
+          "value": "\"backup\".\"status\" IN ('running', 'done', 'failed')"
+        }
+      }
+    },
+    "checkin": {
+      "name": "checkin",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "opened_at": {
+          "name": "opened_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "opened_by": {
+          "name": "opened_by",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "schedule_slot": {
+          "name": "schedule_slot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "closed_at": {
+          "name": "closed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "closed_by": {
+          "name": "closed_by",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "checkin_one_open_unique": {
+          "name": "checkin_one_open_unique",
+          "columns": [
+            "1"
+          ],
+          "isUnique": true,
+          "where": "\"checkin\".\"closed_at\" IS NULL"
+        },
+        "checkin_schedule_slot_unique": {
+          "name": "checkin_schedule_slot_unique",
+          "columns": [
+            "schedule_slot"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "checkin_opened_by_member_id_fk": {
+          "name": "checkin_opened_by_member_id_fk",
+          "tableFrom": "checkin",
+          "tableTo": "member",
+          "columnsFrom": [
+            "opened_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "checkin_closed_by_member_id_fk": {
+          "name": "checkin_closed_by_member_id_fk",
+          "tableFrom": "checkin",
+          "tableTo": "member",
+          "columnsFrom": [
+            "closed_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "coin": {
+      "name": "coin",
+      "columns": {
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "decimals": {
+          "name": "decimals",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "feed_id": {
+          "name": "feed_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "coin_decimals_check": {
+          "name": "coin_decimals_check",
+          "value": "\"coin\".\"decimals\" BETWEEN 0 AND 8"
+        },
+        "coin_iso_code_check": {
+          "name": "coin_iso_code_check",
+          "value": "\"coin\".\"code\" COLLATE NOCASE NOT IN ('AED', 'AFN', 'ALL', 'AMD', 'ANG', 'AOA', 'ARS', 'AUD', 'AWG', 'AZN', 'BAM', 'BBD', 'BDT', 'BGN', 'BHD', 'BIF', 'BMD', 'BND', 'BOB', 'BOV', 'BRL', 'BSD', 'BTN', 'BWP', 'BYN', 'BZD', 'CAD', 'CDF', 'CHE', 'CHF', 'CHW', 'CLF', 'CLP', 'CNY', 'COP', 'COU', 'CRC', 'CUC', 'CUP', 'CVE', 'CZK', 'DJF', 'DKK', 'DOP', 'DZD', 'EGP', 'ERN', 'ETB', 'EUR', 'FJD', 'FKP', 'GBP', 'GEL', 'GHS', 'GIP', 'GMD', 'GNF', 'GTQ', 'GYD', 'HKD', 'HNL', 'HTG', 'HUF', 'IDR', 'ILS', 'INR', 'IQD', 'IRR', 'ISK', 'JMD', 'JOD', 'JPY', 'KES', 'KGS', 'KHR', 'KMF', 'KPW', 'KRW', 'KWD', 'KYD', 'KZT', 'LAK', 'LBP', 'LKR', 'LRD', 'LSL', 'LYD', 'MAD', 'MDL', 'MGA', 'MKD', 'MMK', 'MNT', 'MOP', 'MRU', 'MUR', 'MVR', 'MWK', 'MXN', 'MXV', 'MYR', 'MZN', 'NAD', 'NGN', 'NIO', 'NOK', 'NPR', 'NZD', 'OMR', 'PAB', 'PEN', 'PGK', 'PHP', 'PKR', 'PLN', 'PYG', 'QAR', 'RON', 'RSD', 'RUB', 'RWF', 'SAR', 'SBD', 'SCR', 'SDG', 'SEK', 'SGD', 'SHP', 'SLE', 'SLL', 'SOS', 'SRD', 'SSP', 'STN', 'SVC', 'SYP', 'SZL', 'THB', 'TJS', 'TMT', 'TND', 'TOP', 'TRY', 'TTD', 'TWD', 'TZS', 'UAH', 'UGX', 'USD', 'USN', 'UYI', 'UYU', 'UYW', 'UZS', 'VED', 'VES', 'VND', 'VUV', 'WST', 'XAF', 'XAG', 'XAU', 'XBA', 'XBB', 'XBC', 'XBD', 'XCD', 'XCG', 'XDR', 'XOF', 'XPD', 'XPF', 'XPT', 'XSU', 'XTS', 'XUA', 'XXX', 'YER', 'ZAR', 'ZMW', 'ZWG', 'ZWL')"
+        }
+      }
+    },
+    "device": {
+      "name": "device",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "default_member_id": {
+          "name": "default_member_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "hide_home_amounts": {
+          "name": "hide_home_amounts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "last_seen_at": {
+          "name": "last_seen_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "device_default_member_id_member_id_fk": {
+          "name": "device_default_member_id_member_id_fk",
+          "tableFrom": "device",
+          "tableTo": "member",
+          "columnsFrom": [
+            "default_member_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "device_hide_home_amounts_boolean_check": {
+          "name": "device_hide_home_amounts_boolean_check",
+          "value": "\"device\".\"hide_home_amounts\" IN (0, 1)"
+        }
+      }
+    },
+    "family": {
+      "name": "family",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "password_epoch": {
+          "name": "password_epoch",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "common_currency": {
+          "name": "common_currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'EUR'"
+        },
+        "time_zone": {
+          "name": "time_zone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'Europe/Berlin'"
+        },
+        "cadence_kind": {
+          "name": "cadence_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'off'"
+        },
+        "cadence_day_of_month": {
+          "name": "cadence_day_of_month",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cadence_every_weeks": {
+          "name": "cadence_every_weeks",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cadence_weekday": {
+          "name": "cadence_weekday",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cadence_time": {
+          "name": "cadence_time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cadence_anchor_date": {
+          "name": "cadence_anchor_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "followup_days": {
+          "name": "followup_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 2
+        },
+        "failed_signins": {
+          "name": "failed_signins",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "locked_until": {
+          "name": "locked_until",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "family_singleton_id_check": {
+          "name": "family_singleton_id_check",
+          "value": "\"family\".\"id\" = 1"
+        },
+        "family_password_epoch_check": {
+          "name": "family_password_epoch_check",
+          "value": "\"family\".\"password_epoch\" >= 0"
+        },
+        "family_followup_days_check": {
+          "name": "family_followup_days_check",
+          "value": "\"family\".\"followup_days\" >= 0"
+        },
+        "family_cadence_kind_check": {
+          "name": "family_cadence_kind_check",
+          "value": "\"family\".\"cadence_kind\" IN ('off', 'monthly', 'weeks')"
+        },
+        "family_cadence_day_check": {
+          "name": "family_cadence_day_check",
+          "value": "\"family\".\"cadence_day_of_month\" IS NULL OR \"family\".\"cadence_day_of_month\" = 'last' OR (length(\"family\".\"cadence_day_of_month\") = 1 AND \"family\".\"cadence_day_of_month\" GLOB '[1-9]') OR (length(\"family\".\"cadence_day_of_month\") = 2 AND \"family\".\"cadence_day_of_month\" GLOB '[0-9][0-9]' AND \"family\".\"cadence_day_of_month\" BETWEEN '10' AND '28')"
+        },
+        "family_cadence_weeks_check": {
+          "name": "family_cadence_weeks_check",
+          "value": "\"family\".\"cadence_every_weeks\" IS NULL OR \"family\".\"cadence_every_weeks\" BETWEEN 1 AND 8"
+        },
+        "family_cadence_weekday_check": {
+          "name": "family_cadence_weekday_check",
+          "value": "\"family\".\"cadence_weekday\" IS NULL OR \"family\".\"cadence_weekday\" BETWEEN 1 AND 7"
+        },
+        "family_cadence_time_check": {
+          "name": "family_cadence_time_check",
+          "value": "\"family\".\"cadence_time\" IS NULL OR (\"family\".\"cadence_time\" GLOB '[0-2][0-9]:[0-5][0-9]' AND substr(\"family\".\"cadence_time\", 1, 2) <= '23')"
+        }
+      }
+    },
+    "job_run": {
+      "name": "job_run",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "job": {
+          "name": "job",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "slot": {
+          "name": "slot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "job_run_job_slot_unique": {
+          "name": "job_run_job_slot_unique",
+          "columns": [
+            "job",
+            "slot"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "job_run_status_check": {
+          "name": "job_run_status_check",
+          "value": "\"job_run\".\"status\" IN ('running', 'done', 'failed')"
+        }
+      }
+    },
+    "member": {
+      "name": "member",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "active": {
+          "name": "active",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deactivated_at": {
+          "name": "deactivated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "member_active_name_unique": {
+          "name": "member_active_name_unique",
+          "columns": [
+            "unicode_casefold(\"name\")"
+          ],
+          "isUnique": true,
+          "where": "\"member\".\"active\" = 1"
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "member_active_boolean_check": {
+          "name": "member_active_boolean_check",
+          "value": "\"member\".\"active\" IN (0, 1)"
+        }
+      }
+    },
+    "notification": {
+      "name": "notification",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "event": {
+          "name": "event",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "checkin_id": {
+          "name": "checkin_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "slot": {
+          "name": "slot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sent_at": {
+          "name": "sent_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "notification_event_checkin_member_slot_unique": {
+          "name": "notification_event_checkin_member_slot_unique",
+          "columns": [
+            "event",
+            "checkin_id",
+            "member_id",
+            "slot"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "notification_checkin_id_checkin_id_fk": {
+          "name": "notification_checkin_id_checkin_id_fk",
+          "tableFrom": "notification",
+          "tableTo": "checkin",
+          "columnsFrom": [
+            "checkin_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "notification_member_id_member_id_fk": {
+          "name": "notification_member_id_member_id_fk",
+          "tableFrom": "notification",
+          "tableTo": "member",
+          "columnsFrom": [
+            "member_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "passkey": {
+      "name": "passkey",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "device_id": {
+          "name": "device_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "credential_id": {
+          "name": "credential_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "public_key": {
+          "name": "public_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "counter": {
+          "name": "counter",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "passkey_credential_id_unique": {
+          "name": "passkey_credential_id_unique",
+          "columns": [
+            "credential_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "passkey_device_id_device_id_fk": {
+          "name": "passkey_device_id_device_id_fk",
+          "tableFrom": "passkey",
+          "tableTo": "device",
+          "columnsFrom": [
+            "device_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "push_subscription": {
+      "name": "push_subscription",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "device_id": {
+          "name": "device_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "endpoint": {
+          "name": "endpoint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "p256dh": {
+          "name": "p256dh",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "auth": {
+          "name": "auth",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "last_success_at": {
+          "name": "last_success_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "failures": {
+          "name": "failures",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "push_subscription_endpoint_unique": {
+          "name": "push_subscription_endpoint_unique",
+          "columns": [
+            "endpoint"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "push_subscription_device_id_device_id_fk": {
+          "name": "push_subscription_device_id_device_id_fk",
+          "tableFrom": "push_subscription",
+          "tableTo": "device",
+          "columnsFrom": [
+            "device_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "push_subscription_member_id_member_id_fk": {
+          "name": "push_subscription_member_id_member_id_fk",
+          "tableFrom": "push_subscription",
+          "tableTo": "member",
+          "columnsFrom": [
+            "member_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rate": {
+      "name": "rate",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "base": {
+          "name": "base",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "quote": {
+          "name": "quote",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "rate": {
+          "name": "rate",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "fetched_at": {
+          "name": "fetched_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "rate_base_quote_date_unique": {
+          "name": "rate_base_quote_date_unique",
+          "columns": [
+            "base",
+            "quote",
+            "date"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rate_fetch": {
+      "name": "rate_fetch",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "feed_id": {
+          "name": "feed_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "at": {
+          "name": "at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "session": {
+      "name": "session",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "device_id": {
+          "name": "device_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "password_epoch": {
+          "name": "password_epoch",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "last_used_at": {
+          "name": "last_used_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "session_device_idx": {
+          "name": "session_device_idx",
+          "columns": [
+            "device_id"
+          ],
+          "isUnique": false
+        },
+        "session_token_hash_unique": {
+          "name": "session_token_hash_unique",
+          "columns": [
+            "token_hash"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "session_device_id_device_id_fk": {
+          "name": "session_device_id_device_id_fk",
+          "tableFrom": "session",
+          "tableTo": "device",
+          "columnsFrom": [
+            "device_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "session_member_id_member_id_fk": {
+          "name": "session_member_id_member_id_fk",
+          "tableFrom": "session",
+          "tableTo": "member",
+          "columnsFrom": [
+            "member_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "snapshot": {
+      "name": "snapshot",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "taken_at": {
+          "name": "taken_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amount": {
+          "name": "amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "checkin_id": {
+          "name": "checkin_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "source_ref": {
+          "name": "source_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "external_id": {
+          "name": "external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "snapshot_checkin_account_unique": {
+          "name": "snapshot_checkin_account_unique",
+          "columns": [
+            "checkin_id",
+            "account_id"
+          ],
+          "isUnique": true,
+          "where": "\"snapshot\".\"checkin_id\" IS NOT NULL"
+        },
+        "snapshot_source_external_unique": {
+          "name": "snapshot_source_external_unique",
+          "columns": [
+            "source_ref",
+            "external_id"
+          ],
+          "isUnique": true,
+          "where": "\"snapshot\".\"source_ref\" IS NOT NULL AND \"snapshot\".\"external_id\" IS NOT NULL"
+        },
+        "snapshot_account_taken_at_idx": {
+          "name": "snapshot_account_taken_at_idx",
+          "columns": [
+            "account_id",
+            "\"taken_at\" DESC"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "snapshot_account_id_account_id_fk": {
+          "name": "snapshot_account_id_account_id_fk",
+          "tableFrom": "snapshot",
+          "tableTo": "account",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "snapshot_checkin_id_checkin_id_fk": {
+          "name": "snapshot_checkin_id_checkin_id_fk",
+          "tableFrom": "snapshot",
+          "tableTo": "checkin",
+          "columnsFrom": [
+            "checkin_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "snapshot_created_by_member_id_fk": {
+          "name": "snapshot_created_by_member_id_fk",
+          "tableFrom": "snapshot",
+          "tableTo": "member",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "snapshot_updated_by_member_id_fk": {
+          "name": "snapshot_updated_by_member_id_fk",
+          "tableFrom": "snapshot",
+          "tableTo": "member",
+          "columnsFrom": [
+            "updated_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "snapshot_source_check": {
+          "name": "snapshot_source_check",
+          "value": "\"snapshot\".\"source\" IN ('opening', 'manual', 'checkin', 'carried_forward', 'photo', 'statement', 'connector')"
+        },
+        "snapshot_external_source_check": {
+          "name": "snapshot_external_source_check",
+          "value": "\"snapshot\".\"external_id\" IS NULL OR \"snapshot\".\"source_ref\" IS NOT NULL"
+        },
+        "snapshot_carried_forward_check": {
+          "name": "snapshot_carried_forward_check",
+          "value": "\"snapshot\".\"source\" != 'carried_forward' OR \"snapshot\".\"checkin_id\" IS NOT NULL"
+        }
+      }
+    },
+    "snapshot_revision": {
+      "name": "snapshot_revision",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "snapshot_id": {
+          "name": "snapshot_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "old_amount": {
+          "name": "old_amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "old_taken_at": {
+          "name": "old_taken_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "changed_by": {
+          "name": "changed_by",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "changed_at": {
+          "name": "changed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "snapshot_revision_account_id_account_id_fk": {
+          "name": "snapshot_revision_account_id_account_id_fk",
+          "tableFrom": "snapshot_revision",
+          "tableTo": "account",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "snapshot_revision_changed_by_member_id_fk": {
+          "name": "snapshot_revision_changed_by_member_id_fk",
+          "tableFrom": "snapshot_revision",
+          "tableTo": "member",
+          "columnsFrom": [
+            "changed_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "snapshot_revision_action_check": {
+          "name": "snapshot_revision_action_check",
+          "value": "\"snapshot_revision\".\"action\" IN ('update', 'delete')"
+        }
+      }
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {
+      "checkin_one_open_unique": {
+        "columns": {
+          "1": {
+            "isExpression": true
+          }
+        }
+      },
+      "member_active_name_unique": {
+        "columns": {
+          "unicode_casefold(\"name\")": {
+            "isExpression": true
+          }
+        }
+      },
+      "snapshot_account_taken_at_idx": {
+        "columns": {
+          "\"taken_at\" DESC": {
+            "isExpression": true
+          }
+        }
+      }
+    }
+  }
+}

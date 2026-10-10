@@ -2,6 +2,8 @@ import { fileURLToPath } from 'node:url';
 import { parseConfig } from './config.js';
 import { createApp } from './app.js';
 import { openDatabase } from './db/index.js';
+import { systemClock } from './clock.js';
+import { createJobRunner } from './jobs/runner.js';
 
 // `.env` is optional: config may come from the real environment instead.
 try {
@@ -25,7 +27,16 @@ try {
     appOrigins: config.appOrigins,
     secureCookies: config.nodeEnv !== 'development',
   });
+  // Jobs are added here as they are built (rates, schedule, reminders, backup).
+  const jobRunner = createJobRunner({
+    database,
+    clock: systemClock,
+    jobs: [],
+    logger: app.log,
+  });
+  app.addHook('onClose', () => jobRunner.stop());
   await app.listen({ host: config.host, port: config.port });
+  jobRunner.start();
 } catch (error) {
   if (app) {
     app.log.error(error, 'Server startup failed');

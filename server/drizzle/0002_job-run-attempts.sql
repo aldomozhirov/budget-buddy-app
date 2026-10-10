@@ -1,0 +1,1 @@
+ALTER TABLE `job_run` ADD `attempts` integer DEFAULT 1 NOT NULL;
