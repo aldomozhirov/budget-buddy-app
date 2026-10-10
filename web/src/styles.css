@@ -176,6 +176,33 @@ body,
   white-space: nowrap;
 }
 
+.bb .settings-rate-trailing {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.bb .settings-rate-heading {
+  margin: 6px 0 -6px;
+}
+
+.bb .row:has(+ .settings-rate-error) {
+  border-bottom: 0;
+}
+
+.bb .settings-rate-error {
+  margin: 0;
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.bb .settings-rate-error:last-child {
+  border-bottom: 0;
+}
+
 .bb .settings-picker-selected {
   color: var(--accent);
   font-size: 13px;

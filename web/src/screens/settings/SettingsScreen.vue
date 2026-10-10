@@ -6,10 +6,12 @@ import {
   currenciesResponseSchema,
   memberResponseSchema,
   membersResponseSchema,
+  ratesStatusResponseSchema,
   settingsResponseSchema,
   type CoinSetting,
   type CurrencyOption,
   type ManagedMember,
+  type RatesStatusResponse,
 } from '@budget-buddy/shared';
 import BbBackButton from '../../components/BbBackButton.vue';
 import BbButton from '../../components/BbButton.vue';
@@ -18,7 +20,9 @@ import BbRow from '../../components/BbRow.vue';
 import BbSheet from '../../components/BbSheet.vue';
 import CommonCurrencySheet from './CommonCurrencySheet.vue';
 import CoinsSheet from './CoinsSheet.vue';
+import RatesStatusSheet from './RatesStatusSheet.vue';
 import TimeZoneSheet from './TimeZoneSheet.vue';
+import { formatUpdated } from './ratesFormat.js';
 import { deviceName } from '../../device.js';
 import { useBack } from '../../composables/useBack.js';
 import {
@@ -60,6 +64,8 @@ const coins = ref<CoinSetting[]>([]);
 const commonCurrencySheetOpen = ref(false);
 const coinsSheetOpen = ref(false);
 const timeZoneSheetOpen = ref(false);
+const ratesStatus = ref<RatesStatusResponse | null>(null);
+const ratesSheetOpen = ref(false);
 const defaultMemberId = computed(
   () => authState.value?.device.defaultMemberId ?? null,
 );
@@ -76,6 +82,13 @@ const coinListSummary = computed(() =>
     ? coins.value.map(({ code }) => code).join(', ')
     : 'No coins yet',
 );
+const ratesSummary = computed(() => {
+  const status = ratesStatus.value;
+  if (!status) return '—';
+  return status.lastUpdatedAt === null
+    ? 'Not updated yet'
+    : formatUpdated(status.lastUpdatedAt, status.today, status.timeZone);
+});
 const editorTitle = computed(() =>
   editorMode.value === 'add' ? 'Add profile' : 'Edit profile',
 );
@@ -83,7 +96,19 @@ const editorTitle = computed(() =>
 onMounted(() => {
   void loadMembers();
   void loadMoneySettings();
+  void loadRatesStatus();
 });
+
+/** Loads the rates status; the row shows "—" when it cannot be read. */
+async function loadRatesStatus(): Promise<void> {
+  try {
+    const response = await fetch('/api/rates/status');
+    if (!response.ok) return;
+    ratesStatus.value = ratesStatusResponseSchema.parse(await response.json());
+  } catch {
+    ratesStatus.value = null;
+  }
+}
 
 async function loadMoneySettings(): Promise<void> {
   moneySettingsLoading.value = true;
@@ -126,11 +151,13 @@ function showCommonCurrencySheet(): void {
 function saveCommonCurrency(currency: string): void {
   commonCurrency.value = currency;
   commonCurrencySheetOpen.value = false;
+  void loadRatesStatus();
 }
 
 function saveTimeZone(zone: string): void {
   timeZone.value = zone;
   timeZoneSheetOpen.value = false;
+  void loadRatesStatus();
 }
 
 async function loadMembers(): Promise<void> {
@@ -519,7 +546,14 @@ async function readApiError(response: Response): Promise<{
             :disabled="moneySettingsLoading || Boolean(moneySettingsError)"
             @click="coinsSheetOpen = true"
           />
-          <BbRow title="Exchange rates" value="—" />
+          <BbRow
+            title="Exchange rates"
+            :value="ratesSummary"
+            interactive
+            aria-haspopup="dialog"
+            :disabled="!ratesStatus"
+            @click="ratesSheetOpen = true"
+          />
           <BbRow
             title="Time zone"
             :value="moneySettingsLoading ? '—' : timeZone"
@@ -732,6 +766,11 @@ async function readApiError(response: Response): Promise<{
       :coins="coins"
       @saved="loadMoneySettings"
       @close="coinsSheetOpen = false"
+    />
+    <RatesStatusSheet
+      v-if="ratesSheetOpen && ratesStatus"
+      :status="ratesStatus"
+      @close="ratesSheetOpen = false"
     />
     <TimeZoneSheet
       v-if="timeZoneSheetOpen"
