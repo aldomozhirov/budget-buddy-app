@@ -354,7 +354,8 @@ Try it: create accounts for two profiles, run a check-in from two browser window
 - [ ] **18. Check-ins list.**
   Refs: SUM-1, CHK-1, UI-SUM-1. Depends: 16. Parallel: 17.
   Files: `web/src/screens/checkins/CheckInsScreen.vue`.
-  Acceptance: E2E: with an open check-in, the card shows "Open now · since …" and per-member progress; with none, "Start a check-in now" with the next scheduled date (or no date when the cadence is off) starts one and opens it; closed check-ins list their date, who closed them (or "Closed by itself") and how many weren't changed; totals are hidden until the eye button is tapped.
+  Do: Build the screen from the check-in API of task 16: the open check-in card, per-member progress, "Start a check-in now", and the closed list. Not part of this task: the family total, its direction and the eye button on closed check-ins (task 22), and the cadence line in the header and the "Next scheduled" date (task 24). Until those tasks, closed rows show no total and no eye button, and "Start a check-in now" shows no date.
+  Acceptance: E2E: with an open check-in, the card shows "Open now · since …" and per-member progress; with none, "Start a check-in now" starts one and opens it; closed check-ins list their date, who closed them (or "Closed by itself") and how many weren't changed. (Totals are checked in task 22, the next scheduled date in task 24.)
 
 ### Milestone D: rates, summary, Home
 
@@ -380,8 +381,8 @@ Try it: close a second check-in and read its summary; reveal the wealth figure o
 
 - [ ] **22. Summary screen.**
   Refs: SUM-1–6, CUR-6, UI-SUM-2–4, UI-NAV-2, UI-NAV-6. Depends: 15 (LineChart), 21.
-  Files: `web/src/screens/summary/`.
-  Acceptance: E2E: the summary of a seeded check-in shows "Check-in DD/MM/YYYY · Compared with DD/MM/YYYY", the total with ▲ or ▼, "From balances" and "From exchange rates", per-currency rows matching the seed, and the chart with pills for "All in EUR" and each currency; "Today’s rates" changes the series; a "Biggest changes" row opens its account; opened from Home, Back goes Home; opened from Check-ins, Back goes to Check-ins; `/check-ins/<open id>` shows the check-in.
+  Files: `web/src/screens/summary/`, `web/src/screens/checkins/CheckInsScreen.vue`.
+  Acceptance: E2E: the summary of a seeded check-in shows "Check-in DD/MM/YYYY · Compared with DD/MM/YYYY", the total with ▲ or ▼, "From balances" and "From exchange rates", per-currency rows matching the seed, and the chart with pills for "All in EUR" and each currency; "Today’s rates" changes the series; a "Biggest changes" row opens its account; opened from Home, Back goes Home; opened from Check-ins, Back goes to Check-ins; `/check-ins/<open id>` shows the check-in. On Check-ins, each closed check-in shows the family total and its direction, and the totals are hidden until the eye button is tapped (moved here from task 18).
 
 - [ ] **23. Home.**
   Refs: DSH-1, DSH-3 (warning only where shown), NTF-1, BKP-4, UI-HOME-1–6 (D2 subset), UI-A11Y-3, O2. Depends: 17, 21.
@@ -397,7 +398,7 @@ Try it: on the Mac mini, through Tailscale, install the app on an iPhone, get a 
   Refs: CHK-2, UI-SET-2, COR-3, DEP-9. Depends: 16, 19, 11.
   Files: `server/src/jobs/checkinSchedule.ts`, `web/src/screens/settings/ScheduleSheet.vue`.
   Do: The schedule sheet (Off; Monthly on a day 1–28 or "Last day"; Every N weeks on a weekday) with a time, and a preview in words ("Monthly on the 5th at 09:00. Next: 5 November."). The job opens a check-in at each slot when none is open (stored with `schedule_slot`) and emits `checkin.opened` with "by schedule". When one is already open, the slot does nothing except the reminder of task 25.
-  Acceptance: unit tests with a fake clock: the monthly slot on the 31st in a 30-day month runs on the last day when "Last day" is chosen; a server off across the slot opens one check-in at start, not two; a slot during an open check-in opens nothing; changing the cadence moves the next slot without opening one.
+  Acceptance: unit tests with a fake clock: the monthly slot on the 31st in a 30-day month runs on the last day when "Last day" is chosen; a server off across the slot opens one check-in at start, not two; a slot during an open check-in opens nothing; changing the cadence moves the next slot without opening one. On Check-ins, the header shows the cadence and "Start a check-in now" shows the next scheduled date, or no date when the cadence is off (moved here from task 18).
 
 - [ ] **25. Trial and build: Web Push.**
   Refs: NTF-2, NTF-3, NTF-4, CHK-4, CHK-9, UI-SET-3, UI-NAV-6, requirements 10.1 #2. Depends: 23, 24. The code is built now; the trial on real devices runs once tasks 27 and 30 have put the installable app on HTTPS, and is recorded before task 31.
@@ -549,3 +550,4 @@ Tested on 2026-10-07 between 20:50 and 20:55 UTC with `curl` from the Mac mini, 
 - 2026-10-08: the owner capped amounts to SQLite's 64-bit range (review finding B1), confirmed that commas in a typed amount are decimal points (B3), and left unary minus after an operator (`1 + -2`) as optional (B4).
 - 2026-10-08: the owner kept the direct-rate preference in `convert` as it is (B2), even when a route through a pivot has newer rates, and had the non-money ISO codes left out of currency pickers (B5).
 - 2026-10-09: the owner settled a blocker in task 13: it checks the saved opening balance through the API and opens the new account's page after saving; the on-screen balance check moved to task 15.
+- 2026-10-10: the owner settled a blocker in task 18: it builds the Check-ins screen from the check-in API only; the totals on closed check-ins moved to task 22 and the cadence line and next scheduled date to task 24.
