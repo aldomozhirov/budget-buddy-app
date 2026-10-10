@@ -4,6 +4,8 @@ export class RateHttpError extends Error {
     message: string,
     /** `blocked` never left the machine; `status` and `network` did. */
     readonly kind: 'blocked' | 'status' | 'network',
+    /** The HTTP status of a `status` error. */
+    readonly httpStatus?: number,
   ) {
     super(message);
     this.name = 'RateHttpError';
@@ -89,6 +91,7 @@ export function createRateHttpClient(
         throw new RateHttpError(
           `${target.hostname} answered HTTP ${response.status}`,
           'status',
+          response.status,
         );
       }
       try {

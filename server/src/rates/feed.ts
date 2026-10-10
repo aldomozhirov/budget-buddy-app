@@ -30,6 +30,12 @@ export interface FeedRequest {
   today: string;
   /** The current instant, for feeds that publish by their own calendar. */
   now: Date;
+  /**
+   * Lets a feed that serves each currency separately report one it could not
+   * get without failing the others. The rates it did get are stored and the
+   * message is recorded as an error. A feed that cannot report rethrows.
+   */
+  reportProblem?(message: string): void;
 }
 
 /**

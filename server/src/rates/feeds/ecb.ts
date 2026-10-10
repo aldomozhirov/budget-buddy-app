@@ -72,7 +72,7 @@ export function createEcbFeed(http: RateHttpClient): RateFeed {
     async fetch({ currencies, from, today }) {
       const age = daysBetween(from, today);
       const file =
-        age <= 1
+        age <= 0
           ? 'eurofxref-daily.xml'
           : age <= ninetyDayReach
             ? 'eurofxref-hist-90d.xml'

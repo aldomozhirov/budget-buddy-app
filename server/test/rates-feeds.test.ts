@@ -109,10 +109,13 @@ describe('ECB feed', () => {
       now: new Date('2026-10-07T10:00:00Z'),
     };
     await feed.fetch({ ...request, from: '2026-10-07' });
+    // Yesterday is not in the daily file once today's rates are out.
+    await feed.fetch({ ...request, from: '2026-10-06' });
     await feed.fetch({ ...request, from: '2026-09-01' });
     await feed.fetch({ ...request, from: '2023-10-09' });
     expect(urls.map((url) => url.slice(base.length))).toEqual([
       'eurofxref-daily.xml',
+      'eurofxref-hist-90d.xml',
       'eurofxref-hist-90d.xml',
       'eurofxref-hist.xml',
     ]);
@@ -236,6 +239,52 @@ describe('Coinbase feed', () => {
       'https://api.exchange.coinbase.com/products/BTC-EUR/candles?granularity=86400&start=2026-08-24T00:00:00Z&end=2026-10-06T00:00:00Z',
     ]);
     expect(rates.every(({ base }) => base === 'BTC')).toBe(true);
+  });
+
+  describe('a coin Coinbase does not know', () => {
+    const unknown: UsedCurrency = { code: 'XYZ', coinFeedId: 'XYZ-EUR' };
+    const candles = '[[1791158400,1,2,1,76463.32,1]]';
+    const request = {
+      from: '2026-10-05',
+      to: '2026-10-06',
+      today: '2026-10-07',
+      now: new Date('2026-10-07T10:00:00Z'),
+    };
+    const answering = (status: number) =>
+      createCoinbaseFeed({
+        getText: (url) =>
+          url.includes('/XYZ-EUR/')
+            ? Promise.reject(
+                new RateHttpError('answered HTTP', 'status', status),
+              )
+            : Promise.resolve(candles),
+      });
+
+    it('is reported while the other coins keep their rates', async () => {
+      const problems: string[] = [];
+      const rates = await answering(404).fetch({
+        ...request,
+        currencies: [unknown, btc],
+        reportProblem: (message) => problems.push(message),
+      });
+      expect(rates.map(({ base }) => base)).toEqual(['BTC']);
+      expect(problems).toEqual([expect.stringContaining('XYZ: ')]);
+    });
+
+    it('still fails the feed for an outage, a rate limit or no way to report', async () => {
+      for (const status of [429, 503]) {
+        await expect(
+          answering(status).fetch({
+            ...request,
+            currencies: [unknown, btc],
+            reportProblem: () => undefined,
+          }),
+        ).rejects.toBeInstanceOf(RateHttpError);
+      }
+      await expect(
+        answering(404).fetch({ ...request, currencies: [unknown, btc] }),
+      ).rejects.toBeInstanceOf(RateHttpError);
+    });
   });
 
   it('targets yesterday of the UTC calendar', () => {

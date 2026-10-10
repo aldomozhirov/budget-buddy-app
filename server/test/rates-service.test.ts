@@ -446,7 +446,91 @@ describe('rates service and daily job', () => {
     );
   });
 
+  it("keeps the other coins' rates when one coin has no product, and shows the error", async () => {
+    addAccount('BTC');
+    addAccount('XYZ');
+    database
+      .prepare(
+        "INSERT INTO coin (code, name, decimals, feed_id, created_at) VALUES ('XYZ', 'Unknown', 8, 'XYZ-EUR', 1)",
+      )
+      .run();
+    const feed: RateFeed = {
+      ...createFixtureFeed(),
+      id: 'coins',
+      source: 'Coin feed',
+      fetch: async (request) => {
+        const known = request.currencies.filter(({ code }) => code !== 'XYZ');
+        if (known.length < request.currencies.length) {
+          request.reportProblem?.('XYZ: HTTP 404');
+        }
+        return createFixtureFeed().fetch({ ...request, currencies: known });
+      },
+    };
+    const ratesService = service(feed);
+    now = Date.parse('2026-10-09T08:00:00Z');
+
+    await runner(ratesService).tick();
+
+    expect(rates().every(({ base }) => base === 'BTC')).toBe(true);
+    expect(rates().length).toBeGreaterThan(0);
+    expect(database.prepare('SELECT status FROM job_run').get()).toEqual({
+      status: 'done',
+    });
+    expect(ratesService.status().feeds[0]?.lastError).toMatchObject({
+      message: 'XYZ: HTTP 404',
+    });
+  });
+
   describe('status', () => {
+    it("judges a currency by its own feed, not by another feed's pair", async () => {
+      addAccount('USD');
+      addAccount('RUB');
+      const ecb: RateFeed = {
+        ...createFixtureFeed(),
+        id: 'ecb',
+        source: 'European Central Bank',
+        covers: ({ code }) => code === 'USD',
+      };
+      const cbr: RateFeed = {
+        ...createFixtureFeed(),
+        id: 'cbr',
+        source: 'Bank of Russia',
+        covers: ({ code }) => code === 'RUB',
+        // Prices the rouble against the dollar as well, as the real one does.
+        fetch: async (request) => [
+          ...(await createFixtureFeed().fetch(request)),
+          ...(await createFixtureFeed().fetch(request)).map((rate) => ({
+            ...rate,
+            base: 'USD',
+          })),
+        ],
+      };
+      const ecbFetch = ecb.fetch.bind(ecb);
+      let ecbDown = false;
+      ecb.fetch = (request) =>
+        ecbDown ? Promise.reject(new Error('ECB is down')) : ecbFetch(request);
+      const ratesService = service(ecb, cbr);
+      await ratesService.refreshToday();
+
+      // A week later the ECB has been unreachable, the Bank of Russia works.
+      ecbDown = true;
+      now += 7 * 24 * hour;
+      const refresh = await ratesService.refreshToday();
+      expect(refresh.failures).toEqual([
+        { feedId: 'ecb', message: 'ECB is down' },
+      ]);
+      const status = ratesService.status();
+      expect(
+        status.currencies.find(({ code }) => code === 'RUB'),
+      ).toMatchObject({ latestDate: '2026-10-16', ageDays: 0 });
+      const usd = status.currencies.find(({ code }) => code === 'USD');
+      expect(usd).toMatchObject({
+        latestDate: '2026-10-09',
+        ageDays: 7,
+        source: 'European Central Bank',
+      });
+    });
+
     it('shows the age of the latest rate per currency and the last error', async () => {
       addAccount('USD');
       addAccount('GBP');

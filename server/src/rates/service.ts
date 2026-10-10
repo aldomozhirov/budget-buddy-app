@@ -135,10 +135,6 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
         `SELECT 1 FROM rate_fetch
     WHERE feed_id = ? AND date = ? AND status = 'ok' LIMIT 1`,
       ),
-      selectLatestRate: database.prepare(
-        `SELECT date, source FROM rate WHERE base = ? OR quote = ?
-    ORDER BY date DESC, id DESC LIMIT 1`,
-      ),
       selectLastFetch: database.prepare(
         `SELECT status, error, at FROM rate_fetch WHERE feed_id = ?
     ORDER BY id DESC LIMIT 1`,
@@ -262,7 +258,15 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
     const recordedDate = kind === 'daily' ? target : to;
     try {
       const codes = new Set(currencies.map(({ code }) => code));
-      const answer = await feed.fetch({ currencies, from, to, today, now });
+      const problems: string[] = [];
+      const answer = await feed.fetch({
+        currencies,
+        from,
+        to,
+        today,
+        now,
+        reportProblem: (message) => problems.push(message),
+      });
       const rates = answer.filter(
         (rate) =>
           rate.date >= from &&
@@ -290,6 +294,18 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
             ? 'ok'
             : 'unpublished';
       sql().insertFetch.run(feed.id, recordedDate, status, null, now.getTime());
+      if (problems.length > 0) {
+        // The rates it did send stay; the error shows in the status sheet.
+        const message = problems.join('; ').slice(0, maxErrorLength);
+        sql().insertFetch.run(
+          feed.id,
+          recordedDate,
+          'failed',
+          message,
+          clock.now().getTime(),
+        );
+        logger?.error(new Error(message), `Rates missing from ${feed.id}`);
+      }
       return { rates, stored };
     } catch (error) {
       try {
@@ -456,10 +472,36 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
       const used = usedCurrencies(settings.common_currency).filter(
         ({ code }) => code !== settings.common_currency,
       );
+      const common = usedCurrencies(settings.common_currency).find(
+        ({ code }) => code === settings.common_currency,
+      );
       const currencies = used
-        .map(({ code }) => {
-          const latest = sql().selectLatestRate.get(code, code) as
-            { date: string; source: string } | undefined;
+        .map((currency) => {
+          // The newest rate of the feeds that serve the currency, so another
+          // feed's pair (USD to RUB) never makes a stale USD look fresh. A
+          // currency no feed serves (the euro, when it is not the common
+          // currency) is judged by the feeds of the common currency.
+          let sources = feeds
+            .filter((feed) => feed.covers(currency))
+            .map((feed) => feed.source);
+          if (sources.length === 0 && common) {
+            sources = feeds
+              .filter((feed) => feed.covers(common))
+              .map((feed) => feed.source);
+          }
+          const latest =
+            sources.length === 0
+              ? undefined
+              : (database
+                  .prepare(
+                    `SELECT date, source FROM rate
+                    WHERE source IN (${sources.map(() => '?').join(', ')})
+                      AND (base = ? OR quote = ?)
+                    ORDER BY date DESC, id DESC LIMIT 1`,
+                  )
+                  .get(...sources, currency.code, currency.code) as
+                  { date: string; source: string } | undefined);
+          const code = currency.code;
           return {
             code,
             latestDate: latest?.date ?? null,

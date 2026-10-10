@@ -1,6 +1,6 @@
 import { shiftDate, utcDate } from '../dates.js';
 import { assertRateText, type FeedRate, type RateFeed } from '../feed.js';
-import type { RateHttpClient } from '../http.js';
+import { RateHttpError, type RateHttpClient } from '../http.js';
 
 const baseUrl = 'https://api.exchange.coinbase.com/products';
 
@@ -69,28 +69,53 @@ export function createCoinbaseFeed(http: RateHttpClient): RateFeed {
     covers: ({ coinFeedId }) =>
       coinFeedId !== null && /^[A-Z0-9]+-EUR$/.test(coinFeedId),
     targetDate: (now) => shiftDate(utcDate(now), -1),
-    async fetch({ currencies, from, to, now }) {
+    async fetch({ currencies, from, to, now, reportProblem }) {
       const lastComplete = shiftDate(utcDate(now), -1);
       const last = to < lastComplete ? to : lastComplete;
       const rates: FeedRate[] = [];
       for (const { code, coinFeedId } of currencies) {
         if (coinFeedId === null) continue;
         const quote = coinFeedId.slice(coinFeedId.lastIndexOf('-') + 1);
-        for (
-          let start = from;
-          start <= last;
-          start = shiftDate(start, windowDays)
-        ) {
-          const end = shiftDate(start, windowDays - 1);
-          const windowEnd = end < last ? end : last;
-          const json = await http.getText(
-            `${baseUrl}/${coinFeedId}/candles?granularity=86400` +
-              `&start=${start}T00:00:00Z&end=${windowEnd}T00:00:00Z`,
+        const coinRates: FeedRate[] = [];
+        try {
+          for (
+            let start = from;
+            start <= last;
+            start = shiftDate(start, windowDays)
+          ) {
+            const end = shiftDate(start, windowDays - 1);
+            const windowEnd = end < last ? end : last;
+            const json = await http.getText(
+              `${baseUrl}/${coinFeedId}/candles?granularity=86400` +
+                `&start=${start}T00:00:00Z&end=${windowEnd}T00:00:00Z`,
+            );
+            coinRates.push(...parseCoinbaseCandles(json, code, quote));
+          }
+        } catch (error) {
+          // A coin Coinbase does not know must not cost the others their
+          // rates; an outage or a rate limit still fails the whole feed.
+          if (!reportProblem || !isCoinProblem(error)) throw error;
+          reportProblem(
+            `${code}: ${error instanceof Error ? error.message : error}`,
           );
-          rates.push(...parseCoinbaseCandles(json, code, quote));
+          continue;
         }
+        rates.push(...coinRates);
       }
       return rates;
     },
   };
+}
+
+/** Whether an error belongs to one coin: a refused request or bad data. */
+function isCoinProblem(error: unknown): boolean {
+  if (error instanceof RangeError) return true;
+  return (
+    error instanceof RateHttpError &&
+    error.kind === 'status' &&
+    error.httpStatus !== undefined &&
+    error.httpStatus >= 400 &&
+    error.httpStatus < 500 &&
+    error.httpStatus !== 429
+  );
 }
