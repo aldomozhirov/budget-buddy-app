@@ -16,36 +16,41 @@ From a fresh clone, run `pnpm install --frozen-lockfile`. Use `pnpm dev` for the
 
 ## How the team works
 
-- `plan` (primary) writes a spec with a task list to `docs/specs/<nn>-<slug>.md`. It does not write application code.
-- `build` (primary) implements one task at a time from a spec and delegates:
-  - `explore` for finding code and reading documentation (read-only, cheapest model)
-  - `tester` for writing tests and running the verification commands
-  - `reviewer` for an independent read-only review of the diff
+Work is done by Claude Code sessions run by AO (Agent Orchestrator, the `ao` CLI), from Milestone D of spec 1.
+
+- A planning session writes a spec with a task list to `docs/specs/<nn>-<slug>.md`. It does not write application code. Model: Claude Opus 5.5 (`claude-opus-5-5`).
+- An orchestrator session coordinates: it spawns one AO worker per spec task, relays decisions and watches progress. It does not implement tasks.
+- An AO worker implements one task from the spec, writes its tests, runs the verification commands and opens one pull request against `main`. Model: Claude Sonnet 5.5 (`claude-sonnet-5-5`), the project default.
+- AO's native reviewer (`ao review trigger`) gives the independent review of the pull request. Model: Claude Opus 5.5.
+- Merging is automatic once two gates pass: the AO reviewer approves (`ao review ls`), and the required GitHub check `verify` (typecheck, lint and tests, `.github/workflows/ci.yml`) passes. The owner can still merge or close any pull request. An AO approval is not a GitHub approval and does not merge by itself.
+- Searching code and reading documentation needs no strong model. Where a lookup is done by a separate read-only session rather than by the worker itself, use Claude Haiku 5.5 (`claude-haiku-5-5`).
 - The spec file is the shared state. Tick tasks off in it and update it when the design changes.
 
 ## Agent tooling
 
-- One build session builds one task. Start a new session for the next task, so context and cost stay small.
-- `scripts/build-tasks 6-9` (or a milestone letter, `scripts/build-tasks B`) runs one build session per task unattended, in spec order, and checks that each task ends ticked, committed and pushed. A task whose session ends unfinished gets a new session that continues from the working tree, up to three sessions per task (`--attempts`); then the run stops. `--dry-run` shows the plan.
-- `build` and `tester` run on `openai/gpt-6-luna`, `plan` and `reviewer` on `openai/gpt-6.1-sol`, `explore` on Luna at low effort. For a hard task, start build with `--model openai/gpt-6.1-sol#high`.
-- `opencode.json` turns on the language servers (`lsp`), which give agents TypeScript, Vue and ESLint diagnostics once the workspace exists.
-- Skills in `.opencode/skills/` hold rules that only some tasks need. Load `design-system` before any markup or styling, `build-a-screen` for a screen task, `money-rules` before code that touches amounts, rates or dates, and `webkit-e2e` before a Playwright test.
-- The Context7 MCP server gives version-specific library documentation. Only `explore` may use it; ask `explore` for library questions.
-- OpenCode's background service keeps the PATH it was started with. After installing a tool, run `opencode service restart`.
-- `build` pushes each finished task to the remote with a plain `git push`; force pushes and remote branch deletion are denied, and the other agents cannot push. `build` cannot run `tailscale`, `sudo` or destructive git and Docker commands. This machine is also the deployment host: the live app runs from a separate clone, never from this checkout.
-- Subagent access is controlled with the `task` permission in each agent's frontmatter.
-- `websearch` is off unless OpenCode is started with `OPENCODE_ENABLE_EXA=1`; `explore` falls back to fetching official docs.
+- One worker builds one task. Spawn a new worker for the next task, so context and cost stay small. Name it after the task and give it the spec path and task number:
+  `ao spawn --harness claude-code --model claude-sonnet-5-5 --name "task-<n>-<slug>" --prompt "Build task <n> of docs/specs/<nn>-<slug>.md."`
+- Tasks run one at a time: Playwright binds the fixed port 4174 (`web/playwright.config.ts`), so two workers cannot run `pnpm e2e` together.
+- For a hard task, start the worker on Opus: `--model claude-opus-5-5`.
+- A worker may not use the agent runtime's own subagents. There is no separate tester, explorer or reviewer inside a worker session: the worker searches the code, writes the tests and runs typecheck, lint, unit and end-to-end tests itself. The independent check is the AO reviewer, which is a separate session.
+- When the pull request is pushed and the local checks pass, the worker runs `ao review trigger --pr <url> --model claude-opus-5-5`. Without `--model` the reviewer uses the project's default worker model (Sonnet). Findings arrive as pull request comments; the worker fixes them, pushes and triggers again for the new commit. An approval adds no comments, so check the verdict with `ao review ls`.
+- Only after the AO reviewer approves, the worker runs `gh pr merge --auto --squash <url>`. GitHub then squash-merges the pull request when `verify` passes, and deletes the branch. Never enable auto-merge before that approval.
+- Branch protection requires the branch to be up to date with `main`, and GitHub does not update it by itself. When the pull request is behind `main`, the worker runs `git fetch origin && git merge origin/main` (never a rebase, since force-pushing is forbidden), fixes any conflicts, re-runs the local checks, pushes, and runs `ao review trigger` for the new commit. It enables auto-merge again after that approval if GitHub turned it off.
+- Report with `ao report`: `--checkpoint` at milestones, `--needs-input` when blocked on a decision, and `--done --pr-created <url>` when finished.
+- Skills in `.opencode/skills/` hold rules that only some tasks need. They are plain Markdown and any agent can read them. Read `design-system` before any markup or styling, `build-a-screen` for a screen task, `money-rules` before code that touches amounts, rates or dates, and `webkit-e2e` before a Playwright test.
+- A worker pushes its own session branch with a plain `git push` and opens the pull request against `main`. It never force-pushes, deletes a remote branch, pushes to `main`, or merges around the required check (no `--admin`, no changing branch protection). It does not run `tailscale`, `sudo` or destructive git and Docker commands. This machine is also the deployment host: the live app runs from a separate clone, never from a worker's checkout.
 - Playwright's WebKit is installed on this machine (`npx playwright install webkit`; checked on macOS 27 with Playwright 1.63).
-- Playwright is the project's test runner (`pnpm e2e`) and needs no MCP server. The Playwright MCP server in `opencode.json` is disabled; enable it only to let `build` look at the running app.
+- Playwright is the project's test runner (`pnpm e2e`) and needs no MCP server.
+- `.opencode/agents/`, `opencode.json` and `scripts/build-tasks` are the earlier OpenCode setup on OpenAI models. They are kept for reference and the AO workflow does not use them.
 
 ## Definition of done
 
 A task is done when all of these hold:
 
 1. Its acceptance criteria in the spec are met.
-2. Typecheck, lint and tests pass, with the output to show it.
-3. The reviewer reports no blocking findings.
-4. The change is committed with a message naming the task, and pushed.
+2. Typecheck, lint and tests pass, with the output to show it, and the `verify` check passes on the pull request.
+3. The AO reviewer reports no blocking findings.
+4. The change is committed with a message naming the task, pushed, and open as a pull request against `main`.
 
 ## Conventions
 
