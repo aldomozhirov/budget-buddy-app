@@ -86,6 +86,77 @@ test('Settings shows every section in order and matches the screen copy', async 
   expect(externalRequests).toEqual([]);
 });
 
+test('Settings scrolls its content without scrolling the shell or document', async ({
+  page,
+}, testInfo) => {
+  const { externalRequests } = await installSettingsApi(page, testInfo);
+  await page.route('**/api/members', (route) =>
+    route.request().method() === 'GET'
+      ? route.fulfill({
+          json: {
+            members: Array.from({ length: 40 }, (_, index) => ({
+              id: index + 1,
+              name: `Profile ${index + 1}`,
+              active: true,
+            })),
+          },
+        })
+      : route.continue(),
+  );
+  await page.goto('/settings');
+  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+  await page.addStyleTag({
+    content: ':root { --safe-area-bottom: 34px; }',
+  });
+
+  const main = page.getByRole('main');
+  const content = main.locator(':scope > div');
+  const innerScroll = await content.evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    paddingBottom: Number.parseFloat(getComputedStyle(element).paddingBottom),
+    scrollHeight: element.scrollHeight,
+  }));
+  expect(innerScroll.scrollHeight).toBeGreaterThan(innerScroll.clientHeight);
+  expect(innerScroll.paddingBottom).toBeGreaterThanOrEqual(34);
+
+  const dimensions = await page.evaluate(() => {
+    const shell = document.querySelector('main')?.parentElement;
+    if (!(shell instanceof HTMLElement)) return null;
+    return {
+      documentClientHeight: document.documentElement.clientHeight,
+      documentScrollHeight: document.documentElement.scrollHeight,
+      documentScrollTop: document.documentElement.scrollTop,
+      shellClientHeight: shell.clientHeight,
+      shellScrollHeight: shell.scrollHeight,
+      shellScrollTop: shell.scrollTop,
+    };
+  });
+  expect(dimensions).not.toBeNull();
+  expect(dimensions!.documentScrollHeight).toBeLessThanOrEqual(
+    dimensions!.documentClientHeight,
+  );
+  expect(dimensions!.shellScrollHeight).toBeLessThanOrEqual(
+    dimensions!.shellClientHeight,
+  );
+
+  await content.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  expect(
+    await content.evaluate((element) => element.scrollTop),
+  ).toBeGreaterThan(0);
+  expect(
+    await page.evaluate(() => {
+      const shell = document.querySelector('main')?.parentElement;
+      return {
+        documentScrollTop: document.documentElement.scrollTop,
+        shellScrollTop: shell instanceof HTMLElement ? shell.scrollTop : null,
+      };
+    }),
+  ).toEqual({ documentScrollTop: 0, shellScrollTop: 0 });
+  expect(externalRequests).toEqual([]);
+});
+
 test('profiles can be added, renamed, deactivated, and are hidden from the picker', async ({
   page,
 }, testInfo) => {
@@ -242,9 +313,7 @@ test('money rows open common-currency and coin sheets', async ({
     .click();
   const bitcoinEditor = page.getByRole('dialog', { name: 'Edit BTC' });
   await expect(
-    bitcoinEditor.getByText(
-      'This coin is in use and can’t be deleted.',
-    ),
+    bitcoinEditor.getByText('This coin is in use and can’t be deleted.'),
   ).toBeVisible();
   await expect(
     bitcoinEditor.getByRole('button', { name: 'Delete coin' }),
@@ -302,7 +371,6 @@ test('money rows open common-currency and coin sheets', async ({
   expect(settingsApi.coinDeleteRequests()).toEqual([
     { code: 'DOGE', contentType: 'application/json', body: {} },
   ]);
-
 });
 
 test('Escape closes the coin editor but leaves its list open', async ({
@@ -349,9 +417,7 @@ test('time-zone picker searches IANA names and reports no matches', async ({
   );
 
   await search.fill('New_York');
-  await timeZoneSheet
-    .getByRole('button', { name: 'America/New_York' })
-    .click();
+  await timeZoneSheet.getByRole('button', { name: 'America/New_York' }).click();
   await expect(timeZoneSheet).toBeHidden();
   await expect(
     page.getByText('America/New_York', { exact: true }),

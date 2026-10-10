@@ -986,11 +986,14 @@ onBeforeUnmount(() => {
 }
 
 .checkin-closed {
-  min-height: 100%;
+  min-height: 0;
+  flex: 1;
+  box-sizing: border-box;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  padding: max(48px, env(safe-area-inset-top)) var(--gutter)
-    max(24px, env(safe-area-inset-bottom));
+  padding: max(48px, var(--safe-area-top)) var(--gutter)
+    max(24px, var(--safe-area-bottom));
 }
 
 .checkin-closed-content {
@@ -1022,7 +1025,11 @@ onBeforeUnmount(() => {
 }
 
 .checkin-loading {
-  padding: 24px var(--gutter);
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: max(48px, calc(var(--safe-area-top) + 24px)) var(--gutter)
+    max(24px, var(--safe-area-bottom));
 }
 
 @media (prefers-reduced-motion: reduce) {

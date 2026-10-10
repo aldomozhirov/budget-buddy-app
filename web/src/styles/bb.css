@@ -852,7 +852,7 @@
   flex-direction: column;
   gap: 10px;
   overscroll-behavior-y: contain;
-  touch-action: pan-y;
+  touch-action: manipulation;
   transition: transform 0.24s var(--ease-out);
 }
 .bb .sheet-handle {
@@ -861,13 +861,13 @@
   height: 5px;
   border-radius: 3px;
   background: var(--line);
-  touch-action: none;
+  touch-action: manipulation;
 }
 .bb .sheet-head {
   display: flex;
   align-items: center;
   gap: 12px;
-  touch-action: none;
+  touch-action: manipulation;
 }
 .bb .sheet .icon-btn {
   background: var(--bg);

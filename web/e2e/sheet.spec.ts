@@ -284,6 +284,33 @@ test('reduced motion removes the snap-back transition', async ({ page }) => {
   await expect(sheet).not.toHaveClass(/sheet-dragging/);
 });
 
+test('a second touch cancels sheet dragging and leaves pinch zoom available', async ({
+  page,
+}) => {
+  await openSheet(page);
+  const sheet = page.getByRole('dialog', { name: 'Swipe test sheet' });
+  const bounds = await sheet.boundingBox();
+  expect(bounds).not.toBeNull();
+  const startY = bounds!.y + 24;
+  expect(await dispatchTouch(sheet, 'start', startY)).toBe(false);
+  expect(await dispatchTouch(sheet, 'move', startY + 12)).toBe(true);
+  await expect(sheet).toHaveClass(/sheet-dragging/);
+
+  expect(
+    await dispatchTouch(sheet, 'start', startY + 12, 100, 2),
+  ).toBe(false);
+  expect(
+    await dispatchTouch(sheet, 'move', startY + 350, 100, 2),
+  ).toBe(false);
+  await dispatchTouch(sheet, 'end', startY + 350);
+
+  await expect(sheet).toBeVisible();
+  await expect(sheet).not.toHaveClass(/sheet-dragging/);
+  await expect(page.getByRole('status', { name: 'Close events' })).toHaveText(
+    'Close events: 0',
+  );
+});
+
 test('a touchscreen tap on the dimmed area closes the sheet', async ({
   page,
 }) => {
@@ -399,6 +426,7 @@ async function dispatchTouch(
   phase: 'start' | 'move' | 'end',
   clientY: number,
   elapsedMs = 100,
+  touchCount = 1,
 ): Promise<boolean> {
   const page = target.page();
   if (!clockedPages.has(page)) {
@@ -408,18 +436,28 @@ async function dispatchTouch(
   if (phase !== 'start') await page.clock.fastForward(elapsedMs);
 
   return target.evaluate(
-    (element, { phase, clientY }) => {
+    (element, { phase, clientY, touchCount }) => {
       const type = `touch${phase}`;
-      const point = { identifier: 1, target: element, clientX: 120, clientY };
+      const points = Array.from({ length: touchCount }, (_, index) => ({
+        identifier: index + 1,
+        target: element,
+        clientX: 120 + index * 80,
+        clientY: clientY + index * 40,
+      }));
       const event = new Event(type, { bubbles: true, cancelable: true });
       Object.defineProperties(event, {
-        touches: { value: phase === 'end' ? [] : [point] },
-        changedTouches: { value: [point] },
+        touches: { value: phase === 'end' ? [] : points },
+        changedTouches: {
+          value:
+            phase === 'start' && touchCount > 1
+              ? [points[touchCount - 1]]
+              : [points[0]],
+        },
       });
       element.dispatchEvent(event);
       return event.defaultPrevented;
     },
-    { phase, clientY },
+    { phase, clientY, touchCount },
   );
 }
 

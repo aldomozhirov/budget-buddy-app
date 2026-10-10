@@ -231,11 +231,11 @@ test('filters accounts by owner and groups them by profile', async ({
     const tab = ownerTrack.getByRole('tab', { name: label, exact: true });
     const visibleLabel = tab.getByText(label, { exact: true });
     await expect(visibleLabel).toBeVisible();
-    const labelLayer = await visibleLabel.evaluate(
-      (element) => Number(getComputedStyle(element).zIndex),
+    const labelLayer = await visibleLabel.evaluate((element) =>
+      Number(getComputedStyle(element).zIndex),
     );
-    const pillLayer = await tab.evaluate(
-      (element) => Number(getComputedStyle(element, '::before').zIndex),
+    const pillLayer = await tab.evaluate((element) =>
+      Number(getComputedStyle(element, '::before').zIndex),
     );
     expect(labelLayer).toBeGreaterThan(pillLayer);
     expect((await tab.boundingBox())?.height).toBe(44);
@@ -288,6 +288,92 @@ test('filters accounts by owner and groups them by profile', async ({
   ).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Yours' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Max’s' })).toHaveCount(0);
+});
+
+test('Accounts scrolls its content without scrolling the document', async ({
+  page,
+}) => {
+  await page.route('**/api/accounts*', (route) =>
+    route.fulfill({
+      json: {
+        accounts: Array.from({ length: 24 }, (_, index) => ({
+          ...accounts[index % accounts.length],
+          id: index + 1,
+          name: `Account ${index + 1}`,
+        })),
+      },
+    }),
+  );
+  await page.goto('/accounts');
+  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+  await page.addStyleTag({
+    content: ':root { --safe-area-bottom: 34px; }',
+  });
+
+  const content = page.getByRole('main').locator('[aria-live="polite"]');
+  const bottomPadding = await content.evaluate((element) =>
+    Number.parseFloat(getComputedStyle(element).paddingBottom),
+  );
+  expect(bottomPadding).toBeGreaterThanOrEqual(34);
+  const dimensions = await page.evaluate(() => ({
+    clientHeight: document.documentElement.clientHeight,
+    scrollHeight: document.documentElement.scrollHeight,
+  }));
+  const innerScroll = await content.evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    scrollHeight: element.scrollHeight,
+  }));
+  expect(dimensions.scrollHeight).toBeLessThanOrEqual(dimensions.clientHeight);
+  expect(innerScroll.scrollHeight).toBeGreaterThan(innerScroll.clientHeight);
+  const shellDimensions = await page.getByRole('main').evaluate((main) => {
+    const shell = main.parentElement;
+    if (!(shell instanceof HTMLElement)) return null;
+    return {
+      clientHeight: shell.clientHeight,
+      scrollHeight: shell.scrollHeight,
+      scrollTop: shell.scrollTop,
+    };
+  });
+  expect(shellDimensions).not.toBeNull();
+  expect(shellDimensions!.scrollHeight).toBeLessThanOrEqual(
+    shellDimensions!.clientHeight,
+  );
+  expect(shellDimensions!.scrollTop).toBe(0);
+
+  await content.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  expect(
+    await content.evaluate((element) => element.scrollTop),
+  ).toBeGreaterThan(0);
+  expect(
+    await page.evaluate(() => ({
+      scrollY: window.scrollY,
+      scrollTop: document.documentElement.scrollTop,
+      scrollHeight: document.documentElement.scrollHeight,
+      clientHeight: document.documentElement.clientHeight,
+      shell: (() => {
+        const shell = document.querySelector('main')?.parentElement;
+        return shell instanceof HTMLElement
+          ? {
+              scrollTop: shell.scrollTop,
+              scrollHeight: shell.scrollHeight,
+              clientHeight: shell.clientHeight,
+            }
+          : null;
+      })(),
+    })),
+  ).toEqual({
+    scrollY: 0,
+    scrollTop: 0,
+    scrollHeight: dimensions.scrollHeight,
+    clientHeight: dimensions.clientHeight,
+    shell: {
+      scrollTop: 0,
+      scrollHeight: shellDimensions!.scrollHeight,
+      clientHeight: shellDimensions!.clientHeight,
+    },
+  });
 });
 
 test('filters accounts by type and currency', async ({ page }) => {
@@ -355,9 +441,9 @@ test('marks old balances stale and labels balance details', async ({
   await expect(staleCash.getByText('Stale')).toBeVisible();
   const staleRowBounds = await staleCash.boundingBox();
   expect(staleRowBounds?.height).toBe(65);
-  await expect(page.getByRole('link', { name: /Car loan · EUR/ })).toContainText(
-    'We owe · Check-in 01/09/2026',
-  );
+  await expect(
+    page.getByRole('link', { name: /Car loan · EUR/ }),
+  ).toContainText('We owe · Check-in 01/09/2026');
   await expect(
     page.getByRole('link', { name: /Loan to a friend · EUR/ }),
   ).toContainText('Owed to us · By hand 20/09/2026');
@@ -421,7 +507,9 @@ test('marks a real account stale when its balance exceeds the cadence', async ({
       prepare(sql: string): { run(): unknown };
       close(): void;
     };
-    const database = new Sqlite(path.join(dataDirectory, 'budget-buddy.sqlite'));
+    const database = new Sqlite(
+      path.join(dataDirectory, 'budget-buddy.sqlite'),
+    );
     database
       .prepare("UPDATE family SET cadence_kind = 'monthly' WHERE id = 1")
       .run();

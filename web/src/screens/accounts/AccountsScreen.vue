@@ -526,7 +526,7 @@ onMounted(() => void loadOptions());
   min-height: 0;
   flex-direction: column;
   gap: 16px;
-  padding: 4px 16px 28px;
+  padding: 4px 16px max(28px, var(--safe-area-bottom));
 }
 .accounts-group {
   display: flex;

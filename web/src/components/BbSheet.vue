@@ -83,7 +83,11 @@ function getScrollAncestors(target: Element): HTMLElement[] {
 }
 
 function onTouchStart(event: TouchEvent) {
-  if (!props.closable || !isTopSheet(sheetToken) || event.touches.length !== 1) {
+  if (event.touches.length !== 1) {
+    resetTouchDrag();
+    return;
+  }
+  if (!props.closable || !isTopSheet(sheetToken)) {
     return;
   }
   const target = event.target;
@@ -106,6 +110,10 @@ function onTouchStart(event: TouchEvent) {
 }
 
 function onTouchMove(event: TouchEvent) {
+  if (event.touches.length !== 1) {
+    resetTouchDrag();
+    return;
+  }
   if (!dragRegion || !props.closable || !isTopSheet(sheetToken)) return;
   const touch = event.touches[0];
   if (!touch) return;
@@ -147,6 +155,10 @@ function resetTouchDrag() {
 }
 
 function onTouchEnd(event: TouchEvent) {
+  if (event.touches.length > 0) {
+    resetTouchDrag();
+    return;
+  }
   if (!dragRegion) return;
   const touch = event.changedTouches[0];
   const offset = Math.max(0, (touch?.clientY ?? previousY) - dragStartY);

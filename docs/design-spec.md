@@ -239,6 +239,14 @@ The values below are implemented in `docs/design/html/bb.css`. Where a prototype
 - **UI-MOT-2 (Should).** Bars and chart lines grow or draw in shortly after a screen opens. Buttons scale to 97 % while pressed. A wrong password shakes the field. Expanding rows and switches animate.
 - **UI-MOT-3 (Must).** With "Reduce motion" on, all animation and transitions are off.
 
+### 15.5 Page chrome
+
+- **UI-VIS-7 (Must).** Browser and installed-app chrome uses the page `bg` in
+  both appearances. The viewport covers the safe areas and every screen keeps
+  content clear of them. Touch interaction uses `manipulation`, which prevents
+  double-tap zoom while leaving pinch zoom available. A screen with its own
+  scroll container does not also scroll or rubber-band the document.
+
 ## 16. Copy and formats
 
 - **UI-TXT-1 (Must).** Dates in lists and headings are DD/MM/YYYY (section 11 of the requirements). Recent dates in transaction lists read "Today", "Yesterday" or "Sat 3 Oct".
