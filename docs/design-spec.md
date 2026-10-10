@@ -111,7 +111,7 @@ Other screens that list money totals put the same eye button in their header. Th
 ## 6. Amount entry
 
 - **UI-AMT-1 (Must).** Every amount is typed on the app's own keypad, never the system keyboard (IOS-4). Its keys, in four rows of five: `7 8 9 ( )`, `4 5 6 × ÷`, `1 2 3 + −`, `. 0 % ⌫ C`. Operator keys use the softer surface colour.
-- **UI-AMT-2 (Must).** Above the result, the expression is shown as typed once it contains an operator. The result updates while typing; while an operator is still open it shows the last complete result. An invalid expression shows "Can’t calculate that. Check the brackets." and disables saving (ACC-9).
+- **UI-AMT-2 (Must).** Above the result, the expression is shown as typed once it contains an operator. The result updates while typing; while an operator, bracket or decimal number is still open, it shows the last complete result and no error. No error is shown before any number is entered. Saving stays disabled until the expression is complete. An invalid bracket expression shows "Can’t calculate that. Check the brackets.", division by zero shows "Can’t divide by zero.", an oversized amount shows "Amount is too large", and any other invalid complete expression shows "Can’t calculate that." (ACC-9).
 - **UI-AMT-3 (Must).** Results are rounded to the currency's smallest unit. A leading minus is allowed where negative amounts make sense: refunds (TXN-8), envelope adjustments, and balances of accounts that are not "money we owe".
 - **UI-AMT-4 (Must).** Balance sheets offer "Start from last" to put the previous balance into the expression, so a change can be typed as `+ 120`.
 

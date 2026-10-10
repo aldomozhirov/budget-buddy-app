@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  classifyExpressionError,
   evaluateExpression,
   formatChange,
   formatMoney,
@@ -90,6 +91,34 @@ describe('minor-unit and rounding rules', () => {
 describe('expression evaluator', () => {
   const evaluate = (expression: string, currency: Currency = eur) => evaluateExpression(expression, currency);
 
+  it.each([
+    ['empty input', '', 'incomplete'],
+    ['operator without a number', '+', 'incomplete'],
+    ['trailing operator', '1+', 'incomplete'],
+    ['decimal point alone', '.', 'incomplete'],
+    ['decimal point after an operator', '1+.', 'incomplete'],
+    ['open bracket', '(1+2', 'incomplete'],
+    ['unclosed empty bracket', '(', 'incomplete'],
+    ['stray close bracket', '1)', 'brackets'],
+    ['empty brackets', '()', 'brackets'],
+    ['adjacent bracket groups', '(1)(2', 'other'],
+    ['implicit multiplication after a number', '1(2+', 'other'],
+    ['open bracket with division by zero', '(5/0', 'incomplete'],
+    ['division by zero before a stray close bracket', '5/0)', 'brackets'],
+    ['division by zero', '5/0', 'division-by-zero'],
+    ['overflow', '92233720368547758.08', 'too-large'],
+    ['invalid number', '1..2', 'other'],
+  ] as const)(
+    'classifies %s as %s',
+    (_description, expression, expected) => {
+      const result = evaluate(expression);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(classifyExpressionError(expression, result.reason)).toBe(expected);
+      }
+    },
+  );
+
   it('evaluates the required percentage expression and rounds repeating decimals once to currency precision', () => {
     expect(evaluate('(11244.14 + 12441.12) / 2 * 10%')).toEqual({ ok: true, value: 118426n });
     expect(evaluate('1/3')).toEqual({ ok: true, value: 33n });
@@ -142,6 +171,11 @@ describe('expression evaluator', () => {
     expect(lastCompleteValue('1 + (', eur)).toBe(100n);
     expect(lastCompleteValue('2 * (1 + (', eur)).toBe(200n);
     expect(lastCompleteValue('(', eur)).toBeUndefined();
+  });
+
+  it('previews the last complete value before an incomplete decimal point', () => {
+    expect(lastCompleteValue('1+.', eur)).toBe(100n);
+    expect(lastCompleteValue('.', eur)).toBeUndefined();
   });
 });
 

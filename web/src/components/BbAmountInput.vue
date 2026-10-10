@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import {
+  classifyExpressionError,
   evaluateExpression,
   formatMoney,
   lastCompleteValue,
@@ -69,9 +70,19 @@ const hasOperator = computed(() => /[+−\-×÷*/%]/.test(expression.value));
 const error = computed(() => {
   const result = evaluation.value;
   if (!result || result.ok) return '';
-  return result.reason === 'Amount is too large'
-    ? result.reason
-    : 'Can’t calculate that. Check the brackets.';
+  switch (classifyExpressionError(expression.value, result.reason)) {
+    case 'incomplete':
+      return '';
+    case 'brackets':
+      return 'Can’t calculate that. Check the brackets.';
+    case 'division-by-zero':
+      return 'Can’t divide by zero.';
+    case 'too-large':
+      return 'Amount is too large';
+    case 'other':
+      return 'Can’t calculate that.';
+  }
+  return 'Can’t calculate that.';
 });
 const canSave = computed(() => evaluation.value?.ok === true);
 const minusDisabled = computed(() => {
@@ -133,6 +144,7 @@ function press(key: string): void {
   const base = replacesOperator ? trimmed.slice(0, -1) : expression.value;
   const unaryPosition = !base.trim() || base.trimEnd().endsWith('(');
   if (key === '−' && unaryPosition && !props.allowNegative) return;
+  if (['+', '×', '÷', '%'].includes(key) && unaryPosition) return;
 
   if (/[+−×÷]/.test(key) && replacesOperator) {
     setExpression(`${base}${key}`);

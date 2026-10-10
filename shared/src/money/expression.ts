@@ -9,6 +9,14 @@ import { roundHalfAwayFromZero } from './rounding.js';
  */
 export type ExpressionResult = { readonly ok: true; readonly value: bigint } | { readonly ok: false; readonly reason: string };
 
+/** Display classification for a failed amount expression. */
+export type ExpressionErrorKind =
+  | 'incomplete'
+  | 'brackets'
+  | 'division-by-zero'
+  | 'too-large'
+  | 'other';
+
 /** Decimal context for expressions: 100 significant digits. */
 const ExpressionDecimal = Decimal.clone({ precision: 100, rounding: Decimal.ROUND_HALF_UP });
 
@@ -18,6 +26,7 @@ class ExpressionError extends Error {}
 /**
  * Splits an expression into number, operator and bracket tokens, accepting
  * typographic − × ÷ and reading commas as decimal points.
+ * A lone `.` is kept as an incomplete number prefix for the keypad.
  * @throws {ExpressionError} on an invalid character or malformed number.
  */
 function tokenize(expression: string): string[] {
@@ -35,7 +44,7 @@ function tokenize(expression: string): string[] {
         index += 1;
       }
       const literal = input.slice(start, index);
-      if (dots > 1 || literal === '.') throw new ExpressionError('Invalid number');
+      if (dots > 1) throw new ExpressionError('Invalid number');
       tokens.push(literal);
       continue;
     }
@@ -139,24 +148,135 @@ export function evaluateExpression(expression: string, currency: Currency): Expr
 }
 
 /**
+ * Classifies an invalid expression so unfinished input stays quiet while
+ * mistakes that cannot be extended into a valid expression are announced.
+ */
+export function classifyExpressionError(
+  expression: string,
+  reason: string,
+): ExpressionErrorKind {
+  let openBrackets = 0;
+  let previous = '';
+  for (const character of expression) {
+    if (/\s/.test(character)) continue;
+    if (character === '(') openBrackets += 1;
+    if (character === ')') {
+      if (openBrackets === 0 || previous === '(') return 'brackets';
+      openBrackets -= 1;
+    }
+    previous = character;
+  }
+
+  let tokens: string[];
+  try {
+    tokens = tokenize(expression);
+  } catch {
+    return 'other';
+  }
+
+  const hasNumber = tokens.some((token) =>
+    /^(?:\d+(?:\.\d*)?|\.\d+)$/.test(token),
+  );
+
+  if (!hasNumber) return 'incomplete';
+
+  type PrefixStatus = 'complete' | 'incomplete' | 'invalid';
+  let position = 0;
+  const current = (): string | undefined => tokens[position];
+
+  function primary(allowUnary: boolean): PrefixStatus {
+    const token = current();
+    if (token === undefined) return 'incomplete';
+    if (token === '-' && allowUnary) {
+      position += 1;
+      return primary(false);
+    }
+    if (token === '(') {
+      position += 1;
+      const inner = additive();
+      if (inner === 'invalid') return 'invalid';
+      if (inner === 'incomplete') {
+        return current() === ')' ? 'invalid' : 'incomplete';
+      }
+      if (current() === ')') {
+        position += 1;
+        return 'complete';
+      }
+      return current() === undefined ? 'incomplete' : 'invalid';
+    }
+    if (/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(token)) {
+      position += 1;
+      return 'complete';
+    }
+    if (token === '.') {
+      position += 1;
+      return current() === undefined ? 'incomplete' : 'invalid';
+    }
+    return 'invalid';
+  }
+
+  function postfix(allowUnary: boolean): PrefixStatus {
+    const operand = primary(allowUnary);
+    if (operand !== 'complete') return operand;
+    while (current() === '%') position += 1;
+    return 'complete';
+  }
+
+  function multiplicative(): PrefixStatus {
+    let operand = postfix(position === 0 || tokens[position - 1] === '(');
+    if (operand !== 'complete') return operand;
+    while (current() === '*' || current() === '/') {
+      position += 1;
+      operand = postfix(false);
+      if (operand !== 'complete') return operand;
+    }
+    return 'complete';
+  }
+
+  function additive(): PrefixStatus {
+    let operand = multiplicative();
+    if (operand !== 'complete') return operand;
+    while (current() === '+' || current() === '-') {
+      position += 1;
+      operand = multiplicative();
+      if (operand !== 'complete') return operand;
+    }
+    return 'complete';
+  }
+
+  const syntax = additive();
+  if (syntax === 'invalid' || position !== tokens.length) return 'other';
+  if (syntax === 'incomplete' || openBrackets > 0) return 'incomplete';
+
+  if (reason === 'Unbalanced brackets') return 'brackets';
+  if (reason === 'Division by zero') return 'division-by-zero';
+  if (reason === 'Amount is too large') return 'too-large';
+  return 'other';
+}
+
+/**
  * Returns a preview value for an expression still being typed: trailing
- * operators and empty brackets are dropped and open brackets closed before
- * evaluating.
- * Returns `undefined` when the expression neither ends in an operator nor
- * has unclosed brackets (use `evaluateExpression`), or cannot be evaluated.
+ * operators, decimal-point prefixes and empty brackets are dropped, and open
+ * brackets are closed before evaluating.
+ * Returns `undefined` when the expression has no incomplete suffix or cannot
+ * be evaluated.
  */
 export function lastCompleteValue(expression: string, currency: Currency): bigint | undefined {
   let tokens: string[];
   try { tokens = tokenize(expression); } catch { return undefined; }
   if (tokens.length === 0) return undefined;
   const trailingOperator = ['+', '-', '*', '/'].includes(tokens.at(-1) ?? '');
+  const trailingDecimalPoint = tokens.at(-1) === '.';
   let openBrackets = 0;
   for (const token of tokens) {
     if (token === '(') openBrackets += 1;
     if (token === ')') openBrackets -= 1;
   }
-  if (!trailingOperator && openBrackets <= 0) return undefined;
-  // Drop trailing operators and just-opened brackets: `1 + (` previews as 1.
+  if (!trailingOperator && !trailingDecimalPoint && openBrackets <= 0) {
+    return undefined;
+  }
+  if (trailingDecimalPoint) tokens.pop();
+  // Drop incomplete suffixes: `1 + (` previews as 1.
   while (['+', '-', '*', '/', '('].includes(tokens.at(-1) ?? '')) {
     if (tokens.pop() === '(') openBrackets -= 1;
   }
