@@ -23,7 +23,6 @@ import { useBack } from '../../composables/useBack.js';
 import { authState, setAuthState } from '../../stores/auth.js';
 import {
   createMoneyFormatter,
-  directionClass,
   trendsFromSeries,
   trendText,
   type CheckinTrend,
@@ -85,11 +84,6 @@ function closedTotal(checkin: Checkin): string {
 
 function closedTrend(checkin: Checkin): CheckinTrend | undefined {
   return trends.value.get(checkin.id)?.trend;
-}
-
-function trendDirection(checkin: Checkin): 'up' | 'down' | null {
-  const trend = closedTrend(checkin);
-  return trend === 'up' || trend === 'down' ? trend : null;
 }
 
 function closedLabel(checkin: Checkin): string {
@@ -351,7 +345,6 @@ void load();
                 />
                 <span
                   class="num t-sub"
-                  :class="directionClass(trendDirection(checkin))"
                 >{{ trendText(closedTrend(checkin) ?? null) }}</span>
               </span>
               <BbIcon
