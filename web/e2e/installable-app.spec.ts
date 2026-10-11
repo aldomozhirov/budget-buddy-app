@@ -265,6 +265,7 @@ test('disables the actions that need the server offline, and enables them online
       screen: '/settings',
       targets: () => [
         page.getByRole('switch', { name: 'Hide amounts on Home' }),
+        page.getByRole('switch', { name: 'Unlock with Face ID' }),
         page.getByRole('button', { name: 'Sign out' }),
       ],
     },

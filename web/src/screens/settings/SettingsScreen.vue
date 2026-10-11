@@ -28,6 +28,7 @@ import BbSheet from '../../components/BbSheet.vue';
 import BbSwitch from '../../components/BbSwitch.vue';
 import BackupSheet from './BackupSheet.vue';
 import ExportRow from './ExportRow.vue';
+import FaceIdRow from './FaceIdRow.vue';
 import CommonCurrencySheet from './CommonCurrencySheet.vue';
 import CoinsSheet from './CoinsSheet.vue';
 import RatesStatusSheet from './RatesStatusSheet.vue';
@@ -102,6 +103,7 @@ const backupRow = computed(() =>
 // Null until this device's setting has loaded; the switch waits for it.
 const hideHomeAmounts = ref<boolean | null>(null);
 const hideHomeAmountsError = ref('');
+const faceIdError = ref('');
 // Null until the browser has been asked; the switch waits for it.
 const pushState = ref<PushState | null>(null);
 const notificationsSheetOpen = ref(false);
@@ -666,14 +668,13 @@ async function readApiError(response: Response): Promise<{
               <span class="settings-row-title">Family password</span>
             </template>
           </BbRow>
-          <BbRow
-            title="Unlock with Face ID"
-            value="—"
-            :subtitle="`On ${deviceLabel}, instead of the password`"
-          />
+          <FaceIdRow @error="faceIdError = $event" />
         </BbListCard>
         <p v-if="passwordChanged" class="settings-notice" role="status">
           Family password changed.
+        </p>
+        <p v-if="faceIdError" class="error" role="alert">
+          {{ faceIdError }}
         </p>
       </section>
 

@@ -78,6 +78,124 @@ test('wrong passwords show the remaining tries and a controlled lockout', async 
   await expectExternalRequests(page, testInfo);
 });
 
+// Playwright's WebKit has no virtual authenticator, so no Face ID can be
+// completed here. The server's answers are mocked and the real browser runs
+// its real prompt, which finds no authenticator and refuses at once, as it
+// does when a person cancels. The real Face ID run is the owner trial of
+// task 31.
+test.describe('Use Face ID', () => {
+  const button = (page: Page) =>
+    page.getByRole('button', { name: 'Use Face ID' });
+  const localhostUrl = (testInfo: TestInfo) => {
+    const url = new URL('/', testInfo.project.use.baseURL as string);
+    url.hostname = 'localhost';
+    return url.toString();
+  };
+
+  test('is not shown on a device without a passkey', async ({
+    page,
+  }, testInfo) => {
+    await installApi(page, testInfo, {
+      defaultMemberId: 1,
+      hasPasskey: false,
+    });
+    await page.goto('/');
+    await expect(page).toHaveURL(/\/sign-in$/);
+    await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
+    await expect(button(page)).toHaveCount(0);
+  });
+
+  test('asks the server, runs the prompt, and a cancelled prompt leaves the password form as it was', async ({
+    page,
+  }, testInfo) => {
+    const calls: string[] = [];
+    await installApi(page, testInfo, {
+      defaultMemberId: 1,
+      passkey: { optionsStatus: 200, calls },
+    });
+    await page.goto(localhostUrl(testInfo));
+    await button(page).click();
+    await expect
+      .poll(() => calls)
+      .toEqual(['/api/auth/passkey/authenticate/options']);
+    await expect(button(page)).toBeEnabled();
+    await expect(page.getByRole('alert')).toHaveText('');
+    await expect(page).toHaveURL(/\/sign-in$/);
+    // Nothing was sent to verify, so nothing counted as a wrong try.
+    expect(calls).not.toContain('/api/auth/passkey/authenticate/verify');
+  });
+
+  test('a prompt that fails for another reason says to use the password', async ({
+    page,
+  }, testInfo) => {
+    // At 127.0.0.1 the real browser refuses: not a valid domain.
+    await installApi(page, testInfo, { defaultMemberId: 1 });
+    await page.goto('/');
+    await button(page).click();
+    await expect(page.getByRole('alert').last()).toHaveText(
+      'Could not use Face ID. Use your family password.',
+    );
+    await expect(page).toHaveURL(/\/sign-in$/);
+  });
+
+  test('a lockout from the server shows the countdown and disables the button', async ({
+    page,
+  }, testInfo) => {
+    await installApi(page, testInfo, {
+      defaultMemberId: 1,
+      passkey: {
+        optionsStatus: 423,
+        optionsError: { message: 'Too many tries.', retryAfter: 30 },
+        calls: [],
+      },
+    });
+    await page.clock.install();
+    await page.goto('/');
+    await button(page).click();
+    await expect(
+      page.getByRole('button', { name: 'Wait 30 s' }),
+    ).toBeDisabled();
+    await expect(page.getByRole('alert').first()).toHaveText(
+      'Too many tries. Try again in 30 s.',
+    );
+    await expect(button(page)).toBeDisabled();
+    await page.clock.runFor(30_000);
+    await expect(button(page)).toBeEnabled();
+  });
+
+  test('goes away when the server says this device has no passkey any more', async ({
+    page,
+  }, testInfo) => {
+    await installApi(page, testInfo, {
+      defaultMemberId: 1,
+      passkey: {
+        optionsStatus: 404,
+        optionsError: { message: 'Face ID isn’t set up on this device.' },
+        calls: [],
+      },
+    });
+    await page.goto('/');
+    await button(page).click();
+    await expect(page.getByRole('alert').last()).toHaveText(
+      'Face ID isn’t set up on this device. Use your family password.',
+    );
+    await expect(button(page)).toHaveCount(0);
+  });
+
+  test('is disabled offline, like the other actions that need the server', async ({
+    page,
+    context,
+  }, testInfo) => {
+    await installApi(page, testInfo, { defaultMemberId: 1 });
+    await page.goto('/');
+    await expect(button(page)).toBeEnabled();
+    await context.setOffline(true);
+    await expect(button(page)).toBeDisabled();
+    await context.setOffline(false);
+    await expect(button(page)).toBeEnabled();
+  });
+});
+
 test('sign-in without a remembered profile opens the picker and records the choice', async ({
   page,
 }, testInfo) => {
@@ -116,7 +234,8 @@ test('sign-in without a remembered profile opens the picker and records the choi
   await page
     .getByRole('button', { name: 'Blair — switch profile or sign out' })
     .click();
-  await page.getByRole('dialog', { name: 'Who’s using the app?' })
+  await page
+    .getByRole('dialog', { name: 'Who’s using the app?' })
     .getByRole('button', { name: 'Sign out' })
     .click();
   await expect(page).toHaveURL(/\/sign-in$/);
@@ -337,6 +456,14 @@ async function installApi(
     currentMemberId?: number | null;
     defaultMemberId: number | null;
     wrongPasswordOnly?: boolean;
+    /** Whether this device has a passkey; by default it has one when it has a default profile. */
+    hasPasskey?: boolean;
+    /** The server's answer to a Face ID challenge request, and the calls made. */
+    passkey?: {
+      optionsStatus: number;
+      optionsError?: { message: string; retryAfter?: number };
+      calls: string[];
+    };
   },
 ): Promise<void> {
   const deviceLabel = testInfo.project.name === 'iphone' ? 'iPhone' : 'iPad';
@@ -371,10 +498,29 @@ async function installApi(
     route.fulfill({
       json: {
         defaultMember: profile(defaultMemberId),
-        hasPasskey: defaultMemberId !== null,
+        hasPasskey: options.hasPasskey ?? defaultMemberId !== null,
       },
     }),
   );
+  await page.route('**/api/auth/passkey/**', (route) => {
+    const passkey = options.passkey;
+    passkey?.calls.push(new URL(route.request().url()).pathname);
+    if (!passkey || passkey.optionsStatus === 200) {
+      return route.fulfill({
+        json: {
+          challenge: 'dGVzdC1jaGFsbGVuZ2U',
+          rpId: new URL(route.request().url()).hostname,
+          timeout: 60000,
+          userVerification: 'required',
+          allowCredentials: [{ id: 'Y3JlZA', type: 'public-key' }],
+        },
+      });
+    }
+    return route.fulfill({
+      status: passkey.optionsStatus,
+      json: { error: { code: 'x', ...passkey.optionsError } },
+    });
+  });
   await page.route('**/api/auth/me', (route) => {
     if (!signedIn) {
       return route.fulfill({

@@ -11,6 +11,7 @@ import { isOnline } from '../../composables/useOnline.js';
 import BbIcon from '../../components/BbIcon.vue';
 import BbSwitch from '../../components/BbSwitch.vue';
 import { deviceName } from '../../device.js';
+import { signInWithPasskey } from '../../passkey/passkeyClient.js';
 import { authState, refreshAuthState } from '../../stores/auth.js';
 
 /** Sign-in and profile selection for a family's shared-password account. */
@@ -20,6 +21,7 @@ const router = useRouter();
 const password = ref('');
 const passwordVisible = ref(false);
 const submitting = ref(false);
+const faceIdBusy = ref(false);
 const passwordError = ref('');
 const formError = ref('');
 const forgotPasswordOpen = ref(false);
@@ -90,19 +92,54 @@ async function signIn(): Promise<void> {
     }
 
     signInResponseSchema.parse(await response.json());
-    const state = await refreshAuthState();
-    if (state?.member) {
-      await router.replace('/');
-    } else if (state) {
-      pickerMode.value = true;
-      rememberOnDevice.value = true;
-    } else {
-      formError.value = 'Could not start a session. Try again.';
-    }
+    await openSignedInScreen();
   } catch {
     formError.value = 'Could not sign in. Check your connection and try again.';
   } finally {
     submitting.value = false;
+  }
+}
+
+/** Goes Home, or to the profile picker, once a session has been opened. */
+async function openSignedInScreen(): Promise<void> {
+  const state = await refreshAuthState();
+  if (state?.member) {
+    await router.replace('/');
+  } else if (state) {
+    pickerMode.value = true;
+    rememberOnDevice.value = true;
+  } else {
+    formError.value = 'Could not start a session. Try again.';
+  }
+}
+
+/** Signs in with this device's passkey; failures count toward the lockout. */
+async function useFaceId(): Promise<void> {
+  if (faceIdBusy.value || submitting.value || lockSeconds.value > 0) return;
+  faceIdBusy.value = true;
+  passwordError.value = '';
+  formError.value = '';
+  shakePassword.value = false;
+  try {
+    const result = await signInWithPasskey();
+    if (result.ok) {
+      await openSignedInScreen();
+    } else if (result.reason === 'locked') {
+      startLockout(result.retryAfter);
+      passwordError.value = `Too many tries. Try again in ${lockSeconds.value} s.`;
+    } else if (result.reason === 'wrong') {
+      passwordError.value = result.message;
+      shakePassword.value = true;
+    } else if (result.reason !== 'cancelled') {
+      formError.value = result.message;
+      // The passkey is gone on the server (for instance after a password
+      // change elsewhere), so the button should go too.
+      if (result.reason === 'missing') deviceHints.value.hasPasskey = false;
+    }
+  } catch {
+    formError.value = 'Could not use Face ID. Use your family password.';
+  } finally {
+    faceIdBusy.value = false;
   }
 }
 
@@ -227,7 +264,9 @@ function startLockout(seconds: number): void {
         v-if="deviceHints.hasPasskey"
         variant="secondary"
         type="button"
-        @click="formError = 'Use your family password to sign in.'"
+        needs-server
+        :disabled="faceIdBusy || submitting || lockSeconds > 0"
+        @click="useFaceId"
       >
         <BbIcon name="faceid" />
         Use Face ID

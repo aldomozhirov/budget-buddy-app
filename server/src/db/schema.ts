@@ -369,7 +369,11 @@ export const passkey = sqliteTable(
     counter: integer('counter').notNull(),
     createdAt: integer('created_at').notNull(),
   },
-  (table) => [unique('passkey_credential_id_unique').on(table.credentialId)],
+  (table) => [
+    unique('passkey_credential_id_unique').on(table.credentialId),
+    // One passkey per device: turning Face ID on again replaces it.
+    unique('passkey_device_id_unique').on(table.deviceId),
+  ],
 );
 
 export const pushSubscription = sqliteTable(

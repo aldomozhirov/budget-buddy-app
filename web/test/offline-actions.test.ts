@@ -14,6 +14,8 @@ async function load(onLine: boolean) {
     BbSwitch: (await import('../src/components/BbSwitch.vue')).default,
     BbAmountInput: (await import('../src/components/BbAmountInput.vue'))
       .default,
+    FaceIdRow: (await import('../src/screens/settings/FaceIdRow.vue')).default,
+    auth: await import('../src/stores/auth.js'),
   };
 }
 
@@ -46,6 +48,31 @@ describe('actions that need the server (IOS-6)', () => {
       await offline.render(offline.BbSwitch, { ...props, needsServer: true }),
     ).toMatch(disabled);
     expect(await offline.render(offline.BbSwitch, props)).not.toMatch(disabled);
+  });
+
+  it('the Face ID switch is disabled offline, with or without a passkey', async () => {
+    vi.stubGlobal('PublicKeyCredential', class {});
+    const switchState = {
+      profiles: [],
+      member: { id: 1, name: 'Alex' },
+    };
+    for (const hasPasskey of [false, true]) {
+      const offline = await load(false);
+      offline.auth.setAuthState({
+        ...switchState,
+        device: { defaultMemberId: null, hasPasskey },
+      });
+      const html = await offline.render(offline.FaceIdRow, {});
+      expect(html).toContain('role="switch"');
+      expect(html).toContain(`aria-checked="${hasPasskey}"`);
+      expect(html).toMatch(disabled);
+    }
+    const online = await load(true);
+    online.auth.setAuthState({
+      ...switchState,
+      device: { defaultMemberId: null, hasPasskey: false },
+    });
+    expect(await online.render(online.FaceIdRow, {})).not.toMatch(disabled);
   });
 
   it('the amount editor cannot save offline when it needs the server', async () => {

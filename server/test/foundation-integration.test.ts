@@ -67,7 +67,7 @@ describe('foundation server integration', () => {
 
     expect(database.pragma('journal_mode', { simple: true })).toBe('wal');
     expect(database.pragma('foreign_keys', { simple: true })).toBe(1n);
-    expect(migrationVersion(database)).toBe(3);
+    expect(migrationVersion(database)).toBe(4);
 
     const tables = new Set(
       (
@@ -130,7 +130,7 @@ describe('foundation server integration', () => {
     expect(backupsBeforeNoOp).toHaveLength(1);
     expect(backupsBeforeNoOp[0]).toMatch(/^pre_migration-.*\.sqlite$/);
 
-    expect(await migrateDatabase(database, { backupDir })).toBe(3);
+    expect(await migrateDatabase(database, { backupDir })).toBe(4);
     expect(await readdir(backupDir)).toEqual(backupsBeforeNoOp);
   });
 
@@ -207,7 +207,7 @@ describe('foundation server integration', () => {
       )
       .run();
 
-    expect(await migrateDatabase(database, { backupDir: root })).toBe(3);
+    expect(await migrateDatabase(database, { backupDir: root })).toBe(4);
     expect(
       database
         .prepare('SELECT id, amount, source FROM snapshot WHERE account_id = 1')
