@@ -350,7 +350,8 @@ test('Back returns to where the summary was opened from', async ({ page }) => {
 
   await page.goto(`${origin}/`);
   await page.getByRole('link', { name: 'Wealth history' }).click();
-  await expect(page).toHaveURL(`${origin}/check-ins/1`);
+  // Wealth history opens the latest closed check-in (D3).
+  await expect(page).toHaveURL(`${origin}/check-ins/${seed.second}`);
   await page.getByRole('button', { name: 'Back to home' }).click();
   await expect(page).toHaveURL(`${origin}/`);
 

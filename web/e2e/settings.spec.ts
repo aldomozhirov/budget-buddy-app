@@ -74,7 +74,7 @@ test('Settings shows every section in order and matches the screen copy', async 
   await expect(page.getByText('BTC, ETH, USDT', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /Time zone/u })).toBeVisible();
   await expect(page.getByText('Europe/Berlin', { exact: true })).toBeVisible();
-  await expect(page.getByText('—', { exact: true })).toHaveCount(7);
+  await expect(page.getByText('—', { exact: true })).toHaveCount(6);
   await expect(page.getByRole('heading', { name: 'Spending' })).toHaveCount(0);
 
   const screenshotPath =

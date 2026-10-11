@@ -24,6 +24,8 @@ import { snapshotRoutes } from './modules/snapshots/index.js';
 import { checkinRoutes } from './modules/checkins/index.js';
 import { ratesRoutes } from './modules/rates/index.js';
 import { summaryRoutes } from './modules/summary/index.js';
+import { homeRoutes } from './modules/home/index.js';
+import { deviceRoutes } from './modules/devices/index.js';
 import { createCheckinEventBus, type CheckinEventBus } from './events.js';
 import { createRatesService, type RatesService } from './rates/service.js';
 
@@ -149,6 +151,8 @@ export async function createApp(options: AppOptions) {
     events,
   });
   await app.register(summaryRoutes, { database: options.database, clock });
+  await app.register(homeRoutes, { database: options.database, clock });
+  await app.register(deviceRoutes, { database: options.database });
 
   app.setErrorHandler((error, request, reply) => {
     const fastifyError = error as Error & {
