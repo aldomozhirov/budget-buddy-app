@@ -162,6 +162,60 @@ test('a second tap hides the amounts at once, and nothing is stored', async ({
   await expectNoAmounts(page);
 });
 
+test('backgrounding the page hides revealed amounts at once, and they stay hidden', async ({
+  page,
+}) => {
+  const seed = await seedFamily(page.context());
+  await closedCheckinThenRaiseIng(page.context(), seed);
+  await page.clock.install();
+  await page.goto(`${origin}/`);
+  const wealth = page.getByRole('link', { name: /^Family wealth/u });
+  await page
+    .getByRole('button', { name: 'Show amounts for 30 seconds' })
+    .click();
+  await expect(wealth).toContainText('€3,272.00');
+  await page.clock.runFor(5_000);
+
+  // Safari backgrounding: the page becomes hidden, well inside the 30 s.
+  await setVisibility(page, 'hidden');
+  await expect(wealth).toContainText('€ • • • • •');
+  await expect(page.getByText(/Amounts visible/u)).toHaveCount(0);
+  await expectNoAmounts(page);
+  await expect(
+    page.getByRole('button', { name: 'Show amounts for 30 seconds' }),
+  ).toHaveAttribute('aria-pressed', 'false');
+
+  // Returning within 30 s shows nothing; the eye still reveals again.
+  await page.clock.runFor(5_000);
+  await setVisibility(page, 'visible');
+  await expect(wealth).toContainText('€ • • • • •');
+  await expectNoAmounts(page);
+  await page
+    .getByRole('button', { name: 'Show amounts for 30 seconds' })
+    .click();
+  await expect(wealth).toContainText('€3,272.00');
+  await page.clock.runFor(30_000);
+  await expect(wealth).toContainText('€ • • • • •');
+});
+
+test('pagehide hides revealed amounts before the app switcher snapshot', async ({
+  page,
+}) => {
+  const seed = await seedFamily(page.context());
+  await closedCheckinThenRaiseIng(page.context(), seed);
+  await page.clock.install();
+  await page.goto(`${origin}/`);
+  const wealth = page.getByRole('link', { name: /^Family wealth/u });
+  await page
+    .getByRole('button', { name: 'Show amounts for 30 seconds' })
+    .click();
+  await expect(wealth).toContainText('€3,272.00');
+
+  await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+  await expect(wealth).toContainText('€ • • • • •');
+  await expectNoAmounts(page);
+});
+
 test('with “Hide amounts on Home” off, Home shows the amount after a reload', async ({
   page,
 }) => {
@@ -242,7 +296,7 @@ test('the banner for a scheduled check-in has no amounts and one number', async 
   await expect(page).toHaveURL(/\/check-in$/u);
 });
 
-test('the banner for a check-in a member started names them', async ({
+test('the banner says “You” for your own check-in and names another member', async ({
   page,
 }) => {
   const context = page.context();
@@ -256,10 +310,11 @@ test('the banner for a check-in a member started names them', async ({
     banner.getByText('Check-in is open', { exact: true }),
   ).toBeVisible();
   await expect(
-    banner.getByText('Max started it today · 2 of your accounts left', {
+    banner.getByText('You started it today · 2 of your accounts left', {
       exact: true,
     }),
   ).toBeVisible();
+  await expect(banner).not.toContainText('Max');
   expect(((await banner.innerText()).match(/\d/gu) ?? []).join('')).toBe('2');
 
   // Once the profile is done, the banner says so instead of counting.
@@ -268,8 +323,19 @@ test('the banner for a check-in a member started names them', async ({
   }
   await page.reload();
   await expect(
-    page.getByText('Max started it today · you’re done', { exact: true }),
+    page.getByText('You started it today · you’re done', { exact: true }),
   ).toBeVisible();
+
+  // Another member sees who started it.
+  await post(context, '/api/auth/profile', { memberId: 1, remember: true });
+  await page.reload();
+  await expect(
+    page.getByText('Max started it today · 2 of your accounts left', {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(banner).not.toContainText(/\bYou\b/u);
+  expect(((await banner.innerText()).match(/\d/gu) ?? []).join('')).toBe('2');
 });
 
 test('with no closed check-in the wealth card says so and opens Check-ins', async ({
@@ -367,6 +433,23 @@ test('the profile sheet opens from the avatar and closes again', async ({
   await expect(dialog).toBeHidden();
   await expect(page.getByRole('heading', { name: 'Hi, Alena' })).toBeVisible();
 });
+
+/**
+ * Fakes the page being backgrounded or returned to: WebKit offers no way to
+ * do it for real, so the visibility state is overridden and the event sent.
+ */
+async function setVisibility(
+  page: Page,
+  state: 'hidden' | 'visible',
+): Promise<void> {
+  await page.evaluate((next) => {
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => next,
+    });
+    document.dispatchEvent(new Event('visibilitychange'));
+  }, state);
+}
 
 /** No amount, whole or partial, in the page text, its tree or its labels. */
 async function expectNoAmounts(page: Page): Promise<void> {

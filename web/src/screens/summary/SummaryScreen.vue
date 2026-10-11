@@ -65,7 +65,11 @@ const totalChangeText = computed(() => {
 });
 const missingText = computed(() =>
   summary.value && summary.value.missingRates.length > 0
-    ? missingRatesText(summary.value.missingRates, timeZone.value)
+    ? missingRatesText(
+        summary.value.missingRates,
+        timeZone.value,
+        summary.value.total.complete,
+      )
     : '',
 );
 const groupOptions = [

@@ -149,6 +149,7 @@ describe('home and device routes', () => {
       scheduled: false,
       cadence: null,
       openedBy: 'Alex',
+      openedByYou: true,
       openedDate: '2026-08-01',
       accountsLeft: 2,
     });
@@ -156,6 +157,16 @@ describe('home and device routes', () => {
     expect((await home()).checkin.accountsLeft).toBe(1);
     await saveValue(id, usd, '50000');
     expect((await home()).checkin.accountsLeft).toBe(0);
+  });
+
+  it('says whether the signed-in profile is the one who started it', async () => {
+    seedAccounts();
+    await startCheckin();
+    database.prepare('UPDATE checkin SET opened_by = 2').run();
+    expect((await home()).checkin).toMatchObject({
+      openedBy: 'Blair',
+      openedByYou: false,
+    });
   });
 
   it('names a scheduled check-in by its cadence, with nobody as opener', async () => {
@@ -172,6 +183,7 @@ describe('home and device routes', () => {
       scheduled: true,
       cadence: 'monthly',
       openedBy: null,
+      openedByYou: false,
     });
     database
       .prepare(
@@ -193,6 +205,7 @@ describe('home and device routes', () => {
       'cadence',
       'id',
       'openedBy',
+      'openedByYou',
       'openedDate',
       'scheduled',
     ]);

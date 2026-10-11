@@ -77,6 +77,7 @@ function openCheckin(
     scheduled,
     cadence: scheduled ? cadenceName(family) : null,
     openedBy: checkin.openedBy?.name ?? null,
+    openedByYou: checkin.openedBy?.memberId === options.memberId,
     openedDate: valuation.dateOf(checkin.openedAt),
     accountsLeft: mine ? mine.accounts - mine.completed : 0,
   };

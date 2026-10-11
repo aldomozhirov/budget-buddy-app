@@ -5,7 +5,11 @@ import BbButton from '../../components/BbButton.vue';
 import BbChipGroup from '../../components/BbChipGroup.vue';
 import BbSegmented from '../../components/BbSegmented.vue';
 import LineChart from '../../components/charts/LineChart.vue';
-import { chartPoints, type MoneyFormatter } from './summaryFormat';
+import {
+  chartPoints,
+  wealthChartSummary,
+  type MoneyFormatter,
+} from './summaryFormat';
 
 /**
  * "Over time" card of the summary (SUM-4, CUR-6, UI-SUM-3): the wealth of
@@ -59,10 +63,11 @@ const points = computed(() =>
 );
 const summary = computed(() => {
   const unit = series.value?.currency ?? '';
-  const first = points.value[0]?.date;
-  const last = points.value.at(-1)?.date;
   const name = selection.value === ALL ? `All in ${unit}` : unit;
-  return `${name} over ${points.value.length} check-ins, from ${first ?? 'the first date'} to ${last ?? 'the latest date'}`;
+  return wealthChartSummary(
+    name,
+    points.value.map((point) => point.date),
+  );
 });
 const caption = computed(() =>
   rates.value === 'today'
@@ -138,7 +143,11 @@ function selectRates(value: string | number): void {
         <span v-if="selection === ALL">{{ caption }}</span>
         <span v-else>In {{ series.currency }}, no conversion</span>
       </div>
-      <LineChart :points="points" :summary="summary" />
+      <LineChart
+        :points="points"
+        :summary="summary"
+        empty-text="Not enough check-ins to chart yet."
+      />
       <p v-if="series.incomplete" class="chart-state">
         Check-ins that need a missing rate are left out.
       </p>

@@ -10,12 +10,17 @@ import {
 /** Draws a labelled, accessible SVG line chart for dated account balances. */
 defineOptions({ name: 'LineChart' });
 
-const props = defineProps<{
-  /** Ordered from oldest to newest, retaining exact minor-unit values. */
-  points: { date: string; tick: string; value: bigint; label: string }[];
-  /** Accessible summary of the plotted series. */
-  summary: string;
-}>();
+const props = withDefaults(
+  defineProps<{
+    /** Ordered from oldest to newest, retaining exact minor-unit values. */
+    points: { date: string; tick: string; value: bigint; label: string }[];
+    /** Accessible summary of the plotted series. */
+    summary: string;
+    /** Shown instead of the chart when there are fewer than two points. */
+    emptyText?: string;
+  }>(),
+  { emptyText: 'Not enough balance history to chart yet.' },
+);
 
 const coordinates = computed(() => {
   if (props.points.length < 2) return '';
@@ -128,7 +133,7 @@ onBeforeUnmount(() => chartResizeObserver?.disconnect());
     >
       <polyline :points="coordinates" />
     </svg>
-    <p v-else class="chart-empty">Not enough balance history to chart yet.</p>
+    <p v-else class="chart-empty">{{ emptyText }}</p>
     <div v-if="points.length > 1" class="chart-extremes">
       <span>High {{ highPoint.label }}</span
       ><span>Low {{ lowPoint.label }}</span>
