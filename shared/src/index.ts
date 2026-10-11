@@ -7,6 +7,7 @@ export * from './api/currencies.js';
 export * from './api/family.js';
 export * from './api/home.js';
 export * from './api/members.js';
+export * from './api/passkey.js';
 export * from './api/push.js';
 export * from './api/rates.js';
 export * from './api/schedule.js';

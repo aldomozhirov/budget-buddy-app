@@ -23,6 +23,8 @@ const openRoutes = new Set([
   'GET /api/auth/device',
   'HEAD /api/auth/device',
   'POST /api/auth/sign-in',
+  'POST /api/auth/passkey/authenticate/options',
+  'POST /api/auth/passkey/authenticate/verify',
 ]);
 
 describe('authentication integration', () => {

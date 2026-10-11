@@ -1,6 +1,5 @@
-import { createHash, randomBytes } from 'node:crypto';
 import type Database from 'better-sqlite3';
-import type { FastifyPluginAsync, FastifyReply } from 'fastify';
+import type { FastifyPluginAsync } from 'fastify';
 import { verify } from '@node-rs/argon2';
 import {
   authDeviceResponseSchema,
@@ -9,9 +8,12 @@ import {
 } from '@budget-buddy/shared';
 import { systemClock, type Clock } from '../../clock.js';
 import { readCookie, setSessionCookies } from '../../plugins/session.js';
-
-const sessionLifetimeMs = 90 * 24 * 60 * 60 * 1000;
-const lockDurationMs = 30_000;
+import {
+  openSession,
+  recordFailedSignIn,
+  sendFailedSignIn,
+  sendLocked,
+} from './signIn.js';
 
 /** Registers password sign-in, profile selection, session and sign-out routes. */
 export const authRoutes: FastifyPluginAsync<{
@@ -93,117 +95,34 @@ export const authRoutes: FastifyPluginAsync<{
       }
 
       if (!(await verify(family.password_hash, parsed.data.password))) {
-        const failure = recordFailedSignIn(database, now);
-        if (failure.lockedUntil !== null) {
-          return sendLocked(reply, failure.lockedUntil, now);
-        }
-        const triesLeft = 3 - failure.failedSignins;
-        const noun = triesLeft === 1 ? 'try' : 'tries';
-        return reply.code(401).send({
-          error: {
-            code: 'unauthenticated',
-            message: `That password doesn’t match. ${triesLeft} ${noun} before a short wait.`,
-            triesLeft,
-          },
-        });
+        return sendFailedSignIn(
+          reply,
+          recordFailedSignIn(database, now),
+          now,
+          'That password doesn’t match.',
+        );
       }
 
-      const deviceCookie = readCookie(request.headers.cookie, 'bb_device');
-      const deviceId = randomBytes(16).toString('hex');
-      const sessionToken = randomBytes(32).toString('base64url');
-      const tokenHash = createHash('sha256').update(sessionToken).digest('hex');
-      const userAgent = request.headers['user-agent'] ?? null;
-
-      const memberId = database.transaction(() => {
-        const currentFamily = database
+      const opened = openSession(database, {
+        deviceCookie: readCookie(request.headers.cookie, 'bb_device'),
+        userAgent: request.headers['user-agent'],
+        passwordEpoch: family.password_epoch,
+        now,
+      });
+      if (!opened) {
+        const lock = database
           .prepare('SELECT locked_until FROM family WHERE id = 1')
-          .get() as { locked_until: bigint | null };
-        if (
-          currentFamily.locked_until !== null &&
-          currentFamily.locked_until > BigInt(now)
-        ) {
-          return undefined;
-        }
-
-        database
-          .prepare(
-            'UPDATE family SET failed_signins = 0, locked_until = NULL WHERE id = 1',
-          )
-          .run();
-
-        const existingDevice = deviceCookie
-          ? (database
-              .prepare('SELECT id, default_member_id FROM device WHERE id = ?')
-              .get(deviceCookie) as
-              { id: string; default_member_id: bigint | null } | undefined)
-          : undefined;
-        const selectedDeviceId = existingDevice?.id ?? deviceId;
-        let defaultMemberId = existingDevice?.default_member_id ?? null;
-        if (defaultMemberId !== null) {
-          const activeMember = database
-            .prepare('SELECT id FROM member WHERE id = ? AND active = 1')
-            .get(defaultMemberId);
-          if (!activeMember) {
-            defaultMemberId = null;
-            database
-              .prepare(
-                'UPDATE device SET default_member_id = NULL WHERE id = ?',
-              )
-              .run(selectedDeviceId);
-          }
-        }
-
-        if (existingDevice) {
-          database
-            .prepare(
-              'UPDATE device SET label = ?, last_seen_at = ? WHERE id = ?',
-            )
-            .run(userAgent, now, selectedDeviceId);
-        } else {
-          database
-            .prepare(
-              'INSERT INTO device (id, default_member_id, label, created_at, last_seen_at) VALUES (?, NULL, ?, ?, ?)',
-            )
-            .run(selectedDeviceId, userAgent, now, now);
-        }
-
-        database
-          .prepare(
-            'INSERT INTO session (token_hash, device_id, member_id, password_epoch, created_at, last_used_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          )
-          .run(
-            tokenHash,
-            selectedDeviceId,
-            defaultMemberId,
-            family.password_epoch,
-            now,
-            now,
-            now + sessionLifetimeMs,
-          );
-        return defaultMemberId === null ? null : Number(defaultMemberId);
-      })();
-
-      if (memberId === undefined) {
-        const activeLock = database
-          .prepare('SELECT locked_until FROM family WHERE id = 1')
-          .get() as { locked_until: bigint | null };
-        return sendLocked(reply, Number(activeLock.locked_until), now);
+          .get() as { locked_until: bigint };
+        return sendLocked(reply, Number(lock.locked_until), now);
       }
 
-      const selectedDeviceId = deviceCookie
-        ? ((
-            database
-              .prepare('SELECT id FROM device WHERE id = ?')
-              .get(deviceCookie) as { id: string } | undefined
-          )?.id ?? deviceId)
-        : deviceId;
       setSessionCookies(reply, {
-        deviceId: selectedDeviceId,
-        sessionToken,
+        deviceId: opened.deviceId,
+        sessionToken: opened.sessionToken,
         secureCookies,
       });
       return {
-        profileRequired: memberId === null,
+        profileRequired: opened.memberId === null,
       };
     },
   );
@@ -292,45 +211,3 @@ export const authRoutes: FastifyPluginAsync<{
     },
   );
 };
-
-function recordFailedSignIn(
-  database: Database.Database,
-  now: number,
-): { failedSignins: number; lockedUntil: number | null } {
-  return database.transaction(() => {
-    const family = database
-      .prepare('SELECT failed_signins, locked_until FROM family WHERE id = 1')
-      .get() as { failed_signins: bigint; locked_until: bigint | null };
-    if (family.locked_until !== null && family.locked_until > BigInt(now)) {
-      return {
-        failedSignins: Number(family.failed_signins),
-        lockedUntil: Number(family.locked_until),
-      };
-    }
-
-    const previousFailures =
-      family.locked_until !== null && family.locked_until <= BigInt(now)
-        ? 0
-        : Number(family.failed_signins);
-    const failedSignins = previousFailures + 1;
-    const lockedUntil = failedSignins >= 3 ? now + lockDurationMs : null;
-    database
-      .prepare(
-        'UPDATE family SET failed_signins = ?, locked_until = ? WHERE id = 1',
-      )
-      .run(lockedUntil === null ? failedSignins : 3, lockedUntil);
-    return { failedSignins, lockedUntil };
-  })();
-}
-
-function sendLocked(reply: FastifyReply, lockedUntil: number, now: number) {
-  const retryAfter = Math.max(1, Math.ceil((lockedUntil - now) / 1000));
-  return reply.code(423).send({
-    error: {
-      code: 'locked',
-      message: `Too many tries. Try again in ${retryAfter} s.`,
-      retryAfter,
-      triesLeft: 0,
-    },
-  });
-}

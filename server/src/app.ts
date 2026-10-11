@@ -28,6 +28,7 @@ import { homeRoutes } from './modules/home/index.js';
 import { backupRoutes } from './modules/backup/index.js';
 import { exportRoutes } from './modules/export/index.js';
 import { deviceRoutes } from './modules/devices/index.js';
+import { passkeyRoutes } from './modules/passkey/index.js';
 import { pushRoutes } from './modules/push/index.js';
 import { createCheckinEventBus, type CheckinEventBus } from './events.js';
 import { createRatesService, type RatesService } from './rates/service.js';
@@ -174,6 +175,12 @@ export async function createApp(options: AppOptions) {
   });
   await app.register(exportRoutes, { database: options.database, clock });
   await app.register(deviceRoutes, { database: options.database });
+  await app.register(passkeyRoutes, {
+    database: options.database,
+    secureCookies,
+    appOrigins,
+    clock,
+  });
   if (options.push) {
     await app.register(pushRoutes, {
       database: options.database,

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `passkey_device_id_unique` ON `passkey` (`device_id`);
