@@ -1,7 +1,8 @@
 import type Database from 'better-sqlite3';
 import type { FastifyPluginAsync, FastifyReply } from 'fastify';
-import { Algorithm, hash, verify } from '@node-rs/argon2';
+import { verify } from '@node-rs/argon2';
 import { changeFamilyPasswordRequestSchema } from '@budget-buddy/shared';
+import { hashFamilyPassword, replaceFamilyPassword } from './password.js';
 
 /** Registers changes to the shared family password. */
 export const familyRoutes: FastifyPluginAsync<{
@@ -37,12 +38,7 @@ export const familyRoutes: FastifyPluginAsync<{
       });
     }
 
-    const passwordHash = await hash(parsed.data.newPassword, {
-      algorithm: Algorithm.Argon2id,
-      memoryCost: 19_456,
-      timeCost: 2,
-      parallelism: 1,
-    });
+    const passwordHash = await hashFamilyPassword(parsed.data.newPassword);
     const context = request.authContext!;
     const changed = database.transaction(() => {
       const family = database
@@ -56,26 +52,10 @@ export const familyRoutes: FastifyPluginAsync<{
       }
       if (!currentSession) return false;
 
-      database
-        .prepare(
-          'UPDATE family SET password_hash = ?, password_epoch = password_epoch + 1, failed_signins = 0, locked_until = NULL WHERE id = 1',
-        )
-        .run(passwordHash);
-      database
-        .prepare(
-          'UPDATE session SET password_epoch = (SELECT password_epoch FROM family WHERE id = 1) WHERE id = ?',
-        )
-        .run(context.sessionId);
-      database
-        .prepare('DELETE FROM session WHERE id <> ?')
-        .run(context.sessionId);
-      database
-        .prepare('DELETE FROM passkey WHERE device_id <> ?')
-        .run(context.deviceId);
-      // A signed-out device must get no push; this device keeps its own.
-      database
-        .prepare('DELETE FROM push_subscription WHERE device_id <> ?')
-        .run(context.deviceId);
+      replaceFamilyPassword(database, passwordHash, {
+        sessionId: context.sessionId,
+        deviceId: context.deviceId,
+      });
       return true;
     })();
 
