@@ -18,7 +18,8 @@ export const monthlyLimit = 12;
 export const backupTime = '03:30';
 
 const dailyPattern = /^budget-buddy-(\d{4}-\d{2}-\d{2})\.sqlite$/u;
-const tempPattern = /^\..+\.tmp-[0-9a-f]+$/u;
+// A temporary file and the side files SQLite may have made beside it.
+const tempPattern = /^\..+\.tmp-[0-9a-f]+(-wal|-shm|-journal)?$/u;
 
 /** The folders inside `BACKUP_DIR` that the nightly job writes. */
 export interface BackupFolders {
@@ -86,20 +87,25 @@ export function temporaryPath(target: string): string {
   return join(dirname(target), `.${basename(target)}.tmp-${suffix}`);
 }
 
-/** Removes leftovers of a run that was cut off, in the given folders. */
+/**
+ * Removes leftovers of a run that was cut off, in the given folders and the
+ * folders below them: temporary files and the side files of a temporary copy.
+ */
 export async function removeStaleTemporaries(
   folders: readonly string[],
 ): Promise<void> {
   for (const folder of folders) {
-    let names: string[];
+    let entries;
     try {
-      names = await readdir(folder);
+      entries = await readdir(folder, { withFileTypes: true });
     } catch (error) {
       if (isMissing(error)) continue;
       throw error;
     }
-    for (const name of names) {
-      if (tempPattern.test(name)) await rm(join(folder, name), { force: true });
+    for (const entry of entries) {
+      const path = join(folder, entry.name);
+      if (entry.isDirectory()) await removeStaleTemporaries([path]);
+      else if (tempPattern.test(entry.name)) await rm(path, { force: true });
     }
   }
 }

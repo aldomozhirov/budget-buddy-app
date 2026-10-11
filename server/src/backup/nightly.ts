@@ -101,7 +101,11 @@ export async function runNightlyBackup(
   try {
     await mkdir(folders.daily, { recursive: true });
     await mkdir(folders.monthly, { recursive: true });
-    await removeStaleTemporaries([folders.daily, folders.monthly]);
+    await removeStaleTemporaries([
+      folders.daily,
+      folders.monthly,
+      folders.images,
+    ]);
     record.closeInterrupted();
 
     const target = join(folders.daily, backupFileName(date));

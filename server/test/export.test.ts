@@ -429,6 +429,21 @@ describe('export', () => {
     );
   });
 
+  it('keeps a spreadsheet from running a name as a formula', async () => {
+    database
+      .prepare(
+        "INSERT INTO account (name, owner_member_id, type, currency, created_by, created_at, updated_by, updated_at) VALUES ('=SUM(A1:A9)', 1, 'cash', 'EUR', 1, 1, 1, 1), ('-5 euro', 1, 'cash', 'EUR', 1, 1, 1, 1)",
+      )
+      .run();
+    const accounts = parseCsv((await files())['accounts.csv'] ?? '');
+    const names = accounts.slice(1).map((row) => row[1]);
+    expect(names).toContain("'=SUM(A1:A9)");
+    expect(names).toContain("'-5 euro");
+    // Amounts are data: a negative one keeps its plain minus sign.
+    const snapshots = parseCsv((await files())['snapshots.csv'] ?? '');
+    expect(snapshots[1]?.[3]).toBe('-1986.30');
+  });
+
   it('quotes only the cells that need it', () => {
     expect(
       toCsv(

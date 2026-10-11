@@ -311,8 +311,18 @@ function cell(
       if (!currencyCode) throw new Error('An amount has no currency.');
       return formatMinorDecimal(BigInt(value), decimals(currencyCode));
     default:
-      return value;
+      return typeof value === 'string' ? safeText(value) : value;
   }
+}
+
+/**
+ * Keeps a spreadsheet from running text as a formula: text that starts with
+ * `=`, `+`, `-`, `@`, a tab or a carriage return gets a leading apostrophe.
+ * Amounts and dates are written by their own kinds and never start that way
+ * except a minus sign, which is data and stays.
+ */
+function safeText(value: string): string {
+  return /^[=+\-@\t\r]/u.test(value) ? `'${value}` : value;
 }
 
 /** Looks up a currency's decimals: the ISO table, else the `coin` table. */

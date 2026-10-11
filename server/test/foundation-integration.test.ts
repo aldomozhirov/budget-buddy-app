@@ -207,9 +207,7 @@ describe('foundation server integration', () => {
       )
       .run();
 
-    expect(
-      await migrateDatabase(database, { backupDir: root }),
-    ).toBe(3);
+    expect(await migrateDatabase(database, { backupDir: root })).toBe(3);
     expect(
       database
         .prepare('SELECT id, amount, source FROM snapshot WHERE account_id = 1')

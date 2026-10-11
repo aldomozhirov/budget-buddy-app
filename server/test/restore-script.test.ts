@@ -72,7 +72,7 @@ describe('scripts/restore.sh with a fake docker', () => {
     const docker = join(directory, 'bin', 'docker');
     await writeFile(
       docker,
-      `#!/bin/sh\nprintf '%s\\n' "$*" >> "${calls}"\ncase " $* " in *" $FAKE_FAIL "*) exit 1;; esac\nexit 0\n`,
+      `#!/bin/sh\nprintf '%s\\n' "$*" >> "${calls}"\n[ -n "$FAKE_QUIET" ] || case "$*" in *verifyBackup*) echo 'ok (migration version 3)';; esac\ncase " $* " in *" $FAKE_FAIL "*) exit 1;; esac\nexit 0\n`,
     );
     await chmod(docker, 0o755);
     // curl answers at once, so the health wait ends.
@@ -142,6 +142,15 @@ describe('scripts/restore.sh with a fake docker', () => {
     expect((await logged()).some((line) => line.includes('stop'))).toBe(false);
   });
 
+  it('refuses when the check does not say the file is good, whatever its exit status', async () => {
+    await writeFile(join(data, 'budget-buddy.sqlite'), 'OLD DB');
+    const result = await restore({ FAKE_QUIET: '1' });
+    expect(result.code).toBe(1);
+    expect(result.err).toContain('did not report that the file is good');
+    expect(await readdir(data)).toEqual(['budget-buddy.sqlite']);
+    expect((await logged()).some((line) => line.includes('stop'))).toBe(false);
+  });
+
   it('refuses a file that does not exist', async () => {
     const result = await restore({}, join(directory, 'missing.sqlite'));
     expect(result.code).toBe(1);
@@ -182,7 +191,8 @@ describe('scripts/restore.sh with a fake docker', () => {
 
   it('uses the commands it is given in place of compose', async () => {
     const result = await restore({
-      BB_VERIFY: 'echo verify "$BB_FILE" >> steps.log',
+      BB_VERIFY:
+        'echo verify "$BB_FILE" >> steps.log; echo "ok (migration version 3)"',
       BB_STOP: 'echo stop >> steps.log',
       BB_START: 'echo start >> steps.log',
     });

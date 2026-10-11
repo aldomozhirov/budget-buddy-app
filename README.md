@@ -39,7 +39,7 @@ It does these steps, and stops at the first that fails:
    is changed.
 2. Stops the app.
 3. Moves the current database, with its `-wal` and `-shm` files, into
-   `data/before-restore-<time>/`. Nothing is deleted, and an old `-wal` can
+   `data/before-restore-<time>-<number>/`. Nothing is deleted, and an old `-wal` can
    never be replayed onto the restored file.
 4. Copies the backup in as `data/budget-buddy.sqlite`.
 5. Copies back the images the data folder is missing, without overwriting any.
@@ -47,7 +47,7 @@ It does these steps, and stops at the first that fails:
 
 If a step after the move fails, the old database is put back and the app is
 started again. When you are happy with the restored data you can delete
-`data/before-restore-<time>/`.
+`data/before-restore-<time>-<number>/`.
 
 To restore into a fresh install, install the app first, open it once so the
 data folder exists, then run the command above. Restoring replaces everything

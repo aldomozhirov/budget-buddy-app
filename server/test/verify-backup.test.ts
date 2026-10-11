@@ -1,4 +1,12 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -90,5 +98,60 @@ describe('verifyBackup', () => {
     await expect(verifyBackup(file)).rejects.toThrow(
       /integrity check|Not a SQLite database/u,
     );
+  });
+
+  describe('as a command', () => {
+    const entry = fileURLToPath(
+      new URL('../src/verifyBackup.ts', import.meta.url),
+    );
+    const serverDir = fileURLToPath(new URL('..', import.meta.url));
+    /** Runs the file the way `restore.sh` does, but through a path that needs URL encoding. */
+    const runCommand = async (file: string) => {
+      const folder = join(directory, 'a folder with spaces');
+      await mkdir(folder, { recursive: true });
+      const link = join(folder, 'verifyBackup.ts');
+      await symlink(entry, link).catch(() => undefined);
+      return new Promise<{ code: number; out: string; err: string }>(
+        (resolve) => {
+          execFile(
+            process.execPath,
+            ['--import', 'tsx', link, file],
+            { cwd: serverDir },
+            (error, out, err) =>
+              resolve({
+                code: error ? ((error as { code?: number }).code ?? 1) : 0,
+                out,
+                err,
+              }),
+          );
+        },
+      );
+    };
+
+    it('refuses a bad file with a non-zero exit even from a path with a space', async () => {
+      const file = join(directory, 'junk.sqlite');
+      await writeFile(file, 'this is not a database'.repeat(200));
+      const result = await runCommand(file);
+      expect(result.code).toBe(1);
+      expect(result.err).toContain('Not a SQLite database file.');
+      expect(result.out).not.toContain('ok (');
+    });
+
+    it('says ok and the migration version for a good file', async () => {
+      await runNightlyBackup(
+        {
+          database,
+          clock: { now: () => new Date('2026-10-11T10:00:00Z') },
+          dataDir: join(directory, 'data'),
+          backupDir: join(directory, 'backups'),
+        },
+        '2026-10-11',
+      );
+      const result = await runCommand(
+        join(directory, 'backups', 'daily', 'budget-buddy-2026-10-11.sqlite'),
+      );
+      expect(result.code).toBe(0);
+      expect(result.out).toMatch(/^ok \(migration version \d+\)\n$/u);
+    });
   });
 });

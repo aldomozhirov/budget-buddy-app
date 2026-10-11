@@ -4,11 +4,13 @@
  * and is not from a newer version of it. `scripts/restore.sh` runs it inside
  * the image, since the check needs the app's own SQL functions.
  *
- * Usage: `node server/dist/verifyBackup.js <file>`. Exits 0 and prints the
- * migration version when the file is good, else exits 1 with the reason.
+ * Usage: `node server/dist/verifyBackup.js <file>`. Prints
+ * `ok (migration version N)` and exits 0 when the file is good, else exits 1
+ * with the reason. `restore.sh` requires that line, not only the exit status.
  */
+import { realpathSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import Database from 'better-sqlite3';
 import { migrationVersion, registerDatabaseFunctions } from './db/migrate.js';
 
@@ -52,7 +54,12 @@ export async function verifyBackup(path: string): Promise<number> {
 }
 
 const [, entry, file] = process.argv;
-if (entry !== undefined && import.meta.url === `file://${entry}`) {
+// Compared as real file URLs, so a path that needs encoding (a space) or a
+// symlink still runs the check; a guard that fails open would pass any file.
+if (
+  entry !== undefined &&
+  pathToFileURL(realpathSync(entry)).href === import.meta.url
+) {
   if (!file) {
     console.error('Usage: node server/dist/verifyBackup.js <backup file>');
     process.exitCode = 2;

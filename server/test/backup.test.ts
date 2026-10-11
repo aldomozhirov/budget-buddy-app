@@ -350,8 +350,18 @@ describe('nightly backup', () => {
           "INSERT INTO backup (kind, path, started_at, status) VALUES ('daily', 'x', 1, 'running')",
         )
         .run();
+      const side = join(
+        backupDir,
+        'daily',
+        '.budget-buddy-2026-10-10.sqlite.tmp-abc123-wal',
+      );
+      await writeFile(side, 'side file');
+      await mkdir(join(backupDir, 'images', 'sub'), { recursive: true });
+      const image = join(backupDir, 'images', 'sub', '.a.jpg.tmp-ff00');
+      await writeFile(image, 'half an image');
       await runNightlyBackup(options(), '2026-10-11');
       expect(await names('daily')).toEqual(['budget-buddy-2026-10-11.sqlite']);
+      expect(await names('images/sub')).toEqual([]);
       const rows = dailyRows();
       expect(rows.find((row) => row.path === 'x')).toMatchObject({
         status: 'failed',

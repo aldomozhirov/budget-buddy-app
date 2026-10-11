@@ -23,6 +23,8 @@
 #   BB_VERIFY, BB_STOP, BB_START
 #                  shell commands that replace the compose ones for steps 1,
 #                  2 and 6; "$BB_FILE" holds the absolute path of the backup.
+#                  BB_VERIFY must print "ok (migration version N)" when the
+#                  file is good, as server/dist/verifyBackup.js does.
 set -euo pipefail
 
 say() { printf '%s\n' "$*"; }
@@ -51,12 +53,18 @@ BB_START="${BB_START:-$BB_COMPOSE up -d app}"
 DB="$BB_DATA_DIR/budget-buddy.sqlite"
 
 say "1/6 Checking $BB_FILE ..."
-eval "$BB_VERIFY" || die "the backup file did not pass the check, so nothing was changed."
+verdict="$(eval "$BB_VERIFY")" || die "the backup file did not pass the check, so nothing was changed."
+printf '%s\n' "$verdict"
+# Not only the exit status: a check that did not run must not pass the file.
+case "$verdict" in
+  *"ok (migration version "*) ;;
+  *) die "the check did not report that the file is good, so nothing was changed." ;;
+esac
 
 say "2/6 Stopping the app ..."
 eval "$BB_STOP" || die "the app could not be stopped, so nothing was changed."
 
-ASIDE="$BB_DATA_DIR/before-restore-$(date -u +%Y%m%dT%H%M%SZ)"
+ASIDE="$BB_DATA_DIR/before-restore-$(date -u +%Y%m%dT%H%M%SZ)-$$"
 STAGED="$BB_DATA_DIR/.restore-incoming.$$"
 moved=0
 undo=1
