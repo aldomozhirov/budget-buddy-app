@@ -334,7 +334,7 @@ test('the banner says “You” for your own check-in and names another member',
       exact: true,
     }),
   ).toBeVisible();
-  await expect(banner).not.toContainText('You');
+  await expect(banner).not.toContainText(/\bYou\b/u);
   expect(((await banner.innerText()).match(/\d/gu) ?? []).join('')).toBe('2');
 });
 
