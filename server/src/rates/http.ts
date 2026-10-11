@@ -18,7 +18,8 @@ export interface RateHttpClient {
    * GETs `url` and decodes the body as text.
    * @param options.encoding Character set of the body; `utf-8` by default.
    * @throws {RateHttpError} when the host is not allowed, the request times
-   * out or fails, or the answer is not a success.
+   * out or fails, the answer is not a success, or it is larger than the
+   * limit (checked from Content-Length, then while reading).
    */
   getText(url: string, options?: { encoding?: string }): Promise<string>;
 }
@@ -94,14 +95,20 @@ export function createRateHttpClient(
           response.status,
         );
       }
+      const tooLarge = () =>
+        new RateHttpError(
+          `${target.hostname} sent more than ${maxBytes} bytes`,
+          'network',
+        );
       try {
-        const body = new Uint8Array(await response.arrayBuffer());
-        if (body.byteLength > maxBytes) {
-          throw new RateHttpError(
-            `${target.hostname} sent more than ${maxBytes} bytes`,
-            'network',
-          );
+        const declared = response.headers.get('content-length');
+        if (declared !== null && /^\d+$/.test(declared)) {
+          if (Number(declared) > maxBytes) {
+            await response.body?.cancel();
+            throw tooLarge();
+          }
         }
+        const body = await readBounded(response, maxBytes, tooLarge);
         return new TextDecoder(encoding).decode(body);
       } catch (error) {
         if (error instanceof RateHttpError) throw error;
@@ -112,6 +119,39 @@ export function createRateHttpClient(
       }
     },
   };
+}
+
+/**
+ * Reads the body chunk by chunk and stops at the first chunk that takes the
+ * total over `maxBytes`, so memory never holds much more than the limit.
+ * @throws The error from `tooLarge` when the body is over the limit.
+ */
+async function readBounded(
+  response: Response,
+  maxBytes: number,
+  tooLarge: () => Error,
+): Promise<Uint8Array> {
+  if (response.body === null) return new Uint8Array();
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      throw tooLarge();
+    }
+    chunks.push(value);
+  }
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return body;
 }
 
 function describe(error: unknown): string {

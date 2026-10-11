@@ -96,7 +96,8 @@ export function createCoinbaseFeed(http: RateHttpClient): RateFeed {
           // rates; an outage or a rate limit still fails the whole feed.
           if (!reportProblem || !isCoinProblem(error)) throw error;
           reportProblem(
-            `${code}: ${error instanceof Error ? error.message : error}`,
+            code,
+            error instanceof Error ? error.message : String(error),
           );
           continue;
         }

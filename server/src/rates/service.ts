@@ -12,6 +12,14 @@ export interface RatesLogger {
   error(error: unknown, message: string): void;
 }
 
+/** Thrown by `status` before the family exists, so no settings are known. */
+export class FamilyNotSetUpError extends Error {
+  constructor() {
+    super('First start has not been completed.');
+    this.name = 'FamilyNotSetUpError';
+  }
+}
+
 /** Options for `createRatesService`. */
 export interface RatesServiceOptions {
   database: Database.Database;
@@ -73,6 +81,12 @@ const historyMarginDays = 14;
 /** A currency whose newest rate trails its feed's by more days is stale. */
 const staleTailDays = 7;
 const maxErrorLength = 500;
+/**
+ * How long a currency a feed reported a problem for is left alone. The job
+ * retries each hour, so this only stops writes and the backfill that follows
+ * a failed daily fetch from asking again at once.
+ */
+const problemRetryMs = 30 * 60_000;
 
 type FamilyRow = { common_currency: string; time_zone: string };
 
@@ -97,6 +111,12 @@ interface Gap {
 export function createRatesService(options: RatesServiceOptions): RatesService {
   const { database, clock, feeds, logger } = options;
   const ledgers = new Map<string, Ledger>();
+  /**
+   * When a feed last reported a problem for a currency, by `kind|feed|code`.
+   * Backfill and daily problems are kept apart, so a history gap that keeps
+   * failing never holds back the newest rate.
+   */
+  const problemAt = new Map<string, number>();
   let queue: Promise<unknown> = Promise.resolve();
   let backfillWaiting = false;
 
@@ -233,6 +253,17 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
     return ledger;
   }
 
+  /** Whether a feed reported a problem for `code` too recently to ask again. */
+  function coolingDown(
+    kind: 'daily' | 'backfill',
+    feed: RateFeed,
+    code: string,
+  ): boolean {
+    const at = problemAt.get(`${kind}|${feed.id}|${code}`);
+    return at !== undefined && clock.now().getTime() - at < problemRetryMs;
+  }
+
+  /** Marks the dates as fetched for currencies the feed had no problem with. */
   function widenLedger(
     feed: RateFeed,
     codes: readonly string[],
@@ -250,10 +281,30 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
   }
 
   /**
+   * Moves the end of the ledgers forward after a daily fetch, so the tail
+   * the daily job already stored is not fetched again as a gap. A currency
+   * without a ledger is left alone: the backfill owns its start.
+   */
+  function advanceLedgers(
+    feed: RateFeed,
+    codes: readonly string[],
+    to: string,
+  ): void {
+    for (const code of codes) {
+      const known = ledgerFor(feed, code);
+      if (known && known.to < to)
+        ledgers.set(`${feed.id}|${code}`, { ...known, to });
+    }
+  }
+
+  /**
    * Asks `feed` for `from` to `to` and stores what it sends, in one
    * transaction, so a feed that throws leaves the stored rates untouched.
    * Only rates of the requested currencies and dates are kept.
-   * @returns The rates it sent that were in range, and how many were new.
+   * @param incomplete For a daily fetch: a covered currency was left out, so
+   * the feed must not be recorded as `ok` for the target.
+   * @returns The rates it sent that were in range, how many were new, and the
+   * currencies the feed reported a problem for (not to be counted as fetched).
    * @throws The feed's own error, after recording it in `rate_fetch`.
    */
   async function fetchAndStore(
@@ -263,20 +314,25 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
     to: string,
     today: string,
     kind: 'daily' | 'backfill',
-  ): Promise<{ rates: FeedRate[]; stored: number }> {
+    incomplete = false,
+  ): Promise<{ rates: FeedRate[]; stored: number; problemCodes: Set<string> }> {
     const now = clock.now();
     const target = feed.targetDate(now, today);
     const recordedDate = kind === 'daily' ? target : to;
     try {
       const codes = new Set(currencies.map(({ code }) => code));
       const problems: string[] = [];
+      const problemCodes = new Set<string>();
       const answer = await feed.fetch({
         currencies,
         from,
         to,
         today,
         now,
-        reportProblem: (message) => problems.push(message),
+        reportProblem: (code, message) => {
+          problems.push(`${code}: ${message}`);
+          problemCodes.add(code);
+        },
       });
       const rates = answer.filter(
         (rate) =>
@@ -301,10 +357,17 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
       const status =
         kind === 'backfill'
           ? 'backfilled'
-          : rates.some(({ date }) => date === target)
+          : rates.some(({ date }) => date === target) &&
+              problems.length === 0 &&
+              !incomplete
             ? 'ok'
             : 'unpublished';
       sql().insertFetch.run(feed.id, recordedDate, status, null, now.getTime());
+      for (const { code } of currencies) {
+        const key = `${kind}|${feed.id}|${code}`;
+        if (problemCodes.has(code)) problemAt.set(key, now.getTime());
+        else problemAt.delete(key);
+      }
       if (problems.length > 0) {
         // The rates it did send stay; the error shows in the status sheet.
         const message = problems.join('; ').slice(0, maxErrorLength);
@@ -317,7 +380,7 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
         );
         logger?.error(new Error(message), `Rates missing from ${feed.id}`);
       }
-      return { rates, stored };
+      return { rates, stored, problemCodes };
     } catch (error) {
       try {
         sql().insertFetch.run(
@@ -352,6 +415,7 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
       gaps.set(key, gap);
     };
     for (const currency of used.filter((candidate) => feed.covers(candidate))) {
+      if (coolingDown('backfill', feed, currency.code)) continue;
       const from = wanted.get(currency.code) ?? today;
       const ledger = ledgerFor(feed, currency.code);
       if (!ledger) {
@@ -386,7 +450,7 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
     for (const feed of feeds) {
       for (const gap of findGaps(feed, used, wanted, today)) {
         try {
-          await fetchAndStore(
+          const { problemCodes } = await fetchAndStore(
             feed,
             gap.currencies,
             gap.from,
@@ -396,7 +460,9 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
           );
           widenLedger(
             feed,
-            gap.currencies.map(({ code }) => code),
+            gap.currencies
+              .map(({ code }) => code)
+              .filter((code) => !problemCodes.has(code)),
             gap.from,
             gap.to,
           );
@@ -429,21 +495,54 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
           last: string | null;
         }
       ).last;
-      const from =
-        feedLast === null
-          ? shiftDate(target, -defaultLookbackDays)
-          : shiftDate(feedLast, 1);
-      if (from > target) continue;
+      // A currency is asked for when its newest stored rate stops short of
+      // the target, so one the feed failed on is asked again while the others
+      // are not. The ledger cannot tell: a backfill widens it to today.
+      const pending = new Map<UsedCurrency, string | null>();
+      let skipped = false;
+      for (const currency of covered) {
+        if (coolingDown('daily', feed, currency.code)) {
+          skipped = true;
+          continue;
+        }
+        const stored = sql().selectSpan.get(
+          feed.source,
+          currency.code,
+          currency.code,
+        ) as { last: string | null };
+        const last = stored.last ?? feedLast;
+        if (last === null || last < target) pending.set(currency, last);
+      }
+      if (pending.size === 0) continue;
+      const from = [...pending.values()]
+        .map((last) =>
+          last === null
+            ? shiftDate(target, -defaultLookbackDays)
+            : shiftDate(last, 1),
+        )
+        .reduce((earliest, date) => (date < earliest ? date : earliest));
       try {
-        const { rates, stored } = await fetchAndStore(
+        const { rates, stored, problemCodes } = await fetchAndStore(
           feed,
-          covered,
+          [...pending.keys()],
           from,
           target,
           today,
           'daily',
+          skipped,
         );
         result.stored += stored;
+        const answeredTo = rates.reduce(
+          (latest, { date }) => (date > latest ? date : latest),
+          '',
+        );
+        advanceLedgers(
+          feed,
+          [...pending.keys()]
+            .map(({ code }) => code)
+            .filter((code) => !problemCodes.has(code)),
+          answeredTo,
+        );
         if (!rates.some(({ date }) => date === target)) {
           result.unpublished.push(feed.id);
         }
@@ -477,7 +576,7 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
     },
     status() {
       const settings = family();
-      if (!settings) throw new Error('First start has not been completed.');
+      if (!settings) throw new FamilyNotSetUpError();
       const now = clock.now();
       const today = todayInTimeZone(now, settings.time_zone);
       const used = usedCurrencies(settings.common_currency).filter(

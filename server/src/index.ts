@@ -9,6 +9,7 @@ import { createFixtureFeed } from './rates/fixtureFeed.js';
 import { createLiveFeeds } from './rates/feeds/index.js';
 import { createRateHttpClient } from './rates/http.js';
 import { createRatesService } from './rates/service.js';
+import { closeOnSignals } from './shutdown.js';
 
 // `.env` is optional: config may come from the real environment instead.
 try {
@@ -54,6 +55,12 @@ try {
   app.addHook('onClose', async () => {
     await jobRunner.stop();
     await rates.idle();
+  });
+  const server = app;
+  closeOnSignals({
+    close: () => server.close(),
+    release: () => database?.close(),
+    logger: server.log,
   });
   await app.listen({ host: config.host, port: config.port });
   jobRunner.start();

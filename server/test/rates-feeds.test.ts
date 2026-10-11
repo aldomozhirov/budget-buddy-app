@@ -261,14 +261,14 @@ describe('Coinbase feed', () => {
       });
 
     it('is reported while the other coins keep their rates', async () => {
-      const problems: string[] = [];
+      const problems: [string, string][] = [];
       const rates = await answering(404).fetch({
         ...request,
         currencies: [unknown, btc],
-        reportProblem: (message) => problems.push(message),
+        reportProblem: (code, message) => problems.push([code, message]),
       });
       expect(rates.map(({ base }) => base)).toEqual(['BTC']);
-      expect(problems).toEqual([expect.stringContaining('XYZ: ')]);
+      expect(problems).toEqual([['XYZ', 'answered HTTP']]);
     });
 
     it('still fails the feed for an outage, a rate limit or no way to report', async () => {
@@ -391,6 +391,61 @@ describe('rate HTTP client', () => {
     await expect(client.getText('https://www.cbr.ru/a')).rejects.toMatchObject({
       kind: 'network',
       message: expect.stringContaining('more than 10 bytes'),
+    });
+  });
+
+  describe('the size limit', () => {
+    /** A body of `chunks` chunks of ten bytes that counts what was pulled. */
+    function counted(chunks: number, headers: Record<string, string> = {}) {
+      const state = { pulled: 0, cancelled: false };
+      const body = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          if (state.pulled === chunks) return controller.close();
+          state.pulled += 1;
+          controller.enqueue(new Uint8Array(10).fill(120));
+        },
+        cancel() {
+          state.cancelled = true;
+        },
+      });
+      return { state, response: new Response(body, { headers }) };
+    }
+    const clientFor = (response: Response, maxBytes: number) =>
+      createRateHttpClient({
+        allowedHosts: ['www.cbr.ru'],
+        maxBytes,
+        fetchImpl: () => Promise.resolve(response),
+      });
+
+    it('stops reading once the limit is passed', async () => {
+      const { state, response } = counted(1_000);
+      await expect(
+        clientFor(response, 25).getText('https://www.cbr.ru/a'),
+      ).rejects.toMatchObject({
+        kind: 'network',
+        message: expect.stringContaining('more than 25 bytes'),
+      });
+      expect(state.pulled).toBeLessThan(10);
+      expect(state.cancelled).toBe(true);
+    });
+
+    it('refuses a declared length over the limit without reading the body', async () => {
+      const { state, response } = counted(1_000, { 'content-length': '10000' });
+      await expect(
+        clientFor(response, 25).getText('https://www.cbr.ru/a'),
+      ).rejects.toMatchObject({
+        kind: 'network',
+        message: expect.stringContaining('more than 25 bytes'),
+      });
+      expect(state.pulled).toBeLessThan(3);
+      expect(state.cancelled).toBe(true);
+    });
+
+    it('accepts an answer exactly at the limit', async () => {
+      const { response } = counted(3);
+      await expect(
+        clientFor(response, 30).getText('https://www.cbr.ru/a'),
+      ).resolves.toBe('x'.repeat(30));
     });
   });
 
