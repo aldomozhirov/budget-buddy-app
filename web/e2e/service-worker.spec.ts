@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test';
 
-// The one place the real worker runs; every other spec blocks it.
+// The worker runs only in this spec and in installable-app.spec.ts; every
+// other spec blocks it.
 test.use({ serviceWorkers: 'allow' });
 
-test('the production build registers a service worker that caches and answers nothing', async ({
+test('the production build registers one worker that keeps the shell and handles push', async ({
   page,
 }) => {
   const externalRequests: string[] = [];
@@ -24,14 +25,13 @@ test('the production build registers a service worker that caches and answers no
   });
   expect(worker.script).toBe(`${origin}/sw.js`);
   expect(worker.scope).toBe(`${origin}/`);
-  expect(worker.caches).toEqual([]);
+  // One cache for this build, and nothing that is not part of the app shell.
+  expect(worker.caches).toHaveLength(1);
+  expect(worker.caches[0]).toMatch(/^bb-shell-[0-9a-f]{8}$/u);
 
-  // No `fetch` handler in the file the browser runs: it never answers a
-  // request, so it cannot serve app code from an old version.
   const response = await page.request.get('/sw.js');
   expect(response.headers()['content-type']).toMatch(/javascript/u);
   const source = await response.text();
-  expect(source).not.toMatch(/["'`]fetch["'`]/u);
   expect(source).toMatch(/["'`]push["'`]/u);
   expect(source).toMatch(/["'`]notificationclick["'`]/u);
   expect(externalRequests).toEqual([]);

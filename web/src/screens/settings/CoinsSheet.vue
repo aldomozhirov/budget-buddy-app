@@ -283,7 +283,7 @@ async function readError(response: Response, field: 'coin'): Promise<string> {
       <p v-if="editorError" class="error settings-form-error" role="alert">
         {{ editorError }}
       </p>
-      <BbButton type="submit" :disabled="editorBusy">
+      <BbButton type="submit" needs-server :disabled="editorBusy">
         {{ selectedCoin ? 'Save coin' : 'Add coin' }}
       </BbButton>
     </form>
@@ -292,6 +292,7 @@ async function readError(response: Response, field: 'coin'): Promise<string> {
         v-if="!selectedCoin.inUse"
         variant="secondary"
         class="danger"
+        needs-server
         :disabled="editorBusy"
         @click="askToDelete"
       >
@@ -318,6 +319,7 @@ async function readError(response: Response, field: 'coin'): Promise<string> {
       <BbButton
         variant="secondary"
         class="danger"
+        needs-server
         :disabled="deleteBusy"
         @click="deleteCoin"
       >

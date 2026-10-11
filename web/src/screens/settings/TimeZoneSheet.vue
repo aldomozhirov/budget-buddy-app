@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { isOnline } from '../../composables/useOnline.js';
 import { settingsResponseSchema } from '@budget-buddy/shared';
 import { Search } from 'lucide-vue-next';
 import BbButton from '../../components/BbButton.vue';
@@ -111,7 +112,7 @@ async function readError(response: Response): Promise<string> {
         interactive
         :aria-pressed="timeZone === selected"
         :aria-label="timeZone"
-        :disabled="busy"
+        :disabled="busy || !isOnline"
         @click="chooseTimeZone(timeZone)"
       >
         <template #title>

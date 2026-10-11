@@ -323,6 +323,7 @@ void load();
           aria-label="Start a check-in"
         >
           <BbButton
+            needs-server
             :disabled="starting"
             :aria-busy="starting"
             @click="startCheckin"

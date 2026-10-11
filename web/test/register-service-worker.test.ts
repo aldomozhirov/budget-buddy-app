@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { registerServiceWorker } from '../src/push/registerServiceWorker.js';
 
 /** Stands in for `navigator.serviceWorker`, recording what the app does. */
-function fakeContainer(register: () => Promise<unknown> = async () => ({})) {
+function fakeContainer(
+  register: () => Promise<unknown> = async () => ({ update: async () => {} }),
+) {
   const listeners: Array<(event: { data: unknown }) => void> = [];
   const registered: unknown[][] = [];
   const container = {
@@ -32,6 +34,30 @@ describe('registerServiceWorker', () => {
     const { registered } = fakeContainer();
     await registerServiceWorker(() => undefined);
     expect(registered).toEqual([['/sw.js', { scope: '/' }]]);
+  });
+
+  it('asks for a new build each time the app comes back to the front', async () => {
+    vi.stubEnv('PROD', true);
+    let updates = 0;
+    fakeContainer(async () => ({
+      update: async () => {
+        updates += 1;
+      },
+    }));
+    const document = {
+      visibilityState: 'hidden',
+      listener: undefined as (() => void) | undefined,
+      addEventListener(type: string, listener: () => void) {
+        if (type === 'visibilitychange') this.listener = listener;
+      },
+    };
+    vi.stubGlobal('document', document);
+    await registerServiceWorker(() => undefined);
+    document.listener?.();
+    expect(updates).toBe(0);
+    document.visibilityState = 'visible';
+    document.listener?.();
+    expect(updates).toBe(1);
   });
 
   it('registers nothing in development, so a worker cannot serve old code', async () => {

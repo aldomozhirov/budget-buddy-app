@@ -60,7 +60,7 @@ function dismiss(): void {
     <p v-if="error" class="error sheet-copy" role="alert">
       {{ error }}
     </p>
-    <BbButton :disabled="busy" @click="proceed">Continue</BbButton>
+    <BbButton needs-server :disabled="busy" @click="proceed">Continue</BbButton>
     <BbButton
       variant="secondary"
       class="not-now"

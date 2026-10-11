@@ -325,7 +325,7 @@ async function saveAccount(): Promise<void> {
       </template>
     </div>
     <footer class="new-account-footer">
-      <BbButton :disabled="!canSave" @click="saveAccount">{{
+      <BbButton needs-server :disabled="!canSave" @click="saveAccount">{{
         saving ? 'Saving…' : name.trim() ? 'Save' : 'Name the account'
       }}</BbButton>
     </footer>
@@ -404,7 +404,7 @@ async function saveAccount(): Promise<void> {
   min-height: 0;
 }
 .new-account-screen {
-  height: 100dvh;
+  height: var(--app-h, 100dvh);
 }
 .new-account-field {
   display: flex;
@@ -469,7 +469,7 @@ async function saveAccount(): Promise<void> {
   color: var(--muted);
 }
 .new-account-footer {
-  padding: 10px 16px max(24px, env(safe-area-inset-bottom));
+  padding: 10px 16px max(24px, var(--safe-area-bottom));
 }
 .new-account-footer :deep(button) {
   width: 100%;

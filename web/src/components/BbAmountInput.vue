@@ -8,6 +8,7 @@ import {
   type Currency,
 } from '@budget-buddy/shared';
 import BbKeypad from './BbKeypad.vue';
+import { isOnline } from '../composables/useOnline';
 
 /**
  * Amount editor that uses text and buttons so the system keyboard never opens.
@@ -29,6 +30,8 @@ const props = withDefaults(
     saveLabel?: string;
     /** Prevents further saves while the caller's request is pending. */
     saving?: boolean;
+    /** Saving calls the server, so it is disabled while offline (IOS-6). */
+    needsServer?: boolean;
   }>(),
   {
     allowNegative: false,
@@ -37,8 +40,11 @@ const props = withDefaults(
     label: 'Amount',
     saveLabel: 'Save',
     saving: false,
+    needsServer: false,
   },
 );
+
+const offline = computed(() => props.needsServer && !isOnline.value);
 
 /** Emits the valid amount as it changes, or when the caller saves it. */
 const emit = defineEmits<{
@@ -162,7 +168,7 @@ function startFromLast(): void {
 
 /** Saves only a complete expression that the shared money parser accepts. */
 function save(): void {
-  if (props.saving) return;
+  if (props.saving || offline.value) return;
   const result = evaluation.value;
   if (result?.ok) emit('save', result.value);
 }
@@ -252,7 +258,7 @@ function onKeydown(event: KeyboardEvent): void {
     <button
       class="primary"
       type="button"
-      :disabled="!canSave || saving"
+      :disabled="!canSave || saving || offline"
       @click="save"
     >
       {{ canSave ? saveLabel : 'Enter an amount' }}
