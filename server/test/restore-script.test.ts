@@ -29,8 +29,8 @@ const filesScript = fileURLToPath(
  * here they run on the host folders, through `BB_FILES` and `BB_UNDO`, so
  * what they do to the files can be checked. The compose commands are not run
  * for real by this test: `scripts/restore-test.sh` runs the same scripts
- * against real containers, and README "Test the restore" says how the
- * compose service itself was tried.
+ * against real containers, and the spec (task 30) records the run against the
+ * compose service itself.
  */
 describe('scripts/restore.sh with a fake docker', () => {
   let directory: string;
