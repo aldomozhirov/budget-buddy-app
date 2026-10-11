@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import { toMinorString } from '@budget-buddy/shared';
+import { nextFollowUp, toMinorString } from '@budget-buddy/shared';
 import type { Checkin } from '@budget-buddy/shared';
 import type { CheckinEventBus } from '../events.js';
 
@@ -214,6 +214,10 @@ export function getCheckin(
   ).length;
   const currentMember = members.find((member) => member.memberId === memberId);
 
+  const remindable = members.some(
+    (member) => member.active === true && member.accounts > member.completed,
+  );
+
   return {
     id: Number(checkin.id),
     openedAt: Number(checkin.opened_at),
@@ -237,7 +241,33 @@ export function getCheckin(
     completedAccounts,
     members,
     needsAccounts: !currentMember || currentMember.accounts === 0,
+    nextReminderAt:
+      closedAt === null && remindable
+        ? nextReminderAt(database, {
+            openedAt: Number(checkin.opened_at),
+            scheduleSlot: checkin.schedule_slot,
+            now,
+          })
+        : null,
   };
+}
+
+/** When the next follow-up reminder is due, or null when they are off. */
+function nextReminderAt(
+  database: Database.Database,
+  options: { openedAt: number; scheduleSlot: string | null; now: number },
+): number | null {
+  const family = database
+    .prepare('SELECT time_zone, followup_days FROM family WHERE id = 1')
+    .get() as { time_zone: string; followup_days: number | bigint } | undefined;
+  if (!family) return null;
+  const next = nextFollowUp(
+    { openedAt: options.openedAt, scheduleSlot: options.scheduleSlot },
+    Number(family.followup_days),
+    new Date(options.now),
+    family.time_zone,
+  );
+  return next === null ? null : next.instant.getTime();
 }
 
 /** Saves one check-in value, writing a revision when it replaces a value. */

@@ -5,6 +5,7 @@ import { openDatabase } from './db/index.js';
 import { systemClock } from './clock.js';
 import { createJobRunner } from './jobs/runner.js';
 import { createCheckinScheduleJob } from './jobs/checkinSchedule.js';
+import { createFollowUpJob } from './jobs/followUp.js';
 import { createRatesJob } from './jobs/rates.js';
 import { createNotifier } from './notify/notifier.js';
 import { createWebPushSender } from './modules/push/sender.js';
@@ -70,13 +71,14 @@ try {
       allowedHosts: config.pushAllowedHosts,
     },
   });
-  // Jobs are added here as they are built (schedule, reminders, backup).
+  // Jobs are added here as they are built (backup next).
   const jobRunner = createJobRunner({
     database,
     clock: systemClock,
     jobs: [
       createRatesJob(rates),
       createCheckinScheduleJob({ database, clock: systemClock, events }),
+      createFollowUpJob({ database, events }),
     ],
     logger: app.log,
   });

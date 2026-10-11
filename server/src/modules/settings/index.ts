@@ -17,12 +17,22 @@ import {
   readCadence,
 } from '../../domain/cadence.js';
 import { settleSlotsUntil } from '../../jobs/checkinSchedule.js';
+import { settleFollowUpsUntil } from '../../jobs/followUp.js';
 import type { BackfillRequester } from '../../rates/service.js';
 
 const supportedTimeZones = new Set([
   ...Intl.supportedValuesOf('timeZone'),
   'UTC',
 ]);
+
+const settingsSelect =
+  'SELECT common_currency, time_zone, followup_days FROM family WHERE id = 1';
+
+type SettingsRow = {
+  common_currency: string;
+  time_zone: string;
+  followup_days: number | bigint;
+};
 
 /** Registers family-wide money and time zone settings routes. */
 export const settingsRoutes: FastifyPluginAsync<{
@@ -31,7 +41,11 @@ export const settingsRoutes: FastifyPluginAsync<{
   clock?: Clock;
 }> = async (app, { database, rates, clock = systemClock }) => {
   /** The response body: money settings, the cadence and its next slot. */
-  function settingsBody(commonCurrency: string, timeZone: string) {
+  function settingsBody(
+    commonCurrency: string,
+    timeZone: string,
+    followupDays: number,
+  ) {
     const { cadence, anchorDate } = readCadence(database);
     const now = clock.now();
     const next = nextCadenceSlot(
@@ -45,13 +59,13 @@ export const settingsRoutes: FastifyPluginAsync<{
       timeZone,
       cadence,
       nextSlot: next?.key ?? null,
+      followupDays,
     });
   }
 
   app.get('/api/settings', async (_request, reply) => {
-    const settings = database
-      .prepare('SELECT common_currency, time_zone FROM family WHERE id = 1')
-      .get() as { common_currency: string; time_zone: string } | undefined;
+    const settings = database.prepare(settingsSelect).get() as
+      SettingsRow | undefined;
     if (!settings) {
       return reply.code(403).send({
         error: {
@@ -60,22 +74,21 @@ export const settingsRoutes: FastifyPluginAsync<{
         },
       });
     }
-    return settingsBody(settings.common_currency, settings.time_zone);
+    return settingsBody(
+      settings.common_currency,
+      settings.time_zone,
+      Number(settings.followup_days),
+    );
   });
 
   app.patch('/api/settings', async (request, reply) => {
     const parsed = updateSettingsRequestSchema.safeParse(request.body);
     if (!parsed.success) {
-      return sendValidation(
-        reply,
-        'Check the money settings.',
-        parsed.error.issues,
-      );
+      return sendValidation(reply, 'Check the settings.', parsed.error.issues);
     }
 
-    const current = database
-      .prepare('SELECT common_currency, time_zone FROM family WHERE id = 1')
-      .get() as { common_currency: string; time_zone: string } | undefined;
+    const current = database.prepare(settingsSelect).get() as
+      SettingsRow | undefined;
     if (!current) {
       return reply.code(403).send({
         error: {
@@ -138,19 +151,28 @@ export const settingsRoutes: FastifyPluginAsync<{
     const timeZone = parsed.data.timeZone ?? current.time_zone;
     const commonCurrency =
       parsed.data.commonCurrency ?? current.common_currency;
+    const followupDays =
+      parsed.data.followupDays ?? Number(current.followup_days);
     database.transaction(() => {
       database
         .prepare(
-          'UPDATE family SET common_currency = ?, time_zone = ? WHERE id = 1',
+          `UPDATE family SET common_currency = ?, time_zone = ?,
+            followup_days = ? WHERE id = 1`,
         )
-        .run(commonCurrency, timeZone);
+        .run(commonCurrency, timeZone, followupDays);
       const cadenceChanged =
         parsed.data.cadence !== undefined &&
         saveCadence(parsed.data.cadence, timeZone);
       // Slot keys are local times, so a new zone starts counting from now,
       // whether or not the same request also sent a cadence.
-      if (cadenceChanged || timeZone !== current.time_zone) {
+      const zoneChanged = timeZone !== current.time_zone;
+      if (cadenceChanged || zoneChanged) {
         settleSlotsUntil(database, clock.now(), timeZone);
+      }
+      // Reminders count from now too, so a new interval or zone never sends
+      // one for a time that has passed.
+      if (followupDays !== Number(current.followup_days) || zoneChanged) {
+        settleFollowUpsUntil(database, clock.now(), timeZone);
       }
     })();
 
@@ -163,7 +185,7 @@ export const settingsRoutes: FastifyPluginAsync<{
       rates?.requestBackfill();
     }
 
-    return settingsBody(commonCurrency, timeZone);
+    return settingsBody(commonCurrency, timeZone, followupDays);
   });
 
   /**
@@ -173,7 +195,8 @@ export const settingsRoutes: FastifyPluginAsync<{
    * from today.
    */
   function saveCadence(setting: CadenceSetting, timeZone: string): boolean {
-    if (sameCadenceSetting(setting, readCadence(database).cadence)) return false;
+    if (sameCadenceSetting(setting, readCadence(database).cadence))
+      return false;
     database
       .prepare(cadenceUpdate)
       .run(...cadenceColumns(setting, todayInTimeZone(clock.now(), timeZone)));

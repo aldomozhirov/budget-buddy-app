@@ -53,6 +53,12 @@ export const checkinSchema = z.object({
   completedAccounts: z.number().int().nonnegative(),
   members: z.array(checkinMemberSchema),
   needsAccounts: z.boolean(),
+  /**
+   * When the next follow-up reminder is due, in epoch milliseconds. Null once
+   * the check-in is closed, when reminders are off, or when no active member
+   * has accounts left to remind about (CHK-3, UI-CHK-7).
+   */
+  nextReminderAt: z.number().int().nullable(),
 });
 
 /** Check-in record returned by API routes. */

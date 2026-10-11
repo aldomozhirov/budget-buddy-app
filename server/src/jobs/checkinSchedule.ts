@@ -8,6 +8,7 @@ import type { Clock } from '../clock.js';
 import { cadenceFromFields } from '../domain/cadence.js';
 import { startCheckin } from '../domain/checkin.js';
 import type { CheckinEventBus } from '../events.js';
+import { settleJobUntil } from './settle.js';
 import type { Job } from './types.js';
 
 /** Name of the schedule job in `job_run`. */
@@ -71,24 +72,5 @@ export function settleSlotsUntil(
   now: Date,
   timeZone: string,
 ): void {
-  const date = todayInTimeZone(now, timeZone);
-  const time = new Intl.DateTimeFormat('en-GB', {
-    timeZone,
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).format(now);
-  database
-    .prepare(
-      `INSERT INTO job_run (job, slot, status, attempts, started_at,
-        finished_at, error)
-      VALUES (?, ?, 'done', 0, ?, ?, 'Cadence changed')
-      ON CONFLICT (job, slot) DO NOTHING`,
-    )
-    .run(
-      checkinScheduleJobName,
-      `${date}T${time}`,
-      now.getTime(),
-      now.getTime(),
-    );
+  settleJobUntil(database, checkinScheduleJobName, now, timeZone);
 }

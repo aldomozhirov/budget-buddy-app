@@ -101,6 +101,7 @@ test.beforeEach(async ({ page }) => {
         timeZone: 'Europe/Berlin',
         cadence: { kind: 'off' },
         nextSlot: null,
+        followupDays: 2,
       },
     }),
   );

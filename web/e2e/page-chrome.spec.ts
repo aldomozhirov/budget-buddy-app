@@ -347,6 +347,7 @@ test('closing a check-in keeps its result clear of both safe areas', async ({
       },
     ],
     needsAccounts: true,
+    nextReminderAt: null,
   };
   await page.route('**/api/checkins/current', (route) =>
     route.fulfill({ json: { checkin: openCheckin } }),
@@ -439,6 +440,7 @@ async function mockAuthenticatedCheckinPage(page: Page): Promise<void> {
         timeZone: 'Europe/Berlin',
         cadence: { kind: 'off' },
         nextSlot: null,
+        followupDays: 2,
       },
     }),
   );

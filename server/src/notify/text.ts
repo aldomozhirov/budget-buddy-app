@@ -29,6 +29,15 @@ export const notificationText = {
       tag: `checkin-${checkinId}-opened`,
     };
   },
+  /** An open check-in still has accounts without a value (CHK-3). */
+  followUp(checkinId: number): PushContent {
+    return {
+      title: 'Your check-in is waiting',
+      body: 'Some of your accounts still need a balance.',
+      url: checkinPath(checkinId),
+      tag: `checkin-${checkinId}-followup`,
+    };
+  },
   /** The check-in closed; `closer` is null when it closed by itself. */
   closed(checkinId: number, closer: string | null): PushContent {
     return {

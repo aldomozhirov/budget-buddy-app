@@ -11,6 +11,11 @@ export interface CheckinEvents {
     closedAt: number;
     closedBy: number | null;
   };
+  'checkin.followup': {
+    checkinId: number;
+    /** Local `YYYY-MM-DDTHH:MM` of the reminder; one per slot (CHK-3). */
+    slot: string;
+  };
 }
 
 /** Callback subscribed to one check-in lifecycle event. */

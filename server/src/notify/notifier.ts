@@ -118,6 +118,16 @@ export function createNotifier(options: {
     ),
   );
 
+  const offFollowUp = events.on('checkin.followup', (event) =>
+    track(
+      notify({
+        kind: 'checkin.followup',
+        checkinId: event.checkinId,
+        slot: event.slot,
+      }),
+    ),
+  );
+
   const idle = async (): Promise<void> => {
     await Promise.allSettled([...inFlight]);
   };
@@ -127,6 +137,7 @@ export function createNotifier(options: {
     async close() {
       offOpened();
       offClosed();
+      offFollowUp();
       await idle();
     },
   };

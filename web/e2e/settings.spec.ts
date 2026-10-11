@@ -77,7 +77,10 @@ test('Settings shows every section in order and matches the screen copy', async 
   await expect(page.getByText('BTC, ETH, USDT', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /Time zone/u })).toBeVisible();
   await expect(page.getByText('Europe/Berlin', { exact: true })).toBeVisible();
-  await expect(page.getByText('—', { exact: true })).toHaveCount(4);
+  await expect(
+    page.getByRole('button', { name: /^Follow-up reminders/u }),
+  ).toContainText('Every 2 days');
+  await expect(page.getByText('—', { exact: true })).toHaveCount(3);
   await expect(page.getByRole('heading', { name: 'Spending' })).toHaveCount(0);
 
   const screenshotPath =
@@ -606,6 +609,7 @@ async function installSettingsApi(
     timeZone: string;
     cadence: { kind: 'off' };
     nextSlot: null;
+    followupDays: number;
   };
   ratesStatus: { value: unknown };
 }> {
@@ -641,6 +645,7 @@ async function installSettingsApi(
     timeZone: 'Europe/Berlin',
     cadence: { kind: 'off' as const },
     nextSlot: null,
+    followupDays: 2,
   };
   const ratesStatus = { value: defaultRatesStatus() as unknown };
   let coins = [
