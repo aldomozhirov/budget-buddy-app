@@ -91,7 +91,7 @@ const bannerDetail = computed(() => {
   const opened =
     open.scheduled || open.openedBy === null
       ? `Opened ${when}`
-      : `${open.openedBy} started it ${when}`;
+      : `${open.openedByYou ? 'You' : open.openedBy} started it ${when}`;
   if (open.accountsLeft === 0) return `${opened} · you’re done`;
   const left = `${open.accountsLeft} of your accounts`;
   return `${opened} · ${left} ${open.scheduled ? 'to check' : 'left'}`;
@@ -161,9 +161,22 @@ function toggleAmounts(): void {
   hideTimer = setTimeout(hideAmounts, REVEAL_MS);
 }
 
-/** A suspended app may miss its timer; check the deadline on return. */
-function hideWhenOverdue(): void {
-  if (hideAt.value !== null && Date.now() >= hideAt.value) hideAmounts();
+/**
+ * Hides a timed reveal as soon as the page is backgrounded or left, so
+ * nothing shows on return or in the app switcher. A device that shows amounts
+ * by default (UI-HOME-4) has no timed reveal and is left alone. On return, a
+ * suspended app may have missed its timer, so the deadline is checked too.
+ */
+function hideWhenBackgrounded(): void {
+  if (hideAt.value === null) return;
+  if (document.visibilityState === 'hidden' || Date.now() >= hideAt.value) {
+    hideAmounts();
+  }
+}
+
+/** The page is going away or into the back/forward cache. */
+function hideOnPageHide(): void {
+  if (hideAt.value !== null) hideAmounts();
 }
 
 async function load(): Promise<void> {
@@ -196,13 +209,15 @@ async function load(): Promise<void> {
 }
 
 onMounted(() => {
-  document.addEventListener('visibilitychange', hideWhenOverdue);
+  document.addEventListener('visibilitychange', hideWhenBackgrounded);
+  window.addEventListener('pagehide', hideOnPageHide);
   void load();
 });
 
 onBeforeUnmount(() => {
   clearTimeout(hideTimer);
-  document.removeEventListener('visibilitychange', hideWhenOverdue);
+  document.removeEventListener('visibilitychange', hideWhenBackgrounded);
+  window.removeEventListener('pagehide', hideOnPageHide);
 });
 </script>
 

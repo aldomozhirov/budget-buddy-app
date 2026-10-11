@@ -3,8 +3,10 @@ import type { WealthSeries } from '@budget-buddy/shared';
 import {
   accountLabel,
   createMoneyFormatter,
+  missingRatesText,
   trendsFromSeries,
   trendText,
+  wealthChartSummary,
 } from '../src/screens/summary/summaryFormat';
 
 const formatter = createMoneyFormatter([
@@ -36,6 +38,13 @@ describe('createMoneyFormatter', () => {
     expect(formatter.signed('-9640', 'EUR')).toBe('−€96.40');
     expect(formatter.signed('0', 'EUR')).toBe('€0.00');
     expect(formatter.money('4120000', 'BTC')).toBe('₿0.04120000');
+  });
+
+  it('shows a dash, not raw minor units, for a currency it does not know', () => {
+    expect(formatter.money('123456', 'XYZ')).toBe('— XYZ');
+    expect(formatter.change('-123456', 'XYZ')).toBe('— XYZ');
+    expect(formatter.signed('123456', 'XYZ')).toBe('— XYZ');
+    expect(formatter.masked('XYZ')).toBe('XYZ • • • • •');
   });
 
   it('masks with the currency symbol and never shows digits', () => {
@@ -87,5 +96,32 @@ describe('accountLabel', () => {
       'Sofia’s Cash €',
     );
     expect(accountLabel({ name: 'Joint', ownerName: null })).toBe('Joint');
+  });
+});
+
+describe('missingRatesText', () => {
+  const missing = [{ currency: 'RUB', date: '2026-09-02' }];
+
+  it('calls the total incomplete only when it is', () => {
+    expect(missingRatesText(missing, 'UTC', false)).toBe(
+      'Rate missing for RUB on 02/09/2026. The total is incomplete.',
+    );
+    expect(missingRatesText(missing, 'UTC', true)).toBe(
+      'Rate missing for RUB on 02/09/2026.',
+    );
+  });
+});
+
+describe('wealthChartSummary', () => {
+  it('counts check-ins, in the singular for one', () => {
+    expect(wealthChartSummary('All in EUR', ['02/09/2026'])).toBe(
+      'All in EUR over 1 check-in, from 02/09/2026 to 02/09/2026',
+    );
+    expect(wealthChartSummary('USD', ['01/08/2026', '02/09/2026'])).toBe(
+      'USD over 2 check-ins, from 01/08/2026 to 02/09/2026',
+    );
+    expect(wealthChartSummary('EUR', [])).toBe(
+      'EUR over 0 check-ins, from the first date to the latest date',
+    );
   });
 });

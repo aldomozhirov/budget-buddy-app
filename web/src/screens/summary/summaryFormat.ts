@@ -13,7 +13,7 @@ type Direction = 'up' | 'down' | 'unchanged';
 
 /** Formats the minor-unit strings of the summary API for display. */
 export interface MoneyFormatter {
-  /** `€1,234.56`; a currency the app does not know shows its code. */
+  /** `€1,234.56`; a currency the app does not know shows `— XYZ`. */
   money(minor: string, code: string): string;
   /** `▲ €1,742.00`, `▼ ₽4,700.00` or `Unchanged`. */
   change(minor: string, code: string): string;
@@ -21,6 +21,14 @@ export interface MoneyFormatter {
   signed(minor: string, code: string): string;
   /** `€ • • • • •`: the currency's symbol and dots, never digits. */
   masked(code: string): string;
+}
+
+/**
+ * A currency the app does not know has no decimals to place the point by, so
+ * raw minor units would read 100 times too large: show a dash instead.
+ */
+function unknownAmount(code: string): string {
+  return `— ${code}`;
 }
 
 /** Builds a formatter that knows the family's coins. */
@@ -32,17 +40,17 @@ export function createMoneyFormatter(
       const currency = getCurrency(code, coins);
       return currency
         ? formatMoney(parseMinor(minor), currency)
-        : `${minor} ${code}`;
+        : unknownAmount(code);
     },
     change(minor, code) {
       const currency = getCurrency(code, coins);
       return currency
         ? formatChange(parseMinor(minor), currency)
-        : `${minor} ${code}`;
+        : unknownAmount(code);
     },
     signed(minor, code) {
       const currency = getCurrency(code, coins);
-      if (!currency) return `${minor} ${code}`;
+      if (!currency) return unknownAmount(code);
       const amount = parseMinor(minor);
       return `${amount > 0n ? '+' : ''}${formatMoney(amount, currency)}`;
     },
@@ -130,15 +138,34 @@ export function chartPoints(
   });
 }
 
-/** Text for a missing rate, naming the currency and the date it needs. */
+/**
+ * Text for a missing rate, naming the currency and the date it needs. It adds
+ * "The total is incomplete." only when `totalComplete` is false: a currency
+ * can lack a rate while the family total, which holds none of it, is whole.
+ */
 export function missingRatesText(
   missing: CheckinSummary['missingRates'],
   timeZone: string,
+  totalComplete: boolean,
 ): string {
   const parts = missing.map(
     (rate) => `${rate.currency} on ${formatDate(rate.date, timeZone)}`,
   );
-  return `Rate missing for ${parts.join(', ')}. The total is incomplete.`;
+  const text = `Rate missing for ${parts.join(', ')}.`;
+  return totalComplete ? text : `${text} The total is incomplete.`;
+}
+
+/**
+ * The screen-reader summary of the wealth chart: `All in EUR over 1 check-in,
+ * from 02/09/2026 to 02/09/2026`; `check-in` is singular for one point.
+ */
+export function wealthChartSummary(
+  name: string,
+  dates: readonly string[],
+): string {
+  const count = dates.length;
+  const noun = count === 1 ? 'check-in' : 'check-ins';
+  return `${name} over ${count} ${noun}, from ${dates[0] ?? 'the first date'} to ${dates.at(-1) ?? 'the latest date'}`;
 }
 
 /** Names accounts as `Sofia’s Cash €`, or just the name when it is shared. */

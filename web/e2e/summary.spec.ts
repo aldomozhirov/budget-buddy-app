@@ -253,6 +253,32 @@ test('the chart has a pill per currency and Today’s rates changes the series',
   );
 });
 
+test('a first check-in chart says there are not enough check-ins', async ({
+  page,
+}) => {
+  const seed = await seedFamily(page.context());
+  const series = wealthSeriesSchema.parse(
+    await (
+      await page.context().request.get(`${origin}/api/wealth/series`)
+    ).json(),
+  );
+  // Only the first check-in exists on the chart: a single point.
+  await page.route('**/api/wealth/series?*', (route) =>
+    route.fulfill({
+      json: {
+        ...series,
+        points: series.points.filter((point) => point.checkinId === seed.first),
+      },
+    }),
+  );
+  await page.goto(`${origin}/check-ins/${seed.first}`);
+  await expect(
+    page.getByText('Not enough check-ins to chart yet.'),
+  ).toBeVisible();
+  await expect(page.getByText(/balance history/u)).toHaveCount(0);
+  await expect(page.getByText(/over 1 check-ins/u)).toHaveCount(0);
+});
+
 test('a Biggest changes row opens its account', async ({ page }) => {
   const seed = await seedFamily(page.context());
   await page.goto(`${origin}/check-ins/${seed.second}`);

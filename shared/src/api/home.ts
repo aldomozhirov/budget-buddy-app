@@ -12,6 +12,8 @@ export const homeCheckinSchema = z.object({
   cadence: z.enum(['monthly', 'weekly']).nullable(),
   /** The member who started it; null when the schedule opened it. */
   openedBy: z.string().nullable(),
+  /** True when the signed-in profile started it, so Home can say "You". */
+  openedByYou: z.boolean(),
   /** The day it opened, YYYY-MM-DD in the family's time zone. */
   openedDate: dateSchema,
   /** Accounts of the signed-in profile that still need a value. */
