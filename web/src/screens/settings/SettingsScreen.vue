@@ -27,10 +27,16 @@ import CommonCurrencySheet from './CommonCurrencySheet.vue';
 import CoinsSheet from './CoinsSheet.vue';
 import RatesStatusSheet from './RatesStatusSheet.vue';
 import ScheduleSheet from './ScheduleSheet.vue';
+import NotificationsSheet from './NotificationsSheet.vue';
 import TimeZoneSheet from './TimeZoneSheet.vue';
 import { formatUpdated } from './ratesFormat.js';
 import { deviceName } from '../../device.js';
 import { useBack } from '../../composables/useBack.js';
+import {
+  disablePush,
+  readPushState,
+  type PushState,
+} from '../../push/pushClient.js';
 import {
   authState,
   refreshAuthState,
@@ -79,6 +85,22 @@ const ratesSheetOpen = ref(false);
 // Null until this device's setting has loaded; the switch waits for it.
 const hideHomeAmounts = ref<boolean | null>(null);
 const hideHomeAmountsError = ref('');
+// Null until the browser has been asked; the switch waits for it.
+const pushState = ref<PushState | null>(null);
+const notificationsSheetOpen = ref(false);
+const notificationsError = ref('');
+const notificationsSubtitle = computed(() => {
+  switch (pushState.value) {
+    case 'on':
+      return `On for ${deviceLabel}`;
+    case 'denied':
+      return 'Blocked in this device’s settings · the in-app banner still shows';
+    case 'unsupported':
+      return 'Add Budget Buddy to your Home Screen to turn this on';
+    default:
+      return 'Off · the in-app banner still shows';
+  }
+});
 const defaultMemberId = computed(
   () => authState.value?.device.defaultMemberId ?? null,
 );
@@ -111,7 +133,38 @@ onMounted(() => {
   void loadMoneySettings();
   void loadRatesStatus();
   void loadDeviceSettings();
+  void loadPushState(true);
 });
+
+/** Reads what this device can do about notifications (NTF-2, NTF-3). */
+async function loadPushState(sync = false): Promise<void> {
+  try {
+    pushState.value = await readPushState(sync);
+  } catch {
+    pushState.value = 'unsupported';
+  }
+}
+
+/** The switch: off → explainer first; on → off at once. */
+async function changeNotifications(value: boolean): Promise<void> {
+  notificationsError.value = '';
+  if (value) {
+    notificationsSheetOpen.value = true;
+    return;
+  }
+  try {
+    if (!(await disablePush())) throw new Error('Could not turn off.');
+    pushState.value = 'off';
+  } catch {
+    notificationsError.value =
+      'Could not turn off notifications. Check your connection and try again.';
+  }
+}
+
+async function closeNotificationsSheet(): Promise<void> {
+  notificationsSheetOpen.value = false;
+  await loadPushState();
+}
 
 /** Loads this device's settings; the switch stays disabled when it fails. */
 async function loadDeviceSettings(): Promise<void> {
@@ -659,11 +712,16 @@ async function readApiError(response: Response): Promise<{
       >
         <h2 id="settings-device-heading" class="h">This device</h2>
         <BbListCard>
-          <BbRow
-            title="Notifications"
-            subtitle="Off · the in-app banner still shows"
-            value="—"
-          />
+          <BbRow title="Notifications" :subtitle="notificationsSubtitle">
+            <template #trailing>
+              <BbSwitch
+                :model-value="pushState === 'on'"
+                label="Notifications"
+                :disabled="pushState !== 'on' && pushState !== 'off'"
+                @update:model-value="changeNotifications"
+              />
+            </template>
+          </BbRow>
           <BbRow
             title="Hide amounts on Home"
             subtitle="Tap the eye to show them for 30 s"
@@ -684,6 +742,9 @@ async function readApiError(response: Response): Promise<{
             @click="signOut"
           />
         </BbListCard>
+        <p v-if="notificationsError" class="error" role="alert">
+          {{ notificationsError }}
+        </p>
         <p v-if="hideHomeAmountsError" class="error" role="alert">
           {{ hideHomeAmountsError }}
         </p>
@@ -866,6 +927,10 @@ async function readApiError(response: Response): Promise<{
       :selected="timeZone"
       @saved="saveTimeZone"
       @close="timeZoneSheetOpen = false"
+    />
+    <NotificationsSheet
+      v-if="notificationsSheetOpen"
+      @close="closeNotificationsSheet"
     />
     <ScheduleSheet
       v-if="scheduleSheetOpen"

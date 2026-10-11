@@ -26,6 +26,7 @@ import { ratesRoutes } from './modules/rates/index.js';
 import { summaryRoutes } from './modules/summary/index.js';
 import { homeRoutes } from './modules/home/index.js';
 import { deviceRoutes } from './modules/devices/index.js';
+import { pushRoutes } from './modules/push/index.js';
 import { createCheckinEventBus, type CheckinEventBus } from './events.js';
 import { createRatesService, type RatesService } from './rates/service.js';
 
@@ -76,6 +77,12 @@ export type AppOptions = {
    * Without one, the app has no feeds: status works, nothing is fetched.
    */
   rates?: RatesService;
+  /**
+   * Web Push opt-in: the public VAPID key handed to browsers and the hosts
+   * their subscriptions may name (SEC-8). Without it the push routes are not
+   * registered, as in tests that don't use them.
+   */
+  push?: { publicKey: string; allowedHosts: readonly string[] };
 };
 
 /**
@@ -157,6 +164,14 @@ export async function createApp(options: AppOptions) {
   await app.register(summaryRoutes, { database: options.database, clock });
   await app.register(homeRoutes, { database: options.database, clock });
   await app.register(deviceRoutes, { database: options.database });
+  if (options.push) {
+    await app.register(pushRoutes, {
+      database: options.database,
+      publicKey: options.push.publicKey,
+      allowedHosts: options.push.allowedHosts,
+      clock,
+    });
+  }
 
   app.setErrorHandler((error, request, reply) => {
     const fastifyError = error as Error & {

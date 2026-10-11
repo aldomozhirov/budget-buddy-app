@@ -21,6 +21,26 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
   DATA_DIR: z.string().min(1).optional(),
   BACKUP_DIR: z.string().min(1).optional(),
+  // Contact for the push services (a `mailto:` or `https:` URL).
+  VAPID_SUBJECT: z
+    .string()
+    .refine(
+      (value) => /^(mailto:[^\s@]+@[^\s@]+|https:\/\/[^\s/]+.*)$/u.test(value),
+      {
+        message: 'VAPID_SUBJECT must be a mailto: or https: URL.',
+      },
+    )
+    .optional(),
+  // Hosts a push may be sent to, separated by commas; `*.x` matches below x.
+  PUSH_ALLOWED_HOSTS: z
+    .string()
+    .default('*.push.apple.com')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((host) => host.trim().toLowerCase())
+        .filter(Boolean),
+    ),
   // Unset means the real feeds in production and fixtures everywhere else.
   RATES_FEED: z.enum(['fixture', 'live']).optional(),
   // Hosts the rates client may call, separated by commas (SEC-8).
@@ -45,6 +65,12 @@ export type AppConfig = {
   dataDir: string;
   backupDir: string;
   databasePath: string;
+  /** Folder for the VAPID and other keys, inside the data directory. */
+  keysDir: string;
+  /** `mailto:` or `https:` contact sent to the push services. */
+  vapidSubject: string;
+  /** Hosts a push may be sent to (SEC-8); Apple's push service by default. */
+  pushAllowedHosts: string[];
   /** `live` calls the price feeds; `fixture` uses made-up rates. */
   ratesFeed: 'fixture' | 'live';
   /** Host names the rates HTTP client may call; all others are refused. */
@@ -64,17 +90,33 @@ export function parseConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const dataDir = parsed.DATA_DIR ?? '/data';
   const backupDir = parsed.BACKUP_DIR ?? '/backups';
 
+  const appOrigins = parsed.APP_ORIGIN.map((origin) => new URL(origin).origin);
+
   return {
     nodeEnv: parsed.NODE_ENV,
-    appOrigins: parsed.APP_ORIGIN.map((origin) => new URL(origin).origin),
+    appOrigins,
     host: parsed.HOST,
     port: parsed.PORT,
     dataDir,
     backupDir,
     databasePath: join(dataDir, 'budget-buddy.sqlite'),
+    keysDir: join(dataDir, 'keys'),
+    vapidSubject: parsed.VAPID_SUBJECT ?? defaultVapidSubject(appOrigins),
+    pushAllowedHosts: parsed.PUSH_ALLOWED_HOSTS,
     ratesFeed:
       parsed.RATES_FEED ??
       (parsed.NODE_ENV === 'production' ? 'live' : 'fixture'),
     ratesAllowedHosts: parsed.RATES_ALLOWED_HOSTS,
   };
+}
+
+/**
+ * Push services want a contact that is a `mailto:` or `https:` URL. The app's
+ * own address serves when it is https; otherwise a placeholder does.
+ */
+function defaultVapidSubject(appOrigins: string[]): string {
+  return (
+    appOrigins.find((origin) => origin.startsWith('https:')) ??
+    'mailto:budget-buddy@example.com'
+  );
 }
