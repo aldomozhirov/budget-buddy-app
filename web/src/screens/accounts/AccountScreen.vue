@@ -783,8 +783,8 @@ function goHome(): void {
           </button>
           <label class="lbl" for="balance-date">Earlier date…</label>
           <input
-            ref="balanceDateInput"
             id="balance-date"
+            ref="balanceDateInput"
             v-model="balanceDate"
             class="text"
             type="date"
