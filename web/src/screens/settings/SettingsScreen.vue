@@ -10,6 +10,7 @@ import {
   ratesStatusResponseSchema,
   settingsResponseSchema,
   summarizeCadence,
+  summarizeFollowUp,
   type CadenceSetting,
   type CoinSetting,
   type CurrencyOption,
@@ -26,6 +27,7 @@ import BbSwitch from '../../components/BbSwitch.vue';
 import CommonCurrencySheet from './CommonCurrencySheet.vue';
 import CoinsSheet from './CoinsSheet.vue';
 import RatesStatusSheet from './RatesStatusSheet.vue';
+import FollowUpSheet from './FollowUpSheet.vue';
 import ScheduleSheet from './ScheduleSheet.vue';
 import NotificationsSheet from './NotificationsSheet.vue';
 import TimeZoneSheet from './TimeZoneSheet.vue';
@@ -80,6 +82,8 @@ const cadence = ref<CadenceSetting>({ kind: 'off' });
 // Local date-time of the next scheduled check-in; null while it is off.
 const nextSlot = ref<string | null>(null);
 const scheduleSheetOpen = ref(false);
+const followupDays = ref(2);
+const followUpSheetOpen = ref(false);
 const ratesStatus = ref<RatesStatusResponse | null>(null);
 const ratesSheetOpen = ref(false);
 // Null until this device's setting has loaded; the switch waits for it.
@@ -238,6 +242,7 @@ async function loadMoneySettings(): Promise<void> {
     timeZone.value = parsedSettings.timeZone;
     cadence.value = parsedSettings.cadence;
     nextSlot.value = parsedSettings.nextSlot;
+    followupDays.value = parsedSettings.followupDays;
     currencyOptions.value = parsedCurrencies.currencies;
     coins.value = parsedCurrencies.coins;
   } catch {
@@ -256,6 +261,11 @@ function saveCommonCurrency(currency: string): void {
   commonCurrency.value = currency;
   commonCurrencySheetOpen.value = false;
   void loadRatesStatus();
+}
+
+function saveFollowUp(settings: SettingsResponse): void {
+  followupDays.value = settings.followupDays;
+  followUpSheetOpen.value = false;
 }
 
 function saveSchedule(settings: SettingsResponse): void {
@@ -649,7 +659,13 @@ async function readApiError(response: Response): Promise<{
           <BbRow
             title="Follow-up reminders"
             subtitle="To profiles with accounts left"
-            value="—"
+            :value="
+              moneySettingsLoading ? '—' : summarizeFollowUp(followupDays)
+            "
+            interactive
+            aria-haspopup="dialog"
+            :disabled="moneySettingsLoading || Boolean(moneySettingsError)"
+            @click="followUpSheetOpen = true"
           />
         </BbListCard>
       </section>
@@ -931,6 +947,12 @@ async function readApiError(response: Response): Promise<{
     <NotificationsSheet
       v-if="notificationsSheetOpen"
       @close="closeNotificationsSheet"
+    />
+    <FollowUpSheet
+      v-if="followUpSheetOpen"
+      :followup-days="followupDays"
+      @saved="saveFollowUp"
+      @close="followUpSheetOpen = false"
     />
     <ScheduleSheet
       v-if="scheduleSheetOpen"

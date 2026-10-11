@@ -135,3 +135,12 @@ export function describeReminderIn(
   if (days <= 0) return 'today';
   return days === 1 ? 'tomorrow' : `in ${days} days`;
 }
+
+/**
+ * Words for the follow-up interval in Settings (UI-SET-1): "Off", "Every day"
+ * or "Every N days".
+ */
+export function summarizeFollowUp(days: number): string {
+  if (days < 1) return 'Off';
+  return days === 1 ? 'Every day' : `Every ${days} days`;
+}

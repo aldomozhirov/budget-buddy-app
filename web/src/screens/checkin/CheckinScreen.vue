@@ -5,6 +5,7 @@ import {
   checkinResponseSchema,
   currentCheckinResponseSchema,
   currenciesResponseSchema,
+  describeReminderIn,
   formatChange,
   formatDate,
   formatMoney,
@@ -45,6 +46,15 @@ const saving = ref(false);
 const retryPayloads = ref<Record<number, SavePayload>>({});
 let loadVersion = 0;
 let selectionInitialized = false;
+
+/** UI-CHK-7: the footer's second sentence, left out when reminders are off. */
+const footerText = computed(() => {
+  const base = 'Closes by itself when everyone is in.';
+  const due = checkin.value?.nextReminderAt;
+  if (due === null || due === undefined) return base;
+  const when = describeReminderIn(new Date(due), new Date(), timeZone.value);
+  return `${base} Next reminder ${when}.`;
+});
 
 const currentMemberId = computed(() => authState.value?.member?.id ?? null);
 const selectedMember = computed(
@@ -617,9 +627,7 @@ onBeforeUnmount(() => {
       </section>
 
       <footer class="checkin-footer">
-        <span
-          >Closes by itself when everyone is in. Next reminder in 2 days.</span
-        >
+        <span>{{ footerText }}</span>
         <button
           class="checkin-close-button"
           type="button"
