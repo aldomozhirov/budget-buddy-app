@@ -186,7 +186,7 @@ How a record arrives depends on its source:
 
 - **MEM-1 (Must).** On first start, when no member exists, the app shows a setup screen that sets the family password and creates a profile for each member, at least one.
 - **MEM-2 (Must).** A device signs in with the family password and then opens a profile: the device's default profile, or one the member picks, optionally remembered as the default. A signed-in member can switch to another profile and set or clear the device's default profile at any time. The device stays signed in until it signs out or the session expires.
-- **MEM-3 (Must).** Any signed-in member can add a profile, rename one, and deactivate or reactivate one. A deactivated profile cannot be opened. Its accounts and history stay. Any signed-in member can change the family password, which signs out every other device.
+- **MEM-3 (Must).** Any signed-in member can add a profile, rename one, and deactivate or reactivate one. A deactivated profile cannot be opened. Its accounts and history stay. Any signed-in member can change the family password, which signs out every other device and deletes their push subscriptions (NTF-2); the device that makes the change stays signed in and keeps its subscription (owner's decision, 2026-10-11).
 - **MEM-4 (Must).** Every member can see and change all data. There are no roles and no private accounts.
 - **MEM-5 (Must).** Every snapshot, transaction and envelope adjustment stores who created it, who last changed it, and when. A corrected balance keeps its previous values in a change history.
 - **MEM-6 (Could).** A device can be unlocked with a passkey (Face ID or Touch ID) instead of the family password.
@@ -207,7 +207,7 @@ How a record arrives depends on its source:
 ### CHK: check-in (spec 1)
 
 - **CHK-1 (Must).** Any member can start a check-in at any time. Only one check-in can be open. Starting one while another is open joins the open one.
-- **CHK-2 (Must).** Settings hold one check-in cadence for the family: off, monthly on a chosen day of the month, or every N weeks on a chosen weekday, each with a time of day. At that moment the app opens a check-in if none is open and reminds every active member (NTF-2).
+- **CHK-2 (Must).** Settings hold one check-in cadence for the family: off, monthly on a chosen day of the month, or every N weeks on a chosen weekday, each with a time of day. At that moment the app opens a check-in if none is open and reminds every active member (NTF-2). If one is already open, it opens nothing and reminds each active member who still has accounts without a value, once per member per slot, with the follow-up reminder of CHK-3; a follow-up and a slot reminder of the same minute give one push (owner's decision, 2026-10-11).
 - **CHK-3 (Should).** While a check-in is open, each member who still has accounts without a value gets a follow-up reminder at an interval set in settings.
 - **CHK-4 (Must).** When a member starts a check-in by hand, the other members are notified and told who started it.
 - **CHK-5 (Must).** The check-in screen shows all active accounts of the signed-in member on one screen, each with its name, currency, last balance and the date of that balance. For each account the member either taps "unchanged" (labelled "Same" in the design) or enters a new amount (ACC-9). "Unchanged" stores a fresh snapshot equal to the previous balance; only an account left without a value is carried forward (CHK-8). The member can switch to another member's accounts and fill those in too.
@@ -249,7 +249,7 @@ How a record arrives depends on its source:
 ### NTF: notifications (spec 1)
 
 - **NTF-1 (Must).** An in-app banner shows an open check-in to every member on every visit.
-- **NTF-2 (Must).** The installed app receives push notifications on iOS through Web Push (iOS 16.4 or later). Each device opts in from settings, following a tap, as iOS requires. The events are: scheduled check-in, check-in started by a member, follow-up reminder, and check-in closed.
+- **NTF-2 (Must).** The installed app receives push notifications on iOS through Web Push (iOS 16.4 or later). Each device opts in from settings, following a tap, as iOS requires. The events are: scheduled check-in, check-in started by a member, follow-up reminder, and check-in closed. A device that a family password change signed out receives no push until it signs in and opts in again (MEM-3).
 - **NTF-3 (Must).** The app works fully without push permission.
 - **NTF-4 (Must).** Notification texts contain no amounts.
 - **NTF-5 (Should, later specs).** Further events: drafts waiting, a connector failing, an envelope overspent.

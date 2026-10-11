@@ -576,6 +576,121 @@ describe('Web Push notifications', () => {
       ).toEqual({ member_id: 3n });
     });
   });
+
+  /**
+   * A family password change signs out every other device, and with it their
+   * push subscriptions (owner decision, 2026-10-11).
+   */
+  describe('family password change', () => {
+    const newPassword = 'a brand new family password';
+    const changePassword = (device: string, current = password) =>
+      request(device, 'PUT', '/api/family/password', {
+        currentPassword: current,
+        newPassword,
+      });
+    const remainingEndpoints = () =>
+      (
+        database
+          .prepare('SELECT endpoint FROM push_subscription ORDER BY id')
+          .all() as Array<{ endpoint: string }>
+      ).map(({ endpoint }) => endpoint);
+
+    it('removes exactly the subscriptions of the devices it signs out', async () => {
+      expect(remainingEndpoints()).toHaveLength(5);
+      const changed = await changePassword('Alex');
+      expect(changed.statusCode, changed.body).toBe(200);
+
+      expect(remainingEndpoints()).toEqual([endpointOf('Alex')]);
+      // The device that changed it stays signed in; the others are out.
+      expect((await request('Alex', 'GET', '/api/auth/me')).statusCode).toBe(
+        200,
+      );
+      for (const device of ['Alex iPad', 'Blair', 'Casey', 'Dana'])
+        expect(
+          (await request(device, 'GET', '/api/auth/me')).statusCode,
+          device,
+        ).toBe(401);
+    });
+
+    it('keeps the subscription of the device that changes it, whoever it is', async () => {
+      expect((await changePassword('Blair')).statusCode).toBe(200);
+      expect(remainingEndpoints()).toEqual([endpointOf('Blair')]);
+    });
+
+    it('sends nothing to a signed-out device afterwards', async () => {
+      await changePassword('Alex');
+      // Started by Alex: the others would be told, but have no device left.
+      expect((await startCheckin('Alex')).statusCode).toBe(201);
+      await notifier.idle();
+      expect(sender.sent).toEqual([]);
+
+      // Closing tells every active member, the closer too: only Alex's device
+      // is left to receive it.
+      expect((await closeCheckin('Alex', 1)).statusCode).toBe(200);
+      await notifier.idle();
+      expect(endpointsSent()).toEqual([endpointOf('Alex')]);
+    });
+
+    it('lets a signed-out device sign in again and turn notifications back on', async () => {
+      await changePassword('Alex');
+      const signedIn = await app.inject({
+        method: 'POST',
+        url: '/api/auth/sign-in',
+        headers: { ...jsonHeaders, 'user-agent': 'Blair/1.0' },
+        payload: { password: newPassword },
+      });
+      expect(signedIn.statusCode, signedIn.body).toBe(200);
+      cookies.set('Blair', cookieHeader(signedIn));
+      const profile = await request('Blair', 'POST', '/api/auth/profile', {
+        memberId: 2,
+        remember: false,
+      });
+      expect(profile.statusCode).toBe(200);
+      await subscribe('Blair');
+      expect(remainingEndpoints()).toEqual([
+        endpointOf('Alex'),
+        endpointOf('Blair'),
+      ]);
+
+      await startCheckin('Alex');
+      await notifier.idle();
+      expect(endpointsSent()).toEqual([endpointOf('Blair')]);
+      expect(sender.sent[0]!.content.title).toBe('Alex started a check-in');
+    });
+
+    it('removes nothing when the change is refused', async () => {
+      const wrong = await changePassword('Alex', 'not the current password');
+      expect(wrong.statusCode).toBe(400);
+      const short = await request('Alex', 'PUT', '/api/family/password', {
+        currentPassword: password,
+        newPassword: 'short',
+      });
+      expect(short.statusCode).toBe(400);
+      expect(remainingEndpoints()).toHaveLength(5);
+    });
+
+    it('removes them in the same transaction as the sign-out', async () => {
+      // A failing delete must undo the new password and the sign-outs.
+      const epoch = () =>
+        (
+          database
+            .prepare('SELECT password_epoch FROM family WHERE id = 1')
+            .get() as { password_epoch: bigint }
+        ).password_epoch;
+      const before = epoch();
+      database.exec(
+        `CREATE TRIGGER refuse_delete BEFORE DELETE ON push_subscription
+         BEGIN SELECT RAISE(ABORT, 'refused'); END`,
+      );
+      const failed = await changePassword('Alex');
+      expect(failed.statusCode).toBe(500);
+      expect(remainingEndpoints()).toHaveLength(5);
+      expect((await request('Blair', 'GET', '/api/auth/me')).statusCode).toBe(
+        200,
+      );
+      expect(epoch()).toBe(before);
+    });
+  });
 });
 
 function cookieHeader(response: { headers: Record<string, unknown> }): string {

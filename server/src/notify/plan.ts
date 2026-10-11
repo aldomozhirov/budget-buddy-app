@@ -12,7 +12,8 @@ import type { NotificationEvent, NotificationPlan } from './types.js';
  * a scheduled check-in goes to every active member, one started by a member to
  * every other active member with their name, and a closed one to every active
  * member. A follow-up goes only to the active members who still own accounts
- * without a value in the open check-in (CHK-3).
+ * without a value in the open check-in (CHK-3); a schedule slot that finds a
+ * check-in open sends the same reminder to the same members (CHK-2).
  */
 export function planNotification(
   database: Database.Database,

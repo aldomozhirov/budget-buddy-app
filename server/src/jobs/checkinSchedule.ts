@@ -25,8 +25,11 @@ const freshLookbackMs = dayMs;
  * slot's key is its local time, `YYYY-MM-DDTHH:MM`, so a daylight-saving gap
  * keeps the requested time as key (Design section 5). A run after downtime
  * opens one check-in for the latest missed slot (COR-3). When a check-in is
- * already open the slot opens nothing, and the same slot never opens two.
- * The reminder for that case belongs to the notification task.
+ * already open the slot opens nothing, and the same slot never opens two;
+ * instead it announces a reminder (`checkin.followup`, keyed by the slot) for
+ * that check-in, which the notifier sends once to each active member who
+ * still owns accounts without a value (CHK-2, CHK-3). A retry of a slot that
+ * opened its own check-in sends no reminder.
  */
 export function createCheckinScheduleJob(options: {
   database: Database.Database;
@@ -52,14 +55,29 @@ export function createCheckinScheduleJob(options: {
         .filter((key) => lastDoneSlot === null || key > lastDoneSlot);
     },
     run(slot) {
-      startCheckin(database, {
+      const { checkinId, joined } = startCheckin(database, {
         openedBy: null,
         scheduleSlot: slot,
         now: clock.now().getTime(),
         events,
       });
+      if (joined && !isOpenedBySlot(database, checkinId, slot)) {
+        events.emit('checkin.followup', { checkinId, slot });
+      }
     },
   };
+}
+
+/** Whether this slot made the check-in, as on a retry or a late rerun. */
+function isOpenedBySlot(
+  database: Database.Database,
+  checkinId: number,
+  slot: string,
+): boolean {
+  const row = database
+    .prepare('SELECT schedule_slot AS scheduleSlot FROM checkin WHERE id = ?')
+    .get(checkinId) as { scheduleSlot: string | null } | undefined;
+  return row?.scheduleSlot === slot;
 }
 
 /**

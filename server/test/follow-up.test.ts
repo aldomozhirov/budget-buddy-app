@@ -485,6 +485,249 @@ describe('follow-up reminders', () => {
       expect(await nextReminderAt(id)).toBeNull();
     });
   });
+
+  /**
+   * CHK-2: a schedule slot that finds a check-in open opens nothing and
+   * reminds, with the follow-up text, the members a follow-up would remind.
+   */
+  describe('a schedule slot that finds a check-in open (CHK-2)', () => {
+    // Tuesdays at 09:00 Berlin (08:00 UTC in winter); today is Tuesday the
+    // 10th at 13:00, so the first slot is the 17th.
+    const weekly = { kind: 'weeks', every: 1, weekday: 2, time: '09:00' };
+    const slotReminders = () =>
+      database
+        .prepare(
+          `SELECT member_id, slot FROM notification
+           WHERE event = 'checkin.followup' ORDER BY member_id, slot`,
+        )
+        .all();
+    const checkinCount = () =>
+      (
+        database.prepare('SELECT COUNT(*) AS n FROM checkin').get() as {
+          n: bigint;
+        }
+      ).n;
+    const schedule = async (followupDays = 0) => {
+      await setFollowupDays(followupDays);
+      const saved = await request('Alex', 'PATCH', '/api/settings', {
+        cadence: weekly,
+      });
+      expect(saved.statusCode, saved.body).toBe(200);
+    };
+
+    it('opens nothing and reminds the members with accounts left', async () => {
+      await schedule();
+      await startCheckin();
+
+      at('2026-11-17T08:00:00Z');
+      await tick();
+
+      expect(checkinCount()).toBe(1n);
+      expect(reminded()).toEqual(alert(['Alex', 'Blair']));
+      // The existing reminder text; amounts never appear (NTF-4).
+      expect(sender.sent[0]!.content).toEqual({
+        title: 'Your check-in is waiting',
+        body: 'Some of your accounts still need a balance.',
+        url: '/check-ins/1',
+        tag: 'checkin-1-followup',
+      });
+      expect(slotReminders()).toEqual([
+        { member_id: 1n, slot: '2026-11-17T09:00' },
+        { member_id: 2n, slot: '2026-11-17T09:00' },
+      ]);
+      expect(
+        database
+          .prepare("SELECT status FROM job_run WHERE slot = '2026-11-17T09:00'")
+          .get(),
+      ).toEqual({ status: 'done' });
+    });
+
+    it('does not depend on the follow-up interval', async () => {
+      await schedule(0);
+      await startCheckin();
+      at('2026-11-17T08:00:00Z');
+      await tick();
+      expect(reminded()).toHaveLength(2);
+    });
+
+    it('skips members with no accounts left, inactive members and members without a device', async () => {
+      await schedule();
+      const id = await startCheckin();
+      await enterValue('Alex', id, 1);
+      sender.sent.length = 0;
+      at('2026-11-17T08:00:00Z');
+      await tick();
+      expect(reminded()).toEqual(alert(['Blair']));
+
+      // Same slot for nobody else: Blair inactive, Alex has his value in.
+      sender.sent.length = 0;
+      database.prepare('DELETE FROM notification').run();
+      database
+        .prepare("DELETE FROM job_run WHERE slot = '2026-11-17T09:00'")
+        .run();
+      await request('Alex', 'PATCH', '/api/members/2', { active: false });
+      await tick();
+      expect(sender.sent).toEqual([]);
+
+      // Alex's value stays; Blair is back but has no device.
+      await request('Alex', 'PATCH', '/api/members/2', { active: true });
+      database
+        .prepare('DELETE FROM push_subscription WHERE member_id = 2')
+        .run();
+      database
+        .prepare("DELETE FROM job_run WHERE slot = '2026-11-17T09:00'")
+        .run();
+      await tick();
+      expect(sender.sent).toEqual([]);
+      expect(slotReminders()).toEqual([]);
+    });
+
+    it('sends nothing when notifications are off for everyone', async () => {
+      await schedule();
+      await startCheckin();
+      database.prepare('DELETE FROM push_subscription').run();
+      at('2026-11-17T08:00:00Z');
+      await tick();
+      expect(sender.sent).toEqual([]);
+      expect(slotReminders()).toEqual([]);
+      expect(checkinCount()).toBe(1n);
+    });
+
+    it('sends one reminder, not several, after a restart that missed three slots', async () => {
+      await schedule();
+      await startCheckin();
+      // Off across Tuesdays 17 and 24 November and 1 December.
+      at('2026-12-01T18:00:00Z');
+      await tick();
+      expect(reminded()).toEqual(alert(['Alex', 'Blair']));
+      expect(slotReminders()).toEqual([
+        { member_id: 1n, slot: '2026-12-01T09:00' },
+        { member_id: 2n, slot: '2026-12-01T09:00' },
+      ]);
+      await tick();
+      expect(reminded()).toHaveLength(2);
+
+      // The next slot is a new reminder.
+      at('2026-12-08T08:00:00Z');
+      await tick();
+      expect(reminded()).toHaveLength(4);
+    });
+
+    it('sends once to a member for a slot when the run is retried', async () => {
+      await schedule();
+      await startCheckin();
+      const job = createCheckinScheduleJob({ database, clock, events });
+      let attempts = 0;
+      const flaky = {
+        ...job,
+        run(slot: string) {
+          job.run(slot);
+          attempts += 1;
+          if (attempts === 1) throw new Error('crashed after announcing');
+        },
+      };
+      const runner = createJobRunner({ database, clock, jobs: [flaky] });
+      at('2026-11-17T08:00:00Z');
+      await runner.tick();
+      await notifier.idle();
+      await runner.tick();
+      await notifier.idle();
+      expect(attempts).toBe(2);
+      expect(reminded()).toEqual(alert(['Alex', 'Blair']));
+      expect(slotReminders()).toHaveLength(2);
+    });
+
+    it('sends no reminder when a retried slot finds the check-in it opened itself', async () => {
+      await schedule();
+      const job = createCheckinScheduleJob({ database, clock, events });
+      let attempts = 0;
+      const flaky = {
+        ...job,
+        run(slot: string) {
+          job.run(slot);
+          attempts += 1;
+          if (attempts === 1) throw new Error('crashed after opening');
+        },
+      };
+      const runner = createJobRunner({ database, clock, jobs: [flaky] });
+      at('2026-11-17T08:00:00Z');
+      await runner.tick();
+      await notifier.idle();
+      await runner.tick();
+      await notifier.idle();
+      expect(attempts).toBe(2);
+      expect(checkinCount()).toBe(1n);
+      expect(sender.sent.map((push) => push.content.tag)).toEqual([
+        'checkin-1-opened',
+        'checkin-1-opened',
+        'checkin-1-opened',
+      ]);
+      expect(slotReminders()).toEqual([]);
+    });
+
+    it('sends no reminder and opens a check-in when none is open', async () => {
+      await schedule();
+      at('2026-11-17T08:00:00Z');
+      await tick();
+      expect(checkinCount()).toBe(1n);
+      expect(reminded()).toEqual([]);
+    });
+
+    it.each([
+      ['the slot job first', 'slot-first'],
+      ['the follow-up job first', 'followup-first'],
+    ] as const)(
+      'gives a member one push when a follow-up and a slot reminder fall in the same minute (%s)',
+      async (_name, order) => {
+        // Weekly slots and a 7-day follow-up meet every Tuesday at 09:00.
+        await schedule(7);
+        const runner = () => {
+          const slotJob = createCheckinScheduleJob({ database, clock, events });
+          const followUpJob = createFollowUpJob({ database, events });
+          return createJobRunner({
+            database,
+            clock,
+            jobs:
+              order === 'slot-first'
+                ? [slotJob, followUpJob]
+                : [followUpJob, slotJob],
+          });
+        };
+        // The 17th's slot opens the check-in and tells everyone.
+        at('2026-11-17T08:00:00Z');
+        await runner().tick();
+        await notifier.idle();
+        sender.sent.length = 0;
+
+        at('2026-11-24T08:00:00Z');
+        await runner().tick();
+        await notifier.idle();
+        expect(reminded()).toEqual(alert(['Alex', 'Blair']));
+        expect(slotReminders()).toEqual([
+          { member_id: 1n, slot: '2026-11-24T09:00' },
+          { member_id: 2n, slot: '2026-11-24T09:00' },
+        ]);
+      },
+    );
+
+    it('gives a member two pushes when the two reminders fall in different minutes', async () => {
+      // Opened by hand at 13:00 on the 10th: follow-ups at 13:00 on Tuesdays.
+      await schedule(7);
+      await startCheckin();
+      at('2026-11-17T08:00:00Z');
+      await tick();
+      expect(reminded()).toEqual(alert(['Alex', 'Blair']));
+      at('2026-11-17T12:00:00Z');
+      await tick();
+      expect(reminded()).toHaveLength(4);
+      expect(slotReminders()).toEqual([
+        { member_id: 1n, slot: '2026-11-17T09:00' },
+        { member_id: 1n, slot: '2026-11-17T13:00' },
+        { member_id: 2n, slot: '2026-11-17T09:00' },
+        { member_id: 2n, slot: '2026-11-17T13:00' },
+      ]);
+    });
+  });
 });
 
 function cookieHeader(response: { headers: Record<string, unknown> }): string {
