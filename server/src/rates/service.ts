@@ -111,7 +111,11 @@ interface Gap {
 export function createRatesService(options: RatesServiceOptions): RatesService {
   const { database, clock, feeds, logger } = options;
   const ledgers = new Map<string, Ledger>();
-  /** When a feed last reported a problem for a currency, by `feed|code`. */
+  /**
+   * When a feed last reported a problem for a currency, by `kind|feed|code`.
+   * Backfill and daily problems are kept apart, so a history gap that keeps
+   * failing never holds back the newest rate.
+   */
   const problemAt = new Map<string, number>();
   let queue: Promise<unknown> = Promise.resolve();
   let backfillWaiting = false;
@@ -250,8 +254,12 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
   }
 
   /** Whether a feed reported a problem for `code` too recently to ask again. */
-  function coolingDown(feed: RateFeed, code: string): boolean {
-    const at = problemAt.get(`${feed.id}|${code}`);
+  function coolingDown(
+    kind: 'daily' | 'backfill',
+    feed: RateFeed,
+    code: string,
+  ): boolean {
+    const at = problemAt.get(`${kind}|${feed.id}|${code}`);
     return at !== undefined && clock.now().getTime() - at < problemRetryMs;
   }
 
@@ -293,6 +301,8 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
    * Asks `feed` for `from` to `to` and stores what it sends, in one
    * transaction, so a feed that throws leaves the stored rates untouched.
    * Only rates of the requested currencies and dates are kept.
+   * @param incomplete For a daily fetch: a covered currency was left out, so
+   * the feed must not be recorded as `ok` for the target.
    * @returns The rates it sent that were in range, how many were new, and the
    * currencies the feed reported a problem for (not to be counted as fetched).
    * @throws The feed's own error, after recording it in `rate_fetch`.
@@ -304,6 +314,7 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
     to: string,
     today: string,
     kind: 'daily' | 'backfill',
+    incomplete = false,
   ): Promise<{ rates: FeedRate[]; stored: number; problemCodes: Set<string> }> {
     const now = clock.now();
     const target = feed.targetDate(now, today);
@@ -346,12 +357,14 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
       const status =
         kind === 'backfill'
           ? 'backfilled'
-          : rates.some(({ date }) => date === target) && problems.length === 0
+          : rates.some(({ date }) => date === target) &&
+              problems.length === 0 &&
+              !incomplete
             ? 'ok'
             : 'unpublished';
       sql().insertFetch.run(feed.id, recordedDate, status, null, now.getTime());
       for (const { code } of currencies) {
-        const key = `${feed.id}|${code}`;
+        const key = `${kind}|${feed.id}|${code}`;
         if (problemCodes.has(code)) problemAt.set(key, now.getTime());
         else problemAt.delete(key);
       }
@@ -402,7 +415,7 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
       gaps.set(key, gap);
     };
     for (const currency of used.filter((candidate) => feed.covers(candidate))) {
-      if (coolingDown(feed, currency.code)) continue;
+      if (coolingDown('backfill', feed, currency.code)) continue;
       const from = wanted.get(currency.code) ?? today;
       const ledger = ledgerFor(feed, currency.code);
       if (!ledger) {
@@ -486,8 +499,12 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
       // the target, so one the feed failed on is asked again while the others
       // are not. The ledger cannot tell: a backfill widens it to today.
       const pending = new Map<UsedCurrency, string | null>();
+      let skipped = false;
       for (const currency of covered) {
-        if (coolingDown(feed, currency.code)) continue;
+        if (coolingDown('daily', feed, currency.code)) {
+          skipped = true;
+          continue;
+        }
         const stored = sql().selectSpan.get(
           feed.source,
           currency.code,
@@ -512,6 +529,7 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
           target,
           today,
           'daily',
+          skipped,
         );
         result.stored += stored;
         const answeredTo = rates.reduce(

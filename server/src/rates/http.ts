@@ -140,7 +140,7 @@ async function readBounded(
     if (done) break;
     total += value.byteLength;
     if (total > maxBytes) {
-      await reader.cancel();
+      await reader.cancel().catch(() => undefined);
       throw tooLarge();
     }
     chunks.push(value);

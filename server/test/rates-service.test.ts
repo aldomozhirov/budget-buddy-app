@@ -586,6 +586,48 @@ describe('rates service and daily job', () => {
     });
   });
 
+  describe('a history gap that keeps failing', () => {
+    it.each([[['RUB']], [['RUB', 'USD']]])(
+      'does not hold back the newest rate of %j',
+      async (codes) => {
+        const accounts = codes.map((code) => addAccount(code));
+        const base = createFixtureFeed();
+        const fetch = vi.fn((request: FeedRequest) => {
+          const history = request.from < '2026-10-01';
+          if (history) request.reportProblem?.('RUB', 'HTTP 404');
+          return base.fetch({
+            ...request,
+            currencies: request.currencies.filter(
+              ({ code }) => !(history && code === 'RUB'),
+            ),
+          });
+        });
+        const ratesService = service({ ...base, fetch });
+        await ratesService.refreshToday();
+        // An earlier snapshot makes the stretch before the stored rates a gap.
+        addSnapshot(accounts[0] as number, '2026-09-01');
+        const before = fetch.mock.calls.length;
+
+        now = friday + 4 * 24 * hour;
+        await ratesService.refreshToday();
+        now += hour;
+        await ratesService.refreshToday();
+
+        const calls = fetch.mock.calls.slice(before).map(([request]) => ({
+          from: request.from,
+          codes: request.currencies.map(({ code }) => code),
+        }));
+        expect(calls.some(({ from }) => from < '2026-10-01')).toBe(true);
+        expect(rates("quote = 'RUB'").at(-1)?.date).toBe('2026-10-13');
+        const daily = calls.find(({ from }) => from === '2026-10-10');
+        expect(daily?.codes).toEqual(codes);
+        expect(fetches().filter(({ date }) => date === '2026-10-13')).toEqual([
+          expect.objectContaining({ status: 'ok', error: null }),
+        ]);
+      },
+    );
+  });
+
   it('does not refetch the tail as a backfill after a week of daily runs', async () => {
     addAccount('USD');
     const feed = spiedFixtureFeed();
