@@ -97,7 +97,10 @@ describe('Web Push notifications', () => {
       secureCookies: false,
       clock,
       events,
-      pushPublicKey: 'test-public-key',
+      push: {
+        publicKey: 'test-public-key',
+        allowedHosts: ['push.example.test'],
+      },
     });
     const setup = await app.inject({
       method: 'POST',
@@ -467,6 +470,45 @@ describe('Web Push notifications', () => {
           .prepare('SELECT member_id FROM push_subscription WHERE endpoint = ?')
           .get(endpointOf('Alex')),
       ).toEqual({ member_id: 1n });
+    });
+
+    it('refuses a push service that is not on the allowed list (SEC-8)', async () => {
+      for (const endpoint of [
+        'https://internal.tailnet.test/hook',
+        'https://push.example.test.evil.test/x',
+        'https://push.example.test:8443/x',
+        'https://user:secret@push.example.test/x',
+        'https://127.0.0.1/x',
+      ]) {
+        const response = await request(
+          'Alex',
+          'PUT',
+          '/api/push/subscription',
+          { endpoint, keys: { p256dh: 'a', auth: 'b' } },
+        );
+        expect(response.statusCode, endpoint).toBe(400);
+        expect(response.json().error.fields.endpoint, endpoint).toBe(
+          'This push service is not allowed.',
+        );
+      }
+      expect(subscriptionCount()).toBe(5n);
+    });
+
+    it('keeps one subscription per device: a new endpoint replaces the old one', async () => {
+      const response = await request('Alex', 'PUT', '/api/push/subscription', {
+        endpoint: endpointOf('Alex-renewed'),
+        keys: { p256dh: 'new', auth: 'new' },
+      });
+      expect(response.statusCode).toBe(200);
+      const alex = database
+        .prepare(
+          'SELECT endpoint FROM push_subscription WHERE member_id = 1 ORDER BY id',
+        )
+        .all() as Array<{ endpoint: string }>;
+      // The iPad's own subscription is untouched.
+      expect(alex.map(({ endpoint }) => endpoint).sort()).toEqual(
+        [endpointOf('Alex iPad'), endpointOf('Alex-renewed')].sort(),
+      );
     });
 
     it('rejects an address that is not https and a body with no keys', async () => {

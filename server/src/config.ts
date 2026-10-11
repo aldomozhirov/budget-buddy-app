@@ -31,6 +31,16 @@ const envSchema = z.object({
       },
     )
     .optional(),
+  // Hosts a push may be sent to, separated by commas; `*.x` matches below x.
+  PUSH_ALLOWED_HOSTS: z
+    .string()
+    .default('*.push.apple.com')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((host) => host.trim().toLowerCase())
+        .filter(Boolean),
+    ),
   // Unset means the real feeds in production and fixtures everywhere else.
   RATES_FEED: z.enum(['fixture', 'live']).optional(),
   // Hosts the rates client may call, separated by commas (SEC-8).
@@ -59,6 +69,8 @@ export type AppConfig = {
   keysDir: string;
   /** `mailto:` or `https:` contact sent to the push services. */
   vapidSubject: string;
+  /** Hosts a push may be sent to (SEC-8); Apple's push service by default. */
+  pushAllowedHosts: string[];
   /** `live` calls the price feeds; `fixture` uses made-up rates. */
   ratesFeed: 'fixture' | 'live';
   /** Host names the rates HTTP client may call; all others are refused. */
@@ -90,6 +102,7 @@ export function parseConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     databasePath: join(dataDir, 'budget-buddy.sqlite'),
     keysDir: join(dataDir, 'keys'),
     vapidSubject: parsed.VAPID_SUBJECT ?? defaultVapidSubject(appOrigins),
+    pushAllowedHosts: parsed.PUSH_ALLOWED_HOSTS,
     ratesFeed:
       parsed.RATES_FEED ??
       (parsed.NODE_ENV === 'production' ? 'live' : 'fixture'),

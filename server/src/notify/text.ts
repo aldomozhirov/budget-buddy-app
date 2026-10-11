@@ -7,7 +7,7 @@ export function checkinPath(checkinId: number): string {
 
 /**
  * The texts of the push notifications. They state what happened and never
- * an amount, a currency or a figure (NTF-4); `notify.test.ts` checks that.
+ * an amount, a currency or a figure (NTF-4); `push-notifications.test.ts` checks that.
  * Member names come from the family and are the only free text.
  */
 export const notificationText = {

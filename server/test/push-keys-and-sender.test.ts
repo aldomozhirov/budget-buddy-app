@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import webpush from 'web-push';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { parseConfig } from '../src/config.js';
+import { isAllowedPushEndpoint } from '../src/modules/push/endpoints.js';
 import { createWebPushSender } from '../src/modules/push/sender.js';
 import { loadOrCreateVapidKeys } from '../src/modules/push/vapid.js';
 
@@ -93,19 +94,74 @@ describe('VAPID contact', () => {
   });
 });
 
+describe('allowed push endpoints (SEC-8)', () => {
+  const apple = ['*.push.apple.com'];
+
+  it('accepts https endpoints of Apple’s push service', () => {
+    expect(
+      isAllowedPushEndpoint('https://web.push.apple.com/QOc3sA', apple),
+    ).toBe(true);
+    expect(isAllowedPushEndpoint('https://WEB.PUSH.APPLE.COM/x', apple)).toBe(
+      true,
+    );
+  });
+
+  it.each([
+    'http://web.push.apple.com/x',
+    'https://push.apple.com/x',
+    'https://evilpush.apple.com/x',
+    'https://web.push.apple.com.evil.test/x',
+    'https://web.push.apple.com:8443/x',
+    'https://user@web.push.apple.com/x',
+    'https://evil.test/web.push.apple.com',
+    'not a url',
+    '',
+  ])('refuses %j', (endpoint) => {
+    expect(isAllowedPushEndpoint(endpoint, apple)).toBe(false);
+  });
+
+  it('matches an exact host without a wildcard, and nothing when the list is empty', () => {
+    expect(
+      isAllowedPushEndpoint('https://fcm.googleapis.com/fcm/send/x', [
+        'fcm.googleapis.com',
+      ]),
+    ).toBe(true);
+    expect(
+      isAllowedPushEndpoint('https://a.fcm.googleapis.com/x', [
+        'fcm.googleapis.com',
+      ]),
+    ).toBe(false);
+    expect(isAllowedPushEndpoint('https://web.push.apple.com/x', [])).toBe(
+      false,
+    );
+  });
+
+  it('defaults to Apple’s push service and can be changed in the environment', () => {
+    const base = { NODE_ENV: 'test', DATA_DIR: '/tmp/bb-data' } as const;
+    expect(parseConfig(base).pushAllowedHosts).toEqual(['*.push.apple.com']);
+    expect(
+      parseConfig({
+        ...base,
+        PUSH_ALLOWED_HOSTS: ' *.push.apple.com, FCM.googleapis.com ',
+      }).pushAllowedHosts,
+    ).toEqual(['*.push.apple.com', 'fcm.googleapis.com']);
+  });
+});
+
 describe('web-push sender', () => {
   // Plain functions rather than vi.fn(): Vitest reports a rejecting mock as
   // an unhandled error even when the caller handles it.
   let calls: Parameters<typeof webpush.sendNotification>[];
   let outcome: () => ReturnType<typeof webpush.sendNotification>;
   const target = {
-    endpoint: 'https://push.example.test/x',
+    endpoint: 'https://web.push.example.test/x',
     p256dh: 'k',
     auth: 'a',
   };
   const sender = createWebPushSender({
     keys: { publicKey: 'public', privateKey: 'private' },
     subject: 'mailto:owner@family.test',
+    allowedHosts: ['*.push.example.test'],
     transport: (...args) => {
       calls.push(args);
       return outcome();
@@ -131,6 +187,17 @@ describe('web-push sender', () => {
         }),
       ],
     ]);
+  });
+
+  it('does not call a host outside the allowed list, even for a stored subscription', async () => {
+    outcome = async () => ({ statusCode: 201, body: '', headers: {} });
+    expect(
+      await sender.send(
+        { ...target, endpoint: 'https://internal.tailnet.test/hook' },
+        '{}',
+      ),
+    ).toEqual({ ok: false, statusCode: undefined });
+    expect(calls).toEqual([]);
   });
 
   it('reports the push service’s status instead of throwing', async () => {

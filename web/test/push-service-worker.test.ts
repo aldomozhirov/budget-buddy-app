@@ -87,6 +87,7 @@ describe('push payload', () => {
       ),
     ).toEqual({ ...fallbackPayload, title: 'Hi' });
     expect(isAppPath('//evil.test')).toBe(false);
+    expect(isAppPath('/\\evil.test')).toBe(false);
     expect(isAppPath('check-ins/1')).toBe(false);
     expect(isAppPath('/check-ins/1')).toBe(true);
   });

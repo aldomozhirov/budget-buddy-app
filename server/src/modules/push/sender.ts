@@ -1,4 +1,5 @@
 import webpush from 'web-push';
+import { isAllowedPushEndpoint } from './endpoints.js';
 import type { VapidKeys } from './vapid.js';
 
 /** A browser's Web Push endpoint and the keys that encrypt payloads for it. */
@@ -30,6 +31,11 @@ export function createWebPushSender(options: {
   keys: VapidKeys;
   /** `mailto:` or `https:` contact for the push service operators. */
   subject: string;
+  /**
+   * Hosts a push may go to (SEC-8). A stored subscription on another host,
+   * for example after the list was narrowed, is not sent to.
+   */
+  allowedHosts: readonly string[];
   /** Replaces `web-push`'s own request, so tests never reach a service. */
   transport?: typeof webpush.sendNotification;
 }): PushSender {
@@ -37,6 +43,9 @@ export function createWebPushSender(options: {
   const vapidDetails = { ...options.keys, subject: options.subject };
   return {
     async send(target, payload) {
+      if (!isAllowedPushEndpoint(target.endpoint, options.allowedHosts)) {
+        return { ok: false, statusCode: undefined };
+      }
       try {
         await transport(
           {

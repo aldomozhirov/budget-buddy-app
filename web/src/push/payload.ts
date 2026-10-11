@@ -20,12 +20,16 @@ export const fallbackPayload: PushPayload = {
   tag: 'budget-buddy',
 };
 
-/** True for a path inside this app; rejects other origins and `//host`. */
+/**
+ * True for a path inside this app; rejects other origins, `//host` and
+ * `/\host`, which browsers read as the same thing.
+ */
 export function isAppPath(value: unknown): value is string {
   return (
     typeof value === 'string' &&
     value.startsWith('/') &&
-    !value.startsWith('//')
+    !value.startsWith('//') &&
+    !value.startsWith('/\\')
   );
 }
 

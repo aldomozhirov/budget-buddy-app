@@ -60,8 +60,9 @@ export async function enablePush(): Promise<
   if (permission === 'denied') return { ok: false, reason: 'denied' };
   if (permission !== 'granted') return { ok: false, reason: 'dismissed' };
   try {
-    const registration = await currentRegistration();
-    if (!registration) return { ok: false, reason: 'failed' };
+    if (!(await currentRegistration())) return { ok: false, reason: 'failed' };
+    // Subscribing needs an active worker, which a fresh registration lacks.
+    const registration = await navigator.serviceWorker.ready;
     const keyResponse = await fetch('/api/push/key');
     if (!keyResponse.ok) return { ok: false, reason: 'failed' };
     const { publicKey } = pushKeyResponseSchema.parse(await keyResponse.json());

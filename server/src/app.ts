@@ -78,10 +78,11 @@ export type AppOptions = {
    */
   rates?: RatesService;
   /**
-   * Public VAPID key handed to browsers that opt in to push. Without it the
-   * push routes are not registered, as in tests that don't use them.
+   * Web Push opt-in: the public VAPID key handed to browsers and the hosts
+   * their subscriptions may name (SEC-8). Without it the push routes are not
+   * registered, as in tests that don't use them.
    */
-  pushPublicKey?: string;
+  push?: { publicKey: string; allowedHosts: readonly string[] };
 };
 
 /**
@@ -163,10 +164,11 @@ export async function createApp(options: AppOptions) {
   await app.register(summaryRoutes, { database: options.database, clock });
   await app.register(homeRoutes, { database: options.database, clock });
   await app.register(deviceRoutes, { database: options.database });
-  if (options.pushPublicKey !== undefined) {
+  if (options.push) {
     await app.register(pushRoutes, {
       database: options.database,
-      publicKey: options.pushPublicKey,
+      publicKey: options.push.publicKey,
+      allowedHosts: options.push.allowedHosts,
       clock,
     });
   }

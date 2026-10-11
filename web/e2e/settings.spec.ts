@@ -1125,6 +1125,7 @@ async function installPush(
         value: {
           getRegistration: async () => registration,
           register: async () => registration,
+          ready: Promise.resolve(registration),
           addEventListener: () => undefined,
         },
         configurable: true,

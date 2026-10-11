@@ -56,6 +56,7 @@ try {
     sender: createWebPushSender({
       keys: vapidKeys,
       subject: config.vapidSubject,
+      allowedHosts: config.pushAllowedHosts,
     }),
   });
   app = await createApp({
@@ -64,7 +65,10 @@ try {
     appOrigins: config.appOrigins,
     secureCookies: config.nodeEnv !== 'development',
     rates,
-    pushPublicKey: vapidKeys.publicKey,
+    push: {
+      publicKey: vapidKeys.publicKey,
+      allowedHosts: config.pushAllowedHosts,
+    },
   });
   // Jobs are added here as they are built (schedule, reminders, backup).
   const jobRunner = createJobRunner({
