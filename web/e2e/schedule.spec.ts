@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
@@ -264,6 +265,53 @@ test('the next date under "Start a check-in now" matches the sheet preview', asy
   ).toBeVisible();
 });
 
+test('the sheet shows the server’s next slot while the cadence is unchanged', async ({
+  page,
+}) => {
+  // Every 2 weeks on tomorrow's weekday, counted from 6 days ago: the next
+  // slot is 8 days away, though tomorrow is the coming such weekday.
+  const tomorrow = berlinDate(1);
+  await putCadence(page, {
+    kind: 'weeks',
+    every: 2,
+    weekday: isoWeekday(tomorrow),
+    time: '09:00',
+  });
+  withDatabase((database) =>
+    database
+      .prepare('UPDATE family SET cadence_anchor_date = ? WHERE id = 1')
+      .run(berlinDate(-6)),
+  );
+  const real = dayMonth(berlinDate(8));
+  const fromToday = dayMonth(tomorrow);
+  const opens = (day: string, time: string) =>
+    `Next check-in opens on ${day} at ${time}. Everyone gets a notification.`;
+
+  await page.goto(`${origin}/check-ins`);
+  await expect(
+    page.getByRole('region', { name: 'Start a check-in' }).locator('p'),
+  ).toHaveText(`Everyone gets a notification. Next scheduled: ${real}.`);
+
+  await page.goto(`${origin}/settings`);
+  await page.getByRole('button', { name: /^Schedule/u }).click();
+  const sheet = page.getByRole('dialog', { name: 'Check-in schedule' });
+  await expect(sheet.getByRole('status')).toHaveText(opens(real, '09:00'));
+
+  // A different time is a changed cadence: it will count from today.
+  await sheet.getByRole('button', { name: '12:00', exact: true }).click();
+  await expect(sheet.getByRole('status')).toHaveText(opens(fromToday, '12:00'));
+  await sheet.getByRole('button', { name: '09:00', exact: true }).click();
+  await expect(sheet.getByRole('status')).toHaveText(opens(real, '09:00'));
+
+  // Done with nothing changed keeps the server's slot.
+  await sheet.getByRole('button', { name: 'Done' }).click();
+  await expect(sheet).toHaveCount(0);
+  await page.goto(`${origin}/check-ins`);
+  await expect(
+    page.getByRole('region', { name: 'Start a check-in' }).locator('p'),
+  ).toHaveText(`Everyone gets a notification. Next scheduled: ${real}.`);
+});
+
 /** Saves a cadence through the API, as the sheet's Done would. */
 async function putCadence(page: Page, cadence: object): Promise<void> {
   const response = await page
@@ -273,6 +321,48 @@ async function putCadence(page: Page, cadence: object): Promise<void> {
       data: { cadence },
     });
   expect(response.status()).toBe(200);
+}
+
+/** The date `offset` days from today in Berlin, as YYYY-MM-DD. */
+function berlinDate(offset: number): string {
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Berlin',
+  }).format(new Date());
+  const day = new Date(`${today}T12:00:00Z`);
+  day.setUTCDate(day.getUTCDate() + offset);
+  return day.toISOString().slice(0, 10);
+}
+
+/** ISO weekday, 1 = Monday to 7 = Sunday, of a YYYY-MM-DD date. */
+function isoWeekday(date: string): number {
+  return new Date(`${date}T12:00:00Z`).getUTCDay() || 7;
+}
+
+/** A YYYY-MM-DD date as "5 November". */
+function dayMonth(date: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'UTC',
+    day: 'numeric',
+    month: 'long',
+  }).format(new Date(`${date}T12:00:00Z`));
+}
+
+type TestDatabase = {
+  prepare(sql: string): { run(...values: unknown[]): unknown };
+  close(): void;
+};
+
+/** Opens the server's database for a change no API makes. */
+function withDatabase(change: (database: TestDatabase) => unknown): void {
+  const Sqlite = createRequire(path.resolve('server/package.json'))(
+    'better-sqlite3',
+  ) as new (filePath: string) => TestDatabase;
+  const database = new Sqlite(path.join(dataDirectory!, 'budget-buddy.sqlite'));
+  try {
+    change(database);
+  } finally {
+    database.close();
+  }
 }
 
 async function availablePort(): Promise<number> {

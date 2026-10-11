@@ -4,6 +4,7 @@ import {
   formatSlotDay,
   formatSlotTime,
   nextCadenceSlot,
+  sameCadenceSetting,
   settingsResponseSchema,
   todayInTimeZone,
   weekdayNames,
@@ -25,6 +26,8 @@ const props = defineProps<{
   cadence: CadenceSetting;
   /** Family time zone, for the preview of the next check-in. */
   timeZone: string;
+  /** The server's next slot for the saved cadence, or null when off. */
+  nextSlot: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -79,14 +82,22 @@ const preview = computed(() => {
   if (chosen.value.kind === 'off') {
     return 'No check-in opens by itself. Start one from Check-ins.';
   }
-  const now = new Date();
-  // "Every N weeks" counts from the day it is saved, which is today.
-  const next = nextCadenceSlot(
-    chosen.value,
-    todayInTimeZone(now, props.timeZone),
-    now,
-    props.timeZone,
-  );
+  // Saving the same cadence changes nothing on the server, which keeps the
+  // day it counts "every N weeks" from: show its slot, not one from today.
+  const saved = sameCadenceSetting(chosen.value, props.cadence);
+  let nextKey = saved ? props.nextSlot : null;
+  if (nextKey === null) {
+    const now = new Date();
+    // A changed cadence counts "every N weeks" from the day it is saved.
+    nextKey =
+      nextCadenceSlot(
+        chosen.value,
+        todayInTimeZone(now, props.timeZone),
+        now,
+        props.timeZone,
+      )?.key ?? null;
+  }
+  const next = nextKey === null ? undefined : { key: nextKey };
   if (!next) return '';
   return `Next check-in opens on ${formatSlotDay(next.key)} at ${formatSlotTime(next.key)}. Everyone gets a notification.`;
 });

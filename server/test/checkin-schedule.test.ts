@@ -298,6 +298,59 @@ describe('check-in schedule job', () => {
     ]);
   });
 
+  describe('a time-zone change', () => {
+    const monthly = { kind: 'monthly', day: 11, time: '19:00' } as const;
+
+    // 11 November, 12:00Z: 13:00 in Berlin, 21:00 in Tokyo.
+    it.each([
+      ['alone', (zone: string) => ({ timeZone: zone })],
+      [
+        'with the same cadence in the body',
+        (zone: string) => ({ timeZone: zone, cadence: monthly }),
+      ],
+    ])('settles the slots up to now, %s', async (_name, body) => {
+      at('2026-11-11T08:00:00Z');
+      await setCadence(monthly);
+      // 19:00 on the 11th is still ahead in Berlin; it is already past in Tokyo.
+      at('2026-11-11T12:00:00Z');
+
+      const response = await patch(body('Asia/Tokyo'));
+      expect(response.statusCode).toBe(200);
+      await tick();
+
+      expect(checkins()).toEqual([]);
+      expect(response.json().nextSlot).toBe('2026-12-11T19:00');
+    });
+
+    it('settles when the cadence in the same request changes too', async () => {
+      at('2026-11-11T08:00:00Z');
+      await setCadence(monthly);
+      at('2026-11-11T12:00:00Z');
+
+      await patch({
+        timeZone: 'Asia/Tokyo',
+        cadence: { kind: 'monthly', day: 11, time: '20:00' },
+      });
+      await tick();
+
+      expect(checkins()).toEqual([]);
+    });
+
+    it('leaves slots alone when the zone stays the same', async () => {
+      at('2026-11-11T08:00:00Z');
+      await setCadence(monthly);
+      at('2026-11-11T12:00:00Z');
+
+      await patch({ timeZone: 'Europe/Berlin', cadence: monthly });
+      at('2026-11-11T18:00:00Z');
+      await tick();
+
+      expect(checkins().map((row) => row.schedule_slot)).toEqual([
+        '2026-11-11T19:00',
+      ]);
+    });
+  });
+
   describe('settings API', () => {
     it('returns the cadence and next slot, and starts off', async () => {
       const response = await app.inject({

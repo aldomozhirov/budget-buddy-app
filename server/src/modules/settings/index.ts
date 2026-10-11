@@ -3,6 +3,7 @@ import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 import {
   listCurrencies,
   nextCadenceSlot,
+  sameCadenceSetting,
   settingsResponseSchema,
   todayInTimeZone,
   updateSettingsRequestSchema,
@@ -14,7 +15,6 @@ import {
   cadenceColumns,
   cadenceUpdate,
   readCadence,
-  sameCadence,
 } from '../../domain/cadence.js';
 import { settleSlotsUntil } from '../../jobs/checkinSchedule.js';
 import type { BackfillRequester } from '../../rates/service.js';
@@ -144,9 +144,12 @@ export const settingsRoutes: FastifyPluginAsync<{
           'UPDATE family SET common_currency = ?, time_zone = ? WHERE id = 1',
         )
         .run(commonCurrency, timeZone);
-      if (parsed.data.cadence) saveCadence(parsed.data.cadence, timeZone);
-      // Slot keys are local times, so a new zone starts counting from now.
-      else if (timeZone !== current.time_zone) {
+      const cadenceChanged =
+        parsed.data.cadence !== undefined &&
+        saveCadence(parsed.data.cadence, timeZone);
+      // Slot keys are local times, so a new zone starts counting from now,
+      // whether or not the same request also sent a cadence.
+      if (cadenceChanged || timeZone !== current.time_zone) {
         settleSlotsUntil(database, clock.now(), timeZone);
       }
     })();
@@ -164,17 +167,17 @@ export const settingsRoutes: FastifyPluginAsync<{
   });
 
   /**
-   * Stores a changed cadence and settles the slots up to now, so the change
-   * moves the next slot without opening a check-in for a past one. "Every N
-   * weeks" counts from today.
+   * Stores a cadence that differs from the saved one and returns whether it
+   * did. The caller settles the slots up to now, so the change moves the next
+   * slot without opening a check-in for a past one. "Every N weeks" counts
+   * from today.
    */
-  function saveCadence(setting: CadenceSetting, timeZone: string): void {
-    if (sameCadence(setting, readCadence(database).cadence)) return;
-    const now = clock.now();
+  function saveCadence(setting: CadenceSetting, timeZone: string): boolean {
+    if (sameCadenceSetting(setting, readCadence(database).cadence)) return false;
     database
       .prepare(cadenceUpdate)
-      .run(...cadenceColumns(setting, todayInTimeZone(now, timeZone)));
-    settleSlotsUntil(database, now, timeZone);
+      .run(...cadenceColumns(setting, todayInTimeZone(clock.now(), timeZone)));
+    return true;
   }
 };
 

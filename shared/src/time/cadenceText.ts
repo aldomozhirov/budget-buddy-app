@@ -49,6 +49,23 @@ export function toCadence(
   };
 }
 
+/** Whether two settings describe the same schedule. */
+export function sameCadenceSetting(
+  a: CadenceSetting,
+  b: CadenceSetting,
+): boolean {
+  if (a.kind === 'off' || b.kind === 'off') return a.kind === b.kind;
+  if (a.kind === 'monthly' && b.kind === 'monthly') {
+    return a.day === b.day && a.time === b.time;
+  }
+  if (a.kind === 'weeks' && b.kind === 'weeks') {
+    return (
+      a.every === b.every && a.weekday === b.weekday && a.time === b.time
+    );
+  }
+  return false;
+}
+
 /**
  * The first slot strictly after `now`, or undefined when the cadence is off.
  * @throws {RangeError} if the time zone or the setting is invalid.

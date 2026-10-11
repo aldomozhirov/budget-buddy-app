@@ -71,6 +71,8 @@ const commonCurrencySheetOpen = ref(false);
 const coinsSheetOpen = ref(false);
 const timeZoneSheetOpen = ref(false);
 const cadence = ref<CadenceSetting>({ kind: 'off' });
+// Local date-time of the next scheduled check-in; null while it is off.
+const nextSlot = ref<string | null>(null);
 const scheduleSheetOpen = ref(false);
 const ratesStatus = ref<RatesStatusResponse | null>(null);
 const ratesSheetOpen = ref(false);
@@ -182,6 +184,7 @@ async function loadMoneySettings(): Promise<void> {
     commonCurrency.value = parsedSettings.commonCurrency;
     timeZone.value = parsedSettings.timeZone;
     cadence.value = parsedSettings.cadence;
+    nextSlot.value = parsedSettings.nextSlot;
     currencyOptions.value = parsedCurrencies.currencies;
     coins.value = parsedCurrencies.coins;
   } catch {
@@ -204,12 +207,27 @@ function saveCommonCurrency(currency: string): void {
 
 function saveSchedule(settings: SettingsResponse): void {
   cadence.value = settings.cadence;
+  nextSlot.value = settings.nextSlot;
   scheduleSheetOpen.value = false;
+}
+
+/** Reloads the schedule's next slot, which a new time zone moves. */
+async function refreshNextSlot(): Promise<void> {
+  try {
+    const response = await fetch('/api/settings');
+    if (!response.ok) return;
+    const settings = settingsResponseSchema.parse(await response.json());
+    cadence.value = settings.cadence;
+    nextSlot.value = settings.nextSlot;
+  } catch {
+    // The row keeps what it showed; the next visit reloads it.
+  }
 }
 
 function saveTimeZone(zone: string): void {
   timeZone.value = zone;
   timeZoneSheetOpen.value = false;
+  void refreshNextSlot();
   void loadRatesStatus();
 }
 
@@ -852,6 +870,7 @@ async function readApiError(response: Response): Promise<{
     <ScheduleSheet
       v-if="scheduleSheetOpen"
       :cadence="cadence"
+      :next-slot="nextSlot"
       :time-zone="timeZone"
       @saved="saveSchedule"
       @close="scheduleSheetOpen = false"

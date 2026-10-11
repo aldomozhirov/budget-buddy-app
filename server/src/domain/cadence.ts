@@ -79,11 +79,6 @@ export const cadenceUpdate = `UPDATE family SET cadence_kind = ?,
   cadence_day_of_month = ?, cadence_every_weeks = ?, cadence_weekday = ?,
   cadence_time = ?, cadence_anchor_date = ? WHERE id = 1`;
 
-/** Whether two settings describe the same schedule. */
-export function sameCadence(a: CadenceSetting, b: CadenceSetting): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
-}
-
 /** Reads the family's cadence and the date "every N weeks" counts from. */
 export function readCadence(database: Database.Database): {
   cadence: CadenceSetting;
