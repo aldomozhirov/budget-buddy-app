@@ -80,7 +80,7 @@ test('Settings shows every section in order and matches the screen copy', async 
   await expect(
     page.getByRole('button', { name: /^Follow-up reminders/u }),
   ).toContainText('Every 2 days');
-  await expect(page.getByText('—', { exact: true })).toHaveCount(1);
+  await expect(page.getByText('—', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Spending' })).toHaveCount(0);
 
   const screenshotPath =
@@ -614,6 +614,7 @@ async function installSettingsApi(
   ratesStatus: { value: unknown };
   backupStatus: { value: unknown; status: number };
   exportResponse: { status: number; requests: number };
+  passkey: PasskeyServer;
 }> {
   const userAgent =
     testInfo.project.name === 'iphone'
@@ -652,6 +653,14 @@ async function installSettingsApi(
   const ratesStatus = { value: defaultRatesStatus() as unknown };
   const backupStatus = { value: defaultBackupStatus() as unknown, status: 200 };
   const exportResponse = { status: 200, requests: 0 };
+  const passkey: PasskeyServer = {
+    on: false,
+    optionsRequests: 0,
+    verifyRequests: 0,
+    deleteRequests: 0,
+    optionsStatus: 200,
+    deleteStatus: 200,
+  };
   let coins = [
     { code: 'BTC', name: 'Bitcoin', decimals: 8, inUse: true },
     { code: 'ETH', name: 'Ethereum', decimals: 8, inUse: false },
@@ -815,9 +824,57 @@ async function installSettingsApi(
         json: {
           member: currentMember(),
           profiles: activeProfiles(),
-          device: { defaultMemberId: 1, hasPasskey: false },
+          device: { defaultMemberId: 1, hasPasskey: passkey.on },
         },
       });
+    }
+    if (url.pathname === '/api/auth/passkey/register/options') {
+      passkey.optionsRequests += 1;
+      return passkey.optionsStatus === 200
+        ? route.fulfill({
+            json: {
+              challenge: 'dGVzdC1jaGFsbGVuZ2U',
+              rp: { name: 'Budget Buddy', id: url.hostname },
+              user: { id: 'dXNlcg', name: 'Alena', displayName: 'Alena' },
+              pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+              timeout: 60000,
+              attestation: 'none',
+              authenticatorSelection: {
+                authenticatorAttachment: 'platform',
+                residentKey: 'preferred',
+                userVerification: 'required',
+              },
+            },
+          })
+        : route.fulfill({
+            status: passkey.optionsStatus,
+            json: {
+              error: {
+                code: 'forbidden_state',
+                message:
+                  'Face ID needs the app’s https web address, not an IP address.',
+              },
+            },
+          });
+    }
+    if (url.pathname === '/api/auth/passkey/register/verify') {
+      passkey.verifyRequests += 1;
+      passkey.on = true;
+      return route.fulfill({ json: { hasPasskey: true } });
+    }
+    if (
+      url.pathname === '/api/devices/current/passkey' &&
+      method === 'DELETE'
+    ) {
+      passkey.deleteRequests += 1;
+      if (passkey.deleteStatus !== 200) {
+        return route.fulfill({
+          status: passkey.deleteStatus,
+          json: { error: { code: 'internal', message: 'x' } },
+        });
+      }
+      passkey.on = false;
+      return route.fulfill({ json: { hasPasskey: false } });
     }
     if (url.pathname === '/api/members' && method === 'GET') {
       return route.fulfill({ json: { members } });
@@ -924,8 +981,19 @@ async function installSettingsApi(
     ratesStatus,
     backupStatus,
     exportResponse,
+    passkey,
   };
 }
+
+/** What the mocked server knows about this device's Face ID passkey. */
+type PasskeyServer = {
+  on: boolean;
+  optionsRequests: number;
+  verifyRequests: number;
+  deleteRequests: number;
+  optionsStatus: number;
+  deleteStatus: number;
+};
 
 test.describe('Notifications', () => {
   const deviceWords = (projectName: string) =>
@@ -1495,5 +1563,122 @@ test.describe('Backup and export', () => {
     );
     await row.click();
     await expect(page).toHaveURL(/\/sign-in/u);
+  });
+});
+
+// Playwright's WebKit has no virtual authenticator (no WebAuthn emulation, and
+// no CDP outside Chromium), so a Face ID registration cannot be completed
+// here. These tests answer the app's server calls with a mock and let the
+// real browser run its real prompt, which finds no authenticator and refuses
+// at once, as it does when a person cancels. The real Face ID run is the
+// owner trial of task 31.
+test.describe('Face ID', () => {
+  const faceId = (page: Page) =>
+    page.getByRole('switch', { name: 'Unlock with Face ID' });
+  const deviceWords = (projectName: string) =>
+    projectName === 'iphone' ? 'iPhone' : 'iPad';
+
+  /** The same app, reached as `localhost`, which browsers accept as an RP ID. */
+  const localhostUrl = (testInfo: TestInfo, path: string) => {
+    const url = new URL(path, testInfo.project.use.baseURL as string);
+    url.hostname = 'localhost';
+    return url.toString();
+  };
+
+  test('the switch shows the design copy, off until this device has a passkey', async ({
+    page,
+  }, testInfo) => {
+    const { passkey, externalRequests } = await installSettingsApi(
+      page,
+      testInfo,
+    );
+    await page.goto('/settings');
+    await expect(
+      page.getByText(
+        `On this ${deviceWords(testInfo.project.name)}, instead of the password`,
+      ),
+    ).toBeVisible();
+    await expect(faceId(page)).toBeEnabled();
+    await expect(faceId(page)).toHaveAttribute('aria-checked', 'false');
+    expect(passkey.optionsRequests).toBe(0);
+
+    passkey.on = true;
+    await page.reload();
+    await expect(faceId(page)).toHaveAttribute('aria-checked', 'true');
+    expect(externalRequests).toEqual([]);
+  });
+
+  test('turning it on asks the browser; a prompt that finds no Face ID changes nothing', async ({
+    page,
+  }, testInfo) => {
+    const { passkey } = await installSettingsApi(page, testInfo);
+    // At 127.0.0.1 the real browser refuses at once: not a valid domain.
+    await page.goto('/settings');
+    await faceId(page).click();
+    await expect(page.getByRole('alert')).toHaveText(
+      'Could not turn on Face ID. Try again.',
+    );
+    expect(passkey.optionsRequests).toBe(1);
+    expect(passkey.verifyRequests).toBe(0);
+    await expect(faceId(page)).toHaveAttribute('aria-checked', 'false');
+    await expect(faceId(page)).toBeEnabled();
+  });
+
+  test('a cancelled prompt is silent and sends no credential', async ({
+    page,
+  }, testInfo) => {
+    const { passkey } = await installSettingsApi(page, testInfo);
+    // At localhost the real browser runs the prompt and, finding no
+    // authenticator, answers NotAllowedError, as for a cancelled Face ID.
+    await page.goto(localhostUrl(testInfo, '/settings'));
+    await faceId(page).click();
+    await expect.poll(() => passkey.optionsRequests).toBe(1);
+    await expect(faceId(page)).toBeEnabled();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    expect(passkey.verifyRequests).toBe(0);
+    await expect(faceId(page)).toHaveAttribute('aria-checked', 'false');
+  });
+
+  test('the server’s refusal is shown, and no prompt follows', async ({
+    page,
+  }, testInfo) => {
+    const { passkey } = await installSettingsApi(page, testInfo);
+    passkey.optionsStatus = 403;
+    await page.goto('/settings');
+    await faceId(page).click();
+    await expect(page.getByRole('alert')).toHaveText(
+      'Face ID needs the app’s https web address, not an IP address.',
+    );
+    expect(passkey.verifyRequests).toBe(0);
+    await expect(faceId(page)).toHaveAttribute('aria-checked', 'false');
+  });
+
+  test('turning it off deletes the passkey on the server', async ({
+    page,
+  }, testInfo) => {
+    const { passkey } = await installSettingsApi(page, testInfo);
+    passkey.on = true;
+    await page.goto('/settings');
+    await expect(faceId(page)).toHaveAttribute('aria-checked', 'true');
+    await faceId(page).click();
+    await expect(faceId(page)).toHaveAttribute('aria-checked', 'false');
+    expect(passkey.deleteRequests).toBe(1);
+    expect(passkey.on).toBe(false);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  });
+
+  test('a failed delete keeps the switch on and says so', async ({
+    page,
+  }, testInfo) => {
+    const { passkey } = await installSettingsApi(page, testInfo);
+    passkey.on = true;
+    passkey.deleteStatus = 500;
+    await page.goto('/settings');
+    await faceId(page).click();
+    await expect(page.getByRole('alert')).toHaveText(
+      'Could not turn off Face ID. Check your connection and try again.',
+    );
+    await expect(faceId(page)).toHaveAttribute('aria-checked', 'true');
+    expect(passkey.on).toBe(true);
   });
 });

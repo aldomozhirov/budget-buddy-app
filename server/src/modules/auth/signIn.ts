@@ -53,7 +53,7 @@ export function activeLockEnd(
     : null;
 }
 
-/** Answers 423 with the seconds left, in the shape the sign-in screen reads. */
+/** Answers 423 with the seconds left, as the sign-in screen reads it. */
 export function sendLocked(
   reply: FastifyReply,
   lockedUntil: number,

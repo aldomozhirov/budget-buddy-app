@@ -1,6 +1,6 @@
 import { isIP } from 'node:net';
 
-/** Who a passkey is registered for: the web address the browser binds it to. */
+/** Who a passkey is registered for: the address the browser binds it to. */
 export type RelyingParty = {
   /** The host name the browser scopes the credential to (the RP ID). */
   id: string;

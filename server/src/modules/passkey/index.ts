@@ -27,7 +27,7 @@ import {
 import { ChallengeStore } from './challenges.js';
 import { originIsRelyingParty, relyingPartyFrom } from './relyingParty.js';
 
-/** How long a challenge may wait for the person; the browser times out at 60 s. */
+/** How long a challenge may wait; the browser's own timeout is 60 s. */
 const challengeLifetimeMs = 90_000;
 const ceremonyTimeoutMs = 60_000;
 
@@ -47,7 +47,7 @@ export const passkeyRoutes: FastifyPluginAsync<{
   const relyingParty = relyingPartyFrom(options.appOrigins);
   const challenges = new ChallengeStore(challengeLifetimeMs, clock);
 
-  /** Refuses a request that cannot use Face ID at this address; null if fine. */
+  /** Refuses a request that cannot use Face ID here; returns null if fine. */
   const refuseUnlessRelyingParty = (
     origin: string | undefined,
     reply: FastifyReply,
