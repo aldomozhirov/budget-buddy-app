@@ -23,6 +23,9 @@ export default tseslint.config(
       globals: { ...globals.browser, ...globals.node },
     },
   },
-  // Last: turns off the formatting rules that Prettier owns.
+  // Turns off the formatting rules that Prettier owns.
   prettier,
+  // Not formatting: catches a line that parses as a continuation of the last.
+  // eslint-config-prettier disables it, but Prettier is not enforced here.
+  { rules: { 'no-unexpected-multiline': 'error' } },
 );
