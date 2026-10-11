@@ -79,6 +79,23 @@ test.beforeEach(async ({ page }) => {
       },
     }),
   );
+  await page.route('**/api/home', (route) =>
+    route.fulfill({
+      json: {
+        today: '2026-10-05',
+        commonCurrency: 'EUR',
+        hideAmounts: true,
+        checkin: null,
+        wealth: {
+          checkinId: 1,
+          amount: '152000',
+          lastCheckinDate: '2026-09-02',
+          change: '17420',
+        },
+        backupWarning: null,
+      },
+    }),
+  );
   await page.route('**/api/checkins/current', (route) =>
     route.fulfill({ json: { checkin: null } }),
   );
@@ -196,6 +213,21 @@ test('Home remains usable in a desktop-width browser', async ({
           device: { defaultMemberId: 1, hasPasskey: false },
         },
       }),
+    );
+    await page.route('**/api/home', (route) =>
+      route.fulfill({
+        json: {
+          today: '2026-10-05',
+          commonCurrency: 'EUR',
+          hideAmounts: true,
+          checkin: null,
+          wealth: null,
+          backupWarning: null,
+        },
+      }),
+    );
+    await page.route('**/api/currencies', (route) =>
+      route.fulfill({ json: { currencies: [], coins: [] } }),
     );
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Hi, Alex' })).toBeVisible();
@@ -437,11 +469,13 @@ test('the Home sheet closes with Close and remains open when its content is tapp
   page,
 }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Open example sheet' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Example sheet' });
+  await page
+    .getByRole('button', { name: 'Alex — switch profile or sign out' })
+    .click();
+  const dialog = page.getByRole('dialog', { name: 'Who’s using the app?' });
   await expect(dialog).toBeVisible();
   await dialog
-    .getByText('This placeholder sheet can be dismissed without leaving Home.')
+    .getByRole('heading', { name: 'Who’s using the app?' })
     .click();
   await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: 'Close' }).click();
@@ -453,8 +487,10 @@ test('the Home sheet closes when the dimmed area is tapped', async ({
   page,
 }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Open example sheet' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Example sheet' });
+  await page
+    .getByRole('button', { name: 'Alex — switch profile or sign out' })
+    .click();
+  const dialog = page.getByRole('dialog', { name: 'Who’s using the app?' });
   await expect(dialog).toBeVisible();
   const bounds = await dialog.boundingBox();
   expect(bounds).not.toBeNull();
@@ -520,9 +556,11 @@ test('reduced motion prevents screen animations and transitions', async ({
     ),
   ).toEqual([]);
 
-  await page.getByRole('button', { name: 'Open example sheet' }).click();
+  await page
+    .getByRole('button', { name: 'Alex — switch profile or sign out' })
+    .click();
   await expect(
-    page.getByRole('dialog', { name: 'Example sheet' }),
+    page.getByRole('dialog', { name: 'Who’s using the app?' }),
   ).toBeVisible();
   await page.evaluate(
     () =>

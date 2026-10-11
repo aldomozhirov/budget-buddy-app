@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import {
   changeFamilyPasswordResponseSchema,
   currenciesResponseSchema,
+  deviceSettingsSchema,
   memberResponseSchema,
   membersResponseSchema,
   ratesStatusResponseSchema,
@@ -18,6 +19,7 @@ import BbButton from '../../components/BbButton.vue';
 import BbListCard from '../../components/BbListCard.vue';
 import BbRow from '../../components/BbRow.vue';
 import BbSheet from '../../components/BbSheet.vue';
+import BbSwitch from '../../components/BbSwitch.vue';
 import CommonCurrencySheet from './CommonCurrencySheet.vue';
 import CoinsSheet from './CoinsSheet.vue';
 import RatesStatusSheet from './RatesStatusSheet.vue';
@@ -66,6 +68,9 @@ const coinsSheetOpen = ref(false);
 const timeZoneSheetOpen = ref(false);
 const ratesStatus = ref<RatesStatusResponse | null>(null);
 const ratesSheetOpen = ref(false);
+// Null until this device's setting has loaded; the switch waits for it.
+const hideHomeAmounts = ref<boolean | null>(null);
+const hideHomeAmountsError = ref('');
 const defaultMemberId = computed(
   () => authState.value?.device.defaultMemberId ?? null,
 );
@@ -97,7 +102,43 @@ onMounted(() => {
   void loadMembers();
   void loadMoneySettings();
   void loadRatesStatus();
+  void loadDeviceSettings();
 });
+
+/** Loads this device's settings; the switch stays disabled when it fails. */
+async function loadDeviceSettings(): Promise<void> {
+  try {
+    const response = await fetch('/api/devices/current');
+    if (!response.ok) return;
+    hideHomeAmounts.value = deviceSettingsSchema.parse(
+      await response.json(),
+    ).hideHomeAmounts;
+  } catch {
+    hideHomeAmounts.value = null;
+  }
+}
+
+/** Saves "Hide amounts on Home" for this device (UI-HOME-4). */
+async function changeHideHomeAmounts(value: boolean): Promise<void> {
+  const previous = hideHomeAmounts.value;
+  hideHomeAmounts.value = value;
+  hideHomeAmountsError.value = '';
+  try {
+    const response = await fetch('/api/devices/current', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ hideHomeAmounts: value }),
+    });
+    if (!response.ok) throw new Error('Could not save.');
+    hideHomeAmounts.value = deviceSettingsSchema.parse(
+      await response.json(),
+    ).hideHomeAmounts;
+  } catch {
+    hideHomeAmounts.value = previous;
+    hideHomeAmountsError.value =
+      'Could not save that setting. Check your connection and try again.';
+  }
+}
 
 /** Loads the rates status; the row shows "—" when it cannot be read. */
 async function loadRatesStatus(): Promise<void> {
@@ -589,8 +630,16 @@ async function readApiError(response: Response): Promise<{
           <BbRow
             title="Hide amounts on Home"
             subtitle="Tap the eye to show them for 30 s"
-            value="—"
-          />
+          >
+            <template #trailing>
+              <BbSwitch
+                :model-value="hideHomeAmounts ?? true"
+                label="Hide amounts on Home"
+                :disabled="hideHomeAmounts === null"
+                @update:model-value="changeHideHomeAmounts"
+              />
+            </template>
+          </BbRow>
           <BbRow
             title="Sign out"
             interactive
@@ -598,6 +647,9 @@ async function readApiError(response: Response): Promise<{
             @click="signOut"
           />
         </BbListCard>
+        <p v-if="hideHomeAmountsError" class="error" role="alert">
+          {{ hideHomeAmountsError }}
+        </p>
       </section>
 
       <section class="settings-section" aria-labelledby="settings-data-heading">
