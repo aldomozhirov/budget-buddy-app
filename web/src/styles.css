@@ -221,6 +221,32 @@ body,
   border-bottom: 0;
 }
 
+.bb .settings-backup-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--accent);
+}
+
+.bb .settings-backup-dot.warn {
+  background: var(--warn);
+}
+
+.bb .settings-backup-dot.none {
+  background: var(--muted);
+}
+
+.bb .settings-backup-failure {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.bb .settings-export-icon {
+  display: inline-flex;
+  color: var(--muted);
+}
+
 .bb .settings-picker-selected {
   color: var(--accent);
   font-size: 13px;

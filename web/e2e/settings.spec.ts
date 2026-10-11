@@ -80,7 +80,7 @@ test('Settings shows every section in order and matches the screen copy', async 
   await expect(
     page.getByRole('button', { name: /^Follow-up reminders/u }),
   ).toContainText('Every 2 days');
-  await expect(page.getByText('—', { exact: true })).toHaveCount(3);
+  await expect(page.getByText('—', { exact: true })).toHaveCount(1);
   await expect(page.getByRole('heading', { name: 'Spending' })).toHaveCount(0);
 
   const screenshotPath =
@@ -612,6 +612,8 @@ async function installSettingsApi(
     followupDays: number;
   };
   ratesStatus: { value: unknown };
+  backupStatus: { value: unknown; status: number };
+  exportResponse: { status: number; requests: number };
 }> {
   const userAgent =
     testInfo.project.name === 'iphone'
@@ -648,6 +650,8 @@ async function installSettingsApi(
     followupDays: 2,
   };
   const ratesStatus = { value: defaultRatesStatus() as unknown };
+  const backupStatus = { value: defaultBackupStatus() as unknown, status: 200 };
+  const exportResponse = { status: 200, requests: 0 };
   let coins = [
     { code: 'BTC', name: 'Bitcoin', decimals: 8, inUse: true },
     { code: 'ETH', name: 'Ethereum', decimals: 8, inUse: false },
@@ -690,6 +694,35 @@ async function installSettingsApi(
     }
     if (url.pathname === '/api/rates/status' && method === 'GET') {
       return route.fulfill({ json: ratesStatus.value });
+    }
+    if (url.pathname === '/api/backup/status' && method === 'GET') {
+      return backupStatus.status === 200
+        ? route.fulfill({ json: backupStatus.value })
+        : route.fulfill({
+            status: backupStatus.status,
+            json: { error: { code: 'internal', message: 'x' } },
+          });
+    }
+    if (url.pathname === '/api/export' && method === 'GET') {
+      exportResponse.requests += 1;
+      return exportResponse.status === 200
+        ? route.fulfill({
+            status: 200,
+            headers: {
+              'content-type': 'application/zip',
+              'content-disposition':
+                'attachment; filename="budget-buddy-export-2026-10-09.zip"',
+            },
+            // "PK" and an empty archive's end record.
+            body: Buffer.from(
+              '504b0506000000000000000000000000000000000000',
+              'hex',
+            ),
+          })
+        : route.fulfill({
+            status: exportResponse.status,
+            json: { error: { code: 'internal', message: 'x' } },
+          });
     }
     if (url.pathname === '/api/settings' && method === 'GET') {
       return route.fulfill({ json: { ...settings } });
@@ -889,6 +922,8 @@ async function installSettingsApi(
     coinDeleteRequests: () => coinDeleteRequests,
     settings,
     ratesStatus,
+    backupStatus,
+    exportResponse,
   };
 }
 
@@ -1196,6 +1231,19 @@ async function installPush(
 }
 
 /** Rates status for Friday 09/10/2026: fetched at 06:00 Berlin time. */
+/** A good night: the last backup was at 03:30 today, 4.2 MB. */
+function defaultBackupStatus() {
+  return {
+    today: '2026-10-09',
+    timeZone: 'Europe/Berlin',
+    time: '03:30',
+    last: { finishedAt: Date.parse('2026-10-09T01:30:00Z'), bytes: 4_200_000 },
+    failure: null,
+    daily: { kept: 5, limit: 14 },
+    monthly: { kept: 2, limit: 12 },
+  };
+}
+
 function defaultRatesStatus() {
   const fetchedAt = Date.parse('2026-10-09T04:00:00Z');
   return {
@@ -1244,3 +1292,208 @@ function defaultRatesStatus() {
     ],
   };
 }
+
+test.describe('Backup and export', () => {
+  test('the Backup row shows the last good night as the design does, with a green dot', async ({
+    page,
+  }, testInfo) => {
+    const { externalRequests } = await installSettingsApi(page, testInfo);
+    await page.goto('/settings');
+    const row = page.getByRole('button', { name: /^Backup/u });
+    await expect(row).toContainText(
+      'Last today 03:30 · 4.2 MB · 14 daily, 12 monthly kept',
+    );
+    const dot = row.locator('.settings-backup-dot');
+    await expect(dot).toHaveCSS('width', '10px');
+    await expect(dot).toHaveCSS('height', '10px');
+    await expect(dot).toHaveCSS('border-radius', '50%');
+    // --accent of the light theme in bb.css, #1d5c45, as the design uses.
+    await expect(dot).toHaveCSS('background-color', 'rgb(29, 92, 69)');
+    await expect(row.getByText('Backup', { exact: true })).toHaveCSS(
+      'font-weight',
+      '500',
+    );
+    await expect(row.locator('.t-sub')).toHaveCSS('font-size', '13px');
+    await page
+      .getByText('Budget Buddy · runs on your Mac mini')
+      .scrollIntoViewIfNeeded();
+    await mkdir('test-results/screens', { recursive: true });
+    await page.screenshot({
+      path: `test-results/screens/Settings-data-${testInfo.project.name}.png`,
+      scale: 'css',
+    });
+    expect(externalRequests).toEqual([]);
+  });
+
+  test('the Backup row opens a sheet with the time, size and copies kept', async ({
+    page,
+  }, testInfo) => {
+    const { externalRequests } = await installSettingsApi(page, testInfo);
+    await page.goto('/settings');
+    await page.getByRole('button', { name: /^Backup/u }).click();
+    const sheet = page.getByRole('dialog', { name: 'Backup' });
+    await expect(sheet).toBeVisible();
+    await expect(sheet).toContainText(
+      'Every night at 03:30 Budget Buddy saves a copy of all your data in the backups folder on the Mac mini. It keeps 14 daily and 12 monthly copies.',
+    );
+    const details = sheet.getByRole('group', { name: 'Backup details' });
+    await expect(
+      details.locator('.row', { hasText: 'Last good backup' }),
+    ).toContainText('today 03:30');
+    await expect(details.locator('.row', { hasText: 'Size' })).toContainText(
+      '4.2 MB',
+    );
+    await expect(
+      details.locator('.row', { hasText: 'Daily copies' }),
+    ).toContainText('5 of 14');
+    await expect(
+      details.locator('.row', { hasText: 'Monthly copies' }),
+    ).toContainText('2 of 12');
+    await expect(sheet.getByRole('alert')).toHaveCount(0);
+
+    await page.waitForTimeout(600);
+    await mkdir('test-results/screens', { recursive: true });
+    await page.screenshot({
+      path: `test-results/screens/Settings-backup-${testInfo.project.name}.png`,
+      scale: 'css',
+    });
+    await sheet
+      .getByRole('button', { name: 'Close', exact: true })
+      .last()
+      .click();
+    await expect(sheet).toHaveCount(0);
+    expect(externalRequests).toEqual([]);
+  });
+
+  test('a failed night turns the dot to the warning colour and the sheet says why', async ({
+    page,
+  }, testInfo) => {
+    const { backupStatus } = await installSettingsApi(page, testInfo);
+    backupStatus.value = {
+      ...defaultBackupStatus(),
+      last: {
+        finishedAt: Date.parse('2026-10-08T01:30:00Z'),
+        bytes: 4_200_000,
+      },
+      failure: {
+        at: Date.parse('2026-10-09T01:32:00Z'),
+        message: 'The backup could not be written (ENOSPC).',
+      },
+    };
+    await page.goto('/settings');
+    const row = page.getByRole('button', { name: /^Backup/u });
+    await expect(row).toContainText(
+      'Last backup failed · last good one yesterday 03:30',
+    );
+    // --warn of the light theme in bb.css, #a2470f.
+    await expect(row.locator('.settings-backup-dot')).toHaveCSS(
+      'background-color',
+      'rgb(162, 71, 15)',
+    );
+
+    await row.click();
+    const sheet = page.getByRole('dialog', { name: 'Backup' });
+    await expect(sheet.getByRole('alert')).toHaveText(
+      /The backup failed today 03:32\. The backup could not be written \(ENOSPC\)\. The earlier copies are kept as they were, and it tries again tonight at 03:30\./u,
+    );
+    await expect(
+      sheet
+        .getByRole('group', { name: 'Backup details' })
+        .locator('.row', { hasText: 'Last good backup' }),
+    ).toContainText('yesterday 03:30');
+  });
+
+  test('before the first backup the row and sheet say so', async ({
+    page,
+  }, testInfo) => {
+    const { backupStatus } = await installSettingsApi(page, testInfo);
+    backupStatus.value = {
+      ...defaultBackupStatus(),
+      last: null,
+      daily: { kept: 0, limit: 14 },
+      monthly: { kept: 0, limit: 12 },
+    };
+    await page.goto('/settings');
+    const row = page.getByRole('button', { name: /^Backup/u });
+    await expect(row).toContainText(
+      'No backup yet · runs every night at 03:30',
+    );
+    await row.click();
+    const sheet = page.getByRole('dialog', { name: 'Backup' });
+    await expect(sheet).toContainText('No backup yet.');
+    await expect(
+      sheet.getByRole('group', { name: 'Backup details' }),
+    ).toHaveCount(0);
+  });
+
+  test('when the status cannot be read the row says so and stays shut', async ({
+    page,
+  }, testInfo) => {
+    const { backupStatus } = await installSettingsApi(page, testInfo);
+    backupStatus.status = 500;
+    await page.goto('/settings');
+    const row = page.getByRole('button', { name: /^Backup/u });
+    await expect(row).toContainText('Could not read the backup status');
+    await expect(row).toBeDisabled();
+  });
+
+  test('Export all data downloads the zip the server sends', async ({
+    page,
+  }, testInfo) => {
+    const { exportResponse, externalRequests } = await installSettingsApi(
+      page,
+      testInfo,
+    );
+    await page.goto('/settings');
+    const row = page.getByRole('button', { name: /^Export all data/u });
+    await expect(row).toContainText('CSV files in one .zip');
+    await expect(row.locator('svg')).toHaveCount(1);
+    const downloading = page.waitForEvent('download');
+    await row.click();
+    const download = await downloading;
+    expect(download.suggestedFilename()).toBe(
+      'budget-buddy-export-2026-10-09.zip',
+    );
+    expect(exportResponse.requests).toBe(1);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(row).toBeEnabled();
+    expect(externalRequests).toEqual([]);
+  });
+
+  test('a failed export says so and can be tried again', async ({
+    page,
+  }, testInfo) => {
+    const { exportResponse } = await installSettingsApi(page, testInfo);
+    exportResponse.status = 500;
+    await page.goto('/settings');
+    const row = page.getByRole('button', { name: /^Export all data/u });
+    await row.click();
+    await expect(page.getByRole('alert')).toHaveText(
+      'Could not export your data. Check your connection and try again.',
+    );
+    exportResponse.status = 200;
+    const downloading = page.waitForEvent('download');
+    await row.click();
+    await downloading;
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  });
+
+  test('a signed-out session sends the member to sign in', async ({
+    page,
+  }, testInfo) => {
+    const { exportResponse } = await installSettingsApi(page, testInfo);
+    exportResponse.status = 401;
+    await page.goto('/settings');
+    const row = page.getByRole('button', { name: /^Export all data/u });
+    await expect(row).toBeEnabled();
+    // From now on the server no longer knows the session.
+    await page.route('**/api/auth/me', (route) =>
+      route.fulfill({
+        status: 401,
+        json: { error: { code: 'unauthenticated', message: 'Sign in.' } },
+      }),
+    );
+    await row.click();
+    await expect(page).toHaveURL(/\/sign-in/u);
+  });
+});
