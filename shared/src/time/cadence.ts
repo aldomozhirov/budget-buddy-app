@@ -117,6 +117,24 @@ function collectSlot(date: string, hour: number, minute: number, timeZone: strin
 }
 
 /**
+ * Returns the instant of a local date (`YYYY-MM-DD`) and time (`HH:mm`) in
+ * `timeZone`, resolved as a schedule slot is: a time in a DST gap moves to
+ * the first valid minute after it, and a repeated time is the earlier one.
+ * @throws {RangeError} if the time is malformed or `timeZone` is unknown.
+ */
+export function localSlotInstant(date: string, time: string, timeZone: string): Date {
+  const [hour, minute] = validateTime(time);
+  return resolveLocalDateTime(date, hour, minute, timeZone);
+}
+
+/** Returns the local `YYYY-MM-DDTHH:mm` slot key of an instant in `timeZone`. */
+export function localSlotKey(instant: Date, timeZone: string): string {
+  const { year, month, day, hour, minute } = localParts(instant, timeZone);
+  const two = (value: number): string => value.toString().padStart(2, '0');
+  return `${year.toString().padStart(4, '0')}-${two(month)}-${two(day)}T${two(hour)}:${two(minute)}`;
+}
+
+/**
  * Returns the cadence's slots whose instants fall between `from` and `to`
  * inclusive, sorted by instant. Wall times are read in `timeZone`; a time
  * in a DST gap moves to the first valid minute after it, and a repeated

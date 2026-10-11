@@ -1,0 +1,496 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import Database from 'better-sqlite3';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createApp } from '../src/app.js';
+import { migrateDatabase } from '../src/db/migrate.js';
+import { createCheckinEventBus } from '../src/events.js';
+import { createCheckinScheduleJob } from '../src/jobs/checkinSchedule.js';
+import { createFollowUpJob } from '../src/jobs/followUp.js';
+import { createJobRunner } from '../src/jobs/runner.js';
+import { createNotifier, type Notifier } from '../src/notify/notifier.js';
+import { createFakePushSender } from './fakePushSender.js';
+
+const migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url));
+const origin = 'https://budget-buddy.test';
+const jsonHeaders = { origin, 'content-type': 'application/json' };
+const password = 'correct horse battery staple';
+const endpointOf = (name: string) => `https://push.example.test/${name}`;
+
+/**
+ * Follow-up reminders (CHK-3, NTF-2) with a fake clock: Alex (1), Blair (2)
+ * and Casey (3) each have a device; Alex owns "Main", Blair "Cash".
+ */
+describe('follow-up reminders', () => {
+  let app: Awaited<ReturnType<typeof createApp>>;
+  let database: Database.Database;
+  let directory: string;
+  let now: number;
+  let events: ReturnType<typeof createCheckinEventBus>;
+  let notifier: Notifier;
+  let sender: ReturnType<typeof createFakePushSender>;
+  const cookies = new Map<string, string>();
+  const clock = { now: () => new Date(now) };
+  const at = (iso: string) => {
+    now = Date.parse(iso);
+  };
+
+  const request = (
+    name: string,
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH',
+    url: string,
+    payload?: object,
+  ) =>
+    app.inject({
+      method,
+      url,
+      headers: { ...jsonHeaders, cookie: cookies.get(name)! },
+      ...(payload === undefined ? {} : { payload }),
+    });
+
+  /** A fresh runner and job, as after a server restart; runs one tick. */
+  const tick = async () => {
+    await createJobRunner({
+      database,
+      clock,
+      jobs: [
+        createCheckinScheduleJob({ database, clock, events }),
+        createFollowUpJob({ database, events }),
+      ],
+    }).tick();
+    await notifier.idle();
+  };
+  const reminded = () =>
+    sender.sent
+      .filter((push) => push.content.tag.endsWith('-followup'))
+      .map((push) => push.endpoint)
+      .sort();
+  const alert = (names: string[]) => names.map(endpointOf).sort();
+  const reminderRows = () =>
+    database
+      .prepare(
+        `SELECT member_id, slot FROM notification
+         WHERE event = 'checkin.followup' ORDER BY member_id, slot`,
+      )
+      .all();
+  const setFollowupDays = async (days: number) => {
+    const response = await request('Alex', 'PATCH', '/api/settings', {
+      followupDays: days,
+    });
+    expect(response.statusCode, response.body).toBe(200);
+  };
+  const startCheckin = async () => {
+    const response = await request('Alex', 'POST', '/api/checkins', {});
+    expect(response.statusCode, response.body).toBe(201);
+    await notifier.idle();
+    sender.sent.length = 0;
+    return response.json().checkin.id as number;
+  };
+  const enterValue = async (name: string, checkinId: number, account: number) =>
+    request(name, 'PUT', `/api/checkins/${checkinId}/values/${account}`, {
+      amount: '1000',
+    });
+  const nextReminderAt = async (checkinId: number) =>
+    (await request('Alex', 'GET', `/api/checkins/${checkinId}`)).json().checkin
+      .nextReminderAt;
+
+  beforeEach(async () => {
+    directory = await mkdtemp(join(tmpdir(), 'budget-buddy-followup-'));
+    database = new Database(join(directory, 'family.sqlite'));
+    database.pragma('foreign_keys = ON');
+    // 13:00 in Berlin.
+    at('2026-11-10T12:00:00Z');
+    events = createCheckinEventBus();
+    sender = createFakePushSender();
+    await migrateDatabase(database, { backupDir: directory, migrationsFolder });
+    notifier = createNotifier({ database, sender, clock, events });
+    app = await createApp({
+      database,
+      logger: false,
+      appOrigins: [origin],
+      secureCookies: false,
+      clock,
+      events,
+      push: { publicKey: 'test', allowedHosts: ['push.example.test'] },
+    });
+    const setup = await app.inject({
+      method: 'POST',
+      url: '/api/setup',
+      headers: { ...jsonHeaders, 'user-agent': 'Alex/1.0' },
+      payload: {
+        password,
+        passwordConfirmation: password,
+        profiles: ['Alex', 'Blair', 'Casey'],
+      },
+    });
+    expect(setup.statusCode).toBe(201);
+    cookies.set('Alex', cookieHeader(setup));
+    for (const [name, id] of [
+      ['Blair', 2],
+      ['Casey', 3],
+    ] as const) {
+      const signedIn = await app.inject({
+        method: 'POST',
+        url: '/api/auth/sign-in',
+        headers: { ...jsonHeaders, 'user-agent': `${name}/1.0` },
+        payload: { password },
+      });
+      cookies.set(name, cookieHeader(signedIn));
+      const profile = await request(name, 'POST', '/api/auth/profile', {
+        memberId: id,
+        remember: false,
+      });
+      expect(profile.statusCode).toBe(200);
+    }
+    for (const name of ['Alex', 'Blair', 'Casey']) {
+      const subscribed = await request(name, 'PUT', '/api/push/subscription', {
+        endpoint: endpointOf(name),
+        keys: { p256dh: `p256dh-${name}`, auth: `auth-${name}` },
+      });
+      expect(subscribed.statusCode, subscribed.body).toBe(200);
+    }
+    for (const [name, owner] of [
+      ['Main', 1],
+      ['Cash', 2],
+    ] as const) {
+      const account = await request('Alex', 'POST', '/api/accounts', {
+        name,
+        ownerMemberId: owner,
+        type: 'bank',
+        currency: 'EUR',
+        openingBalance: '10000',
+      });
+      expect(account.statusCode, account.body).toBe(201);
+    }
+  });
+
+  afterEach(async () => {
+    await notifier.close();
+    await app.close();
+    database.close();
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  describe('who is reminded and when', () => {
+    it('reminds each member with accounts left, every interval after it opened', async () => {
+      await startCheckin();
+
+      // The first reminder is 48 hours after 13:00 on the 10th, in Berlin.
+      at('2026-11-12T11:59:00Z');
+      await tick();
+      expect(reminded()).toEqual([]);
+
+      at('2026-11-12T12:00:00Z');
+      await tick();
+      expect(reminded()).toEqual(alert(['Alex', 'Blair']));
+      expect(sender.sent[0]!.content).toEqual({
+        title: 'Your check-in is waiting',
+        body: 'Some of your accounts still need a balance.',
+        url: '/check-ins/1',
+        tag: 'checkin-1-followup',
+      });
+
+      // Casey owns no account and Alex's second tick adds nothing.
+      await tick();
+      expect(reminded()).toHaveLength(2);
+
+      at('2026-11-14T12:00:00Z');
+      await tick();
+      expect(reminded()).toHaveLength(4);
+      expect(reminderRows()).toEqual([
+        { member_id: 1n, slot: '2026-11-12T13:00' },
+        { member_id: 1n, slot: '2026-11-14T13:00' },
+        { member_id: 2n, slot: '2026-11-12T13:00' },
+        { member_id: 2n, slot: '2026-11-14T13:00' },
+      ]);
+    });
+
+    it('reminds only members who still own accounts without a value', async () => {
+      const id = await startCheckin();
+      expect((await enterValue('Alex', id, 1)).statusCode).toBe(200);
+      sender.sent.length = 0;
+
+      at('2026-11-12T12:00:00Z');
+      await tick();
+      expect(reminded()).toEqual(alert(['Blair']));
+    });
+
+    it('does not remind a member whose only account has no value but who is inactive', async () => {
+      await startCheckin();
+      await request('Alex', 'PATCH', '/api/members/2', { active: false });
+
+      at('2026-11-12T12:00:00Z');
+      await tick();
+      expect(reminded()).toEqual(alert(['Alex']));
+    });
+
+    it('does not remind about an account nobody owns or one that was closed', async () => {
+      await startCheckin();
+      database
+        .prepare('UPDATE account SET owner_member_id = NULL WHERE id = 2')
+        .run();
+      database.prepare('UPDATE account SET active = 0 WHERE id = 1').run();
+      at('2026-11-12T12:00:00Z');
+      await tick();
+      expect(reminded()).toEqual([]);
+    });
+
+    it('reminds nobody once the check-in is closed', async () => {
+      const id = await startCheckin();
+      expect(
+        (await request('Alex', 'POST', `/api/checkins/${id}/close`, {}))
+          .statusCode,
+      ).toBe(200);
+      await notifier.idle();
+      sender.sent.length = 0;
+
+      at('2026-11-12T12:00:00Z');
+      await tick();
+      at('2026-11-20T12:00:00Z');
+      await tick();
+      expect(sender.sent).toEqual([]);
+    });
+
+    it('sends nothing for a reminder announced after the check-in closed', async () => {
+      const id = await startCheckin();
+      await request('Alex', 'POST', `/api/checkins/${id}/close`, {});
+      await notifier.idle();
+      sender.sent.length = 0;
+      await notifier.notify({
+        kind: 'checkin.followup',
+        checkinId: id,
+        slot: '2026-11-12T13:00',
+      });
+      expect(sender.sent).toEqual([]);
+    });
+
+    it('stops reminding a member as soon as their last value is in', async () => {
+      const id = await startCheckin();
+      at('2026-11-12T12:00:00Z');
+      await tick();
+      expect(reminded()).toHaveLength(2);
+      sender.sent.length = 0;
+
+      at('2026-11-13T12:00:00Z');
+      await enterValue('Blair', id, 2);
+      at('2026-11-14T12:00:00Z');
+      await tick();
+      expect(reminded()).toEqual(alert(['Alex']));
+    });
+
+    it('sends none when the interval is 0', async () => {
+      await setFollowupDays(0);
+      await startCheckin();
+      at('2026-11-12T12:00:00Z');
+      await tick();
+      at('2026-12-12T12:00:00Z');
+      await tick();
+      expect(sender.sent).toEqual([]);
+      expect(reminderRows()).toEqual([]);
+    });
+
+    it('follows the interval that was set', async () => {
+      await setFollowupDays(1);
+      await startCheckin();
+      at('2026-11-11T12:00:00Z');
+      await tick();
+      expect(reminded()).toHaveLength(2);
+    });
+
+    it('counts from the cadence time of a scheduled check-in', async () => {
+      await request('Alex', 'PATCH', '/api/settings', {
+        cadence: { kind: 'monthly', day: 5, time: '09:00' },
+      });
+      // 09:00 in Berlin is 08:00 UTC in December.
+      at('2026-12-05T08:00:20Z');
+      await tick();
+      expect(sender.sent.map((push) => push.content.tag)).toEqual([
+        'checkin-1-opened',
+        'checkin-1-opened',
+        'checkin-1-opened',
+      ]);
+      sender.sent.length = 0;
+
+      at('2026-12-07T07:59:00Z');
+      await tick();
+      expect(sender.sent).toEqual([]);
+      at('2026-12-07T08:00:00Z');
+      await tick();
+      expect(reminded()).toEqual(alert(['Alex', 'Blair']));
+      expect(reminderRows()[0]).toEqual({
+        member_id: 1n,
+        slot: '2026-12-07T09:00',
+      });
+    });
+
+    it('keeps the wall time across the end of daylight saving time', async () => {
+      // 09:00 on 24 October in Berlin (CEST).
+      at('2026-10-24T07:00:00Z');
+      await setFollowupDays(1);
+      await startCheckin();
+
+      // 24 hours later is only 08:00 in Berlin now (CET).
+      at('2026-10-25T07:00:00Z');
+      await tick();
+      expect(reminded()).toEqual([]);
+      at('2026-10-25T08:00:00Z');
+      await tick();
+      expect(reminded()).toHaveLength(2);
+      expect(reminderRows()[0]).toEqual({
+        member_id: 1n,
+        slot: '2026-10-25T09:00',
+      });
+    });
+
+    it('does not remind at once about a check-in the schedule made up late', async () => {
+      await request('Alex', 'PATCH', '/api/settings', {
+        cadence: { kind: 'monthly', day: 5, time: '09:00' },
+      });
+      // The server was off from before the slot until the 8th.
+      at('2026-12-08T10:00:00Z');
+      database
+        .prepare('DELETE FROM job_run WHERE job = ?')
+        .run('checkin-followup');
+      await tick();
+      expect(
+        sender.sent.filter((push) => push.content.tag.endsWith('-opened')),
+      ).toHaveLength(3);
+      expect(reminded()).toEqual([]);
+
+      // The slot was the 5th; its second reminder, the 9th, is the next one.
+      at('2026-12-09T08:00:00Z');
+      await tick();
+      expect(reminded()).toHaveLength(2);
+    });
+  });
+
+  describe('restarts and repeats (COR-3)', () => {
+    it('sends one reminder, not several, after a restart that missed three', async () => {
+      await startCheckin();
+      // Off across the reminders of the 12th, 14th and 16th.
+      at('2026-11-16T18:00:00Z');
+      await tick();
+      expect(reminded()).toEqual(alert(['Alex', 'Blair']));
+      expect(reminderRows()).toEqual([
+        { member_id: 1n, slot: '2026-11-16T13:00' },
+        { member_id: 2n, slot: '2026-11-16T13:00' },
+      ]);
+
+      // Another restart in the same interval adds nothing.
+      await tick();
+      expect(reminded()).toHaveLength(2);
+    });
+
+    it('never sends the same reminder to a member twice', async () => {
+      const id = await startCheckin();
+      const event = {
+        kind: 'checkin.followup',
+        checkinId: id,
+        slot: '2026-11-12T13:00',
+      } as const;
+      await Promise.all([notifier.notify(event), notifier.notify(event)]);
+      await notifier.notify(event);
+      expect(reminded()).toEqual(alert(['Alex', 'Blair']));
+    });
+
+    it('does not repeat a reminder that a failed run is retried for', async () => {
+      await startCheckin();
+      const job = createFollowUpJob({ database, events });
+      let attempts = 0;
+      const flaky = {
+        ...job,
+        run(slot: string) {
+          job.run(slot);
+          attempts += 1;
+          if (attempts === 1) throw new Error('crashed after announcing');
+        },
+      };
+      const runner = createJobRunner({ database, clock, jobs: [flaky] });
+      at('2026-11-12T12:00:00Z');
+      await runner.tick();
+      await notifier.idle();
+      await runner.tick();
+      await notifier.idle();
+      expect(attempts).toBe(2);
+      expect(reminded()).toEqual(alert(['Alex', 'Blair']));
+    });
+  });
+
+  describe('changing the interval', () => {
+    it('does not send a reminder for a time already past', async () => {
+      await startCheckin();
+      // Day 3, 13:00 in Berlin: the first reminder of "every 2 days" is sent.
+      at('2026-11-12T12:00:00Z');
+      await tick();
+      sender.sent.length = 0;
+
+      // Switching to every day would owe the 13th at 13:00, and it is later.
+      at('2026-11-13T15:00:00Z');
+      await setFollowupDays(1);
+      await tick();
+      expect(sender.sent).toEqual([]);
+
+      at('2026-11-14T12:00:00Z');
+      await tick();
+      expect(reminded()).toHaveLength(2);
+    });
+
+    it('starts counting again when reminders are turned back on', async () => {
+      await setFollowupDays(0);
+      await startCheckin();
+      at('2026-11-20T10:00:00Z');
+      await setFollowupDays(2);
+      await tick();
+      expect(sender.sent).toEqual([]);
+      at('2026-11-20T12:00:00Z');
+      await tick();
+      expect(reminded()).toHaveLength(2);
+    });
+
+    it('rejects an interval that is negative, fractional or too long', async () => {
+      for (const followupDays of [-1, 1.5, 31, '2']) {
+        const response = await request('Alex', 'PATCH', '/api/settings', {
+          followupDays,
+        });
+        expect(response.statusCode, String(followupDays)).toBe(400);
+      }
+      const read = await request('Alex', 'GET', '/api/settings');
+      expect(read.json().followupDays).toBe(2);
+    });
+  });
+
+  describe('the date shown in the check-in footer', () => {
+    it('is the next reminder, and moves after one is sent', async () => {
+      const id = await startCheckin();
+      expect(await nextReminderAt(id)).toBe(Date.parse('2026-11-12T12:00:00Z'));
+      at('2026-11-12T12:00:00Z');
+      await tick();
+      expect(await nextReminderAt(id)).toBe(Date.parse('2026-11-14T12:00:00Z'));
+    });
+
+    it('is null when reminders are off, when the check-in is closed, or when nobody is left to remind', async () => {
+      const id = await startCheckin();
+      await enterValue('Alex', id, 1);
+      expect(await nextReminderAt(id)).toBe(Date.parse('2026-11-12T12:00:00Z'));
+      await setFollowupDays(0);
+      expect(await nextReminderAt(id)).toBeNull();
+      await setFollowupDays(2);
+      expect(await nextReminderAt(id)).not.toBeNull();
+      await request('Alex', 'PATCH', '/api/members/2', { active: false });
+      expect(await nextReminderAt(id)).toBeNull();
+      await request('Alex', 'PATCH', '/api/members/2', { active: true });
+      await request('Alex', 'POST', `/api/checkins/${id}/close`, {});
+      expect(await nextReminderAt(id)).toBeNull();
+    });
+  });
+});
+
+function cookieHeader(response: { headers: Record<string, unknown> }): string {
+  const header = response.headers['set-cookie'];
+  return (Array.isArray(header) ? header : [header])
+    .filter((value): value is string => typeof value === 'string')
+    .map((value) => value.split(';', 1)[0])
+    .join('; ');
+}

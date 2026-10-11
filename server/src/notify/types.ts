@@ -12,9 +12,9 @@ export type PushContent = {
 };
 
 /**
- * Something that happened to a check-in and may have to be announced. Task 26
- * adds `checkin.followup` here, with its own recipients and a slot per
- * reminder, and nothing else has to change.
+ * Something that happened to a check-in and may have to be announced. A new
+ * kind needs its own case in `planNotification` and, if it comes from the
+ * event bus, a listener in `createNotifier`.
  */
 export type NotificationEvent =
   | {
@@ -28,6 +28,12 @@ export type NotificationEvent =
       checkinId: number;
       /** The member who closed it, or null when it closed by itself. */
       closedBy: number | null;
+    }
+  | {
+      kind: 'checkin.followup';
+      checkinId: number;
+      /** Local time of the reminder; it makes each reminder once per member. */
+      slot: string;
     };
 
 /** Who gets which message for one event, and the key that makes it once. */

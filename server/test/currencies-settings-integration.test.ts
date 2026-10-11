@@ -208,6 +208,7 @@ describe('currency and money settings integration', () => {
       timeZone: 'Europe/Berlin',
       cadence: { kind: 'off' },
       nextSlot: null,
+      followupDays: 2,
     });
     expect(snapshotRows()).toEqual(before);
   });

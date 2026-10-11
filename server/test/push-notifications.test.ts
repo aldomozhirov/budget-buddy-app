@@ -384,7 +384,13 @@ describe('Web Push notifications', () => {
         amount: '654321',
       });
       expect(saved.statusCode, saved.body).toBe(200);
-      // Blair's account has no value yet, so the round is still open.
+      // Blair's account has no value yet, so the round is still open and
+      // she gets a follow-up reminder.
+      await notifier.notify({
+        kind: 'checkin.followup',
+        checkinId: 1,
+        slot: '2026-11-12T13:00',
+      });
       expect((await closeCheckin('Blair', 1)).statusCode).toBe(200);
       await notifier.idle();
       // Later rounds, closed already, to announce the other texts.
@@ -416,6 +422,7 @@ describe('Web Push notifications', () => {
           'Time for a check-in',
           'Check-in complete',
           'Casey closed the check-in',
+          'Your check-in is waiting',
         ]),
       );
       for (const push of sender.sent) {
