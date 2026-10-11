@@ -32,7 +32,11 @@ export type NotificationEvent =
   | {
       kind: 'checkin.followup';
       checkinId: number;
-      /** Local time of the reminder; it makes each reminder once per member. */
+      /**
+       * Local time of the reminder, a follow-up time or the schedule slot
+       * that found the check-in open. It makes each reminder once per member,
+       * so two reminders of the same minute send one push.
+       */
       slot: string;
     };
 

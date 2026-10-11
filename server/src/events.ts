@@ -13,7 +13,11 @@ export interface CheckinEvents {
   };
   'checkin.followup': {
     checkinId: number;
-    /** Local `YYYY-MM-DDTHH:MM` of the reminder; one per slot (CHK-3). */
+    /**
+     * Local `YYYY-MM-DDTHH:MM` of the reminder: a follow-up time (CHK-3) or
+     * the schedule slot that found the check-in open (CHK-2). A member gets
+     * one reminder per check-in and slot.
+     */
     slot: string;
   };
 }

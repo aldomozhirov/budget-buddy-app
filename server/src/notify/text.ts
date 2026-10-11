@@ -29,7 +29,10 @@ export const notificationText = {
       tag: `checkin-${checkinId}-opened`,
     };
   },
-  /** An open check-in still has accounts without a value (CHK-3). */
+  /**
+   * An open check-in still has accounts without a value: the follow-up
+   * (CHK-3) and the schedule slot that finds it open (CHK-2) read the same.
+   */
   followUp(checkinId: number): PushContent {
     return {
       title: 'Your check-in is waiting',

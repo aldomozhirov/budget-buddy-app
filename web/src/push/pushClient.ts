@@ -1,5 +1,6 @@
 import {
   pushKeyResponseSchema,
+  pushSubscriptionResponseSchema,
   type PushSubscriptionRequest,
 } from '@budget-buddy/shared';
 
@@ -28,9 +29,12 @@ async function currentRegistration(): Promise<ServiceWorkerRegistration | null> 
 }
 
 /**
- * Reads this device's state without asking for anything. With `sync`, a
- * subscription the browser holds is sent to the server again, which heals a
- * row the server dropped and moves it to the profile now in use.
+ * Reads this device's state without asking for anything. A subscription the
+ * browser holds counts as `on` only while the server holds this device's row:
+ * after a family password change dropped it (D9) the state is `off` until the
+ * member opts in again. With `sync`, a subscription both sides hold is sent
+ * again, which moves it to the profile now in use. When the server cannot be
+ * reached the browser's word is taken.
  */
 export async function readPushState(sync = false): Promise<PushState> {
   const registration = await currentRegistration();
@@ -38,12 +42,11 @@ export async function readPushState(sync = false): Promise<PushState> {
   if (Notification.permission === 'denied') return 'denied';
   const subscription = await registration.pushManager.getSubscription();
   if (!subscription || Notification.permission !== 'granted') return 'off';
-  if (sync) {
-    try {
-      await sendSubscription(subscription);
-    } catch {
-      // Offline: the device is still subscribed; the next visit syncs it.
-    }
+  try {
+    if (!(await serverHoldsSubscription())) return 'off';
+    if (sync) await sendSubscription(subscription);
+  } catch {
+    // Offline: the device is still subscribed; the next visit checks again.
   }
   return 'on';
 }
@@ -94,6 +97,13 @@ export async function disablePush(): Promise<boolean> {
   const registration = await currentRegistration();
   await (await registration?.pushManager.getSubscription())?.unsubscribe();
   return true;
+}
+
+/** Whether the server holds a subscription row for this device. */
+async function serverHoldsSubscription(): Promise<boolean> {
+  const response = await fetch('/api/push/subscription');
+  if (!response.ok) throw new Error('The server could not say.');
+  return pushSubscriptionResponseSchema.parse(await response.json()).subscribed;
 }
 
 async function sendSubscription(subscription: PushSubscription): Promise<void> {

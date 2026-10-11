@@ -72,6 +72,10 @@ export const familyRoutes: FastifyPluginAsync<{
       database
         .prepare('DELETE FROM passkey WHERE device_id <> ?')
         .run(context.deviceId);
+      // A signed-out device must get no push; this device keeps its own.
+      database
+        .prepare('DELETE FROM push_subscription WHERE device_id <> ?')
+        .run(context.deviceId);
       return true;
     })();
 
