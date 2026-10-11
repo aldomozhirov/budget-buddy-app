@@ -4,7 +4,9 @@ import { createApp } from './app.js';
 import { openDatabase } from './db/index.js';
 import { systemClock } from './clock.js';
 import { createJobRunner } from './jobs/runner.js';
+import { createCheckinScheduleJob } from './jobs/checkinSchedule.js';
 import { createRatesJob } from './jobs/rates.js';
+import { createCheckinEventBus } from './events.js';
 import { createFixtureFeed } from './rates/fixtureFeed.js';
 import { createLiveFeeds } from './rates/feeds/index.js';
 import { createRateHttpClient } from './rates/http.js';
@@ -39,8 +41,13 @@ try {
         : [createFixtureFeed()],
     logger: { error: (error, message) => app?.log.error(error, message) },
   });
+  // Shared with the schedule job, which opens check-ins outside any request.
+  const events = createCheckinEventBus((error) =>
+    app?.log.error(error, 'Check-in event failed'),
+  );
   app = await createApp({
     database,
+    events,
     appOrigins: config.appOrigins,
     secureCookies: config.nodeEnv !== 'development',
     rates,
@@ -49,7 +56,10 @@ try {
   const jobRunner = createJobRunner({
     database,
     clock: systemClock,
-    jobs: [createRatesJob(rates)],
+    jobs: [
+      createRatesJob(rates),
+      createCheckinScheduleJob({ database, clock: systemClock, events }),
+    ],
     logger: app.log,
   });
   app.addHook('onClose', async () => {

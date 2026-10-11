@@ -4,12 +4,15 @@ import { RouterLink, useRouter } from 'vue-router';
 import {
   checkinsResponseSchema,
   currenciesResponseSchema,
+  describeCadence,
   formatDate,
+  formatSlotDay,
   formatRecentDate,
   settingsResponseSchema,
   startCheckinResponseSchema,
   wealthSeriesSchema,
   type Checkin,
+  type CadenceSetting,
   type CoinSetting,
   type WealthSeries,
 } from '@budget-buddy/shared';
@@ -35,6 +38,9 @@ const router = useRouter();
 const { label: backLabel, goBack } = useBack();
 const checkins = ref<Checkin[]>([]);
 const timeZone = ref('Europe/Berlin');
+const cadence = ref<CadenceSetting>({ kind: 'off' });
+// Local date-time of the next scheduled check-in; null while the cadence is off.
+const nextSlot = ref<string | null>(null);
 const loading = ref(true);
 const loadError = ref('');
 const startError = ref('');
@@ -43,6 +49,13 @@ const series = ref<WealthSeries | null>(null);
 const coins = ref<CoinSetting[]>([]);
 // Totals are hidden on every visit and never stored (UI-SUM-1).
 const totalsVisible = ref(false);
+
+/** What sits under "Start a check-in now": no date while the schedule is off. */
+const startNote = computed(() =>
+  nextSlot.value
+    ? `Everyone gets a notification. Next scheduled: ${formatSlotDay(nextSlot.value)}.`
+    : 'Everyone gets a notification.',
+);
 
 const currentMemberId = computed(() => authState.value?.member?.id ?? null);
 const openCheckin = computed(
@@ -202,7 +215,10 @@ async function load(): Promise<void> {
       settingsResponse.json(),
     ]);
     checkins.value = checkinsResponseSchema.parse(checkinsData).checkins;
-    timeZone.value = settingsResponseSchema.parse(settingsData).timeZone;
+    const settings = settingsResponseSchema.parse(settingsData);
+    timeZone.value = settings.timeZone;
+    cadence.value = settings.cadence;
+    nextSlot.value = settings.nextSlot;
   } catch {
     loadError.value =
       'Could not load check-ins. Check your connection and try again.';
@@ -243,7 +259,13 @@ void load();
         :label="backLabel"
         @click="goBack"
       />
-      <h1 class="t-title">Check-ins</h1>
+      <div class="checkins-heading">
+        <h1 class="t-title">Check-ins</h1>
+        <span
+          v-if="!loading && !loadError"
+          class="t-sub"
+        >{{ describeCadence(cadence) }}</span>
+      </div>
       <button
         v-if="closedCheckins.length && series"
         class="icon-btn checkins-eye"
@@ -307,7 +329,7 @@ void load();
           >
             {{ starting ? 'Starting…' : 'Start a check-in now' }}
           </BbButton>
-          <p>Everyone gets a notification.</p>
+          <p>{{ startNote }}</p>
           <p
             v-if="startError"
             class="checkins-error"
@@ -379,8 +401,10 @@ void load();
 </template>
 
 <style scoped>
-.checkins-topbar h1 {
+.checkins-heading {
   flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .checkins-content {

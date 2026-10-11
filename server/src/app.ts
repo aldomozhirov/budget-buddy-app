@@ -133,7 +133,11 @@ export async function createApp(options: AppOptions) {
     database: options.database,
     clock,
   });
-  await app.register(settingsRoutes, { database: options.database, rates });
+  await app.register(settingsRoutes, {
+    database: options.database,
+    rates,
+    clock,
+  });
   await app.register(accountRoutes, {
     database: options.database,
     clock,

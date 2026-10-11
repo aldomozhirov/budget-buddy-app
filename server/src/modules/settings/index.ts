@@ -2,9 +2,21 @@ import type Database from 'better-sqlite3';
 import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 import {
   listCurrencies,
+  nextCadenceSlot,
+  sameCadenceSetting,
   settingsResponseSchema,
+  todayInTimeZone,
   updateSettingsRequestSchema,
+  type CadenceSetting,
 } from '@budget-buddy/shared';
+import type { Clock } from '../../clock.js';
+import { systemClock } from '../../clock.js';
+import {
+  cadenceColumns,
+  cadenceUpdate,
+  readCadence,
+} from '../../domain/cadence.js';
+import { settleSlotsUntil } from '../../jobs/checkinSchedule.js';
 import type { BackfillRequester } from '../../rates/service.js';
 
 const supportedTimeZones = new Set([
@@ -16,7 +28,26 @@ const supportedTimeZones = new Set([
 export const settingsRoutes: FastifyPluginAsync<{
   database: Database.Database;
   rates?: BackfillRequester;
-}> = async (app, { database, rates }) => {
+  clock?: Clock;
+}> = async (app, { database, rates, clock = systemClock }) => {
+  /** The response body: money settings, the cadence and its next slot. */
+  function settingsBody(commonCurrency: string, timeZone: string) {
+    const { cadence, anchorDate } = readCadence(database);
+    const now = clock.now();
+    const next = nextCadenceSlot(
+      cadence,
+      anchorDate ?? todayInTimeZone(now, timeZone),
+      now,
+      timeZone,
+    );
+    return settingsResponseSchema.parse({
+      commonCurrency,
+      timeZone,
+      cadence,
+      nextSlot: next?.key ?? null,
+    });
+  }
+
   app.get('/api/settings', async (_request, reply) => {
     const settings = database
       .prepare('SELECT common_currency, time_zone FROM family WHERE id = 1')
@@ -29,10 +60,7 @@ export const settingsRoutes: FastifyPluginAsync<{
         },
       });
     }
-    return settingsResponseSchema.parse({
-      commonCurrency: settings.common_currency,
-      timeZone: settings.time_zone,
-    });
+    return settingsBody(settings.common_currency, settings.time_zone);
   });
 
   app.patch('/api/settings', async (request, reply) => {
@@ -107,14 +135,24 @@ export const settingsRoutes: FastifyPluginAsync<{
       ]);
     }
 
-    database
-      .prepare(
-        'UPDATE family SET common_currency = ?, time_zone = ? WHERE id = 1',
-      )
-      .run(
-        parsed.data.commonCurrency ?? current.common_currency,
-        parsed.data.timeZone ?? current.time_zone,
-      );
+    const timeZone = parsed.data.timeZone ?? current.time_zone;
+    const commonCurrency =
+      parsed.data.commonCurrency ?? current.common_currency;
+    database.transaction(() => {
+      database
+        .prepare(
+          'UPDATE family SET common_currency = ?, time_zone = ? WHERE id = 1',
+        )
+        .run(commonCurrency, timeZone);
+      const cadenceChanged =
+        parsed.data.cadence !== undefined &&
+        saveCadence(parsed.data.cadence, timeZone);
+      // Slot keys are local times, so a new zone starts counting from now,
+      // whether or not the same request also sent a cadence.
+      if (cadenceChanged || timeZone !== current.time_zone) {
+        settleSlotsUntil(database, clock.now(), timeZone);
+      }
+    })();
 
     // Every figure is converted into the common currency, so a new one needs
     // rates for the whole history.
@@ -125,11 +163,22 @@ export const settingsRoutes: FastifyPluginAsync<{
       rates?.requestBackfill();
     }
 
-    return settingsResponseSchema.parse({
-      commonCurrency: parsed.data.commonCurrency ?? current.common_currency,
-      timeZone: parsed.data.timeZone ?? current.time_zone,
-    });
+    return settingsBody(commonCurrency, timeZone);
   });
+
+  /**
+   * Stores a cadence that differs from the saved one and returns whether it
+   * did. The caller settles the slots up to now, so the change moves the next
+   * slot without opening a check-in for a past one. "Every N weeks" counts
+   * from today.
+   */
+  function saveCadence(setting: CadenceSetting, timeZone: string): boolean {
+    if (sameCadenceSetting(setting, readCadence(database).cadence)) return false;
+    database
+      .prepare(cadenceUpdate)
+      .run(...cadenceColumns(setting, todayInTimeZone(clock.now(), timeZone)));
+    return true;
+  }
 };
 
 function sendValidation(

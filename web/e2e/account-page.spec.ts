@@ -96,7 +96,12 @@ test.beforeEach(async ({ page }) => {
   );
   await page.route('**/api/settings', (route) =>
     route.fulfill({
-      json: { commonCurrency: 'EUR', timeZone: 'Europe/Berlin' },
+      json: {
+        commonCurrency: 'EUR',
+        timeZone: 'Europe/Berlin',
+        cadence: { kind: 'off' },
+        nextSlot: null,
+      },
     }),
   );
   await page.route('**/api/currencies', (route) =>
