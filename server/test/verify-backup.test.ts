@@ -75,14 +75,20 @@ describe('verifyBackup', () => {
     const copy = new Database(file);
     copy.exec('CREATE TABLE t (a, b); CREATE INDEX i ON t (a)');
     const insert = copy.prepare('INSERT INTO t VALUES (?, ?)');
-    for (let index = 0; index < 5000; index += 1)
-      insert.run(index, 'x'.repeat(100));
+    // One transaction: a write per row would take seconds on a slow disk.
+    copy.transaction(() => {
+      for (let index = 0; index < 3000; index += 1) {
+        insert.run(index, 'x'.repeat(100));
+      }
+    })();
     copy.close();
     const bytes = await readFile(file);
     for (let offset = 8192; offset < bytes.length - 4096; offset += 4096) {
       bytes.fill(0xff, offset, offset + 2048);
     }
     await writeFile(file, bytes);
-    await expect(verifyBackup(file)).rejects.toThrow();
+    await expect(verifyBackup(file)).rejects.toThrow(
+      /integrity check|Not a SQLite database/u,
+    );
   });
 });
