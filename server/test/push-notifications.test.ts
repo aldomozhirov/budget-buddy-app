@@ -454,7 +454,28 @@ describe('Web Push notifications', () => {
       expect(response.json()).toEqual({ publicKey: 'test-public-key' });
     });
 
+    it('tells a device whether the server holds its subscription', async () => {
+      const read = async (device: string) => {
+        const response = await request(device, 'GET', '/api/push/subscription');
+        expect(response.statusCode, device).toBe(200);
+        return response.json();
+      };
+      expect(await read('Alex')).toEqual({ subscribed: true });
+      await request('Alex', 'DELETE', '/api/push/subscription', {});
+      expect(await read('Alex')).toEqual({ subscribed: false });
+      // Only this device's own row counts, not the iPad's of the same member.
+      expect(await read('Alex iPad')).toEqual({ subscribed: true });
+      await subscribe('Alex');
+      expect(await read('Alex')).toEqual({ subscribed: true });
+    });
+
     it('needs a signed-in profile', async () => {
+      const unsigned = await app.inject({
+        method: 'GET',
+        url: '/api/push/subscription',
+        headers: jsonHeaders,
+      });
+      expect(unsigned.statusCode).toBe(401);
       const response = await app.inject({
         method: 'PUT',
         url: '/api/push/subscription',
@@ -646,7 +667,13 @@ describe('Web Push notifications', () => {
         remember: false,
       });
       expect(profile.statusCode).toBe(200);
+      // The server tells the device it holds no subscription for it, so the
+      // client shows Off and asks again instead of re-sending in silence.
+      const before = await request('Blair', 'GET', '/api/push/subscription');
+      expect(before.json()).toEqual({ subscribed: false });
       await subscribe('Blair');
+      const after = await request('Blair', 'GET', '/api/push/subscription');
+      expect(after.json()).toEqual({ subscribed: true });
       expect(remainingEndpoints()).toEqual([
         endpointOf('Alex'),
         endpointOf('Blair'),

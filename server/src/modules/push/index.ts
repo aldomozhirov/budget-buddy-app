@@ -10,8 +10,8 @@ import { isAllowedPushEndpoint } from './endpoints.js';
 
 /**
  * Registers the Web Push opt-in routes (NTF-2): the public key, and putting
- * or removing this device's subscription under the profile in use. Sending is
- * the notifier's job (`notify/notifier.ts`).
+ * reading, putting or removing this device's subscription under the profile in
+ * use. Sending is the notifier's job (`notify/notifier.ts`).
  */
 export const pushRoutes: FastifyPluginAsync<{
   database: Database.Database;
@@ -26,6 +26,17 @@ export const pushRoutes: FastifyPluginAsync<{
   app.get('/api/push/key', async () =>
     pushKeyResponseSchema.parse({ publicKey }),
   );
+
+  // Lets a device that still holds a browser subscription learn that the
+  // server dropped its row (a family password change, D9) and show Off.
+  app.get('/api/push/subscription', async (request) => {
+    const row = database
+      .prepare('SELECT 1 FROM push_subscription WHERE device_id = ?')
+      .get(request.authContext!.deviceId);
+    return pushSubscriptionResponseSchema.parse({
+      subscribed: row !== undefined,
+    });
+  });
 
   app.put('/api/push/subscription', async (request, reply) => {
     const parsed = pushSubscriptionRequestSchema.safeParse(request.body);

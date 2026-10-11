@@ -1007,6 +1007,37 @@ test.describe('Notifications', () => {
     expect(await push.permissionRequests()).toBe(0);
   });
 
+  test('a device the server dropped shows Off, says nothing, and turns on again after a tap', async ({
+    page,
+  }, testInfo) => {
+    await installSettingsApi(page, testInfo);
+    // The browser still holds its subscription, but a family password change
+    // removed the server's row (D9).
+    const push = await installPush(page, {
+      permission: 'granted',
+      subscribed: true,
+      serverRow: false,
+    });
+    await page.goto('/settings');
+    const row = page.getByRole('switch', { name: 'Notifications' });
+    await expect(
+      page.getByText('Off · the in-app banner still shows'),
+    ).toBeVisible();
+    await expect(row).toHaveAttribute('aria-checked', 'false');
+    // No silent re-send: the server hears nothing until the member opts in.
+    expect(push.subscriptionRequests()).toEqual([]);
+
+    await row.click();
+    await page
+      .getByRole('dialog', { name: 'Turn on notifications?' })
+      .getByRole('button', { name: 'Continue' })
+      .click();
+    await expect(row).toHaveAttribute('aria-checked', 'true');
+    expect(push.subscriptionRequests().map(({ method }) => method)).toEqual([
+      'PUT',
+    ]);
+  });
+
   test('a refused permission leaves the row blocked and the rest of Settings working', async ({
     page,
   }, testInfo) => {
@@ -1055,6 +1086,8 @@ async function installPush(
     permission?: 'default' | 'granted' | 'denied';
     answer?: 'granted' | 'denied';
     subscribed?: boolean;
+    /** Whether the server holds a row for this device; follows `subscribed`. */
+    serverRow?: boolean;
   } = {},
 ) {
   const requests: Array<{
@@ -1062,6 +1095,8 @@ async function installPush(
     contentType: string | undefined;
     body: unknown;
   }> = [];
+  // Like the server: a PUT creates this device's row, a DELETE removes it.
+  let serverRow = options.serverRow ?? options.subscribed ?? false;
   await page.route('**/api/push/**', async (route) => {
     const request = route.request();
     const { pathname } = new URL(request.url());
@@ -1069,14 +1104,16 @@ async function installPush(
       // 65 bytes of URL-safe base64, as a real VAPID key has.
       return route.fulfill({ json: { publicKey: 'A'.repeat(87) } });
     }
+    if (request.method() === 'GET') {
+      return route.fulfill({ json: { subscribed: serverRow } });
+    }
     requests.push({
       method: request.method(),
       contentType: request.headers()['content-type'],
       body: request.method() === 'DELETE' ? undefined : request.postDataJSON(),
     });
-    return route.fulfill({
-      json: { subscribed: request.method() === 'PUT' },
-    });
+    serverRow = request.method() === 'PUT';
+    return route.fulfill({ json: { subscribed: serverRow } });
   });
   await page.addInitScript(
     ({ permission, answer, subscribed }) => {

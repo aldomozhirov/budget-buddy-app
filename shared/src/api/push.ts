@@ -27,12 +27,12 @@ export type PushSubscriptionRequest = z.infer<
   typeof pushSubscriptionRequestSchema
 >;
 
-/** Answer to opting this device in or out. */
+/** Answer to reading, opting this device in, or opting it out. */
 export const pushSubscriptionResponseSchema = z.object({
   subscribed: z.boolean(),
 });
 
-/** Opt-in or opt-out answer. */
+/** Subscription state answer. */
 export type PushSubscriptionResponse = z.infer<
   typeof pushSubscriptionResponseSchema
 >;

@@ -249,7 +249,7 @@ How a record arrives depends on its source:
 ### NTF: notifications (spec 1)
 
 - **NTF-1 (Must).** An in-app banner shows an open check-in to every member on every visit.
-- **NTF-2 (Must).** The installed app receives push notifications on iOS through Web Push (iOS 16.4 or later). Each device opts in from settings, following a tap, as iOS requires. The events are: scheduled check-in, check-in started by a member, follow-up reminder, and check-in closed. A device that a family password change signed out receives no push until it signs in and opts in again (MEM-3).
+- **NTF-2 (Must).** The installed app receives push notifications on iOS through Web Push (iOS 16.4 or later). Each device opts in from settings, following a tap, as iOS requires. The events are: scheduled check-in, check-in started by a member, follow-up reminder, and check-in closed. A device that a family password change signed out receives no push until it signs in and opts in again (MEM-3): its notifications switch shows Off, since the server holds no subscription for it, until the member turns it on.
 - **NTF-3 (Must).** The app works fully without push permission.
 - **NTF-4 (Must).** Notification texts contain no amounts.
 - **NTF-5 (Should, later specs).** Further events: drafts waiting, a connector failing, an envelope overspent.
