@@ -8,21 +8,27 @@
 #      image, which has the SQL functions the database needs),
 #   2. stops the app container,
 #   3. moves the current database and its -wal and -shm files into
-#      data/before-restore-<time>/, so nothing is lost and no stale -wal can
-#      be replayed onto the restored file,
+#      data/before-restore-<time>-<number>/, so nothing is lost and no stale
+#      -wal can be replayed onto the restored file,
 #   4. copies the backup in as budget-buddy.sqlite,
 #   5. copies back images that the data folder is missing, and
 #   6. starts the container and waits for /api/health.
 # If a step after the first move fails, the current database is put back.
+# Steps 3 to 5 run in a throwaway container (scripts/restore-files.sh): the
+# app sees ./data through the container engine's virtual machine, and a file
+# swapped on the host alone is not always seen there at once.
 #
 # Settings (environment), for another layout or for tests:
 #   BB_DATA_DIR    the mounted data folder          (default: ./data)
 #   BB_BACKUP_DIR  the mounted backups folder       (default: ./backups)
 #   BB_COMPOSE     the compose command              (default: docker compose)
-#   BB_HEALTH_URL  where to wait for the app        (default: http://127.0.0.1:${PORT:-8080}/api/health)
-#   BB_VERIFY, BB_STOP, BB_START
+#   BB_HEALTH_URL  where to wait for the app        (default: the port that
+#                  compose published for the app, else HOST_PORT, else 8080)
+#   BB_VERIFY, BB_FILES, BB_UNDO, BB_STOP, BB_START
 #                  shell commands that replace the compose ones for steps 1,
-#                  2 and 6; "$BB_FILE" holds the absolute path of the backup.
+#                  3 to 5, the undo of those, 2 and 6; "$BB_FILE" holds the
+#                  absolute path of the backup and "$BB_FILES_ASIDE" the name
+#                  of the folder that keeps the replaced files.
 #                  BB_VERIFY must print "ok (migration version N)" when the
 #                  file is good, as server/dist/verifyBackup.js does.
 set -euo pipefail
@@ -44,13 +50,33 @@ export BB_FILE
 BB_DATA_DIR="${BB_DATA_DIR:-./data}"
 BB_BACKUP_DIR="${BB_BACKUP_DIR:-./backups}"
 BB_COMPOSE="${BB_COMPOSE:-docker compose}"
-BB_HEALTH_URL="${BB_HEALTH_URL:-http://127.0.0.1:${PORT:-8080}/api/health}"
+BB_FILES_ASIDE="before-restore-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+export BB_FILES_ASIDE
+files_script="$(cd "$(dirname "$0")" && pwd)/restore-files.sh"
+# One throwaway container of the app service, with the backup and the file
+# script mounted; the compose file mounts ./data and ./backups into it.
+in_app() {
+  eval "$BB_COMPOSE run --rm --no-deps -T -e BB_FILES_ASIDE -v \"\$BB_FILE:/restore/in.sqlite:ro\" -v \"\$files_script:/restore/files.sh:ro\" app bash /restore/files.sh $1"
+}
 BB_VERIFY="${BB_VERIFY:-$BB_COMPOSE run --rm --no-deps -T -v \"\$BB_FILE:/restore/in.sqlite:ro\" app node server/dist/verifyBackup.js /restore/in.sqlite}"
+BB_FILES="${BB_FILES:-in_app swap}"
+BB_UNDO="${BB_UNDO:-in_app undo}"
 BB_STOP="${BB_STOP:-$BB_COMPOSE stop app}"
 BB_START="${BB_START:-$BB_COMPOSE up -d app}"
 
+# The address the app answers on: the port compose published, which follows
+# HOST_PORT in .env, unless BB_HEALTH_URL says otherwise.
+health_url() {
+  if [ -n "${BB_HEALTH_URL:-}" ]; then
+    printf '%s' "$BB_HEALTH_URL"
+    return
+  fi
+  local published
+  published="$(eval "$BB_COMPOSE port app 8080" 2>/dev/null | head -n 1 | sed 's/.*://')"
+  printf 'http://127.0.0.1:%s/api/health' "${published:-${HOST_PORT:-8080}}"
+}
+
 [ -d "$BB_DATA_DIR" ] || die "the data folder $BB_DATA_DIR does not exist. Run this from the install folder, or set BB_DATA_DIR."
-DB="$BB_DATA_DIR/budget-buddy.sqlite"
 
 say "1/6 Checking $BB_FILE ..."
 verdict="$(eval "$BB_VERIFY")" || die "the backup file did not pass the check, so nothing was changed."
@@ -64,67 +90,29 @@ esac
 say "2/6 Stopping the app ..."
 eval "$BB_STOP" || die "the app could not be stopped, so nothing was changed."
 
-ASIDE="$BB_DATA_DIR/before-restore-$(date -u +%Y%m%dT%H%M%SZ)-$$"
-STAGED="$BB_DATA_DIR/.restore-incoming.$$"
-moved=0
+swapped=0
 undo=1
-put_back() {
-  rm -f "$STAGED"
-  if [ "$undo" -eq 1 ] && [ "$moved" -eq 1 ]; then
-    rm -f "$DB" "$DB-wal" "$DB-shm"
-    for suffix in "" -wal -shm; do
-      [ -e "$ASIDE/budget-buddy.sqlite$suffix" ] && mv "$ASIDE/budget-buddy.sqlite$suffix" "$DB$suffix"
-    done
-    rmdir "$ASIDE" 2>/dev/null || true
-    say "The current database was put back."
-  fi
-}
-trap 'status=$?; if [ "$status" -ne 0 ] && [ "$undo" -eq 1 ]; then put_back; eval "$BB_START" >/dev/null 2>&1 || true; fi' EXIT
+# A failure after the stop puts the old database back (if it was moved) and
+# starts the app again, so the install is never left stopped.
+trap 'status=$?; if [ "$status" -ne 0 ] && [ "$undo" -eq 1 ]; then if [ "$swapped" -eq 1 ]; then eval "$BB_UNDO" >/dev/null 2>&1 || true; fi; eval "$BB_START" >/dev/null 2>&1 || true; fi' EXIT
 
-say "3/6 Keeping the current database in $ASIDE ..."
-mkdir -p "$ASIDE"
-for suffix in "" -wal -shm; do
-  if [ -e "$DB$suffix" ]; then
-    mv "$DB$suffix" "$ASIDE/budget-buddy.sqlite$suffix"
-    moved=1
-  fi
-done
-
-say "4/6 Copying the backup in ..."
-cp "$BB_FILE" "$STAGED"
-sync
-mv "$STAGED" "$DB"
-# The backup is a single file; a -wal or -shm from before would corrupt it.
-rm -f "$DB-wal" "$DB-shm"
-
-say "5/6 Copying back missing images ..."
-if [ -d "$BB_BACKUP_DIR/images" ]; then
-  mkdir -p "$BB_DATA_DIR/images"
-  # Files only, and never over one the data folder already has.
-  (cd "$BB_BACKUP_DIR/images" && find . -type f -print0) |
-    while IFS= read -r -d '' file; do
-      if [ ! -e "$BB_DATA_DIR/images/$file" ]; then
-        mkdir -p "$(dirname "$BB_DATA_DIR/images/$file")"
-        cp "$BB_BACKUP_DIR/images/$file" "$BB_DATA_DIR/images/$file"
-      fi
-    done
-else
-  say "    (no images in the backups folder)"
-fi
+eval "$BB_FILES" || die "the files could not be swapped; the current database was kept."
+swapped=1
 
 say "6/6 Starting the app ..."
 eval "$BB_START" || die "the app did not start."
 # From here the restored database stays, even if the app is slow to answer.
 undo=0
+url="$(health_url)"
 if command -v curl >/dev/null 2>&1; then
   for _ in $(seq 1 60); do
-    if curl -fsS "$BB_HEALTH_URL" >/dev/null 2>&1; then
-      say "The app is up: $(curl -fsS "$BB_HEALTH_URL")"
-      say "Done. The database it replaced is in $ASIDE."
+    if curl -fsS "$url" >/dev/null 2>&1; then
+      say "The app is up: $(curl -fsS "$url")"
+      say "Done. The database it replaced is in $BB_DATA_DIR/$BB_FILES_ASIDE."
       exit 0
     fi
     sleep 1
   done
-  die "the app did not answer $BB_HEALTH_URL within 60 s. The restored database is in place; look at the container logs. The replaced one is in $ASIDE."
+  die "the app did not answer $url within 60 s. The restored database is in place; look at the container logs. The replaced one is in $BB_DATA_DIR/$BB_FILES_ASIDE."
 fi
-say "Done. Check $BB_HEALTH_URL. The database it replaced is in $ASIDE."
+say "Done. Check $url. The database it replaced is in $BB_DATA_DIR/$BB_FILES_ASIDE."

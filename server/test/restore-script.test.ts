@@ -18,13 +18,19 @@ const run = promisify(execFile);
 const script = fileURLToPath(
   new URL('../../scripts/restore.sh', import.meta.url),
 );
+const filesScript = fileURLToPath(
+  new URL('../../scripts/restore-files.sh', import.meta.url),
+);
 
 /**
  * `restore.sh` is written for the compose service `app`. Here a fake `docker`
- * on PATH records each call, so the order of the steps and what they do to
- * the files can be checked without Docker. The compose part is not run end
- * to end by this test; `scripts/restore-test.sh` runs the same script against
- * real containers with its own stop and start commands.
+ * on PATH records each call, so the order of the steps can be checked without
+ * Docker. The file steps normally run in a container (`restore-files.sh`);
+ * here they run on the host folders, through `BB_FILES` and `BB_UNDO`, so
+ * what they do to the files can be checked. The compose commands are not run
+ * for real by this test: `scripts/restore-test.sh` runs the same scripts
+ * against real containers, and README "Test the restore" says how the
+ * compose service itself was tried.
  */
 describe('scripts/restore.sh with a fake docker', () => {
   let directory: string;
@@ -43,6 +49,10 @@ describe('scripts/restore.sh with a fake docker', () => {
           BB_DATA_DIR: data,
           BB_BACKUP_DIR: backups,
           BB_HEALTH_URL: 'http://127.0.0.1:9/never',
+          BB_FILES: `BB_FILES_IN="$BB_FILE" bash ${filesScript} swap`,
+          BB_UNDO: `bash ${filesScript} undo`,
+          BB_FILES_DATA: data,
+          BB_FILES_BACKUPS: backups,
           ...env,
         },
       });
@@ -189,18 +199,90 @@ describe('scripts/restore.sh with a fake docker', () => {
     );
   });
 
+  it('runs the file steps in a container of the app service by default', async () => {
+    await writeFile(join(data, 'budget-buddy.sqlite'), 'OLD DB');
+    // Without the overrides the file steps are a docker call that does
+    // nothing here, so the files must be untouched and the order right.
+    const result = await restore({ BB_FILES: '', BB_UNDO: '' });
+    expect(result.code).toBe(0);
+    const calls = await logged();
+    expect(calls).toHaveLength(4);
+    expect(calls[1]).toBe('compose stop app');
+    expect(calls[2]).toMatch(
+      /^compose run --rm --no-deps -T -e BB_FILES_ASIDE -v .*budget-buddy-2026-10-10\.sqlite:\/restore\/in\.sqlite:ro -v .*scripts\/restore-files\.sh:\/restore\/files\.sh:ro app bash \/restore\/files\.sh swap$/u,
+    );
+    expect(calls[3]).toBe('compose up -d app');
+    expect(await readFile(join(data, 'budget-buddy.sqlite'), 'utf8')).toBe(
+      'OLD DB',
+    );
+  });
+
+  it('puts the old database back with the container step when the start fails', async () => {
+    await writeFile(join(data, 'budget-buddy.sqlite'), 'OLD DB');
+    const result = await restore({
+      BB_FILES: '',
+      BB_UNDO: '',
+      FAKE_FAIL: 'up',
+    });
+    expect(result.code).toBe(1);
+    const calls = await logged();
+    // check, stop, swap, failed start, undo, start again
+    expect(calls).toHaveLength(6);
+    expect(calls[2]).toMatch(/restore\/files\.sh swap$/u);
+    expect(calls[4]).toMatch(/restore\/files\.sh undo$/u);
+    expect(calls[5]).toBe('compose up -d app');
+  });
+
+  it('keeps the current database and starts the app again when the swap fails', async () => {
+    await writeFile(join(data, 'budget-buddy.sqlite'), 'OLD DB');
+    const result = await restore({
+      BB_FILES: `BB_FILES_IN=${join(directory, 'gone')} bash ${filesScript} swap`,
+    });
+    expect(result.code).toBe(1);
+    expect(result.err).toContain('could not be swapped');
+    expect(await readFile(join(data, 'budget-buddy.sqlite'), 'utf8')).toBe(
+      'OLD DB',
+    );
+    expect((await readdir(data)).sort()).toEqual(['budget-buddy.sqlite']);
+    expect((await logged()).at(-1)).toBe('compose up -d app');
+  });
+
+  it('waits on the port compose published', async () => {
+    // The fake docker answers `compose port` like the real one does.
+    const docker = join(directory, 'bin', 'docker');
+    await writeFile(
+      docker,
+      `#!/bin/sh\nprintf '%s\\n' "$*" >> "${calls}"\ncase "$*" in *verifyBackup*) echo 'ok (migration version 3)';; "compose port"*) echo '127.0.0.1:18080';; esac\nexit 0\n`,
+    );
+    await writeFile(
+      join(directory, 'bin', 'curl'),
+      `#!/bin/sh\necho "$@" >> "${join(directory, 'curl.log')}"\necho '{"status":"ok"}'\n`,
+    );
+    const result = await restore({ BB_HEALTH_URL: '' });
+    expect(result.code).toBe(0);
+    expect(await readFile(join(directory, 'curl.log'), 'utf8')).toContain(
+      'http://127.0.0.1:18080/api/health',
+    );
+  });
+
   it('uses the commands it is given in place of compose', async () => {
     const result = await restore({
       BB_VERIFY:
         'echo verify "$BB_FILE" >> steps.log; echo "ok (migration version 3)"',
       BB_STOP: 'echo stop >> steps.log',
+      BB_FILES: 'echo files "$BB_FILES_ASIDE" >> steps.log',
       BB_START: 'echo start >> steps.log',
     });
     expect(result.code).toBe(0);
     const steps = (await readFile(join(directory, 'steps.log'), 'utf8'))
       .trim()
       .split('\n');
-    expect(steps).toEqual([`verify ${backup}`, 'stop', 'start']);
+    expect(steps).toEqual([
+      `verify ${backup}`,
+      'stop',
+      expect.stringMatching(/^files before-restore-\d{8}T\d{6}Z-\d+$/u),
+      'start',
+    ]);
     expect(await logged()).toEqual([]);
   });
 });

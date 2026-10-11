@@ -91,6 +91,10 @@ describe('VAPID contact', () => {
     expect(() =>
       parseConfig({ ...base, VAPID_SUBJECT: 'owner@family.test' }),
     ).toThrow();
+    // docker compose passes an empty value for a setting left out of .env.
+    expect(parseConfig({ ...base, VAPID_SUBJECT: '' }).vapidSubject).toBe(
+      parseConfig(base).vapidSubject,
+    );
   });
 });
 

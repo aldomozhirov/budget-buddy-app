@@ -31,11 +31,15 @@ FROM manifests AS prod-deps
 RUN pnpm install --frozen-lockfile --prod --filter "@budget-buddy/server..."
 
 FROM node:24-slim AS runtime
+# NODE_OPTIONS: loading the server's modules allocates a lot of short-lived
+# objects, and Node's default young generation (up to 16 MB per half) let the
+# idle process grow to about 300 MB. A small one keeps it near 120 MB (DEP-8).
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=8080 \
     DATA_DIR=/data \
-    BACKUP_DIR=/backups
+    BACKUP_DIR=/backups \
+    NODE_OPTIONS=--max-semi-space-size=2
 WORKDIR /app
 COPY --from=prod-deps /app/package.json ./package.json
 COPY --from=prod-deps /app/node_modules ./node_modules
