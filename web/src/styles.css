@@ -722,6 +722,12 @@ body,
   margin: 0;
 }
 
+/* "Not now" sits on the page colour, as in the design, so it reads as a
+   button on the sheet's own surface colour. */
+.bb .sheet .not-now {
+  background: var(--bg);
+}
+
 @media (min-width: 700px) {
   .bb .components-content {
     padding-inline: 0;

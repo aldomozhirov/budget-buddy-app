@@ -44,7 +44,7 @@ test('Settings shows every section in order and matches the screen copy', async 
     'Currencies and coins',
     'Exchange rates',
     'Time zone',
-    'Off · the in-app banner still shows',
+    'Add Budget Buddy to your Home Screen to turn this on',
     'Tap the eye to show them for 30 s',
     'Notifications',
     'Hide amounts on Home',
@@ -60,9 +60,9 @@ test('Settings shows every section in order and matches the screen copy', async 
       { exact: true },
     ),
   ).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: /^Schedule/u }),
-  ).toContainText('Off');
+  await expect(page.getByRole('button', { name: /^Schedule/u })).toContainText(
+    'Off',
+  );
   await expect(page.getByText('One password for everyone')).toBeVisible();
   await expect(page.getByText('To profiles with accounts left')).toBeVisible();
   await expect(page.getByText('Totals across currencies')).toBeVisible();
@@ -77,7 +77,7 @@ test('Settings shows every section in order and matches the screen copy', async 
   await expect(page.getByText('BTC, ETH, USDT', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /Time zone/u })).toBeVisible();
   await expect(page.getByText('Europe/Berlin', { exact: true })).toBeVisible();
-  await expect(page.getByText('—', { exact: true })).toHaveCount(5);
+  await expect(page.getByText('—', { exact: true })).toHaveCount(4);
   await expect(page.getByRole('heading', { name: 'Spending' })).toHaveCount(0);
 
   const screenshotPath =
@@ -884,6 +884,271 @@ async function installSettingsApi(
     coinDeleteRequests: () => coinDeleteRequests,
     settings,
     ratesStatus,
+  };
+}
+
+test.describe('Notifications', () => {
+  const deviceWords = (projectName: string) =>
+    projectName === 'iphone' ? 'iPhone' : 'iPad';
+
+  test('the explainer comes before any permission request, and "Not now" requests nothing', async ({
+    page,
+  }, testInfo) => {
+    await installSettingsApi(page, testInfo);
+    const push = await installPush(page);
+    await page.goto('/settings');
+    const row = page.getByRole('switch', { name: 'Notifications' });
+    await expect(
+      page.getByText('Off · the in-app banner still shows'),
+    ).toBeVisible();
+    await expect(row).toBeEnabled();
+    await expect(row).toHaveAttribute('aria-checked', 'false');
+
+    await row.click();
+    const sheet = page.getByRole('dialog', { name: 'Turn on notifications?' });
+    await expect(sheet).toBeVisible();
+    await expect(sheet).toContainText(
+      'You’ll get a nudge when a check-in starts, a reminder if your accounts are still open, and a note when it closes. Notifications never show amounts.',
+    );
+    await expect(sheet).toContainText(
+      `${deviceWords(testInfo.project.name)} asks for permission next.`,
+    );
+    // The sheet is up and the system has not been asked anything yet.
+    expect(await push.permissionRequests()).toBe(0);
+
+    // Let the sheet finish sliding up before the picture is taken.
+    await page.waitForTimeout(600);
+    await mkdir('test-results/screens', { recursive: true });
+    await page.screenshot({
+      path: `test-results/screens/Settings-notifications-${testInfo.project.name}.png`,
+      scale: 'css',
+    });
+
+    await sheet.getByRole('button', { name: 'Not now' }).click();
+    await expect(sheet).toHaveCount(0);
+    expect(await push.permissionRequests()).toBe(0);
+    expect(await push.subscribeCalls()).toBe(0);
+    expect(push.subscriptionRequests()).toEqual([]);
+    await expect(
+      page.getByText('Off · the in-app banner still shows'),
+    ).toBeVisible();
+    await expect(row).toHaveAttribute('aria-checked', 'false');
+
+    // Dismissing with Close is the same as "Not now".
+    await row.click();
+    await sheet.getByRole('button', { name: 'Close' }).click();
+    await expect(sheet).toHaveCount(0);
+    expect(await push.permissionRequests()).toBe(0);
+  });
+
+  test('"Continue" asks once, subscribes this device, and the switch turns it off again', async ({
+    page,
+  }, testInfo) => {
+    const { externalRequests } = await installSettingsApi(page, testInfo);
+    const push = await installPush(page);
+    await page.goto('/settings');
+    const row = page.getByRole('switch', { name: 'Notifications' });
+
+    await row.click();
+    await page
+      .getByRole('dialog', { name: 'Turn on notifications?' })
+      .getByRole('button', { name: 'Continue' })
+      .click();
+
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(row).toHaveAttribute('aria-checked', 'true');
+    await expect(
+      page.getByText(`On for this ${deviceWords(testInfo.project.name)}`),
+    ).toBeVisible();
+    expect(await push.permissionRequests()).toBe(1);
+    expect(await push.subscribeCalls()).toBe(1);
+    expect(push.subscriptionRequests()).toEqual([
+      {
+        method: 'PUT',
+        contentType: 'application/json',
+        body: {
+          endpoint: 'https://push.example.test/this-device',
+          keys: { p256dh: 'p256dh-key', auth: 'auth-secret' },
+        },
+      },
+    ]);
+
+    await row.click();
+    await expect(row).toHaveAttribute('aria-checked', 'false');
+    await expect(
+      page.getByText('Off · the in-app banner still shows'),
+    ).toBeVisible();
+    expect(push.subscriptionRequests().map(({ method }) => method)).toEqual([
+      'PUT',
+      'DELETE',
+    ]);
+    expect(await push.isSubscribed()).toBe(false);
+    expect(externalRequests).toEqual([]);
+  });
+
+  test('a device that already has a subscription shows On and tells the server again', async ({
+    page,
+  }, testInfo) => {
+    await installSettingsApi(page, testInfo);
+    const push = await installPush(page, {
+      permission: 'granted',
+      subscribed: true,
+    });
+    await page.goto('/settings');
+    await expect(
+      page.getByRole('switch', { name: 'Notifications' }),
+    ).toHaveAttribute('aria-checked', 'true');
+    await expect.poll(() => push.subscriptionRequests().length).toBe(1);
+    expect(await push.permissionRequests()).toBe(0);
+  });
+
+  test('a refused permission leaves the row blocked and the rest of Settings working', async ({
+    page,
+  }, testInfo) => {
+    await installSettingsApi(page, testInfo);
+    const push = await installPush(page, { answer: 'denied' });
+    await page.goto('/settings');
+    await page.getByRole('switch', { name: 'Notifications' }).click();
+    await page.getByRole('button', { name: 'Continue' }).click();
+
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(
+      page.getByText(
+        'Blocked in this device’s settings · the in-app banner still shows',
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('switch', { name: 'Notifications' }),
+    ).toBeDisabled();
+    expect(push.subscriptionRequests()).toEqual([]);
+    // NTF-3: the app carries on without it.
+    await page.getByRole('button', { name: /Time zone/u }).click();
+    await expect(page.getByRole('dialog', { name: 'Time zone' })).toBeVisible();
+  });
+
+  test('where push does not exist the row says how to get it, and does not ask', async ({
+    page,
+  }, testInfo) => {
+    await installSettingsApi(page, testInfo);
+    await page.goto('/settings');
+    await expect(
+      page.getByText('Add Budget Buddy to your Home Screen to turn this on'),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('switch', { name: 'Notifications' }),
+    ).toBeDisabled();
+  });
+});
+
+/**
+ * Gives the page a browser that supports push, in the given state, and
+ * records what the app asks of it. No push service is ever contacted.
+ */
+async function installPush(
+  page: Page,
+  options: {
+    permission?: 'default' | 'granted' | 'denied';
+    answer?: 'granted' | 'denied';
+    subscribed?: boolean;
+  } = {},
+) {
+  const requests: Array<{
+    method: string;
+    contentType: string | undefined;
+    body: unknown;
+  }> = [];
+  await page.route('**/api/push/**', async (route) => {
+    const request = route.request();
+    const { pathname } = new URL(request.url());
+    if (pathname === '/api/push/key') {
+      // 65 bytes of URL-safe base64, as a real VAPID key has.
+      return route.fulfill({ json: { publicKey: 'A'.repeat(87) } });
+    }
+    requests.push({
+      method: request.method(),
+      contentType: request.headers()['content-type'],
+      body: request.method() === 'DELETE' ? undefined : request.postDataJSON(),
+    });
+    return route.fulfill({
+      json: { subscribed: request.method() === 'PUT' },
+    });
+  });
+  await page.addInitScript(
+    ({ permission, answer, subscribed }) => {
+      const state = {
+        permission,
+        requests: 0,
+        subscribes: 0,
+        subscribed,
+      };
+      Object.defineProperty(window, '__push', { value: state });
+      const subscription = {
+        endpoint: 'https://push.example.test/this-device',
+        toJSON: () => ({
+          endpoint: subscription.endpoint,
+          keys: { p256dh: 'p256dh-key', auth: 'auth-secret' },
+        }),
+        unsubscribe: async () => {
+          state.subscribed = false;
+          return true;
+        },
+      };
+      const registration = {
+        pushManager: {
+          getSubscription: async () => (state.subscribed ? subscription : null),
+          subscribe: async () => {
+            state.subscribes += 1;
+            state.subscribed = true;
+            return subscription;
+          },
+        },
+      };
+      class FakeNotification {
+        static get permission() {
+          return state.permission;
+        }
+        static async requestPermission() {
+          state.requests += 1;
+          state.permission = answer;
+          return answer;
+        }
+      }
+      Object.defineProperty(window, 'Notification', {
+        value: FakeNotification,
+        configurable: true,
+      });
+      Object.defineProperty(window, 'PushManager', {
+        value: class {},
+        configurable: true,
+      });
+      Object.defineProperty(navigator, 'serviceWorker', {
+        value: {
+          getRegistration: async () => registration,
+          register: async () => registration,
+          addEventListener: () => undefined,
+        },
+        configurable: true,
+      });
+    },
+    {
+      permission: options.permission ?? 'default',
+      answer: options.answer ?? 'granted',
+      subscribed: options.subscribed ?? false,
+    },
+  );
+  const read = <T>(key: 'requests' | 'subscribes' | 'subscribed') =>
+    page.evaluate(
+      (name) =>
+        (window as unknown as { __push: Record<string, unknown> }).__push[
+          name
+        ] as T,
+      key,
+    );
+  return {
+    permissionRequests: () => read<number>('requests'),
+    subscribeCalls: () => read<number>('subscribes'),
+    isSubscribed: () => read<boolean>('subscribed'),
+    subscriptionRequests: () => requests,
   };
 }
 

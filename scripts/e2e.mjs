@@ -29,7 +29,15 @@ try {
   await waitForServer(`http://127.0.0.1:${port}/api/health`, server);
   const result = spawn(
     'pnpm',
-    ['exec', 'playwright', 'test', '--config', 'web/playwright.config.ts'],
+    [
+      'exec',
+      'playwright',
+      'test',
+      '--config',
+      'web/playwright.config.ts',
+      // `pnpm e2e -- <file>` runs one spec file.
+      ...process.argv.slice(2).filter((argument) => argument !== '--'),
+    ],
     {
       env,
       stdio: 'inherit',

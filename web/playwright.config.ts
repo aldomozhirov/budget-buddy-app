@@ -29,6 +29,10 @@ export default defineConfig({
     },
   ],
   use: {
+    // The app registers a service worker in the production build. Tests block
+    // it so that a worker can never answer from a cache and show old code;
+    // a test that needs the worker allows it with `test.use`.
+    serviceWorkers: 'block',
     baseURL: `http://127.0.0.1:${port}`,
     trace: 'retain-on-failure',
   },
