@@ -105,6 +105,14 @@ test('the gallery touch targets are at least 44 by 44 CSS pixels', async ({
 
   await page.getByRole('button', { name: 'Open sheet preview' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
+  // While the sheet slides in, WebKit reports sub-pixel sizes such as 43.9999.
+  await page
+    .getByRole('dialog')
+    .evaluate((element) =>
+      Promise.all(
+        element.getAnimations().map((animation) => animation.finished),
+      ),
+    );
   const sheetUndersized = await targets.evaluateAll((elements) =>
     elements.flatMap((element) => {
       const rect = element.getBoundingClientRect();
