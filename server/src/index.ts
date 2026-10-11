@@ -6,6 +6,9 @@ import { systemClock } from './clock.js';
 import { createJobRunner } from './jobs/runner.js';
 import { createCheckinScheduleJob } from './jobs/checkinSchedule.js';
 import { createRatesJob } from './jobs/rates.js';
+import { createNotifier } from './notify/notifier.js';
+import { createWebPushSender } from './modules/push/sender.js';
+import { loadOrCreateVapidKeys } from './modules/push/vapid.js';
 import { createCheckinEventBus } from './events.js';
 import { createFixtureFeed } from './rates/fixtureFeed.js';
 import { createLiveFeeds } from './rates/feeds/index.js';
@@ -45,12 +48,23 @@ try {
   const events = createCheckinEventBus((error) =>
     app?.log.error(error, 'Check-in event failed'),
   );
+  const vapidKeys = await loadOrCreateVapidKeys(config.keysDir);
+  const notifier = createNotifier({
+    database,
+    clock: systemClock,
+    events,
+    sender: createWebPushSender({
+      keys: vapidKeys,
+      subject: config.vapidSubject,
+    }),
+  });
   app = await createApp({
     database,
     events,
     appOrigins: config.appOrigins,
     secureCookies: config.nodeEnv !== 'development',
     rates,
+    pushPublicKey: vapidKeys.publicKey,
   });
   // Jobs are added here as they are built (schedule, reminders, backup).
   const jobRunner = createJobRunner({
@@ -65,6 +79,7 @@ try {
   app.addHook('onClose', async () => {
     await jobRunner.stop();
     await rates.idle();
+    await notifier.close();
   });
   const server = app;
   closeOnSignals({

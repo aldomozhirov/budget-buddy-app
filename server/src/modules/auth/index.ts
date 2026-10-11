@@ -262,6 +262,12 @@ export const authRoutes: FastifyPluginAsync<{
         database
           .prepare('UPDATE device SET default_member_id = ? WHERE id = ?')
           .run(defaultMemberId, context.deviceId);
+        // Pushes follow the profile this device is used as (Design section 4).
+        database
+          .prepare(
+            'UPDATE push_subscription SET member_id = ? WHERE device_id = ?',
+          )
+          .run(selected.id, context.deviceId);
       })();
 
       return {
