@@ -4,16 +4,21 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
+import Fastify from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/app.js';
 import { migrateDatabase } from '../src/db/migrate.js';
 import { createRatesJob } from '../src/jobs/rates.js';
 import { createJobRunner } from '../src/jobs/runner.js';
 import { createLiveFeeds } from '../src/rates/feeds/index.js';
-import type { FeedRate, RateFeed } from '../src/rates/feed.js';
+import type { FeedRate, FeedRequest, RateFeed } from '../src/rates/feed.js';
 import { createFixtureFeed } from '../src/rates/fixtureFeed.js';
 import { createRateHttpClient } from '../src/rates/http.js';
-import { createRatesService } from '../src/rates/service.js';
+import {
+  createRatesService,
+  FamilyNotSetUpError,
+} from '../src/rates/service.js';
+import { ratesRoutes } from '../src/modules/rates/index.js';
 
 const migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url));
 const fixtures = new URL('./fixtures/rates/', import.meta.url);
@@ -478,7 +483,7 @@ describe('rates service and daily job', () => {
       fetch: async (request) => {
         const known = request.currencies.filter(({ code }) => code !== 'XYZ');
         if (known.length < request.currencies.length) {
-          request.reportProblem?.('XYZ: HTTP 404');
+          request.reportProblem?.('XYZ', 'HTTP 404');
         }
         return createFixtureFeed().fetch({ ...request, currencies: known });
       },
@@ -496,6 +501,109 @@ describe('rates service and daily job', () => {
     expect(ratesService.status().feeds[0]?.lastError).toMatchObject({
       message: 'XYZ: HTTP 404',
     });
+  });
+
+  describe('a currency the feed reported a problem for', () => {
+    /** The fixture feed, reporting `failing` codes instead of rates. */
+    function flakyFeed(failing: Set<string>) {
+      const base = createFixtureFeed();
+      const fetch = vi.fn((request: FeedRequest) => {
+        for (const { code } of request.currencies) {
+          if (failing.has(code)) request.reportProblem?.(code, 'HTTP 404');
+        }
+        return base.fetch({
+          ...request,
+          currencies: request.currencies.filter(
+            ({ code }) => !failing.has(code),
+          ),
+        });
+      });
+      return { ...base, fetch };
+    }
+    const asked = (feed: { fetch: ReturnType<typeof vi.fn> }) =>
+      feed.fetch.mock.calls.map(([request]) =>
+        (request as FeedRequest).currencies.map(({ code }) => code),
+      );
+
+    it('is asked for its history again after an hour, not before', async () => {
+      addAccount('USD');
+      addAccount('RUB');
+      const failing = new Set(['RUB']);
+      const feed = flakyFeed(failing);
+      const ratesService = service(feed);
+
+      await ratesService.ensureHistory();
+      expect(asked(feed)).toEqual([['USD', 'RUB']]);
+      expect(rates("quote = 'RUB'")).toEqual([]);
+      expect(ratesService.status().feeds[0]?.lastError).toMatchObject({
+        message: 'RUB: HTTP 404',
+      });
+
+      // Writes and the next job run in the same hour do not hammer the feed.
+      await ratesService.ensureHistory();
+      expect(asked(feed)).toHaveLength(1);
+
+      now += hour;
+      failing.clear();
+      await ratesService.ensureHistory();
+      expect(asked(feed)).toEqual([['USD', 'RUB'], ['RUB']]);
+      expect(rates("quote = 'RUB'").length).toBeGreaterThan(0);
+
+      await ratesService.ensureHistory();
+      expect(asked(feed)).toHaveLength(2);
+    });
+
+    it('is asked for the newest rate again at the next hourly run, alone', async () => {
+      addAccount('USD');
+      addAccount('RUB');
+      const failing = new Set<string>();
+      const feed = flakyFeed(failing);
+      const ratesService = service(feed);
+      await ratesService.refreshToday();
+      expect(asked(feed)).toEqual([['USD', 'RUB']]);
+
+      now = friday + 4 * 24 * hour;
+      failing.add('RUB');
+      await ratesService.refreshToday();
+      expect(asked(feed).at(-1)).toEqual(['USD', 'RUB']);
+      expect(rates("quote = 'RUB'").at(-1)?.date).toBe('2026-10-09');
+      expect(rates("quote = 'USD'").at(-1)?.date).toBe('2026-10-13');
+
+      now += hour;
+      failing.clear();
+      await ratesService.refreshToday();
+      expect(asked(feed).at(-1)).toEqual(['RUB']);
+      expect(feed.fetch.mock.calls.at(-1)?.[0]).toMatchObject({
+        from: '2026-10-10',
+        to: '2026-10-13',
+      });
+      expect(rates("quote = 'RUB'").at(-1)?.date).toBe('2026-10-13');
+
+      // Both have published now, so the feed is left alone.
+      now += hour;
+      await ratesService.refreshToday();
+      expect(asked(feed)).toHaveLength(3);
+    });
+  });
+
+  it('does not refetch the tail as a backfill after a week of daily runs', async () => {
+    addAccount('USD');
+    const feed = spiedFixtureFeed();
+    const ratesService = service(feed);
+
+    for (let day = 0; day < 16; day += 1) {
+      now = friday + day * 24 * hour;
+      await ratesService.refreshToday();
+    }
+
+    expect(
+      fetches().filter(({ status }) => status === 'backfilled'),
+    ).toHaveLength(1);
+    expect(
+      rates("quote = 'USD'")
+        .map(({ date }) => date)
+        .slice(-2),
+    ).toEqual(['2026-10-22', '2026-10-23']);
   });
 
   describe('status', () => {
@@ -838,5 +946,49 @@ describe('rates API', () => {
           .get() as { first: string }
       ).first,
     ).toBe('2026-07-20');
+  });
+});
+
+describe('rates status route', () => {
+  async function appWith(status: () => never) {
+    const app = Fastify();
+    await app.register(ratesRoutes, { rates: { status } });
+    return app;
+  }
+
+  it('answers 403 when the family is not set up yet', async () => {
+    const app = await appWith(() => {
+      throw new FamilyNotSetUpError();
+    });
+    const response = await app.inject({ url: '/api/rates/status' });
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'forbidden_state',
+        message: 'First start has not been completed.',
+      },
+    });
+  });
+
+  it('does not take another error for it because of its message', async () => {
+    const app = await appWith(() => {
+      throw new Error('First start of the feed went wrong');
+    });
+    const response = await app.inject({ url: '/api/rates/status' });
+    expect(response.statusCode).toBe(500);
+  });
+
+  it('is what the service throws before the family exists', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'budget-buddy-rates-'));
+    const database = new Database(join(directory, 'family.sqlite'));
+    await migrateDatabase(database, { backupDir: directory, migrationsFolder });
+    const ratesService = createRatesService({
+      database,
+      clock: { now: () => new Date(friday) },
+      feeds: [],
+    });
+    expect(() => ratesService.status()).toThrow(FamilyNotSetUpError);
+    database.close();
+    await rm(directory, { recursive: true, force: true });
   });
 });

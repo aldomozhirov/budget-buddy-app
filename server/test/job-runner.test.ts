@@ -342,4 +342,121 @@ describe('job runner', () => {
 
     expect(rows()).toEqual([expect.objectContaining({ status: 'done' })]);
   });
+
+  it('refuses two jobs with the same name', () => {
+    expect(() =>
+      runner([dailyJob('daily', vi.fn()), dailyJob('daily', vi.fn())]),
+    ).toThrow('Two jobs are named "daily".');
+  });
+
+  describe('stop', () => {
+    it('claims no new slot after it is called', async () => {
+      const run = vi.fn();
+      const instance = runner([dailyJob('daily', run)]);
+
+      await instance.stop();
+      await instance.tick();
+
+      expect(run).not.toHaveBeenCalled();
+      expect(rows()).toEqual([]);
+    });
+
+    it('can start again after it has stopped', async () => {
+      const run = vi.fn();
+      const instance = runner([dailyJob('daily', run)]);
+
+      await instance.stop();
+      instance.start();
+      await instance.stop();
+
+      expect(run).toHaveBeenCalledTimes(1);
+    });
+
+    it('gives up on a run that does not finish, which the next start recovers', async () => {
+      vi.useFakeTimers();
+      const never = deferred();
+      const stuck = runner([dailyJob('daily', () => never.promise)]);
+      stuck.start();
+
+      let stopped = false;
+      const stopping = stuck.stop().then(() => {
+        stopped = true;
+      });
+      await vi.advanceTimersByTimeAsync(9_000);
+      expect(stopped).toBe(false);
+      await vi.advanceTimersByTimeAsync(1_000);
+      await stopping;
+      expect(rows()).toEqual([
+        expect.objectContaining({ status: 'running', attempts: 1n }),
+      ]);
+
+      const run = vi.fn();
+      const next = runner([dailyJob('daily', run)]);
+      next.start();
+      await next.stop();
+      expect(run).toHaveBeenCalledTimes(1);
+      expect(rows()).toEqual([
+        expect.objectContaining({ status: 'done', attempts: 2n }),
+      ]);
+    });
+  });
+
+  describe('a run that finishes late', () => {
+    it('does not overwrite the attempt a restart claimed after failing it', async () => {
+      vi.useFakeTimers();
+      const oldGate = deferred();
+      const newGate = deferred();
+      const old = runner([dailyJob('daily', () => oldGate.promise)]);
+      const oldRun = old.tick();
+
+      // The restart fails the cut-off run and claims the next attempt.
+      const restarted = runner([dailyJob('daily', () => newGate.promise)]);
+      restarted.start();
+      expect(rows()).toEqual([
+        expect.objectContaining({ status: 'running', attempts: 2n }),
+      ]);
+
+      oldGate.resolve();
+      await oldRun;
+      expect(rows()).toEqual([
+        expect.objectContaining({
+          status: 'running',
+          attempts: 2n,
+          error: null,
+          finished_at: null,
+        }),
+      ]);
+      expect(errors).toHaveLength(1);
+
+      newGate.resolve();
+      await restarted.stop();
+      expect(rows()).toEqual([
+        expect.objectContaining({ status: 'done', attempts: 2n }),
+      ]);
+    });
+
+    it('does not overwrite a run a restart failed and left spent', async () => {
+      vi.useFakeTimers();
+      const gate = deferred();
+      const old = runner([
+        dailyJob('daily', () => gate.promise, { maxAttempts: 1 }),
+      ]);
+      const oldRun = old.tick();
+
+      const restarted = runner([
+        dailyJob('daily', vi.fn(), { maxAttempts: 1 }),
+      ]);
+      restarted.start();
+      await restarted.stop();
+      gate.resolve();
+      await oldRun;
+
+      expect(rows()).toEqual([
+        expect.objectContaining({
+          status: 'failed',
+          error: 'Interrupted by a restart',
+        }),
+      ]);
+    });
+  });
 });

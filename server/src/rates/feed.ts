@@ -33,9 +33,12 @@ export interface FeedRequest {
   /**
    * Lets a feed that serves each currency separately report one it could not
    * get without failing the others. The rates it did get are stored and the
-   * message is recorded as an error. A feed that cannot report rethrows.
+   * problem is recorded as an error. The dates asked for that currency do not
+   * count as fetched, so it is asked again later. A feed that cannot report
+   * rethrows.
+   * @param code The currency or coin that could not be fetched.
    */
-  reportProblem?(message: string): void;
+  reportProblem?(code: string, message: string): void;
 }
 
 /**
