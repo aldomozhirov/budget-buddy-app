@@ -206,6 +206,8 @@ describe('currency and money settings integration', () => {
     expect(changed.json()).toEqual({
       commonCurrency: 'USD',
       timeZone: 'Europe/Berlin',
+      cadence: { kind: 'off' },
+      nextSlot: null,
     });
     expect(snapshotRows()).toEqual(before);
   });
