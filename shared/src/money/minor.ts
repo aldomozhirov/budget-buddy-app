@@ -38,3 +38,22 @@ export function toMinorString(value: bigint): string {
   if (!isMinorInRange(value)) throw new RangeError('Amount is too large');
   return value.toString();
 }
+
+/**
+ * Writes minor units as an exact decimal string in major units, such as
+ * `-1986.30` for `-198630n` with 2 decimals: ASCII minus, a point, no
+ * grouping, always `decimals` fraction digits. For files read by machines.
+ * @throws {RangeError} if `decimals` is not an integer from 0 to 8.
+ */
+export function formatMinorDecimal(value: bigint, decimals: number): string {
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 8) {
+    throw new RangeError('Decimals must be an integer from 0 to 8');
+  }
+  const negative = value < 0n;
+  const digits = (negative ? -value : value)
+    .toString()
+    .padStart(decimals + 1, '0');
+  const whole = digits.slice(0, digits.length - decimals);
+  const fraction = digits.slice(digits.length - decimals);
+  return `${negative ? '-' : ''}${whole}${decimals === 0 ? '' : `.${fraction}`}`;
+}

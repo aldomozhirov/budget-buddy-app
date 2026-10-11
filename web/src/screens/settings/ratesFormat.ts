@@ -4,6 +4,34 @@ import { addLocalDays, formatDate } from '@budget-buddy/shared';
 export const staleRateDays = 5;
 
 /**
+ * Says when something happened as "today 06:00", "yesterday 06:00" or
+ * "03/10/2026 06:00", in the family's time zone.
+ * @param instant Epoch milliseconds.
+ * @param today The family's local date, YYYY-MM-DD, as the server reports it.
+ */
+export function formatDayTime(
+  instant: number,
+  today: string,
+  timeZone: string,
+): string {
+  const moment = new Date(instant);
+  const date = new Intl.DateTimeFormat('en-CA', { timeZone }).format(moment);
+  const time = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(moment);
+  const day =
+    date === today
+      ? 'today'
+      : addLocalDays(date, 1, timeZone) === today
+        ? 'yesterday'
+        : formatDate(date, timeZone);
+  return `${day} ${time}`;
+}
+
+/**
  * Says when rates were last fetched, as "Updated today 06:00" (design
  * Settings screen), "Updated yesterday 06:00" or "Updated 03/10/2026 06:00".
  * @param updatedAt Epoch milliseconds of the last answer from a feed.
@@ -14,21 +42,7 @@ export function formatUpdated(
   today: string,
   timeZone: string,
 ): string {
-  const instant = new Date(updatedAt);
-  const date = new Intl.DateTimeFormat('en-CA', { timeZone }).format(instant);
-  const time = new Intl.DateTimeFormat('en-GB', {
-    timeZone,
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).format(instant);
-  const day =
-    date === today
-      ? 'today'
-      : addLocalDays(date, 1, timeZone) === today
-        ? 'yesterday'
-        : formatDate(date, timeZone);
-  return `Updated ${day} ${time}`;
+  return `Updated ${formatDayTime(updatedAt, today, timeZone)}`;
 }
 
 /** Names the age of a rate: "Today", "Yesterday" or its DD/MM/YYYY date. */

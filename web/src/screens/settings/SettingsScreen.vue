@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import {
+  backupStatusResponseSchema,
   changeFamilyPasswordResponseSchema,
   currenciesResponseSchema,
   deviceSettingsSchema,
@@ -11,6 +12,7 @@ import {
   settingsResponseSchema,
   summarizeCadence,
   summarizeFollowUp,
+  type BackupStatusResponse,
   type CadenceSetting,
   type CoinSetting,
   type CurrencyOption,
@@ -24,6 +26,8 @@ import BbListCard from '../../components/BbListCard.vue';
 import BbRow from '../../components/BbRow.vue';
 import BbSheet from '../../components/BbSheet.vue';
 import BbSwitch from '../../components/BbSwitch.vue';
+import BackupSheet from './BackupSheet.vue';
+import ExportRow from './ExportRow.vue';
 import CommonCurrencySheet from './CommonCurrencySheet.vue';
 import CoinsSheet from './CoinsSheet.vue';
 import RatesStatusSheet from './RatesStatusSheet.vue';
@@ -31,6 +35,7 @@ import FollowUpSheet from './FollowUpSheet.vue';
 import ScheduleSheet from './ScheduleSheet.vue';
 import NotificationsSheet from './NotificationsSheet.vue';
 import TimeZoneSheet from './TimeZoneSheet.vue';
+import { describeBackupRow } from './backupFormat.js';
 import { formatUpdated } from './ratesFormat.js';
 import { deviceName } from '../../device.js';
 import { useBack } from '../../composables/useBack.js';
@@ -87,6 +92,13 @@ const followupDays = ref(2);
 const followUpSheetOpen = ref(false);
 const ratesStatus = ref<RatesStatusResponse | null>(null);
 const ratesSheetOpen = ref(false);
+// Null until the status has loaded; `backupUnavailable` marks a failed read.
+const backupStatus = ref<BackupStatusResponse | null>(null);
+const backupUnavailable = ref(false);
+const backupSheetOpen = ref(false);
+const backupRow = computed(() =>
+  backupStatus.value ? describeBackupRow(backupStatus.value) : null,
+);
 // Null until this device's setting has loaded; the switch waits for it.
 const hideHomeAmounts = ref<boolean | null>(null);
 const hideHomeAmountsError = ref('');
@@ -137,6 +149,7 @@ onMounted(() => {
   void loadMembers();
   void loadMoneySettings();
   void loadRatesStatus();
+  void loadBackupStatus();
   void loadDeviceSettings();
   void loadPushState(true);
 });
@@ -215,6 +228,27 @@ async function loadRatesStatus(): Promise<void> {
   } catch {
     ratesStatus.value = null;
   }
+}
+
+/** Loads the backup status (BKP-4); the row says so when it cannot. */
+async function loadBackupStatus(): Promise<void> {
+  backupUnavailable.value = false;
+  try {
+    const response = await fetch('/api/backup/status');
+    if (!response.ok) throw new Error('Could not load.');
+    backupStatus.value = backupStatusResponseSchema.parse(
+      await response.json(),
+    );
+  } catch {
+    backupStatus.value = null;
+    backupUnavailable.value = true;
+  }
+}
+
+/** Sends the member to sign in when the server has ended the session. */
+async function handleSignedOut(): Promise<void> {
+  setAuthState(null);
+  await router.replace('/sign-in');
 }
 
 async function loadMoneySettings(): Promise<void> {
@@ -772,12 +806,36 @@ async function readApiError(response: Response): Promise<{
       <section class="settings-section" aria-labelledby="settings-data-heading">
         <h2 id="settings-data-heading" class="h">Data</h2>
         <BbListCard>
-          <BbRow title="Backup" value="—" />
           <BbRow
-            title="Export all data"
-            subtitle="CSV files in one .zip"
-            value="—"
-          />
+            interactive
+            aria-haspopup="dialog"
+            :disabled="!backupStatus"
+            @click="backupSheetOpen = true"
+          >
+            <template #leading>
+              <span
+                class="settings-backup-dot"
+                :class="backupRow?.tone ?? 'none'"
+                aria-hidden="true"
+              />
+            </template>
+            <template #title>
+              <span class="settings-row-title">Backup</span>
+              <span
+                class="t-sub num"
+                :class="{ warn: backupRow?.tone === 'warn' }"
+              >
+                {{
+                  backupRow
+                    ? backupRow.text
+                    : backupUnavailable
+                      ? 'Could not read the backup status'
+                      : '—'
+                }}
+              </span>
+            </template>
+          </BbRow>
+          <ExportRow @signed-out="handleSignedOut" />
         </BbListCard>
       </section>
 
@@ -943,6 +1001,11 @@ async function readApiError(response: Response): Promise<{
       v-if="ratesSheetOpen && ratesStatus"
       :status="ratesStatus"
       @close="ratesSheetOpen = false"
+    />
+    <BackupSheet
+      v-if="backupSheetOpen && backupStatus"
+      :status="backupStatus"
+      @close="backupSheetOpen = false"
     />
     <TimeZoneSheet
       v-if="timeZoneSheetOpen"

@@ -15,8 +15,12 @@ const defaultMigrationsFolder = fileURLToPath(
 );
 const configuredDatabases = new WeakSet<Database.Database>();
 
-/** Registers the stable Unicode-folding function used by the member-name index. */
-function registerDatabaseFunctions(database: Database.Database): void {
+/**
+ * Registers the stable Unicode-folding function used by the member-name
+ * index. Any connection that reads that index, such as an integrity check of
+ * a backup, needs it.
+ */
+export function registerDatabaseFunctions(database: Database.Database): void {
   if (configuredDatabases.has(database)) return;
   database.function(
     'unicode_casefold',

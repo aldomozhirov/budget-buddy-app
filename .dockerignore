@@ -1,0 +1,25 @@
+# Keep the build context small and free of local state and secrets.
+.git
+.github
+.githooks
+.opencode
+.claude
+node_modules
+**/node_modules
+**/dist
+**/test-results
+**/playwright-report
+coverage
+data
+backups
+.data
+.backups
+.env
+.env.*
+!.env.example
+docs
+scripts/build-tasks
+opencode.json
+*.md
+!README.md
+.DS_Store

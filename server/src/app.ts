@@ -25,6 +25,8 @@ import { checkinRoutes } from './modules/checkins/index.js';
 import { ratesRoutes } from './modules/rates/index.js';
 import { summaryRoutes } from './modules/summary/index.js';
 import { homeRoutes } from './modules/home/index.js';
+import { backupRoutes } from './modules/backup/index.js';
+import { exportRoutes } from './modules/export/index.js';
 import { deviceRoutes } from './modules/devices/index.js';
 import { pushRoutes } from './modules/push/index.js';
 import { createCheckinEventBus, type CheckinEventBus } from './events.js';
@@ -70,6 +72,8 @@ export type AppOptions = {
   appOrigins?: string[];
   /** Clock supplied to time-sensitive routes so timestamps can be tested. */
   clock?: Clock;
+  /** Folder of the nightly copies, which the backup status counts. */
+  backupDir?: string;
   /** Event bus shared with background consumers of check-in lifecycle events. */
   events?: CheckinEventBus;
   /**
@@ -163,6 +167,12 @@ export async function createApp(options: AppOptions) {
   });
   await app.register(summaryRoutes, { database: options.database, clock });
   await app.register(homeRoutes, { database: options.database, clock });
+  await app.register(backupRoutes, {
+    database: options.database,
+    backupDir: options.backupDir,
+    clock,
+  });
+  await app.register(exportRoutes, { database: options.database, clock });
   await app.register(deviceRoutes, { database: options.database });
   if (options.push) {
     await app.register(pushRoutes, {

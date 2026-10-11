@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Component } from 'vue';
 import {
+  ArrowDownToLine,
   ArrowLeftRight,
   CalendarCheck,
   CalendarDays,
@@ -61,6 +62,7 @@ const icons = {
   record: CircleDot,
   receipt: Receipt,
   faceid: ScanFace,
+  download: ArrowDownToLine,
 } satisfies Record<Exclude<BbIconName, 'wallet'>, Component>;
 
 /** Names of the icons available to BbIcon. */
@@ -93,6 +95,7 @@ export type BbIconName =
   | 'record'
   | 'receipt'
   | 'faceid'
+  | 'download'
   | 'wallet';
 
 /**
