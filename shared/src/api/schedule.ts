@@ -16,10 +16,7 @@ export const cadenceSettingSchema = z.discriminatedUnion('kind', [
   z
     .object({
       kind: z.literal('monthly'),
-      day: z.union([
-        z.number().int().min(1).max(28),
-        z.literal('last'),
-      ]),
+      day: z.union([z.number().int().min(1).max(28), z.literal('last')]),
       time: timeSchema,
     })
     .strict(),

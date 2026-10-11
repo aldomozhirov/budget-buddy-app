@@ -60,6 +60,9 @@ test('Settings shows every section in order and matches the screen copy', async 
       { exact: true },
     ),
   ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: /^Schedule/u }),
+  ).toContainText('Off');
   await expect(page.getByText('One password for everyone')).toBeVisible();
   await expect(page.getByText('To profiles with accounts left')).toBeVisible();
   await expect(page.getByText('Totals across currencies')).toBeVisible();
@@ -74,7 +77,7 @@ test('Settings shows every section in order and matches the screen copy', async 
   await expect(page.getByText('BTC, ETH, USDT', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /Time zone/u })).toBeVisible();
   await expect(page.getByText('Europe/Berlin', { exact: true })).toBeVisible();
-  await expect(page.getByText('—', { exact: true })).toHaveCount(6);
+  await expect(page.getByText('—', { exact: true })).toHaveCount(5);
   await expect(page.getByRole('heading', { name: 'Spending' })).toHaveCount(0);
 
   const screenshotPath =
@@ -598,7 +601,12 @@ async function installSettingsApi(
     contentType: string | undefined;
     body: unknown;
   }>;
-  settings: { commonCurrency: string; timeZone: string };
+  settings: {
+    commonCurrency: string;
+    timeZone: string;
+    cadence: { kind: 'off' };
+    nextSlot: null;
+  };
   ratesStatus: { value: unknown };
 }> {
   const userAgent =
@@ -628,7 +636,12 @@ async function installSettingsApi(
     contentType: string | undefined;
     body: unknown;
   }> = [];
-  const settings = { commonCurrency: 'EUR', timeZone: 'Europe/Berlin' };
+  const settings = {
+    commonCurrency: 'EUR',
+    timeZone: 'Europe/Berlin',
+    cadence: { kind: 'off' as const },
+    nextSlot: null,
+  };
   const ratesStatus = { value: defaultRatesStatus() as unknown };
   let coins = [
     { code: 'BTC', name: 'Bitcoin', decimals: 8, inUse: true },

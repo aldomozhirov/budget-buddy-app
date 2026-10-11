@@ -434,7 +434,12 @@ async function mockAuthenticatedCheckinPage(page: Page): Promise<void> {
   );
   await page.route('**/api/settings', (route) =>
     route.fulfill({
-      json: { commonCurrency: 'EUR', timeZone: 'Europe/Berlin' },
+      json: {
+        commonCurrency: 'EUR',
+        timeZone: 'Europe/Berlin',
+        cadence: { kind: 'off' },
+        nextSlot: null,
+      },
     }),
   );
 }

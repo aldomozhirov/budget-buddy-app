@@ -50,7 +50,14 @@ export function cadenceFromFields(fields: CadenceFields): CadenceSetting {
 export function cadenceColumns(
   setting: CadenceSetting,
   anchorDate: string,
-): [string, string | null, number | null, number | null, string | null, string | null] {
+): [
+  string,
+  string | null,
+  number | null,
+  number | null,
+  string | null,
+  string | null,
+] {
   if (setting.kind === 'monthly') {
     return ['monthly', String(setting.day), null, null, setting.time, null];
   }

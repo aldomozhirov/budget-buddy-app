@@ -327,9 +327,7 @@ describe('check-in schedule job', () => {
       // Today is Tuesday 10 November 13:00 Berlin; 19:00 is still ahead.
       expect(body.nextSlot).toBe('2026-11-10T19:00');
       expect(
-        database
-          .prepare('SELECT cadence_anchor_date AS a FROM family')
-          .get(),
+        database.prepare('SELECT cadence_anchor_date AS a FROM family').get(),
       ).toEqual({ a: '2026-11-10' });
     });
 
@@ -351,9 +349,7 @@ describe('check-in schedule job', () => {
       at('2026-11-12T12:00:00Z');
       await setCadence(weekly);
       expect(
-        database
-          .prepare('SELECT cadence_anchor_date AS a FROM family')
-          .get(),
+        database.prepare('SELECT cadence_anchor_date AS a FROM family').get(),
       ).toEqual({ a: '2026-11-10' });
     });
   });

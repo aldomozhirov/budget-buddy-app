@@ -39,8 +39,7 @@ export function createCheckinScheduleJob(options: {
       const cadence = cadenceFromFields(settings);
       if (cadence.kind === 'off') return [];
       const anchorDate =
-        settings.cadenceAnchorDate ??
-        todayInTimeZone(now, settings.timeZone);
+        settings.cadenceAnchorDate ?? todayInTimeZone(now, settings.timeZone);
       if (cadence.kind === 'weeks' && !settings.cadenceAnchorDate) return [];
       const schedule = toCadence(cadence, anchorDate);
       if (!schedule) return [];
@@ -86,5 +85,10 @@ export function settleSlotsUntil(
       VALUES (?, ?, 'done', 0, ?, ?, 'Cadence changed')
       ON CONFLICT (job, slot) DO NOTHING`,
     )
-    .run(checkinScheduleJobName, `${date}T${time}`, now.getTime(), now.getTime());
+    .run(
+      checkinScheduleJobName,
+      `${date}T${time}`,
+      now.getTime(),
+      now.getTime(),
+    );
 }
