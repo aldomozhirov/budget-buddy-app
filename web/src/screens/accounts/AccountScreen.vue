@@ -1,11 +1,5 @@
 <script setup lang="ts">
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-} from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   accountResponseSchema,
@@ -133,9 +127,7 @@ const chartSummary = computed(
   () =>
     `Account balance from ${chartPoints.value[0]?.date ?? 'the first date'} to ${chartPoints.value.at(-1)?.date ?? 'the latest date'}`,
 );
-const today = computed(() =>
-  todayInTimeZone(clockNow.value, timeZone.value),
-);
+const today = computed(() => todayInTimeZone(clockNow.value, timeZone.value));
 const formattedBalance = computed(() => {
   if (!account.value || !currency.value) return '';
   return formatMoney(BigInt(account.value.balance), currency.value);
@@ -652,9 +644,7 @@ function goHome(): void {
             <BbButton variant="secondary-sm" @click="addAnotherAccount">
               Add another
             </BbButton>
-            <BbButton variant="secondary-sm" @click="goHome">
-              Home
-            </BbButton>
+            <BbButton variant="secondary-sm" @click="goHome"> Home </BbButton>
           </div>
         </section>
         <section class="card-hero account-hero" aria-label="Current balance">
@@ -767,6 +757,7 @@ function goHome(): void {
             :saving="saving"
             label="Account balance"
             save-label="Save balance"
+            needs-server
             @save="saveBalance"
           />
           <p v-if="actionError" class="error" role="alert">
@@ -821,12 +812,17 @@ function goHome(): void {
           :initial-amount="BigInt(selectedSnapshot.amount)"
           label="Corrected balance"
           save-label="Save correction"
+          needs-server
           @save="saveCorrection"
         />
         <p v-if="revisionsBySnapshot[selectedSnapshot.id]" class="t-sub">
           Changed by {{ revisionsBySnapshot[selectedSnapshot.id] }}
         </p>
-        <BbButton variant="danger" :disabled="saving" @click="deleteSnapshot"
+        <BbButton
+          variant="danger"
+          needs-server
+          :disabled="saving"
+          @click="deleteSnapshot"
           >Delete</BbButton
         >
         <p v-if="actionError" class="error" role="alert">{{ actionError }}</p>
@@ -876,12 +872,16 @@ function goHome(): void {
             {{ coin.code }} · {{ coin.name }}
           </option>
         </select>
-        <BbButton :disabled="saving || previewing" @click="saveSettings"
+        <BbButton
+          needs-server
+          :disabled="saving || previewing"
+          @click="saveSettings"
           >Save settings</BbButton
         >
         <BbButton
           v-if="currencyCode !== account?.currency"
           variant="secondary"
+          needs-server
           :disabled="saving || previewing"
           @click="previewRelabel"
           >Change currency</BbButton
@@ -892,6 +892,7 @@ function goHome(): void {
         <BbButton
           v-if="snapshots.length === 0"
           variant="danger"
+          needs-server
           :disabled="saving || previewing"
           @click="sheet = 'delete'"
           >Delete account</BbButton
@@ -899,6 +900,7 @@ function goHome(): void {
         <BbButton
           v-if="account?.active"
           variant="danger"
+          needs-server
           :disabled="saving || previewing"
           @click="sheet = 'deactivate'"
           >Deactivate account</BbButton
@@ -906,6 +908,7 @@ function goHome(): void {
         <BbButton
           v-else
           variant="secondary"
+          needs-server
           :disabled="saving || previewing"
           @click="setActive(true)"
           >Reactivate account</BbButton
@@ -924,7 +927,11 @@ function goHome(): void {
           This account will become inactive. Its balance history stays, and its
           balance becomes zero from today.
         </p>
-        <BbButton variant="danger" :disabled="saving" @click="setActive(false)"
+        <BbButton
+          variant="danger"
+          needs-server
+          :disabled="saving"
+          @click="setActive(false)"
           >Deactivate account</BbButton
         ><BbButton variant="text" @click="sheet = 'settings'"
           >Keep account active</BbButton
@@ -949,7 +956,7 @@ function goHome(): void {
         <p v-if="relabelPending" class="t-sub">
           Stored history and revisions will use the new currency label.
         </p>
-        <BbButton :disabled="saving" @click="confirmRelabel"
+        <BbButton needs-server :disabled="saving" @click="confirmRelabel"
           >Relabel as {{ currencyCode }}</BbButton
         ><BbButton
           variant="text"
@@ -970,7 +977,11 @@ function goHome(): void {
         <p class="t-sub">
           This account has no balance history and will be deleted.
         </p>
-        <BbButton variant="danger" :disabled="saving" @click="deleteAccount"
+        <BbButton
+          variant="danger"
+          needs-server
+          :disabled="saving"
+          @click="deleteAccount"
           >Delete account</BbButton
         ><BbButton variant="text" @click="sheet = 'settings'"
           >Keep account</BbButton
@@ -983,7 +994,7 @@ function goHome(): void {
 
 <style scoped>
 .account-screen {
-  height: 100dvh;
+  height: var(--app-h, 100dvh);
 }
 .account-topbar {
   align-items: center;
@@ -1009,7 +1020,7 @@ function goHome(): void {
   flex-direction: column;
   gap: 14px;
   overflow-y: auto;
-  padding: 8px 16px max(28px, env(safe-area-inset-bottom));
+  padding: 8px 16px max(28px, var(--safe-area-bottom));
 }
 .account-hero {
   display: flex;
@@ -1124,7 +1135,7 @@ function goHome(): void {
   flex-direction: column;
   gap: 12px;
   overflow-y: auto;
-  padding: 0 16px max(24px, env(safe-area-inset-bottom));
+  padding: 0 16px max(24px, var(--safe-area-bottom));
 }
 .account-date-choice {
   min-height: 48px;

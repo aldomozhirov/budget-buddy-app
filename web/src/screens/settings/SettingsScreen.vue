@@ -34,6 +34,7 @@ import TimeZoneSheet from './TimeZoneSheet.vue';
 import { formatUpdated } from './ratesFormat.js';
 import { deviceName } from '../../device.js';
 import { useBack } from '../../composables/useBack.js';
+import { isOnline } from '../../composables/useOnline.js';
 import {
   disablePush,
   readPushState,
@@ -733,6 +734,7 @@ async function readApiError(response: Response): Promise<{
               <BbSwitch
                 :model-value="pushState === 'on'"
                 label="Notifications"
+                needs-server
                 :disabled="pushState !== 'on' && pushState !== 'off'"
                 @update:model-value="changeNotifications"
               />
@@ -746,6 +748,7 @@ async function readApiError(response: Response): Promise<{
               <BbSwitch
                 :model-value="hideHomeAmounts ?? true"
                 label="Hide amounts on Home"
+                needs-server
                 :disabled="hideHomeAmounts === null"
                 @update:model-value="changeHideHomeAmounts"
               />
@@ -754,7 +757,7 @@ async function readApiError(response: Response): Promise<{
           <BbRow
             title="Sign out"
             interactive
-            :disabled="signOutBusy"
+            :disabled="signOutBusy || !isOnline"
             @click="signOut"
           />
         </BbListCard>
@@ -807,7 +810,7 @@ async function readApiError(response: Response): Promise<{
         <p v-if="memberError" class="error settings-form-error" role="alert">
           {{ memberError }}
         </p>
-        <BbButton type="submit" :disabled="memberBusy">
+        <BbButton type="submit" needs-server :disabled="memberBusy">
           {{ editorMode === 'add' ? 'Add profile' : 'Save profile' }}
         </BbButton>
       </form>
@@ -816,6 +819,7 @@ async function readApiError(response: Response): Promise<{
           v-if="selectedMember?.active"
           variant="secondary"
           class="danger"
+          needs-server
           :disabled="memberBusy"
           @click="askToDeactivate"
         >
@@ -824,6 +828,7 @@ async function readApiError(response: Response): Promise<{
         <BbButton
           v-else
           variant="secondary"
+          needs-server
           :disabled="memberBusy"
           @click="reactivateMember"
         >
@@ -848,6 +853,7 @@ async function readApiError(response: Response): Promise<{
         <BbButton
           variant="secondary"
           class="danger"
+          needs-server
           :disabled="memberBusy"
           @click="deactivateMember"
         >
@@ -914,7 +920,7 @@ async function readApiError(response: Response): Promise<{
         <p v-if="passwordError" class="error settings-form-error" role="alert">
           {{ passwordError }}
         </p>
-        <BbButton type="submit" :disabled="passwordBusy">
+        <BbButton type="submit" needs-server :disabled="passwordBusy">
           Change password
         </BbButton>
       </form>

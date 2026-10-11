@@ -246,6 +246,14 @@ The values below are implemented in `docs/design/html/bb.css`. Where a prototype
   content clear of them. Touch interaction uses `manipulation`, which prevents
   double-tap zoom while leaving pinch zoom available. A screen with its own
   scroll container does not also scroll or rubber-band the document.
+- **UI-VIS-8 (Must).** Without a connection the app shows one note at the top,
+  above the screen and below the notch: "You’re offline. Showing what was
+  loaded last." (13 px, weight 500, `warn` on `warn-soft`, 10 px corners, the
+  slashed-cloud icon of the style guide at 16 px). It takes the top safe area
+  itself, so the screen under it starts flush. Actions that need the server
+  are disabled; everything that only reads or navigates stays enabled.
+  Screens never read `env(safe-area-inset-*)` directly; they use
+  `--safe-area-top` and `--safe-area-bottom`.
 
 ## 16. Copy and formats
 

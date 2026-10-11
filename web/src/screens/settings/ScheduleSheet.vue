@@ -229,7 +229,9 @@ async function save(): Promise<void> {
 
     <p class="num schedule-preview" role="status">{{ preview }}</p>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
-    <BbButton :disabled="busy" :aria-busy="busy" @click="save">Done</BbButton>
+    <BbButton needs-server :disabled="busy" :aria-busy="busy" @click="save"
+      >Done</BbButton
+    >
   </BbSheet>
 </template>
 

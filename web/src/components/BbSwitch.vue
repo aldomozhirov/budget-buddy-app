@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { computed } from 'vue';
+import { isOnline } from '../composables/useOnline';
+
 /** On/off switch, e.g. for a setting in a row; use with `v-model`. */
 const props = withDefaults(
   defineProps<{
@@ -6,8 +9,14 @@ const props = withDefaults(
     /** Accessible name; the switch shows no text of its own. */
     label: string;
     disabled?: boolean;
+    /** The switch saves to the server, so it is disabled while offline. */
+    needsServer?: boolean;
   }>(),
-  { disabled: false },
+  { disabled: false, needsServer: false },
+);
+
+const blocked = computed(
+  () => props.disabled || (props.needsServer && !isOnline.value),
 );
 
 const emit = defineEmits<{
@@ -16,7 +25,7 @@ const emit = defineEmits<{
 }>();
 
 function toggle() {
-  if (!props.disabled) emit('update:modelValue', !props.modelValue);
+  if (!blocked.value) emit('update:modelValue', !props.modelValue);
 }
 </script>
 
@@ -27,13 +36,10 @@ function toggle() {
     role="switch"
     :aria-label="label"
     :aria-checked="modelValue"
-    :disabled="disabled"
+    :disabled="blocked"
     @click="toggle"
   >
-    <span
-      class="switch"
-      aria-hidden="true"
-    >
+    <span class="switch" aria-hidden="true">
       <span class="knob" />
     </span>
   </button>

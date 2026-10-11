@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { profileResponseSchema, type AuthMember } from '@budget-buddy/shared';
 import BbButton from '../../components/BbButton.vue';
+import { isOnline } from '../../composables/useOnline.js';
 import BbIcon from '../../components/BbIcon.vue';
 import BbSheet from '../../components/BbSheet.vue';
 import BbSwitch from '../../components/BbSwitch.vue';
@@ -137,7 +138,7 @@ async function signOut(): Promise<void> {
         role="radio"
         :aria-checked="currentMember?.id === profile.id"
         :tabindex="currentMember?.id === profile.id ? 0 : -1"
-        :disabled="busy"
+        :disabled="busy || !isOnline"
         @click="chooseProfile(profile)"
         @keydown="onProfileKeydown($event, profiles.indexOf(profile))"
       >
@@ -175,6 +176,7 @@ async function signOut(): Promise<void> {
         :model-value="rememberOnDevice"
         :label="`Open as ${currentMember?.name ?? 'profile'} on ${deviceLabel}`"
         :disabled="busy || currentMember === null"
+        needs-server
         @update:model-value="changeRemember"
       />
     </div>
@@ -185,6 +187,7 @@ async function signOut(): Promise<void> {
     <BbButton
       variant="text"
       class="danger profile-sheet-signout"
+      needs-server
       :disabled="busy"
       @click="signOut"
     >

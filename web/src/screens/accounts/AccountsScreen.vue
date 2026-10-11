@@ -465,7 +465,7 @@ onMounted(() => void loadOptions());
 
 <style scoped>
 .accounts-screen {
-  height: 100dvh;
+  height: var(--app-h, 100dvh);
 }
 .accounts-topbar {
   padding-bottom: 12px;
@@ -605,7 +605,7 @@ onMounted(() => void loadOptions());
 .accounts-filter-options {
   max-height: 60vh;
   overflow-y: auto;
-  padding: 0 16px max(24px, env(safe-area-inset-bottom));
+  padding: 0 16px max(24px, var(--safe-area-bottom));
 }
 .accounts-filter-option {
   display: flex;

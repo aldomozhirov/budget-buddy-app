@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { isOnline } from '../../composables/useOnline.js';
 import {
   settingsResponseSchema,
   type CurrencyOption,
@@ -120,7 +121,7 @@ async function readError(response: Response): Promise<string> {
         interactive
         :aria-pressed="currency.code === selected"
         :aria-label="`${currency.code}, ${currency.name}`"
-        :disabled="busy"
+        :disabled="busy || !isOnline"
         @click="chooseCurrency(currency.code)"
       >
         <template #title>

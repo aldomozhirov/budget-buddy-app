@@ -18,6 +18,7 @@ import {
 import BbAmountInput from '../../components/BbAmountInput.vue';
 import BbBackButton from '../../components/BbBackButton.vue';
 import BbButton from '../../components/BbButton.vue';
+import { isOnline } from '../../composables/useOnline.js';
 import BbIcon from '../../components/BbIcon.vue';
 import BbSheet from '../../components/BbSheet.vue';
 import { useBack } from '../../composables/useBack.js';
@@ -541,7 +542,7 @@ onBeforeUnmount(() => {
               v-if="retryPayloads[account.id]"
               class="checkin-same"
               type="button"
-              :disabled="saving"
+              :disabled="saving || !isOnline"
               @click="retrySave(account)"
             >
               Try again
@@ -551,7 +552,7 @@ onBeforeUnmount(() => {
               class="checkin-same"
               type="button"
               :aria-label="`${account.name} ${account.currency} unchanged`"
-              :disabled="saving"
+              :disabled="saving || !isOnline"
               @click="saveSame(account)"
             >
               <BbIcon name="check" :size="18" />
@@ -592,7 +593,7 @@ onBeforeUnmount(() => {
                 v-if="retryPayloads[account.id]"
                 class="checkin-same checkin-done-retry"
                 type="button"
-                :disabled="saving"
+                :disabled="saving || !isOnline"
                 @click="retrySave(account)"
               >
                 Try again
@@ -631,7 +632,7 @@ onBeforeUnmount(() => {
         <button
           class="checkin-close-button"
           type="button"
-          :disabled="saving"
+          :disabled="saving || !isOnline"
           @click="closeConfirmationOpen = true"
         >
           Close now
@@ -688,10 +689,12 @@ onBeforeUnmount(() => {
           :saving="saving"
           :label="`New balance for ${selectedAccount.name}`"
           save-label="Save & next"
+          needs-server
           @save="saveTypedAmount"
         />
         <BbButton
           variant="secondary"
+          needs-server
           :disabled="saving"
           @click="saveSame(selectedAccount, true)"
         >
@@ -712,7 +715,7 @@ onBeforeUnmount(() => {
         {{ missingAccountCount === 1 ? 'account' : 'accounts' }} without a value
         will keep the last balance, marked as “wasn’t changed”.
       </p>
-      <BbButton :disabled="saving" @click="closeCheckin">
+      <BbButton needs-server :disabled="saving" @click="closeCheckin">
         {{ saving ? 'Closing…' : 'Close check-in' }}
       </BbButton>
       <BbButton
@@ -729,8 +732,8 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .checkin-screen {
-  height: 100dvh;
-  min-height: 100dvh;
+  height: var(--app-h, 100dvh);
+  min-height: var(--app-h, 100dvh);
 }
 
 .checkin-topbar {
@@ -929,7 +932,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px var(--gutter) max(30px, env(safe-area-inset-bottom));
+  padding: 12px var(--gutter) max(30px, var(--safe-area-bottom));
   border-top: 1px solid var(--line);
   color: var(--muted);
   font-size: 13px;

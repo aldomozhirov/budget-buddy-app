@@ -295,6 +295,7 @@ async function createFamily(): Promise<void> {
       <div class="setup-footer">
         <BbButton
           type="submit"
+          needs-server
           :disabled="submitting"
         >
           Create

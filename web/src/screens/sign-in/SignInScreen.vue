@@ -7,6 +7,7 @@ import {
   type AuthMember,
 } from '@budget-buddy/shared';
 import BbButton from '../../components/BbButton.vue';
+import { isOnline } from '../../composables/useOnline.js';
 import BbIcon from '../../components/BbIcon.vue';
 import BbSwitch from '../../components/BbSwitch.vue';
 import { deviceName } from '../../device.js';
@@ -217,6 +218,7 @@ function startLockout(seconds: number): void {
       </p>
       <BbButton
         type="submit"
+        needs-server
         :disabled="!password || submitting || lockSeconds > 0"
       >
         {{ lockSeconds > 0 ? `Wait ${lockSeconds} s` : 'Sign in' }}
@@ -280,7 +282,7 @@ function startLockout(seconds: number): void {
           type="button"
           role="radio"
           aria-checked="false"
-          :disabled="selectingProfile !== null"
+          :disabled="selectingProfile !== null || !isOnline"
           @click="chooseProfile(profile)"
         >
           <span
