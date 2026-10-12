@@ -6,6 +6,7 @@ import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
 import { migrateDatabase } from '../src/db/migrate.js';
+import { turnOffReopenLock } from './reopenLock.js';
 import { createCheckinEventBus, type CheckinEvents } from '../src/events.js';
 import { createCheckinScheduleJob } from '../src/jobs/checkinSchedule.js';
 import { createJobRunner } from '../src/jobs/runner.js';
@@ -90,6 +91,7 @@ describe('check-in schedule job', () => {
       },
     });
     expect(setup.statusCode).toBe(201);
+    turnOffReopenLock(database);
     const header = setup.headers['set-cookie'];
     cookies = (Array.isArray(header) ? header : [header])
       .filter((value): value is string => typeof value === 'string')

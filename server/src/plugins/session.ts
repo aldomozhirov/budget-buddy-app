@@ -1,12 +1,19 @@
 import { createHash } from 'node:crypto';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import type Database from 'better-sqlite3';
+import { reopenLockAfterMs, sessionLockedCode } from '@budget-buddy/shared';
 import { systemClock, type Clock } from '../clock.js';
 
 const sessionLifetimeMs = 90 * 24 * 60 * 60 * 1000;
 
 /** Authorization level applied to an API route by its route config. */
 export type AuthRequirement = 'open' | 'session' | 'profile';
+
+/**
+ * Whether a route lets the plugin refuse a locked session (SEC-9). Only the
+ * presence call decides for itself, since it is how a session stays unlocked.
+ */
+export type LockCheck = 'enforce' | 'self';
 
 /** Authenticated session and optional active profile attached to a request. */
 export type AuthContext = {
@@ -16,6 +23,8 @@ export type AuthContext = {
   memberName: string | null;
   defaultMemberId: number | null;
   hasPasskey: boolean;
+  /** Whether this device asks to sign in again when reopened (MEM-7). */
+  lockOnReopen: boolean;
 };
 
 declare module 'fastify' {
@@ -25,6 +34,7 @@ declare module 'fastify' {
 
   interface FastifyContextConfig {
     auth?: AuthRequirement;
+    lockCheck?: LockCheck;
   }
 }
 
@@ -64,7 +74,7 @@ export async function installSessionPlugin(
         `SELECT s.id AS session_id, s.device_id, s.member_id,
                 s.password_epoch, s.expires_at, f.password_epoch AS current_epoch,
                 m.name AS member_name, m.active AS member_active,
-                d.default_member_id,
+                d.default_member_id, d.lock_on_reopen, s.foreground_at,
                 EXISTS (SELECT 1 FROM passkey p WHERE p.device_id = d.id)
                   AS has_passkey
          FROM session s
@@ -87,6 +97,8 @@ export async function installSessionPlugin(
           member_name: string | null;
           member_active: bigint | null;
           default_member_id: bigint | null;
+          lock_on_reopen: bigint;
+          foreground_at: bigint;
           has_passkey: bigint;
         }
       | undefined;
@@ -99,6 +111,16 @@ export async function installSessionPlugin(
       (row.member_id !== null && row.member_active !== 1n)
     ) {
       return sendUnauthenticated(reply);
+    }
+
+    // The lock is the server's own rule: a session whose app has not said it
+    // is in use for more than five minutes is refused on every route, whatever
+    // the page or tab that asks has been doing (SEC-9).
+    if (
+      request.routeOptions.config.lockCheck !== 'self' &&
+      isForegroundLapsed(row.lock_on_reopen === 1n, row.foreground_at, now)
+    ) {
+      return sendSessionLocked(reply);
     }
 
     if (requirement === 'profile' && row.member_id === null) {
@@ -130,6 +152,7 @@ export async function installSessionPlugin(
       defaultMemberId:
         row.default_member_id === null ? null : Number(row.default_member_id),
       hasPasskey: row.has_passkey === 1n,
+      lockOnReopen: row.lock_on_reopen === 1n,
     };
 
     setSessionCookies(reply, {
@@ -141,9 +164,27 @@ export async function installSessionPlugin(
 }
 
 /**
+ * Whether the app has been out of the foreground for too long on a device
+ * that asks to sign in again (SEC-9): more than five minutes since it last
+ * said it was in use. Exactly five minutes is still allowed.
+ * @param foregroundAt Milliseconds since the epoch of that last call.
+ */
+export function isForegroundLapsed(
+  lockOnReopen: boolean,
+  foregroundAt: bigint | number,
+  now: number,
+): boolean {
+  return (
+    lockOnReopen &&
+    BigInt(now) - BigInt(foregroundAt) > BigInt(reopenLockAfterMs)
+  );
+}
+
+/**
  * Whether a session still authenticates: it exists, has not expired, was
- * opened under the family's current password and belongs to an active member.
- * Long-lived responses use it to end themselves once the session is gone.
+ * opened under the family's current password, belongs to an active member and
+ * has not been locked by time away (SEC-9). Long-lived responses use it to
+ * end themselves once the session is gone.
  */
 export function isSessionLive(
   database: Database.Database,
@@ -155,13 +196,15 @@ export function isSessionLive(
       `SELECT 1 AS live
        FROM session s
        JOIN family f ON f.id = 1
+       JOIN device d ON d.id = s.device_id
        LEFT JOIN member m ON m.id = s.member_id
        WHERE s.id = ?
          AND s.expires_at > ?
          AND s.password_epoch = f.password_epoch
-         AND (s.member_id IS NULL OR m.active = 1)`,
+         AND (s.member_id IS NULL OR m.active = 1)
+         AND (d.lock_on_reopen = 0 OR ? - s.foreground_at <= ?)`,
     )
-    .get(sessionId, now);
+    .get(sessionId, now, now, reopenLockAfterMs);
   return row !== undefined;
 }
 
@@ -204,6 +247,16 @@ function parseCookies(header: string | undefined): Record<string, string> {
 function sessionCookie(name: string, value: string, secure: boolean): string {
   const flags = `Path=/; HttpOnly; SameSite=Lax${secure ? '; Secure' : ''}; Max-Age=${sessionLifetimeMs / 1000}`;
   return `${name}=${encodeURIComponent(value)}; ${flags}`;
+}
+
+/** Answers 401 `session_locked`: the device must sign in again (SEC-9). */
+export function sendSessionLocked(reply: FastifyReply) {
+  return reply.code(401).send({
+    error: {
+      code: sessionLockedCode,
+      message: 'Sign in again to continue.',
+    },
+  });
 }
 
 function sendUnauthenticated(reply: FastifyReply) {

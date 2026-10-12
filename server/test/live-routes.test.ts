@@ -34,6 +34,7 @@ describe('live stream route, lifecycle edge cases', () => {
         memberName: 'Alex',
         defaultMemberId: null,
         hasPasskey: false,
+        lockOnReopen: true,
       };
       await options.beforeHandler?.(request.raw);
     });
@@ -87,13 +88,16 @@ describe('live stream route, lifecycle edge cases', () => {
     database.exec(`
       CREATE TABLE family (id INTEGER PRIMARY KEY, password_epoch INTEGER);
       CREATE TABLE member (id INTEGER PRIMARY KEY, active INTEGER);
+      CREATE TABLE device (id TEXT PRIMARY KEY, lock_on_reopen INTEGER);
       CREATE TABLE session (
         id INTEGER PRIMARY KEY, expires_at INTEGER, password_epoch INTEGER,
-        member_id INTEGER
+        member_id INTEGER, device_id TEXT, foreground_at INTEGER
       );
       INSERT INTO family VALUES (1, 1);
       INSERT INTO member VALUES (1, 1);
-      INSERT INTO session VALUES (1, ${Date.now() + 3_600_000}, 1, 1);
+      INSERT INTO device VALUES ('device', 1);
+      INSERT INTO session VALUES
+        (1, ${Date.now() + 3_600_000}, 1, 1, 'device', ${Date.now()});
     `);
   }
 

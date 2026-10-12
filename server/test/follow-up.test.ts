@@ -12,6 +12,7 @@ import { createFollowUpJob } from '../src/jobs/followUp.js';
 import { createJobRunner } from '../src/jobs/runner.js';
 import { createNotifier, type Notifier } from '../src/notify/notifier.js';
 import { createFakePushSender } from './fakePushSender.js';
+import { turnOffReopenLock } from './reopenLock.js';
 
 const migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url));
 const origin = 'https://budget-buddy.test';
@@ -144,6 +145,7 @@ describe('follow-up reminders', () => {
       });
       expect(profile.statusCode).toBe(200);
     }
+    turnOffReopenLock(database);
     for (const name of ['Alex', 'Blair', 'Casey']) {
       const subscribed = await request(name, 'PUT', '/api/push/subscription', {
         endpoint: endpointOf(name),

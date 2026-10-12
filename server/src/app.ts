@@ -33,6 +33,7 @@ import { pushRoutes } from './modules/push/index.js';
 import { createCheckinEventBus, type CheckinEventBus } from './events.js';
 import { createLiveHub } from './live/hub.js';
 import { liveRoutes } from './live/routes.js';
+import { sessionRoutes } from './modules/session/index.js';
 import { createRatesService, type RatesService } from './rates/service.js';
 
 const webDistPath = fileURLToPath(new URL('../../web/dist', import.meta.url));
@@ -140,6 +141,7 @@ export async function createApp(options: AppOptions) {
     secureCookies,
     clock,
   });
+  await app.register(sessionRoutes, { database: options.database, clock });
   await app.register(memberRoutes, {
     database: options.database,
     clock,
@@ -195,7 +197,7 @@ export async function createApp(options: AppOptions) {
     clock,
   });
   await app.register(exportRoutes, { database: options.database, clock });
-  await app.register(deviceRoutes, { database: options.database });
+  await app.register(deviceRoutes, { database: options.database, clock });
   await app.register(passkeyRoutes, {
     database: options.database,
     secureCookies,
