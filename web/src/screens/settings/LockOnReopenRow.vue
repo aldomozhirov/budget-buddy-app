@@ -4,6 +4,7 @@ import { deviceLockSchema } from '@budget-buddy/shared';
 import BbRow from '../../components/BbRow.vue';
 import BbSwitch from '../../components/BbSwitch.vue';
 import { deviceName } from '../../device.js';
+import { goToSignIn } from '../../session/lock.js';
 import { authState, setAuthState } from '../../stores/auth.js';
 
 /**
@@ -34,6 +35,10 @@ async function change(value: boolean): Promise<void> {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ lockOnReopen: value }),
     });
+    if (response.status === 401) {
+      await goToSignIn();
+      return;
+    }
     if (!response.ok) throw new Error('Could not save.');
     const saved = deviceLockSchema.parse(await response.json());
     const state = authState.value;

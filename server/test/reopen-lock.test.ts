@@ -135,9 +135,7 @@ describe('sign in again when the app is re-opened', () => {
     expect((await me(alex)).statusCode).toBe(401);
     now += 3 * 24 * 60 * minute;
     expect((await me(alex)).statusCode).toBe(401);
-    // A page that calls itself continuous cannot revive a session whose
-    // refusal it already got: the next call is a normal one, and refused.
-    expect((await present(alex, reopenLockAfterMs + 1)).statusCode).toBe(401);
+    expect((await present(alex, 0)).statusCode).toBe(401);
     expect((await me(alex)).statusCode).toBe(401);
 
     const signedIn = await app.inject({
@@ -153,6 +151,44 @@ describe('sign in again when the app is re-opened', () => {
     // The device row is the same one, with its default profile.
     expect(state.json().member).toEqual({ id: 1, name: 'Alex' });
     expect(deviceCountOf(database)).toBe(1);
+  });
+
+  it('does not let a later presence call bring back a session the page said was away', async () => {
+    now += minute;
+    expect((await present(alex, reopenLockAfterMs + 1)).statusCode).toBe(401);
+    // A page that returns with the connection (`visibilitychange` and
+    // `online` together) can send a second call that claims nothing.
+    for (const awayMs of [0, 1000, reopenLockAfterMs]) {
+      const again = await present(alex, awayMs);
+      expect(again.statusCode, `awayMs ${awayMs}`).toBe(401);
+      expect(again.json().error.code).toBe('session_locked');
+    }
+    expect((await me(alex)).statusCode).toBe(401);
+  });
+
+  it('does not let a presence call bring back a session another route already refused', async () => {
+    now += reopenLockAfterMs + 1;
+    expect((await me(alex)).statusCode).toBe(401);
+    const again = await present(alex, 0);
+    expect(again.statusCode).toBe(401);
+    expect(again.json().error.code).toBe('session_locked');
+    expect((await me(alex)).statusCode).toBe(401);
+    // Even close to now: refused is refused.
+    now += 1000;
+    expect((await present(alex, 0)).statusCode).toBe(401);
+  });
+
+  it('does not extend a locked session when the calls that find it locked arrive', async () => {
+    const before = database.prepare('SELECT expires_at FROM session').get() as {
+      expires_at: bigint;
+    };
+    now += 60 * minute;
+    await me(alex);
+    await present(alex, 0);
+    await present(alex, reopenLockAfterMs + 1);
+    expect(database.prepare('SELECT expires_at FROM session').get()).toEqual(
+      before,
+    );
   });
 
   it('is never locked while the app keeps saying it is in use', async () => {

@@ -102,6 +102,50 @@ test('coming back after more than 5 minutes asks to sign in and returns to the s
   await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
 });
 
+test('events that arrive with a return send one presence call, and a lock holds through them and a reload', async ({
+  page,
+}) => {
+  const calls: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === presencePath) {
+      calls.push(request.postData() ?? '');
+    }
+  });
+  await page.clock.install();
+  await page.goto(`${origin}/accounts`);
+  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+  await hide(page);
+  backdate(10 * minute);
+  await page.clock.fastForward(10 * minute);
+
+  // The connection comes back while the app is still in the background: no
+  // call, and the absence is not cut short.
+  const beforeReturn = calls.length;
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await page.waitForTimeout(300);
+  expect(calls.length).toBe(beforeReturn);
+
+  await setVisibility(page, 'visible');
+  await expect(page).toHaveURL(`${origin}/sign-in?next=/accounts`);
+  // The events that come with a return from the background.
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('online'));
+    window.dispatchEvent(
+      Object.assign(new Event('pageshow'), { persisted: true }),
+    );
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.waitForTimeout(300);
+  expect(calls.slice(beforeReturn)).toHaveLength(1);
+  expect(JSON.parse(calls[beforeReturn]!).awayMs).toBeGreaterThan(5 * minute);
+
+  // Reloading the page does not open the app without a password.
+  await page.reload();
+  await expect(page).toHaveURL(`${origin}/sign-in?next=/accounts`);
+  const refused = await page.context().request.get(`${origin}/api/auth/me`);
+  expect(refused.status()).toBe(401);
+});
+
 test('a wrong password on the lock screen counts toward the lockout', async ({
   page,
 }) => {

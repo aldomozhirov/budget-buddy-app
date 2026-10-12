@@ -6,6 +6,9 @@ import { systemClock, type Clock } from '../clock.js';
 
 const sessionLifetimeMs = 90 * 24 * 60 * 60 * 1000;
 
+/** The `foreground_at` of a session that was answered as locked. */
+const lockedMark = -1;
+
 /** Authorization level applied to an API route by its route config. */
 export type AuthRequirement = 'open' | 'session' | 'profile';
 
@@ -115,11 +118,15 @@ export async function installSessionPlugin(
 
     // The lock is the server's own rule: a session whose app has not said it
     // is in use for more than five minutes is refused on every route, whatever
-    // the page or tab that asks has been doing (SEC-9).
-    if (
-      request.routeOptions.config.lockCheck !== 'self' &&
-      isForegroundLapsed(row.lock_on_reopen === 1n, row.foreground_at, now)
-    ) {
+    // the page or tab that asks has been doing (SEC-9). The refusal is final
+    // (`markSessionLocked`): only a sign-in opens a session again.
+    const lapsed = isForegroundLapsed(
+      row.lock_on_reopen === 1n,
+      row.foreground_at,
+      now,
+    );
+    if (lapsed && request.routeOptions.config.lockCheck !== 'self') {
+      markSessionLocked(options.database, Number(row.session_id));
       return sendSessionLocked(reply);
     }
 
@@ -129,19 +136,22 @@ export async function installSessionPlugin(
       });
     }
 
+    // A locked session is not kept alive by the calls that find it locked.
     const expiresAt = now + sessionLifetimeMs;
-    const touched = options.database.transaction(() => {
-      const result = options.database
-        .prepare(
-          'UPDATE session SET last_used_at = ?, expires_at = ? WHERE id = ? AND expires_at > ?',
-        )
-        .run(now, expiresAt, row.session_id, now);
-      if (result.changes !== 1) return false;
-      options.database
-        .prepare('UPDATE device SET last_seen_at = ? WHERE id = ?')
-        .run(now, row.device_id);
-      return true;
-    })();
+    const touched = lapsed
+      ? true
+      : options.database.transaction(() => {
+          const result = options.database
+            .prepare(
+              'UPDATE session SET last_used_at = ?, expires_at = ? WHERE id = ? AND expires_at > ?',
+            )
+            .run(now, expiresAt, row.session_id, now);
+          if (result.changes !== 1) return false;
+          options.database
+            .prepare('UPDATE device SET last_seen_at = ? WHERE id = ?')
+            .run(now, row.device_id);
+          return true;
+        })();
     if (!touched) return sendUnauthenticated(reply);
 
     request.authContext = {
@@ -161,6 +171,31 @@ export async function installSessionPlugin(
       secureCookies: options.secureCookies,
     });
   });
+}
+
+/**
+ * Marks a session as locked for good (SEC-9): `foreground_at` becomes
+ * `lockedMark`, which no presence call refreshes, so the session stays
+ * refused on every route until the device signs in and gets a new one.
+ */
+export function markSessionLocked(
+  database: Database.Database,
+  sessionId: number,
+): void {
+  database
+    .prepare('UPDATE session SET foreground_at = ? WHERE id = ?')
+    .run(lockedMark, sessionId);
+}
+
+/** Whether a session was answered as locked (see `markSessionLocked`). */
+export function isSessionMarkedLocked(
+  database: Database.Database,
+  sessionId: number,
+): boolean {
+  const row = database
+    .prepare('SELECT foreground_at FROM session WHERE id = ?')
+    .get(sessionId) as { foreground_at: bigint } | undefined;
+  return row !== undefined && row.foreground_at === BigInt(lockedMark);
 }
 
 /**

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { forgetLastScreen } from '../../session/lock.js';
 import { goToSignIn } from '../../session/lock.js';
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
@@ -573,6 +574,7 @@ async function signOut(): Promise<void> {
     });
     if (!response.ok) throw new Error('Sign-out failed.');
     setAuthState(null);
+    forgetLastScreen();
     await router.replace('/sign-in');
   } catch {
     screenError.value =

@@ -50,6 +50,15 @@ export function returnPath(value: unknown): string {
   return isReturnable(value) ? value : '/';
 }
 
+/** Forgets the kept screen, as a sign-out does. */
+export function forgetLastScreen(): void {
+  try {
+    localStorage.removeItem(lastScreenKey);
+  } catch {
+    // Nothing was kept.
+  }
+}
+
 function readLastScreen(): string | null {
   try {
     const stored = localStorage.getItem(lastScreenKey);
@@ -197,7 +206,10 @@ function signedIn(): boolean {
 }
 
 function tick(): void {
-  if (signedIn()) void report(takeAway());
+  // Nothing is reported for a page that is out of the foreground: the
+  // absence is one call, made on the way back.
+  if (awayNow || !signedIn()) return;
+  void report(takeAway());
 }
 
 function startTimer(): void {
@@ -224,9 +236,12 @@ function onHidden(): void {
 }
 
 function onVisible(): void {
+  const returning = awayNow;
   awayNow = false;
   if (!signedIn()) return;
-  void report(takeAway());
+  // One call per return, carrying the whole absence; events that arrive with
+  // it (`pageshow`, `online`) do not send another.
+  if (returning) void report(takeAway());
   startTimer();
 }
 
@@ -245,7 +260,9 @@ export function installSessionLock(appRouter: Router): void {
   window.addEventListener('pageshow', (event) => {
     if (event.persisted) onVisible();
   });
-  window.addEventListener('online', tick);
+  window.addEventListener('online', () => {
+    if (document.visibilityState === 'visible') tick();
+  });
   watch(
     authState,
     (state) => {

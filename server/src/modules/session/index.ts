@@ -7,7 +7,11 @@ import {
   reopenLockAfterMs,
 } from '@budget-buddy/shared';
 import { systemClock, type Clock } from '../../clock.js';
-import { sendSessionLocked } from '../../plugins/session.js';
+import {
+  isSessionMarkedLocked,
+  markSessionLocked,
+  sendSessionLocked,
+} from '../../plugins/session.js';
 
 /**
  * Registers the presence call (SEC-9). A visible app makes it every 30 s and
@@ -17,8 +21,9 @@ import { sendSessionLocked } from '../../plugins/session.js';
  *
  * The plugin skips its own lock check here, because this route decides: a
  * session that fell behind (the app was offline in the foreground) is
- * refreshed when the page says it never left, and is locked for good when the
- * page says it was away for more than five minutes.
+ * refreshed when the page says it was away for five minutes or less, and is
+ * locked for good when the page says it was away for more, or when it was
+ * already answered as locked.
  */
 export const sessionRoutes: FastifyPluginAsync<{
   database: Database.Database;
@@ -44,14 +49,15 @@ export const sessionRoutes: FastifyPluginAsync<{
       const context = request.authContext!;
       const now = clock.now().getTime();
 
-      if (context.lockOnReopen && parsed.data.awayMs > reopenLockAfterMs) {
-        // Back-dating the mark makes the lock hold for every later request,
-        // also if the page that asked never learns of the answer.
-        database
-          .prepare(
-            'UPDATE session SET foreground_at = MIN(foreground_at, ?) WHERE id = ?',
-          )
-          .run(now - reopenLockAfterMs - 1, context.sessionId);
+      // A session that was answered as locked, or whose page says it was
+      // away for more than five minutes, is locked for good: no later call,
+      // whatever it claims, brings it back. Only a sign-in does.
+      if (
+        context.lockOnReopen &&
+        (parsed.data.awayMs > reopenLockAfterMs ||
+          isSessionMarkedLocked(database, context.sessionId))
+      ) {
+        markSessionLocked(database, context.sessionId);
         return sendSessionLocked(reply);
       }
 

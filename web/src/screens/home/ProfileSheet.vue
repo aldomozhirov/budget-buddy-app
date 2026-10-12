@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { forgetLastScreen } from '../../session/lock.js';
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { profileResponseSchema, type AuthMember } from '@budget-buddy/shared';
@@ -112,6 +113,7 @@ async function signOut(): Promise<void> {
     });
     if (!response.ok) throw new Error('Sign-out failed.');
     setAuthState(null);
+    forgetLastScreen();
     emit('close');
     await router.replace('/sign-in');
   } catch {
