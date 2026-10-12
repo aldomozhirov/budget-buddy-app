@@ -8,13 +8,16 @@ import {
   updateMemberRequestSchema,
 } from '@budget-buddy/shared';
 import { systemClock, type Clock } from '../../clock.js';
+import { notifyOpenCheckinChanged } from '../../domain/checkin.js';
+import type { CheckinEventBus } from '../../events.js';
 
 /** Registers profile listing, creation, renaming and activation routes. */
 export const memberRoutes: FastifyPluginAsync<{
   database: Database.Database;
   clock?: Clock;
+  events: CheckinEventBus;
 }> = async (app, options) => {
-  const { database } = options;
+  const { database, events } = options;
   const clock = options.clock ?? systemClock;
 
   app.get('/api/members', async () => {
@@ -49,6 +52,7 @@ export const memberRoutes: FastifyPluginAsync<{
         name: parsed.data.name,
         active: true,
       };
+      notifyOpenCheckinChanged(database, events);
       return reply.code(201).send(memberResponseSchema.parse({ member }));
     } catch (error) {
       if (isUniqueConstraintError(error)) {
@@ -132,6 +136,7 @@ export const memberRoutes: FastifyPluginAsync<{
           },
         });
       }
+      notifyOpenCheckinChanged(database, events);
       return memberResponseSchema.parse({ member: result.member });
     } catch (error) {
       if (isUniqueConstraintError(error)) {

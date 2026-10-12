@@ -22,14 +22,17 @@ import {
 import { systemClock, type Clock } from '../../clock.js';
 import type { BackfillRequester } from '../../rates/service.js';
 import { balanceAt, type AccountBalance } from '../../domain/balance.js';
+import { notifyOpenCheckinChanged } from '../../domain/checkin.js';
+import type { CheckinEventBus } from '../../events.js';
 
 /** Registers account listing, maintenance, balance and currency routes. */
 export const accountRoutes: FastifyPluginAsync<{
   database: Database.Database;
   clock?: Clock;
   rates?: BackfillRequester;
+  events: CheckinEventBus;
 }> = async (app, options) => {
-  const { database, rates } = options;
+  const { database, rates, events } = options;
   const clock = options.clock ?? systemClock;
 
   app.get('/api/accounts', async (request, reply) => {
@@ -166,6 +169,7 @@ export const accountRoutes: FastifyPluginAsync<{
     const account = findAccount(database, result, clock.now().getTime(), true);
     if (!account) throw new Error('Created account could not be reloaded.');
     rates?.requestBackfill();
+    notifyOpenCheckinChanged(database, events);
     return reply.code(201).send(accountResponseSchema.parse({ account }));
   });
 
@@ -229,6 +233,7 @@ export const accountRoutes: FastifyPluginAsync<{
         id,
       );
     if (result.changes === 0) return sendNotFound(reply, 'Account not found.');
+    notifyOpenCheckinChanged(database, events);
     const account = findAccount(database, id, now, true);
     if (!account) return sendNotFound(reply, 'Account not found.');
     return accountResponseSchema.parse({ account });
@@ -265,6 +270,7 @@ export const accountRoutes: FastifyPluginAsync<{
         },
       });
     }
+    notifyOpenCheckinChanged(database, events);
     return deleteAccountResponseSchema.parse({ deleted: true });
   });
 
@@ -382,6 +388,7 @@ export const accountRoutes: FastifyPluginAsync<{
         'Account changed before the currency was relabelled.',
       );
     rates?.requestBackfill();
+    notifyOpenCheckinChanged(database, events);
     return currencyRelabelResponseSchema.parse({
       ...preview.response,
       requiresConfirmation: false,
@@ -424,6 +431,7 @@ export const accountRoutes: FastifyPluginAsync<{
         );
       if (result.changes === 0)
         return sendNotFound(reply, 'Account not found.');
+      notifyOpenCheckinChanged(database, events);
       const account = findAccount(database, parsed.data.id, now, true);
       if (!account) return sendNotFound(reply, 'Account not found.');
       return accountResponseSchema.parse({ account });

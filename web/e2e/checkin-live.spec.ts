@@ -454,6 +454,126 @@ test('a refused save from the amount sheet closes the sheet and offers no retry'
   }
 });
 
+test('a session that ended while a refused save is re-read goes to sign-in', async ({
+  page,
+  browser,
+}, testInfo) => {
+  const family = await startFamily(page, browser, testInfo.project.name);
+  const { blair, alexContext, checkinId } = family;
+  try {
+    await blair.route('**/api/events', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        body: 'retry: 3600000\n: silent\n\n',
+      }),
+    );
+    await openScreen(blair);
+    await post(alexContext, `/api/checkins/${checkinId}/close`, {});
+    // The save is refused as closed, and the session has ended by the time
+    // the screen reads the check-in to show its closed state.
+    await blair.route(/\/api\/checkins\/\d+$/u, async (route) => {
+      await post(family.blairContext, '/api/auth/sign-out', {});
+      await route.continue();
+    });
+    await blair
+      .getByRole('button', { name: 'Blair Everyday EUR unchanged' })
+      .click();
+    await expect(blair).toHaveURL(/\/sign-in$/u);
+    await expect(
+      blair.getByRole('heading', { name: 'Check-in complete' }),
+    ).toHaveCount(0);
+  } finally {
+    await family.blairContext.close();
+  }
+});
+
+test('accounts and profiles changing during a check-in reach the other screen at once', async ({
+  page,
+  browser,
+}, testInfo) => {
+  const family = await startFamily(page, browser, testInfo.project.name);
+  const { alex, blair, alexContext } = family;
+  try {
+    await openScreen(blair);
+    await openScreen(alex);
+    const blairCount = (count: number) =>
+      blair.getByRole('heading', {
+        name: `Your accounts to check · ${count}`,
+      });
+    await expect(blairCount(2)).toBeVisible();
+    await expect(
+      tabs(alex).getByRole('tab', { name: 'Blair 2 left' }),
+    ).toBeVisible();
+    const polls = countRequests(blair);
+    const readsBefore = polls.reads;
+
+    // An account is created for Blair, then deactivated and reactivated.
+    const created = (await post(alexContext, '/api/accounts', {
+      name: 'Blair Joint',
+      ownerMemberId: 2,
+      type: 'bank',
+      currency: 'EUR',
+      openingBalance: '1000',
+    })) as { account: { id: number } };
+    await expect(blairCount(3)).toBeVisible();
+    await expect(
+      tabs(alex).getByRole('tab', { name: 'Blair 3 left' }),
+    ).toBeVisible();
+    await post(
+      alexContext,
+      `/api/accounts/${created.account.id}/deactivate`,
+      {},
+    );
+    await expect(blairCount(2)).toBeVisible();
+    await expect(
+      tabs(alex).getByRole('tab', { name: 'Blair 2 left' }),
+    ).toBeVisible();
+    await post(
+      alexContext,
+      `/api/accounts/${created.account.id}/reactivate`,
+      {},
+    );
+    await expect(blairCount(3)).toBeVisible();
+
+    // An account moves to another member.
+    await patch(
+      alexContext,
+      `/api/accounts/${family.accounts['Alex Wallet']}`,
+      {
+        ownerMemberId: 2,
+      },
+    );
+    await expect(blairCount(4)).toBeVisible();
+    await expect(
+      tabs(alex).getByRole('tab', { name: 'You 1 left' }),
+    ).toBeVisible();
+
+    // An account changes currency.
+    await post(
+      alexContext,
+      `/api/accounts/${family.accounts['Blair Everyday']}/currency`,
+      { currency: 'USD', confirm: true },
+    );
+    await expect(
+      blair.getByRole('button', {
+        name: 'Enter new balance for Blair Everyday USD',
+      }),
+    ).toBeVisible();
+
+    // A profile is renamed.
+    await patch(alexContext, '/api/members/2', { name: 'Bee' });
+    await expect(
+      tabs(alex).getByRole('tab', { name: 'Bee 4 left' }),
+    ).toBeVisible();
+
+    // The 30 s poll is far off: each change above was read on a signal.
+    expect(polls.reads).toBeGreaterThan(readsBefore);
+  } finally {
+    await family.blairContext.close();
+  }
+});
+
 test('a failed save for another reason still offers Try again', async ({
   page,
   browser,
@@ -602,6 +722,18 @@ async function post(
   });
   expect(response.ok(), `${url} answered ${response.status()}`).toBe(true);
   return response.json().catch(() => ({}));
+}
+
+async function patch(
+  context: BrowserContext,
+  url: string,
+  data: unknown,
+): Promise<void> {
+  const response = await context.request.patch(`${origin}${url}`, {
+    headers: { Origin: origin },
+    data,
+  });
+  expect(response.ok(), `${url} answered ${response.status()}`).toBe(true);
 }
 
 async function put(

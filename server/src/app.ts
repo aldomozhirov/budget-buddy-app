@@ -143,6 +143,7 @@ export async function createApp(options: AppOptions) {
   await app.register(memberRoutes, {
     database: options.database,
     clock,
+    events,
   });
   await app.register(familyRoutes, { database: options.database });
   await app.register(currenciesRoutes, {
@@ -158,11 +159,13 @@ export async function createApp(options: AppOptions) {
     database: options.database,
     clock,
     rates,
+    events,
   });
   await app.register(snapshotRoutes, {
     database: options.database,
     clock,
     rates,
+    events,
   });
   await app.register(ratesRoutes, { rates });
   await app.register(checkinRoutes, {

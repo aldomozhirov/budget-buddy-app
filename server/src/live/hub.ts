@@ -44,6 +44,9 @@ export function createLiveHub(events: CheckinEventBus): LiveHub {
   const stopSaved = events.on('checkin.valueSaved', (event) =>
     broadcast({ kind: 'changed', checkinId: event.checkinId }),
   );
+  const stopContent = events.on('checkin.contentChanged', (event) =>
+    broadcast({ kind: 'changed', checkinId: event.checkinId }),
+  );
   const stopClosed = events.on('checkin.closed', (event) =>
     broadcast({ kind: 'closed', checkinId: event.checkinId }),
   );
@@ -62,6 +65,7 @@ export function createLiveHub(events: CheckinEventBus): LiveHub {
     close() {
       closed = true;
       stopSaved();
+      stopContent();
       stopClosed();
       for (const stream of [...streams]) {
         streams.delete(stream);

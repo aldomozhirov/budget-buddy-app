@@ -20,6 +20,15 @@ export interface CheckinEvents {
     accountId: number;
     savedBy: number;
   };
+  /**
+   * Something the open check-in shows changed outside a value save: an
+   * account or a profile was added, renamed, moved or switched on or off, an
+   * account changed currency, or a balance was entered or corrected. Like
+   * `checkin.valueSaved` it only tells the live stream.
+   */
+  'checkin.contentChanged': {
+    checkinId: number;
+  };
   'checkin.followup': {
     checkinId: number;
     /**
