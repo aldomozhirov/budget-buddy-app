@@ -86,6 +86,21 @@ export function startCheckin(
   return result;
 }
 
+/**
+ * Tells the live stream that what the open check-in shows has changed, if a
+ * check-in is open. Call it after the change has committed.
+ */
+export function notifyOpenCheckinChanged(
+  database: Database.Database,
+  events: CheckinEventBus,
+): void {
+  const open = database
+    .prepare('SELECT id FROM checkin WHERE closed_at IS NULL')
+    .get() as { id: bigint } | undefined;
+  if (open)
+    events.emit('checkin.contentChanged', { checkinId: Number(open.id) });
+}
+
 /** Returns a check-in and its current or historical account progress. */
 export function getCheckin(
   database: Database.Database,

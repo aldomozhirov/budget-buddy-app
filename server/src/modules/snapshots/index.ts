@@ -16,6 +16,8 @@ import {
 } from '@budget-buddy/shared';
 import { systemClock, type Clock } from '../../clock.js';
 import type { BackfillRequester } from '../../rates/service.js';
+import { notifyOpenCheckinChanged } from '../../domain/checkin.js';
+import type { CheckinEventBus } from '../../events.js';
 
 const sourceOrder = `CASE s.source
   WHEN 'connector' THEN 0 WHEN 'statement' THEN 1 WHEN 'photo' THEN 2
@@ -43,8 +45,9 @@ export const snapshotRoutes: FastifyPluginAsync<{
   database: Database.Database;
   clock?: Clock;
   rates?: BackfillRequester;
+  events: CheckinEventBus;
 }> = async (app, options) => {
-  const { database, rates } = options;
+  const { database, rates, events } = options;
   const clock = options.clock ?? systemClock;
 
   app.get('/api/accounts/:id/snapshots', async (request, reply) => {
@@ -125,6 +128,7 @@ export const snapshotRoutes: FastifyPluginAsync<{
     const snapshot = findSnapshot(database, Number(result.lastInsertRowid));
     if (!snapshot) throw new Error('Created snapshot could not be reloaded.');
     rates?.requestBackfill();
+    notifyOpenCheckinChanged(database, events);
     return reply.code(201).send(snapshotResponseSchema.parse({ snapshot }));
   });
 
@@ -213,7 +217,10 @@ export const snapshotRoutes: FastifyPluginAsync<{
     const snapshot = findSnapshot(database, parsedParams.data.id);
     if (!snapshot) return sendNotFound(reply, 'Snapshot not found.');
     // A snapshot moved to an earlier date may be before the stored rates.
-    if (changed) rates?.requestBackfill();
+    if (changed) {
+      rates?.requestBackfill();
+      notifyOpenCheckinChanged(database, events);
+    }
     return snapshotResponseSchema.parse({ snapshot });
   });
 
@@ -255,6 +262,7 @@ export const snapshotRoutes: FastifyPluginAsync<{
       return true;
     })();
     if (!result) return sendNotFound(reply, 'Snapshot not found.');
+    notifyOpenCheckinChanged(database, events);
     return deleteSnapshotResponseSchema.parse({ deleted: true });
   });
 

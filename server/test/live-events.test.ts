@@ -261,6 +261,100 @@ describe('live events stream', () => {
     expect(reader.signals).toEqual([]);
   });
 
+  it('signals a change to what the open check-in shows, with the id only', async () => {
+    const { checkinId, accountIds } = await openCheckinWith(2);
+    const { reader } = await connect();
+    await reader.until(() => reader.text.includes(': connected'), 'preamble');
+    const [first, second] = accountIds;
+
+    // Each change commits first, then sends exactly one signal.
+    const changes: Array<[string, () => Promise<LightMyRequestResponse>]> = [
+      [
+        'an account is created',
+        () =>
+          api('POST', '/api/accounts', {
+            name: 'Late account',
+            ownerMemberId: 2,
+            type: 'cash',
+            currency: 'EUR',
+          }),
+      ],
+      [
+        'an account is deactivated',
+        () => api('POST', `/api/accounts/${first}/deactivate`),
+      ],
+      [
+        'an account is reactivated',
+        () => api('POST', `/api/accounts/${first}/reactivate`),
+      ],
+      [
+        'an account moves to another member',
+        () => api('PATCH', `/api/accounts/${first}`, { ownerMemberId: 2 }),
+      ],
+      [
+        'an account changes currency',
+        () =>
+          api('POST', `/api/accounts/${first}/currency`, {
+            currency: 'USD',
+            confirm: true,
+          }),
+      ],
+      [
+        'a member is created',
+        () => api('POST', '/api/members', { name: 'Casey' }),
+      ],
+      [
+        'a member is deactivated',
+        () => api('PATCH', '/api/members/2', { active: false }),
+      ],
+      [
+        'a balance is entered outside the check-in',
+        () =>
+          api('POST', `/api/accounts/${second}/snapshots`, {
+            amount: '4242',
+            date: '2020-01-01',
+          }),
+      ],
+    ];
+    let expected = 0;
+    for (const [what, change] of changes) {
+      const response = await change();
+      expect(response.statusCode, what).toBeLessThan(300);
+      expected += 1;
+      await reader.until(
+        () => reader.signals.length === expected,
+        `a signal after ${what}`,
+      );
+    }
+    expect(reader.signals).toEqual(
+      changes.map(() => ({ kind: 'changed', checkinId })),
+    );
+    expect(reader.text).not.toContain('Late account');
+    expect(reader.text).not.toContain('Casey');
+    expect(reader.text).not.toContain('4242');
+  });
+
+  it('sends nothing for such a change when it fails or no check-in is open', async () => {
+    const { checkinId, accountIds } = await openCheckinWith(1);
+    const { reader } = await connect();
+    await reader.until(() => reader.text.includes(': connected'), 'preamble');
+
+    const missing = await api('POST', '/api/accounts/9999/deactivate');
+    expect(missing.statusCode).toBe(404);
+    const invalid = await api('POST', '/api/members', { name: '' });
+    expect(invalid.statusCode).toBe(400);
+
+    await api('POST', `/api/checkins/${checkinId}/close`, {});
+    await reader.until(() => reader.signals.length === 1, 'the closed signal');
+    const afterClose = await api(
+      'POST',
+      `/api/accounts/${accountIds[0]}/deactivate`,
+    );
+    expect(afterClose.statusCode).toBe(200);
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(reader.signals).toEqual([{ kind: 'closed', checkinId }]);
+  });
+
   it('keeps an idle stream open with comments', async () => {
     const { reader } = await connect();
     await reader.until(

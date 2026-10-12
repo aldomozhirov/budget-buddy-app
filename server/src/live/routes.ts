@@ -62,11 +62,18 @@ export const liveRoutes: FastifyPluginAsync<{
       end: finish,
     };
     const timer = setInterval(() => {
-      if (!isSessionLive(database, sessionId, clock.now().getTime())) {
+      // A throw here would escape the timer and crash the process, so any
+      // failure (a write to a socket that just ended, a database error)
+      // ends this stream instead.
+      try {
+        if (!isSessionLive(database, sessionId, clock.now().getTime())) {
+          finish();
+          return;
+        }
+        raw.write(': keep-alive\n\n');
+      } catch {
         finish();
-        return;
       }
-      raw.write(': keep-alive\n\n');
     }, heartbeatMs);
     // A stream never keeps the process (or a test run) alive by itself.
     timer.unref();
@@ -79,5 +86,8 @@ export const liveRoutes: FastifyPluginAsync<{
 
     hub.add(stream);
     raw.on('close', finish);
+    // A client that left while the request was still being authenticated has
+    // already had its `close` event, which this listener missed.
+    if (raw.destroyed) finish();
   });
 };

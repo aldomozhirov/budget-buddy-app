@@ -377,11 +377,12 @@ async function refusedAsClosed(response: Response): Promise<boolean> {
 
 /**
  * Switches to the closed screen after the server said the check-in is closed.
- * No retry is offered: it could not succeed.
+ * No retry is offered: it could not succeed. An ended session goes to sign-in.
  */
 async function showClosedAfterRefusal(round: Checkin): Promise<void> {
   try {
     const response = await fetch(`/api/checkins/${round.id}`);
+    if (await handleUnauthorized(response)) return;
     if (response.ok) {
       const closed = checkinResponseSchema.parse(await response.json()).checkin;
       if (closed.closedAt !== null) {
