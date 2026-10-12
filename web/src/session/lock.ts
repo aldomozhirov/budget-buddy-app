@@ -1,0 +1,246 @@
+import { ref, watch } from 'vue';
+import type { RouteLocationRaw, Router } from 'vue-router';
+import {
+  deviceLockSchema,
+  presenceIntervalMs,
+  presencePath,
+  reopenLockAfterMs,
+} from '@budget-buddy/shared';
+import { isAppPath } from '../push/payload.js';
+import {
+  authState,
+  isLockedAnswer,
+  refreshAuthState,
+  setAuthState,
+  signInReason,
+} from '../stores/auth.js';
+
+/**
+ * The page's side of "sign in again when the app is re-opened" (MEM-7,
+ * SEC-9). The rule itself is the server's: a session whose app has not said
+ * it is in use for more than five minutes is refused. This module is how a
+ * visible page says so, and how it finds out it was refused.
+ */
+
+/** Where the last screen is kept for a sign-in after a fresh load. */
+const lastScreenKey = 'bb.lastScreen';
+
+/**
+ * True once this page has decided the device is locked and shows sign-in.
+ * Route guards read it, because offline the server cannot be asked.
+ */
+export const lockedHere = ref(false);
+
+let router: Router | undefined;
+let timer: ReturnType<typeof setInterval> | undefined;
+let lastAliveAt = Date.now();
+
+/** An in-app path that a sign-in may return to. */
+function isReturnable(path: unknown): path is string {
+  return isAppPath(path) && !/^\/(sign-in|setup|dev)(?:[/?#]|$)/u.test(path);
+}
+
+/**
+ * Checks the `next` query of the sign-in screen and returns the path it
+ * names, or `/` for anything that is not a path inside this app.
+ */
+export function returnPath(value: unknown): string {
+  return isReturnable(value) ? value : '/';
+}
+
+function readLastScreen(): string | null {
+  try {
+    const stored = localStorage.getItem(lastScreenKey);
+    return isReturnable(stored) ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Keeps the screen the member is on, so a fresh load after a lock (a Home
+ * Screen app starts at `/`, not where it was left) can return to it. Home is
+ * the start screen and is not kept.
+ */
+function rememberScreen(): void {
+  if (!router) return;
+  const path = router.currentRoute.value.fullPath;
+  try {
+    if (path !== '/' && isReturnable(path)) {
+      localStorage.setItem(lastScreenKey, path);
+    } else {
+      localStorage.removeItem(lastScreenKey);
+    }
+  } catch {
+    // Without storage the app returns to Home, as a fresh sign-in does.
+  }
+}
+
+/**
+ * Where to send a device that has to sign in, so the sign-in can return it to
+ * `from`. After a lock, a fresh load that landed on `/` returns to the screen
+ * kept when the page was left.
+ */
+export function signInLocation(from: string): RouteLocationRaw {
+  const next =
+    isReturnable(from) && from !== '/'
+      ? from
+      : signInReason.value === 'locked'
+        ? readLastScreen()
+        : null;
+  return next ? { path: '/sign-in', query: { next } } : { path: '/sign-in' };
+}
+
+/**
+ * Sends the page to sign-in after a request answered 401, remembering where
+ * it was. It asks the server why first, so a lock gets its own note.
+ */
+export async function goToSignIn(): Promise<void> {
+  if (!router) return;
+  const here = router.currentRoute.value.fullPath;
+  await refreshAuthState().catch(() => null);
+  setAuthState(null);
+  await router.replace(signInLocation(here));
+}
+
+/** Whether this device asks to sign in again, as the server last said. */
+function lockSetting(): boolean {
+  return authState.value?.device.lockOnReopen !== false;
+}
+
+/** Ends this page's session on screen: it shows sign-in, not the data. */
+async function lock(): Promise<void> {
+  if (!router || lockedHere.value) return;
+  const here = router.currentRoute.value.fullPath;
+  stopTimer();
+  rememberScreen();
+  lockedHere.value = true;
+  signInReason.value = 'locked';
+  setAuthState(null);
+  await router.replace(signInLocation(here));
+}
+
+type Sent = 'ok' | 'locked' | 'failed';
+
+/** Tells the server the app is in use; `awayMs` is how long it was not. */
+async function sendPresence(awayMs: number): Promise<Sent> {
+  try {
+    const response = await fetch(presencePath, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ awayMs }),
+      // The call made as the page is left must not be cancelled with it.
+      keepalive: true,
+    });
+    if (await isLockedAnswer(response)) return 'locked';
+    if (!response.ok) return 'failed';
+    const setting = deviceLockSchema.safeParse(await response.json());
+    const state = authState.value;
+    if (
+      setting.success &&
+      state &&
+      state.device.lockOnReopen !== setting.data.lockOnReopen
+    ) {
+      setAuthState({
+        ...state,
+        device: { ...state.device, lockOnReopen: setting.data.lockOnReopen },
+      });
+    }
+    return 'ok';
+  } catch {
+    return 'failed';
+  }
+}
+
+/**
+ * How long the page was out of the foreground since it last looked, then
+ * marks it alive now. Timers run while the page is visible, so a gap longer
+ * than two beats is time spent hidden, frozen or asleep; a shorter one is
+ * not counted.
+ */
+function takeAway(): number {
+  const now = Date.now();
+  const gap = now - lastAliveAt;
+  lastAliveAt = now;
+  return gap > presenceIntervalMs * 2 ? gap : 0;
+}
+
+/**
+ * Reports being in use and acts on the answer. Offline, where the server
+ * cannot refuse, a page that was away for more than five minutes locks
+ * itself, so the screen does not stay readable for whoever holds the phone.
+ */
+async function report(awayMs: number): Promise<void> {
+  const sent = await sendPresence(awayMs);
+  if (
+    sent === 'locked' ||
+    (sent === 'failed' && awayMs > reopenLockAfterMs && lockSetting())
+  ) {
+    await lock();
+  }
+}
+
+function signedIn(): boolean {
+  return authState.value !== null && !lockedHere.value;
+}
+
+function tick(): void {
+  if (signedIn()) void report(takeAway());
+}
+
+function startTimer(): void {
+  stopTimer();
+  timer = setInterval(tick, presenceIntervalMs);
+}
+
+function stopTimer(): void {
+  if (timer !== undefined) clearInterval(timer);
+  timer = undefined;
+}
+
+function onHidden(): void {
+  if (!signedIn()) return;
+  lastAliveAt = Date.now();
+  stopTimer();
+  rememberScreen();
+  // The last word before the page is gone: the server counts the absence
+  // from here, not from the last beat.
+  void sendPresence(0);
+}
+
+function onVisible(): void {
+  if (!signedIn()) return;
+  void report(takeAway());
+  startTimer();
+}
+
+/**
+ * Starts the presence calls of a signed-in page: every 30 s while visible,
+ * on leaving and returning to the foreground, and when the connection comes
+ * back. Call once, after the router exists.
+ */
+export function installSessionLock(appRouter: Router): void {
+  router = appRouter;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') onHidden();
+    else onVisible();
+  });
+  window.addEventListener('pagehide', onHidden);
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) onVisible();
+  });
+  window.addEventListener('online', tick);
+  watch(
+    authState,
+    (state) => {
+      if (state === null) {
+        stopTimer();
+        return;
+      }
+      lockedHere.value = false;
+      lastAliveAt = Date.now();
+      if (document.visibilityState === 'visible') startTimer();
+    },
+    { flush: 'sync' },
+  );
+}

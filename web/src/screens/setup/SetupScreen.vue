@@ -145,22 +145,14 @@ async function createFamily(): Promise<void> {
       <div class="setup-scroll scroll">
         <div class="setup-content">
           <header class="setup-intro">
-            <h1 class="setup-heading">
-              Set up Budget Buddy
-            </h1>
+            <h1 class="setup-heading">Set up Budget Buddy</h1>
             <p class="setup-copy">
               One password for the whole family, and a profile for each person.
             </p>
           </header>
 
-          <section
-            class="setup-field-group"
-            aria-label="Family password"
-          >
-            <label
-              class="lbl"
-              for="setup-password"
-            >Family password</label>
+          <section class="setup-field-group" aria-label="Family password">
+            <label class="lbl" for="setup-password">Family password</label>
             <input
               id="setup-password"
               v-model="password"
@@ -174,11 +166,8 @@ async function createFamily(): Promise<void> {
                   ? 'setup-password-error'
                   : 'setup-password-hint'
               "
-            >
-            <label
-              class="sr"
-              for="setup-password-confirmation"
-            >
+            />
+            <label class="sr" for="setup-password-confirmation">
               Repeat family password
             </label>
             <input
@@ -194,11 +183,8 @@ async function createFamily(): Promise<void> {
                   ? 'setup-confirmation-error'
                   : undefined
               "
-            >
-            <span
-              id="setup-password-hint"
-              class="setup-hint"
-            >
+            />
+            <span id="setup-password-hint" class="setup-hint">
               Everyone uses it to sign in. A long phrase is easiest.
             </span>
             <span
@@ -206,19 +192,18 @@ async function createFamily(): Promise<void> {
               id="setup-password-error"
               class="setup-error"
               role="alert"
-            >{{ fieldErrors.password }}</span>
+              >{{ fieldErrors.password }}</span
+            >
             <span
               v-if="fieldErrors.passwordConfirmation"
               id="setup-confirmation-error"
               class="setup-error"
               role="alert"
-            >{{ fieldErrors.passwordConfirmation }}</span>
+              >{{ fieldErrors.passwordConfirmation }}</span
+            >
           </section>
 
-          <section
-            class="setup-field-group"
-            aria-label="Profiles"
-          >
+          <section class="setup-field-group" aria-label="Profiles">
             <span class="lbl">Profiles</span>
             <div class="setup-profile-list">
               <div
@@ -226,10 +211,7 @@ async function createFamily(): Promise<void> {
                 :key="profile.id"
                 class="setup-profile-row"
               >
-                <label
-                  class="sr"
-                  :for="`setup-profile-${profile.id}`"
-                >
+                <label class="sr" :for="`setup-profile-${profile.id}`">
                   {{ index === 0 ? 'Your name' : `Profile ${index + 1} name` }}
                 </label>
                 <input
@@ -249,7 +231,7 @@ async function createFamily(): Promise<void> {
                   :aria-describedby="
                     fieldErrors.profiles ? 'setup-profiles-error' : undefined
                   "
-                >
+                />
                 <button
                   v-if="index > 0"
                   class="setup-remove-profile"
@@ -257,10 +239,7 @@ async function createFamily(): Promise<void> {
                   :aria-label="`Remove profile ${index + 1}`"
                   @click="removeProfile(profile.id)"
                 >
-                  <X
-                    :size="18"
-                    aria-hidden="true"
-                  />
+                  <X :size="18" aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -269,12 +248,9 @@ async function createFamily(): Promise<void> {
               id="setup-profiles-error"
               class="setup-error"
               role="alert"
-            >{{ fieldErrors.profiles }}</span>
-            <button
-              class="setup-add-profile"
-              type="button"
-              @click="addProfile"
+              >{{ fieldErrors.profiles }}</span
             >
+            <button class="setup-add-profile" type="button" @click="addProfile">
               + Add a profile
             </button>
             <span class="setup-hint">
@@ -282,44 +258,25 @@ async function createFamily(): Promise<void> {
               later.
             </span>
           </section>
-          <p
-            v-if="formError"
-            class="setup-error"
-            role="alert"
-          >
+          <p v-if="formError" class="setup-error" role="alert">
             {{ formError }}
           </p>
         </div>
       </div>
 
       <div class="setup-footer">
-        <BbButton
-          type="submit"
-          needs-server
-          :disabled="submitting"
-        >
+        <BbButton type="submit" needs-server :disabled="submitting">
           Create
         </BbButton>
       </div>
     </form>
 
-    <div
-      v-else
-      class="setup-flow"
-    >
+    <div v-else class="setup-flow">
       <div class="setup-scroll scroll">
         <div class="setup-content">
-          <h1 class="setup-heading">
-            Next steps
-          </h1>
-          <BbListCard
-            as="section"
-            label="Next steps"
-          >
-            <RouterLink
-              class="row setup-next-link"
-              to="/accounts/new"
-            >
+          <h1 class="setup-heading">Next steps</h1>
+          <BbListCard as="section" label="Next steps">
+            <RouterLink class="row setup-next-link" to="/accounts/new">
               <span class="row-l">Add your accounts</span>
               <ChevronRight
                 class="setup-next-arrow"
@@ -327,10 +284,7 @@ async function createFamily(): Promise<void> {
                 aria-hidden="true"
               />
             </RouterLink>
-            <RouterLink
-              class="row setup-next-link"
-              to="/settings"
-            >
+            <RouterLink class="row setup-next-link" to="/settings">
               <span class="row-l">Pick the check-in schedule</span>
               <ChevronRight
                 class="setup-next-arrow"
@@ -342,10 +296,7 @@ async function createFamily(): Promise<void> {
         </div>
       </div>
       <div class="setup-footer">
-        <RouterLink
-          class="primary setup-home-link"
-          to="/"
-        >
+        <RouterLink class="primary setup-home-link" to="/">
           Later, go to Home
         </RouterLink>
       </div>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { goToSignIn } from '../../session/lock.js';
 import { computed, ref } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import {
@@ -110,7 +111,11 @@ function closedLabel(checkin: Checkin): string {
   if (!series.value || closedTrend(checkin) === undefined) return base;
   const total = closedTotal(checkin);
   const amount =
-    total === null ? 'Rate missing' : totalsVisible.value ? total : 'Amount hidden';
+    total === null
+      ? 'Rate missing'
+      : totalsVisible.value
+        ? total
+        : 'Amount hidden';
   return [base, amount, closedDirection(checkin)].filter(Boolean).join(' · ');
 }
 
@@ -136,7 +141,11 @@ function openingDate(checkin: Checkin): Date | string {
 }
 
 function sinceText(checkin: Checkin): string {
-  const date = formatRecentDate(openingDate(checkin), new Date(), timeZone.value);
+  const date = formatRecentDate(
+    openingDate(checkin),
+    new Date(),
+    timeZone.value,
+  );
   return `Open now · since ${date.toLowerCase()}, ${openingTime(checkin)}`;
 }
 
@@ -171,7 +180,7 @@ function closedSummary(checkin: Checkin): string {
 async function handleUnauthorized(responses: Response[]): Promise<boolean> {
   if (!responses.some((response) => response.status === 401)) return false;
   setAuthState(null);
-  await router.replace('/sign-in');
+  await goToSignIn();
   return true;
 }
 
@@ -179,13 +188,17 @@ async function load(): Promise<void> {
   loading.value = true;
   loadError.value = '';
   try {
-    const [checkinsResponse, settingsResponse, seriesResponse, currenciesResponse] =
-      await Promise.all([
-        fetch('/api/checkins'),
-        fetch('/api/settings'),
-        fetch('/api/wealth/series?view=equivalent&rates=dated'),
-        fetch('/api/currencies'),
-      ]);
+    const [
+      checkinsResponse,
+      settingsResponse,
+      seriesResponse,
+      currenciesResponse,
+    ] = await Promise.all([
+      fetch('/api/checkins'),
+      fetch('/api/settings'),
+      fetch('/api/wealth/series?view=equivalent&rates=dated'),
+      fetch('/api/currencies'),
+    ]);
     if (
       await handleUnauthorized([
         checkinsResponse,
@@ -255,16 +268,12 @@ void load();
 <template>
   <main class="screen app-screen">
     <header class="topbar checkins-topbar">
-      <BbBackButton
-        :label="backLabel"
-        @click="goBack"
-      />
+      <BbBackButton :label="backLabel" @click="goBack" />
       <div class="checkins-heading">
         <h1 class="t-title">Check-ins</h1>
-        <span
-          v-if="!loading && !loadError"
-          class="t-sub"
-        >{{ describeCadence(cadence) }}</span>
+        <span v-if="!loading && !loadError" class="t-sub">{{
+          describeCadence(cadence)
+        }}</span>
       </div>
       <button
         v-if="closedCheckins.length && series"
@@ -279,31 +288,15 @@ void load();
     </header>
 
     <div class="content app-content checkins-content">
-      <p
-        v-if="loading"
-        class="checkins-state"
-        role="status"
-      >
+      <p v-if="loading" class="checkins-state" role="status">
         Loading check-ins…
       </p>
-      <div
-        v-else-if="loadError"
-        class="checkins-state checkins-error-state"
-      >
+      <div v-else-if="loadError" class="checkins-state checkins-error-state">
         <p role="alert">{{ loadError }}</p>
-        <BbButton
-          variant="secondary"
-          @click="load"
-        >
-          Try again
-        </BbButton>
+        <BbButton variant="secondary" @click="load"> Try again </BbButton>
       </div>
       <template v-else>
-        <RouterLink
-          v-if="openCheckin"
-          class="open-checkin-card"
-          to="/check-in"
-        >
+        <RouterLink v-if="openCheckin" class="open-checkin-card" to="/check-in">
           <span class="open-checkin-title">
             <span>{{ sinceText(openCheckin) }}</span>
             <span class="open-checkin-continue">Continue</span>
@@ -312,16 +305,17 @@ void load();
             :value="openCheckin.completedAccounts"
             :max="Math.max(1, openCheckin.totalAccounts)"
             label="Check-in progress"
-            :value-text="accountProgress(openCheckin.completedAccounts, openCheckin.totalAccounts)"
+            :value-text="
+              accountProgress(
+                openCheckin.completedAccounts,
+                openCheckin.totalAccounts,
+              )
+            "
           />
           <span class="open-checkin-meta">{{ openProgressText }}</span>
         </RouterLink>
 
-        <section
-          v-else
-          class="start-checkin"
-          aria-label="Start a check-in"
-        >
+        <section v-else class="start-checkin" aria-label="Start a check-in">
           <BbButton
             needs-server
             :disabled="starting"
@@ -331,11 +325,7 @@ void load();
             {{ starting ? 'Starting…' : 'Start a check-in now' }}
           </BbButton>
           <p>{{ startNote }}</p>
-          <p
-            v-if="startError"
-            class="checkins-error"
-            role="alert"
-          >
+          <p v-if="startError" class="checkins-error" role="alert">
             {{ startError }}
           </p>
         </section>
@@ -344,11 +334,12 @@ void load();
           class="closed-checkins"
           aria-labelledby="closed-checkins-heading"
         >
-          <h2
-            id="closed-checkins-heading"
-            class="section-label"
-          >
-            {{ commonCurrency ? `Closed · family total in ${commonCurrency}` : 'Closed check-ins' }}
+          <h2 id="closed-checkins-heading" class="section-label">
+            {{
+              commonCurrency
+                ? `Closed · family total in ${commonCurrency}`
+                : 'Closed check-ins'
+            }}
           </h2>
           <BbListCard v-if="closedCheckins.length">
             <RouterLink
@@ -359,7 +350,9 @@ void load();
               :aria-label="closedLabel(checkin)"
             >
               <span class="row-l">
-                <span class="closed-checkin-date">{{ closedDate(checkin) }}</span>
+                <span class="closed-checkin-date">{{
+                  closedDate(checkin)
+                }}</span>
                 <span class="t-sub">{{ closedSummary(checkin) }}</span>
               </span>
               <span
@@ -370,7 +363,8 @@ void load();
                 <span
                   v-if="closedTotal(checkin) === null"
                   class="num closed-checkin-amount"
-                >Rate missing</span>
+                  >Rate missing</span
+                >
                 <BbAmount
                   v-else
                   :value="closedTotal(checkin) ?? ''"
@@ -378,23 +372,14 @@ void load();
                   :masked-value="formatter.masked(commonCurrency)"
                   class="closed-checkin-amount"
                 />
-                <span
-                  v-if="closedDirection(checkin)"
-                  class="num t-sub"
-                >{{ closedDirection(checkin) }}</span>
+                <span v-if="closedDirection(checkin)" class="num t-sub">{{
+                  closedDirection(checkin)
+                }}</span>
               </span>
-              <BbIcon
-                name="forward"
-                class="chev"
-              />
+              <BbIcon name="forward" class="chev" />
             </RouterLink>
           </BbListCard>
-          <p
-            v-else
-            class="empty-checkins"
-          >
-            No closed check-ins yet.
-          </p>
+          <p v-else class="empty-checkins">No closed check-ins yet.</p>
         </section>
       </template>
     </div>

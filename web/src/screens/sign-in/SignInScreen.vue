@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import {
   authDeviceResponseSchema,
   signInResponseSchema,
@@ -12,12 +12,23 @@ import BbIcon from '../../components/BbIcon.vue';
 import BbSwitch from '../../components/BbSwitch.vue';
 import { deviceName } from '../../device.js';
 import { signInWithPasskey } from '../../passkey/passkeyClient.js';
-import { authState, refreshAuthState } from '../../stores/auth.js';
+import { returnPath } from '../../session/lock.js';
+import {
+  authState,
+  refreshAuthState,
+  signInReason,
+} from '../../stores/auth.js';
 
 /** Sign-in and profile selection for a family's shared-password account. */
 defineOptions({ name: 'SignInScreen' });
 
 const router = useRouter();
+const route = useRoute();
+/** The screen the member was on when the app locked (validated). */
+const nextPath = returnPath(route.query.next);
+/** Set when the app locked after more than five minutes away (MEM-7). */
+const locked = signInReason.value === 'locked';
+const faceIdButton = ref<{ $el: HTMLElement } | null>(null);
 const password = ref('');
 const passwordVisible = ref(false);
 const submitting = ref(false);
@@ -48,8 +59,38 @@ onMounted(async () => {
     deviceHints.value = authDeviceResponseSchema.parse(await response.json());
   } catch {
     formError.value = 'Could not check this device. Try again.';
+    return;
+  }
+  if (locked && deviceHints.value.hasPasskey && isOnline.value) {
+    await askForFaceIdOnce();
   }
 });
+
+/**
+ * After a lock, asks for Face ID by itself, once. WebKit may refuse a
+ * WebAuthn prompt that no tap started; a refusal looks like a cancel, and
+ * then the button takes focus so that one tap (or Enter) is all it needs.
+ * A cancel is never asked again.
+ */
+async function askForFaceIdOnce(): Promise<void> {
+  // A page that has just come back to the front is not focused for a moment,
+  // and WebKit refuses a prompt from a document that is not.
+  if (!document.hasFocus()) {
+    await new Promise<void>((resolve) => {
+      const done = () => {
+        window.removeEventListener('focus', done);
+        resolve();
+      };
+      window.addEventListener('focus', done);
+      window.setTimeout(done, 1500);
+    });
+  }
+  const signedIn = await useFaceId();
+  if (!signedIn) {
+    await nextTick();
+    faceIdButton.value?.$el.focus();
+  }
+}
 
 onUnmounted(() => {
   if (lockTimer !== undefined) window.clearInterval(lockTimer);
@@ -104,7 +145,7 @@ async function signIn(): Promise<void> {
 async function openSignedInScreen(): Promise<void> {
   const state = await refreshAuthState();
   if (state?.member) {
-    await router.replace('/');
+    await router.replace(nextPath);
   } else if (state) {
     pickerMode.value = true;
     rememberOnDevice.value = true;
@@ -113,9 +154,14 @@ async function openSignedInScreen(): Promise<void> {
   }
 }
 
-/** Signs in with this device's passkey; failures count toward the lockout. */
-async function useFaceId(): Promise<void> {
-  if (faceIdBusy.value || submitting.value || lockSeconds.value > 0) return;
+/**
+ * Signs in with this device's passkey; failures count toward the lockout.
+ * @returns True when it opened a session.
+ */
+async function useFaceId(): Promise<boolean> {
+  if (faceIdBusy.value || submitting.value || lockSeconds.value > 0) {
+    return false;
+  }
   faceIdBusy.value = true;
   passwordError.value = '';
   formError.value = '';
@@ -124,6 +170,7 @@ async function useFaceId(): Promise<void> {
     const result = await signInWithPasskey();
     if (result.ok) {
       await openSignedInScreen();
+      return true;
     } else if (result.reason === 'locked') {
       startLockout(result.retryAfter);
       passwordError.value = `Too many tries. Try again in ${lockSeconds.value} s.`;
@@ -141,6 +188,7 @@ async function useFaceId(): Promise<void> {
   } finally {
     faceIdBusy.value = false;
   }
+  return false;
 }
 
 async function chooseProfile(profile: AuthMember): Promise<void> {
@@ -161,7 +209,7 @@ async function chooseProfile(profile: AuthMember): Promise<void> {
       return;
     }
     const state = await refreshAuthState();
-    if (state?.member) await router.replace('/');
+    if (state?.member) await router.replace(nextPath);
     else formError.value = 'Choose an active profile to continue.';
   } catch {
     formError.value = 'Could not open that profile. Check your connection.';
@@ -189,29 +237,22 @@ function startLockout(seconds: number): void {
 <template>
   <main class="screen auth-screen">
     <div class="auth-brand">
-      <span
-        class="auth-mark"
-        aria-hidden="true"
-      >
-        <BbIcon
-          name="wallet"
-          :size="34"
-          :stroke-width="1.8"
-        />
+      <span class="auth-mark" aria-hidden="true">
+        <BbIcon name="wallet" :size="34" :stroke-width="1.8" />
       </span>
       <h1>Budget Buddy</h1>
     </div>
 
-    <form
-      v-if="!pickerMode"
-      class="auth-form"
-      @submit.prevent="signIn"
-    >
+    <form v-if="!pickerMode" class="auth-form" @submit.prevent="signIn">
+      <p v-if="locked" class="t-sub auth-device-copy" role="status">
+        {{
+          isOnline
+            ? 'Locked after more than 5 minutes away.'
+            : 'Locked after more than 5 minutes away. Connect to sign in.'
+        }}
+      </p>
       <div class="input-wrap">
-        <label
-          class="visually-hidden"
-          for="family-password"
-        >
+        <label class="visually-hidden" for="family-password">
           Family password
         </label>
         <input
@@ -229,7 +270,7 @@ function startLockout(seconds: number): void {
             passwordError = '';
             shakePassword = false;
           "
-        >
+        />
         <button
           class="input-btn"
           type="button"
@@ -239,18 +280,10 @@ function startLockout(seconds: number): void {
           <BbIcon :name="passwordVisible ? 'eye-off' : 'eye'" />
         </button>
       </div>
-      <p
-        id="password-error"
-        class="error auth-error"
-        role="alert"
-      >
+      <p id="password-error" class="error auth-error" role="alert">
         {{ passwordError }}
       </p>
-      <p
-        v-if="formError"
-        class="error auth-error"
-        role="alert"
-      >
+      <p v-if="formError" class="error auth-error" role="alert">
         {{ formError }}
       </p>
       <BbButton
@@ -262,6 +295,7 @@ function startLockout(seconds: number): void {
       </BbButton>
       <BbButton
         v-if="deviceHints.hasPasskey"
+        ref="faceIdButton"
         variant="secondary"
         type="button"
         needs-server
@@ -271,10 +305,7 @@ function startLockout(seconds: number): void {
         <BbIcon name="faceid" />
         Use Face ID
       </BbButton>
-      <p
-        v-if="openAs"
-        class="t-sub auth-device-copy"
-      >
+      <p v-if="openAs" class="t-sub auth-device-copy">
         {{ openAs }}
       </p>
       <BbButton
@@ -285,10 +316,7 @@ function startLockout(seconds: number): void {
       >
         Forgot password?
       </BbButton>
-      <p
-        v-if="forgotPasswordOpen"
-        class="t-sub auth-forgot-copy"
-      >
+      <p v-if="forgotPasswordOpen" class="t-sub auth-forgot-copy">
         Anyone in the family who is still signed in can set a new one in
         Settings → Family password. If nobody is, reset it on the Mac mini as
         the README describes.
@@ -300,10 +328,7 @@ function startLockout(seconds: number): void {
       class="auth-form auth-picker"
       aria-labelledby="profile-picker-heading"
     >
-      <h2
-        id="profile-picker-heading"
-        class="auth-picker-heading"
-      >
+      <h2 id="profile-picker-heading" class="auth-picker-heading">
         Who’s using {{ deviceLabel }}?
       </h2>
       <p class="auth-picker-copy">
@@ -324,24 +349,14 @@ function startLockout(seconds: number): void {
           :disabled="selectingProfile !== null || !isOnline"
           @click="chooseProfile(profile)"
         >
-          <span
-            class="auth-avatar"
-            aria-hidden="true"
-          >{{
+          <span class="auth-avatar" aria-hidden="true">{{
             profile.name.slice(0, 1).toLocaleUpperCase()
           }}</span>
           <span class="auth-profile-name">{{ profile.name }}</span>
-          <span
-            v-if="selectingProfile === profile.id"
-            class="visually-hidden"
-          >
+          <span v-if="selectingProfile === profile.id" class="visually-hidden">
             Opening
           </span>
-          <BbIcon
-            name="forward"
-            class="auth-profile-chevron"
-            :size="18"
-          />
+          <BbIcon name="forward" class="auth-profile-chevron" :size="18" />
         </button>
       </div>
       <div class="auth-remember-row">
@@ -355,11 +370,7 @@ function startLockout(seconds: number): void {
           :disabled="selectingProfile !== null"
         />
       </div>
-      <p
-        v-if="formError"
-        class="error auth-error"
-        role="alert"
-      >
+      <p v-if="formError" class="error auth-error" role="alert">
         {{ formError }}
       </p>
     </section>

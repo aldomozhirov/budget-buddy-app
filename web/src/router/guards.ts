@@ -1,5 +1,6 @@
 import type { Router } from 'vue-router';
 import { isOnline } from '../composables/useOnline.js';
+import { lockedHere, signInLocation } from '../session/lock.js';
 import { refreshAuthState } from '../stores/auth.js';
 
 let setupNeeded: boolean | undefined;
@@ -24,6 +25,12 @@ export function installRouteGuards(router: Router): void {
   router.beforeEach(async (to) => {
     if (to.name === 'ComponentsGallery') return;
 
+    // A page that decided the device is locked (offline, where the server
+    // cannot be asked) opens nothing but sign-in, also for a notification tap.
+    if (lockedHere.value && to.path !== '/sign-in') {
+      return signInLocation(to.fullPath);
+    }
+
     if (setupNeeded === undefined) {
       try {
         const response = await fetch('/api/setup');
@@ -33,7 +40,7 @@ export function installRouteGuards(router: Router): void {
       } catch {
         if (openOffline()) return;
         if (to.path === '/sign-in') return;
-        return { name: 'SignIn' };
+        return signInLocation(to.fullPath);
       }
     }
 
@@ -48,11 +55,11 @@ export function installRouteGuards(router: Router): void {
     } catch {
       if (openOffline()) return;
       if (to.path === '/sign-in') return;
-      return { name: 'SignIn' };
+      return signInLocation(to.fullPath);
     }
 
     if (!state || !state.member) {
-      if (to.path !== '/sign-in') return { name: 'SignIn' };
+      if (to.path !== '/sign-in') return signInLocation(to.fullPath);
       return;
     }
 

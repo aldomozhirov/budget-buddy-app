@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { goToSignIn } from '../../session/lock.js';
 import { computed, onMounted, ref, watch } from 'vue';
-import { RouterLink, useRouter } from 'vue-router';
+import { RouterLink } from 'vue-router';
 import {
   accountsResponseSchema,
   currenciesResponseSchema,
@@ -36,7 +37,6 @@ const ACCOUNT_TYPES = [
   { label: 'Money owed to us', value: 'owed_to_us' },
 ] as const;
 
-const router = useRouter();
 const { label: backLabel, goBack } = useBack();
 const currentMemberId = computed(() => authState.value?.member?.id ?? null);
 const members = ref<ManagedMember[]>([]);
@@ -137,7 +137,7 @@ async function loadAccounts(): Promise<void> {
     const response = await fetch(`/api/accounts${query}`);
     if (response.status === 401) {
       setAuthState(null);
-      await router.replace('/sign-in');
+      await goToSignIn();
       return;
     }
     if (!response.ok) throw new Error('Could not load accounts. Try again.');
@@ -170,7 +170,7 @@ async function loadOptions(): Promise<void> {
       )
     ) {
       setAuthState(null);
-      await router.replace('/sign-in');
+      await goToSignIn();
       return;
     }
     if (!memberResponse.ok || !currencyResponse.ok || !settingsResponse.ok) {

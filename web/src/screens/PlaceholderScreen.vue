@@ -13,10 +13,7 @@ const { label, goBack } = useBack();
 <template>
   <main class="screen app-screen">
     <header class="topbar">
-      <BbBackButton
-        :label="label"
-        @click="goBack"
-      />
+      <BbBackButton :label="label" @click="goBack" />
       <h1 class="t-title">
         {{ title }}
       </h1>

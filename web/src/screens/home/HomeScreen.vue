@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { goToSignIn } from '../../session/lock.js';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { RouterLink, useRouter } from 'vue-router';
+import { RouterLink } from 'vue-router';
 import {
   currenciesResponseSchema,
   formatDate,
@@ -31,7 +32,6 @@ defineOptions({ name: 'HomeScreen' });
 /** How long the eye keeps amounts visible (UI-HOME-3). */
 const REVEAL_MS = 30_000;
 
-const router = useRouter();
 const profileSheetOpen = ref(false);
 const profileName = computed(() => authState.value?.member?.name ?? '');
 const home = ref<HomeResponse | null>(null);
@@ -189,7 +189,7 @@ async function load(): Promise<void> {
     ]);
     if (homeResponse.status === 401 || currenciesResponse.status === 401) {
       setAuthState(null);
-      await router.replace('/sign-in');
+      await goToSignIn();
       return;
     }
     if (!homeResponse.ok) throw new Error('Could not load Home.');

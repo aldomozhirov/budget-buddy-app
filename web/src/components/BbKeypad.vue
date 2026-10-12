@@ -45,11 +45,7 @@ const keys: readonly {
 </script>
 
 <template>
-  <div
-    class="keypad"
-    role="group"
-    aria-label="Amount keypad"
-  >
+  <div class="keypad" role="group" aria-label="Amount keypad">
     <button
       v-for="key in keys"
       :key="key.value"
