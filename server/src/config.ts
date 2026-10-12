@@ -21,16 +21,21 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
   DATA_DIR: z.string().min(1).optional(),
   BACKUP_DIR: z.string().min(1).optional(),
-  // Contact for the push services (a `mailto:` or `https:` URL).
-  VAPID_SUBJECT: z
-    .string()
-    .refine(
-      (value) => /^(mailto:[^\s@]+@[^\s@]+|https:\/\/[^\s/]+.*)$/u.test(value),
-      {
-        message: 'VAPID_SUBJECT must be a mailto: or https: URL.',
-      },
-    )
-    .optional(),
+  // Contact for the push services (a `mailto:` or `https:` URL). Empty counts
+  // as unset, since compose passes an empty value for a setting left out.
+  VAPID_SUBJECT: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z
+      .string()
+      .refine(
+        (value) =>
+          /^(mailto:[^\s@]+@[^\s@]+|https:\/\/[^\s/]+.*)$/u.test(value),
+        {
+          message: 'VAPID_SUBJECT must be a mailto: or https: URL.',
+        },
+      )
+      .optional(),
+  ),
   // Hosts a push may be sent to, separated by commas; `*.x` matches below x.
   PUSH_ALLOWED_HOSTS: z
     .string()

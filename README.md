@@ -4,8 +4,209 @@ A family budget and net worth tracker that runs on one Mac mini and is reached
 only through Tailscale. Requirements are in `docs/requirements.md`, the plan in
 `docs/specs/`, and the commands for developing it in `AGENTS.md`.
 
-Installing and updating the app is described here once `compose.yaml` exists
-(task 30 of `docs/specs/01-foundation-and-wealth.md`).
+This file is for the person who runs it on the Mac mini. Commands marked
+**not run** were written without access to Tailscale and have not been tried;
+every other command here was run as it is shown.
+
+- [Requirements](#requirements)
+- [Host preparation](#host-preparation)
+- [First install](#first-install)
+- [Tailscale Serve](#tailscale-serve)
+- [Add it to the iPhone Home Screen](#add-it-to-the-iphone-home-screen)
+- [Update](#update)
+- [Restore](#restore)
+- [Reset the family password](#reset-the-family-password)
+- [Settings](#settings)
+- [Day to day and troubleshooting](#day-to-day-and-troubleshooting)
+
+## Requirements
+
+- A Mac mini with Apple silicon. The image is built for `linux/arm64`, which
+  is what Docker builds there.
+- Rancher Desktop with the `moby` container engine, running. It puts
+  `docker` and `docker compose` in `~/.rd/bin`; make sure that folder is on
+  your `PATH`.
+- Git, to fetch and update the code, and `curl`.
+- Tailscale on the Mac mini and on every phone and tablet of the family.
+- A folder for the live app that holds its own clone of this repository, not
+  the one used for development. Everything below is run in that folder.
+
+The app has no other dependency. The Node version, the packages and the build
+are all inside the image, which is built from `Dockerfile`.
+
+## Host preparation
+
+From `docs/requirements.md` section 10.3. The Mac mini never sleeps and
+restarts after a power failure, and automatic login is on (done on
+2026-10-05; FileVault is off as a result, so anyone with physical access to
+the Mac can read the data). Still to do, by the owner:
+
+1. Make Rancher Desktop start at login (Rancher Desktop → Preferences →
+   Application → Behavior), so the app comes back after a restart with nobody
+   at the keyboard. The container itself restarts by itself
+   (`restart: unless-stopped`).
+2. Make LM Studio, with its local server, start at login. The app does not
+   use it yet (a later spec does).
+3. In the Tailscale admin console, enable MagicDNS and HTTPS certificates for
+   the tailnet. Tailscale publishes the machine's host name in public
+   certificate logs, so give the Mac mini a neutral name first.
+4. Install Tailscale on every family phone and tablet and join them to the
+   same tailnet.
+
+## First install
+
+Run these in the folder of the live clone.
+
+1. Copy the settings and fill in the address:
+
+   ```sh
+   cp .env.example .env
+   ```
+
+   Open `.env` and set `APP_ORIGIN` to the https address Tailscale Serve will
+   give the app, `https://<host>.<tailnet>.ts.net` (the Mac mini's name and
+   the tailnet's name, shown in the Tailscale menu; no path, no port). Leave
+   `HOST_PORT` commented out unless 8080 is taken. The
+   address matters: the app only accepts changes sent from it, Face ID is tied
+   to it, and the push services see it as the contact. If it changes later,
+   see [Settings](#settings).
+
+2. Tell the container which user owns the data folders, so it can write them
+   and you can still move and delete what it makes:
+
+   ```sh
+   printf 'BB_UID=%s\nBB_GID=%s\n' "$(id -u)" "$(id -g)" >> .env
+   ```
+
+3. Make the two folders that hold everything the app keeps, as yourself.
+   Docker would otherwise create them as root:
+
+   ```sh
+   mkdir data backups
+   ```
+
+4. Build the image and start the app:
+
+   ```sh
+   docker compose build
+   docker compose up -d
+   ```
+
+   The first build takes a few minutes. Later ones reuse what has not changed.
+
+5. Check that it answers (it should within a few seconds; `docker compose ps`
+   then shows `healthy` after the first health check):
+
+   ```sh
+   curl -fsS http://127.0.0.1:8080/api/health
+   ```
+
+   The answer is `{"status":"ok","migrationVersion":...,"appVersion":...}`.
+
+The app now runs, but only on the Mac mini itself: the port is bound to
+`127.0.0.1` (requirements DEP-6). To see that it is not reachable from the
+network, ask for it by the Mac's address on the local network; the request
+must be refused:
+
+```sh
+curl -sS -m 5 "http://$(ipconfig getifaddr en0):8080/api/health"
+```
+
+(`en0` is Wi-Fi on a Mac mini; use `en1` for Ethernet on some models.) Keep it
+that way: never change the port line in `compose.yaml` to `8080:8080` or
+`0.0.0.0:8080:8080`, which would publish the app to the whole network.
+
+Everything the app keeps is in the two folders: `data/` (the database, the
+images and the keys it makes) and `backups/`. The container can be deleted and
+recreated without losing anything (`docker compose down` and
+`docker compose up -d`). Both folders are ignored by Git; keep them out of any
+other synced folder too.
+
+## Tailscale Serve
+
+Tailscale Serve gives the app its https address inside the tailnet and
+forwards it to the port on `127.0.0.1`. Tailscale Funnel, which opens an
+address to the whole internet, is not used and must stay off.
+
+**Not run** (needs Tailscale on the Mac mini and the owner; the result goes
+into the spec's "Trial results"):
+
+1. Check that Tailscale on the Mac mini is signed in and connected, and that
+   MagicDNS and HTTPS certificates are on (see Host preparation).
+2. Start Serve in the background, forwarding to the app:
+
+   ```sh
+   tailscale serve --bg 127.0.0.1:8080
+   ```
+
+   If your Tailscale version rejects that form, `tailscale serve --help`
+   shows the current one; the target is always `http://127.0.0.1:8080`.
+   When Serve asks you to enable HTTPS certificates for the tailnet, agree.
+
+3. See what is being served:
+
+   ```sh
+   tailscale serve status
+   ```
+
+   It should list one https address, `https://<host>.<tailnet>.ts.net`,
+   proxying to `http://127.0.0.1:8080`. That address must equal `APP_ORIGIN`
+   in `.env`. If it does not, fix `.env` and run
+   `docker compose up -d` again so the app picks it up.
+
+4. Check that Funnel is off:
+
+   ```sh
+   tailscale funnel status
+   ```
+
+   It must show nothing being served to the internet.
+
+5. On an iPhone with Tailscale on, open `https://<host>.<tailnet>.ts.net` in
+   Safari. The first start screen appears. Then, with Tailscale turned off on
+   the phone (on the home Wi-Fi), the same address must not open. Both belong
+   in the trial record.
+
+To stop serving: `tailscale serve reset` (**not run**).
+
+## Add it to the iPhone Home Screen
+
+Open the app's https address in Safari on the phone, in the tailnet, and:
+
+1. First start: choose the family password (at least 10 characters) and the
+   profiles. The next family members just open the address and sign in with
+   the password and their profile.
+2. Tap the Share button, then **Add to Home Screen**, then **Add**. On an
+   iPad it is the same. Open the app from its icon from now on: it runs
+   without the browser's bars and works on the Home Screen only.
+3. Turn notifications on from the installed app (Settings → This device →
+   Notifications), tap the switch, read the explanation and allow them when
+   iPhone asks. They **cannot** be turned on in a Safari tab or with
+   `pnpm dev`: iOS only allows web push for an app on the Home Screen, and
+   the row says "Add Budget Buddy to your Home Screen to turn this on" until
+   then. Each device turns them on for itself. Without them everything still
+   works; the banner on Home is the reminder.
+4. Optional: Settings → Sign-in → **Unlock with Face ID**. It belongs to
+   this device and to the address in `APP_ORIGIN`.
+
+## Update
+
+In the folder of the live clone:
+
+```sh
+git pull --ff-only
+docker compose build
+docker compose up -d
+```
+
+`up -d` replaces the container only when the image changed. The database is
+migrated when the new version starts, after a copy named
+`backups/pre_migration-<time>.sqlite` has been taken; a migration that fails
+stops the start and leaves the data as it was. Check the result with
+`docker compose ps` and the health request of the first install. If the new
+version is wrong, `git checkout` the previous version, build again and, if the
+data was changed by a migration, [restore](#restore) the copy that was taken
+before it.
 
 ## Restore
 
@@ -43,22 +244,28 @@ It does these steps, and stops at the first that fails:
    never be replayed onto the restored file.
 4. Copies the backup in as `data/budget-buddy.sqlite`.
 5. Copies back the images the data folder is missing, without overwriting any.
-6. Starts the app and waits for `/api/health`.
+6. Starts the app and waits for `/api/health` on the port Docker published.
+
+Steps 3 to 5 run in a short-lived container of the app, not on the Mac itself:
+the app sees `data/` through Docker's virtual machine, which on a Mac does not
+always notice at once that the host swapped a file, and the app could then
+start on the old database. Moving the files from inside gives the app and the
+script the same view.
 
 If a step after the move fails, the old database is put back and the app is
 started again. When you are happy with the restored data you can delete
 `data/before-restore-<time>-<number>/`.
 
-To restore into a fresh install, install the app first, open it once so the
-data folder exists, then run the command above. Restoring replaces everything
+To restore into a fresh install, install the app first (the app has to be
+running once so `data/` exists), then run the command above. Restoring replaces everything
 in the database, including the sessions: a device that signed in after the
 backup was taken has to sign in again, with the family password of that time.
 Push notifications use keys that live in `data/keys/`, outside the backups; on
 a fresh install the devices turn notifications on again in Settings.
 
 If `docker compose` is not how you run the app, set `BB_DATA_DIR`,
-`BB_BACKUP_DIR`, `BB_VERIFY`, `BB_STOP` and `BB_START` as the comments at the
-top of `scripts/restore.sh` describe.
+`BB_BACKUP_DIR`, `BB_VERIFY`, `BB_FILES`, `BB_UNDO`, `BB_STOP` and `BB_START` as
+the comments at the top of `scripts/restore.sh` describe.
 
 ### Test the restore
 
@@ -80,3 +287,67 @@ accounts, snapshots, snapshot revisions, check-ins, rates, coins and settings.
 Amounts are written as exact decimals with a currency column, and times are in
 UTC. The export holds no password, session, passkey or notification keys. It is
 for reading the data elsewhere, not for restoring: use a backup for that.
+
+## Reset the family password
+
+If nobody is signed in who can change it in Settings → Family password, set a
+new one on the Mac mini, in the folder of the live clone:
+
+```sh
+docker compose exec app node server/dist/cli.js reset-password
+```
+
+It asks for the new password twice, with nothing shown while you type (at
+least 10 characters), and never takes it as an argument, so it stays out of the
+shell history and the process list. It works while the app is running. It
+then:
+
+- sets the new family password and clears a sign-in lockout,
+- signs out every device, so each one asks for the new password,
+- deletes all Face ID passkeys (each device turns Face ID on again after it
+  signs in), and
+- deletes all notification subscriptions (each device turns notifications on
+  again in Settings).
+
+Profiles, accounts and all the data stay. It prints how many of each it
+removed, and nothing else about the password.
+
+## Settings
+
+All settings are in `.env`, next to `compose.yaml`; `.env.example` lists every
+one with its meaning. After a change, run `docker compose up -d`.
+
+| Setting              | Meaning                                                                                                                                                                                                |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `APP_ORIGIN`         | The https address of the app (see First install). The first address is also the Face ID relying party. If it changes, each device turns Face ID off and on again (the password still works). Required. |
+| `BB_UID`, `BB_GID`   | The user and group the app runs as, so the folders `data/` and `backups/` stay yours. Set in First install step 2.                                                                                     |
+| `HOST_PORT`          | The port on the Mac mini, on `127.0.0.1` only. Default 8080. Tailscale Serve must forward to the same port.                                                                                            |
+| `RATES_FEED`         | Left out in the container: the real price feeds (ECB, Bank of Russia, Coinbase). `fixture` gives made-up rates, for trying the app offline.                                                            |
+| `VAPID_SUBJECT`      | Left out: the app's https address is the contact the push service sees. Set a `mailto:` or `https:` URL only if Apple's push service refuses the default.                                              |
+| `PUSH_ALLOWED_HOSTS` | Leave at its default, Apple's push service, the only place the app may send a push (requirement SEC-8).                                                                                                |
+
+The time zone is not set here. It is a setting in the app (default
+Europe/Berlin) and governs "today", the schedule and the nightly backup.
+
+## Day to day and troubleshooting
+
+```sh
+docker compose ps
+docker compose logs --tail 50 app
+docker compose stop
+docker compose up -d
+```
+
+- **It does not start and `docker compose logs` says the data (or backups)
+  folder "cannot be written by the app".** The folder belongs to someone else
+  than `BB_UID`/`BB_GID`. Make the folders as yourself (First install step 3)
+  and set both variables (step 2), or change the owner of the folders to the
+  user in the message.
+- **Port 8080 is in use.** Set `HOST_PORT` in `.env` to a free port, run
+  `docker compose up -d`, and give Tailscale Serve the same port.
+- **`docker: command not found`.** Rancher Desktop is not running, or
+  `~/.rd/bin` is not on the `PATH`.
+- **After a restart of the Mac the app is down.** Rancher Desktop must start
+  at login (Host preparation 1); the container then starts by itself.
+- **The data.** `data/` holds `budget-buddy.sqlite` and the keys; copy
+  `backups/` somewhere else too, since a disk failure takes both.

@@ -1,9 +1,9 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import type { FastifyPluginAsync } from 'fastify';
-import { Algorithm, hash } from '@node-rs/argon2';
 import { z } from 'zod';
 import { systemClock, type Clock } from '../../clock.js';
+import { hashFamilyPassword } from '../family/password.js';
 
 const setupBodySchema = z
   .object({
@@ -73,12 +73,7 @@ export const setupRoutes: FastifyPluginAsync<{
         });
       }
 
-      const passwordHash = await hash(parsed.data.password, {
-        algorithm: Algorithm.Argon2id,
-        memoryCost: 19_456,
-        timeCost: 2,
-        parallelism: 1,
-      });
+      const passwordHash = await hashFamilyPassword(parsed.data.password);
       const now = clock.now().getTime();
       const deviceId = randomBytes(16).toString('hex');
       const sessionToken = randomBytes(32).toString('base64url');

@@ -127,9 +127,15 @@ printf 'stale write-ahead log' > "$tmp/b/data/budget-buddy.sqlite-wal"
 old_checksum="$(shasum "$tmp/b/data/budget-buddy.sqlite" | cut -d' ' -f1)"
 
 verify_in_image="docker run --rm --entrypoint node -v \"\$BB_FILE:/restore/in.sqlite:ro\" $image server/dist/verifyBackup.js /restore/in.sqlite"
+# The file steps run in a container too, as they do with compose: the same
+# restore-files.sh, with the data and backups folders mounted.
+files_in_image() {
+  echo "docker run --rm --entrypoint bash -e BB_FILES_ASIDE -v \"$tmp/b/data:/data\" -v \"$tmp/b/backups:/backups\" -v \"\$BB_FILE:/restore/in.sqlite:ro\" -v \"$PWD/scripts/restore-files.sh:/restore/files.sh:ro\" $image /restore/files.sh $1"
+}
 run_restore() {
   BB_DATA_DIR="$tmp/b/data" BB_BACKUP_DIR="$tmp/b/backups" \
   BB_VERIFY="$verify_in_image" BB_STOP="docker stop $second" \
+  BB_FILES="$(files_in_image swap)" BB_UNDO="$(files_in_image undo)" \
   BB_START="docker start $second" BB_HEALTH_URL="$url_b/api/health" \
   scripts/restore.sh "$1"
 }

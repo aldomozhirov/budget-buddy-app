@@ -1,0 +1,66 @@
+# Budget Buddy on the Mac mini (DEP-1). Read README.md before the first start.
+#
+#   docker compose up -d
+#
+# The app listens on 127.0.0.1 only (DEP-6): Tailscale Serve on the host adds
+# HTTPS and forwards to it. Everything it keeps is in ./data and ./backups.
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    # The app runs as a non-root user: the owner of ./data and ./backups on
+    # the host (set BB_UID and BB_GID in .env, see the README), so it can write
+    # them and the host user can still move and delete what it makes. 1000 is
+    # the image's own `node` user.
+    user: '${BB_UID:-1000}:${BB_GID:-1000}'
+    ports:
+      # Loopback only. Never write "8080:8080" or "0.0.0.0:8080:8080": that
+      # would open the app to the whole local network. HOST_PORT is not PORT,
+      # which `pnpm dev` uses for its own server.
+      - '127.0.0.1:${HOST_PORT:-8080}:8080'
+    volumes:
+      - ./data:/data
+      - ./backups:/backups
+    environment:
+      # The container's own settings are fixed here, so a .env made for
+      # development (HOST, PORT, DATA_DIR) cannot break it.
+      HOST: 0.0.0.0
+      PORT: '8080'
+      DATA_DIR: /data
+      BACKUP_DIR: /backups
+      # The https address of the app, e.g. https://<host>.<tailnet>.ts.net. It
+      # is also the Face ID relying party and the push contact.
+      APP_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN in .env (see .env.example)}
+      # Real price feeds. Set RATES_FEED=fixture in .env to trial offline.
+      RATES_FEED: ${RATES_FEED:-live}
+      # Optional. Empty values fall back to the app's own defaults.
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+      PUSH_ALLOWED_HOSTS: ${PUSH_ALLOWED_HOSTS:-*.push.apple.com}
+      # TZ is not set: the family's time zone is a setting of the app (DEP-9).
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8080/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    # Without a limit the log file grows until the disk is full.
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+
+  # Optional parts, such as the bank connectors of a later spec, are separate
+  # services here and are off by default (DEP-10): a profile keeps a service
+  # out of `docker compose up -d` until it is asked for with
+  # `docker compose --profile connectors up -d`. Nothing is defined yet.
+  #
+  # connector-example:
+  #   profiles: ['connectors']
+  #   build: ./connectors/example
+  #   restart: unless-stopped
+  #   env_file: ./connectors/example/.env
