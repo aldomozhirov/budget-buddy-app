@@ -8,6 +8,7 @@ This file is for the person who runs it on the Mac mini. Commands marked
 **not run** were written without access to Tailscale and have not been tried;
 every other command here was run as it is shown.
 
+- [One folder, two sets of settings](#one-folder-two-sets-of-settings)
 - [Requirements](#requirements)
 - [Host preparation](#host-preparation)
 - [First install](#first-install)
@@ -19,6 +20,34 @@ every other command here was run as it is shown.
 - [Settings](#settings)
 - [Day to day and troubleshooting](#day-to-day-and-troubleshooting)
 
+## One folder, two sets of settings
+
+> **The family's data is in `./data` and `./backups` of this folder.** Nothing
+> else holds it except the copies you make elsewhere. In this folder, never
+> run `docker compose down -v`, `git clean -x` (or `-fdx`: it deletes ignored
+> files, and both folders are ignored), `rm -rf data backups`, or
+> `docker compose -p <another name> up`, which would start a second container
+> on the same data. Do not point `pnpm dev` at them (`DATA_DIR`). Tests that
+> start containers use their own project name, a free port and temporary
+> folders in a different place, as `scripts/restore-test.sh` does.
+
+Two things run from the same checkout and the same `.env`:
+
+|                   | `pnpm dev` (development)                                                                                                     | `docker compose` (the family's app)                                                                                                                     |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reads from `.env` | the plain names: `APP_ORIGIN`, `HOST`, `PORT`, `DATA_DIR`, `BACKUP_DIR`, `RATES_FEED`, `VAPID_SUBJECT`, `PUSH_ALLOWED_HOSTS` | only the names that start with `BB_`: `BB_APP_ORIGIN`, `BB_UID`, `BB_GID`, `BB_HOST_PORT`, `BB_RATES_FEED`, `BB_VAPID_SUBJECT`, `BB_PUSH_ALLOWED_HOSTS` |
+| Address           | `http://127.0.0.1:5173` (the web app), API on port 3000                                                                      | `https://<host>.<tailnet>.ts.net` through Tailscale Serve, forwarded from `127.0.0.1:8080`                                                              |
+| Data              | `.data` and `.backups`                                                                                                       | `./data` and `./backups`                                                                                                                                |
+| Rates             | made-up (fixture)                                                                                                            | the real feeds                                                                                                                                          |
+
+`compose.yaml` fixes the container's own `HOST`, `PORT`, `DATA_DIR` and
+`BACKUP_DIR`, and takes its address from `BB_APP_ORIGIN` only, so the
+development address can never reach the container and the container's address
+can never reach `pnpm dev`. Without `BB_APP_ORIGIN`, any `docker compose`
+command stops with "BB_APP_ORIGIN is not set" and no container is started.
+Every change merged to `main` reaches the container by itself (see
+[Update](#update)).
+
 ## Requirements
 
 - A Mac mini with Apple silicon. The image is built for `linux/arm64`, which
@@ -28,8 +57,10 @@ every other command here was run as it is shown.
   your `PATH`.
 - Git, to fetch and update the code, and `curl`.
 - Tailscale on the Mac mini and on every phone and tablet of the family.
-- A folder for the live app that holds its own clone of this repository, not
-  the one used for development. Everything below is run in that folder.
+- The development checkout of this repository on the Mac mini
+  (`/Users/aldom/Projects/budget-buddy-app`). The family's app runs from this
+  same folder, next to `pnpm dev`, and every command below is run in it. There
+  is no second clone.
 
 The app has no other dependency. The Node version, the packages and the build
 are all inside the image, which is built from `Dockerfile`.
@@ -55,7 +86,7 @@ the Mac can read the data). Still to do, by the owner:
 
 ## First install
 
-Run these in the folder of the live clone.
+Run these in the development checkout (the folder with `compose.yaml`).
 
 1. Copy the settings and fill in the address:
 
@@ -63,10 +94,14 @@ Run these in the folder of the live clone.
    cp .env.example .env
    ```
 
-   Open `.env` and set `APP_ORIGIN` to the https address Tailscale Serve will
-   give the app, `https://<host>.<tailnet>.ts.net` (the Mac mini's name and
-   the tailnet's name, shown in the Tailscale menu; no path, no port). Leave
-   `HOST_PORT` commented out unless 8080 is taken. The
+   If you already have a `.env` for `pnpm dev`, keep it and only add the lines
+   below: its plain names are `pnpm dev`'s and are not read by the container.
+   Open `.env`, remove the `#` before `BB_APP_ORIGIN` and set it to the https
+   address Tailscale Serve will give the app,
+   `https://<host>.<tailnet>.ts.net` (the Mac mini's name and the tailnet's
+   name, shown in the Tailscale menu; no path, no port). Never the
+   development address `APP_ORIGIN=http://127.0.0.1:5173`. Leave
+   `BB_HOST_PORT` commented out unless 8080 is taken. The
    address matters: the app only accepts changes sent from it, Face ID is tied
    to it, and the push services see it as the contact. If it changes later,
    see [Settings](#settings).
@@ -118,9 +153,9 @@ that way: never change the port line in `compose.yaml` to `8080:8080` or
 
 Everything the app keeps is in the two folders: `data/` (the database, the
 images and the keys it makes) and `backups/`. The container can be deleted and
-recreated without losing anything (`docker compose down` and
-`docker compose up -d`). Both folders are ignored by Git; keep them out of any
-other synced folder too.
+recreated without losing anything (`docker compose down`, never with `-v`, and
+`docker compose up -d`). Both folders are ignored by Git, so `git pull` and
+`git checkout` leave them alone; keep them out of any other synced folder too.
 
 ## Tailscale Serve
 
@@ -150,8 +185,8 @@ into the spec's "Trial results"):
    ```
 
    It should list one https address, `https://<host>.<tailnet>.ts.net`,
-   proxying to `http://127.0.0.1:8080`. That address must equal `APP_ORIGIN`
-   in `.env`. If it does not, fix `.env` and run
+   proxying to `http://127.0.0.1:8080`. That address must equal
+   `BB_APP_ORIGIN` in `.env`. If it does not, fix `.env` and run
    `docker compose up -d` again so the app picks it up.
 
 4. Check that Funnel is off:
@@ -187,26 +222,42 @@ Open the app's https address in Safari on the phone, in the tailnet, and:
    then. Each device turns them on for itself. Without them everything still
    works; the banner on Home is the reminder.
 4. Optional: Settings → Sign-in → **Unlock with Face ID**. It belongs to
-   this device and to the address in `APP_ORIGIN`.
+   this device and to the address in `BB_APP_ORIGIN`.
 
 ## Update
 
-In the folder of the live clone:
+Updates happen by themselves. After each pull request is merged to `main`, the
+session that owned it fast-forwards this checkout and runs
+`scripts/deploy.sh`, which rebuilds the image, replaces the container and waits
+until `/api/health` answers `"status":"ok"` with the right `migrationVersion`
+(the number of files in `server/drizzle/`). The family's app shows the change
+a minute or so later. The rules the session follows are in `AGENTS.md`: it
+skips the step and says so when `BB_APP_ORIGIN` is not set or this project has
+no container, it leaves the running container alone when the build fails, and
+it reports (and does nothing else) when the new container does not come up.
+
+To do one by hand, in this folder, with the checkout on `main` and no
+uncommitted changes (the image is built from the working folder):
 
 ```sh
 git pull --ff-only
-docker compose build
-docker compose up -d
+scripts/deploy.sh
 ```
 
-`up -d` replaces the container only when the image changed. The database is
-migrated when the new version starts, after a copy named
-`backups/pre_migration-<time>.sqlite` has been taken; a migration that fails
-stops the start and leaves the data as it was. Check the result with
-`docker compose ps` and the health request of the first install. If the new
-version is wrong, `git checkout` the previous version, build again and, if the
-data was changed by a migration, [restore](#restore) the copy that was taken
-before it.
+The last line starts with `deploy:` and says what happened: `DEPLOYED`,
+`SKIPPED` (nothing is changed), `BUILD FAILED` (the running container was not
+touched) or `UNHEALTHY` (with the last log lines). The same two steps by hand
+are `docker compose build` and `docker compose up -d`; `up -d` replaces the
+container only when the image changed.
+
+The database is migrated when the new version starts, after a copy named
+`backups/pre_migration-<time>.sqlite` has been taken and checked, so a merge
+that carries a migration reaches the family's data with that backup already in
+place; a migration that fails stops the start and leaves the data as it was
+(`deploy.sh` then prints the container's last log lines and exits with 12).
+Nothing rolls back by itself. If the new version is wrong, `git checkout` the
+previous version, run `scripts/deploy.sh` again and, if a migration changed the
+data, [restore](#restore) the copy that was taken before it.
 
 ## Restore
 
@@ -227,7 +278,8 @@ one, and Home warns when it is more than two days old.
 
 ### Restore a backup
 
-Run this on the Mac mini, in the folder that holds `compose.yaml`:
+Run this on the Mac mini, in the development checkout (the folder that holds
+`compose.yaml`):
 
 ```sh
 scripts/restore.sh backups/daily/budget-buddy-2026-10-10.sqlite
@@ -263,7 +315,8 @@ backup was taken has to sign in again, with the family password of that time.
 Push notifications use keys that live in `data/keys/`, outside the backups; on
 a fresh install the devices turn notifications on again in Settings.
 
-If `docker compose` is not how you run the app, set `BB_DATA_DIR`,
+It follows `BB_HOST_PORT` for the health check. If `docker compose` is not how
+you run the app, set `BB_DATA_DIR`,
 `BB_BACKUP_DIR`, `BB_VERIFY`, `BB_FILES`, `BB_UNDO`, `BB_STOP` and `BB_START` as
 the comments at the top of `scripts/restore.sh` describe.
 
@@ -291,7 +344,7 @@ for reading the data elsewhere, not for restoring: use a backup for that.
 ## Reset the family password
 
 If nobody is signed in who can change it in Settings → Family password, set a
-new one on the Mac mini, in the folder of the live clone:
+new one on the Mac mini, in the development checkout:
 
 ```sh
 docker compose exec app node server/dist/cli.js reset-password
@@ -315,16 +368,21 @@ removed, and nothing else about the password.
 ## Settings
 
 All settings are in `.env`, next to `compose.yaml`; `.env.example` lists every
-one with its meaning. After a change, run `docker compose up -d`.
+one with its meaning. The container reads only the `BB_` names (see
+[One folder, two sets of settings](#one-folder-two-sets-of-settings)). After a
+change, run `docker compose up -d`.
 
-| Setting              | Meaning                                                                                                                                                                                                |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `APP_ORIGIN`         | The https address of the app (see First install). The first address is also the Face ID relying party. If it changes, each device turns Face ID off and on again (the password still works). Required. |
-| `BB_UID`, `BB_GID`   | The user and group the app runs as, so the folders `data/` and `backups/` stay yours. Set in First install step 2.                                                                                     |
-| `HOST_PORT`          | The port on the Mac mini, on `127.0.0.1` only. Default 8080. Tailscale Serve must forward to the same port.                                                                                            |
-| `RATES_FEED`         | Left out in the container: the real price feeds (ECB, Bank of Russia, Coinbase). `fixture` gives made-up rates, for trying the app offline.                                                            |
-| `VAPID_SUBJECT`      | Left out: the app's https address is the contact the push service sees. Set a `mailto:` or `https:` URL only if Apple's push service refuses the default.                                              |
-| `PUSH_ALLOWED_HOSTS` | Leave at its default, Apple's push service, the only place the app may send a push (requirement SEC-8).                                                                                                |
+| Setting                 | Meaning                                                                                                                                                                                                |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `BB_APP_ORIGIN`         | The https address of the app (see First install). The first address is also the Face ID relying party. If it changes, each device turns Face ID off and on again (the password still works). Required. |
+| `BB_UID`, `BB_GID`      | The user and group the app runs as, so the folders `data/` and `backups/` stay yours. Set in First install step 2.                                                                                     |
+| `BB_HOST_PORT`          | The port on the Mac mini, on `127.0.0.1` only. Default 8080. Tailscale Serve must forward to the same port.                                                                                            |
+| `BB_RATES_FEED`         | Left out: the real price feeds (ECB, Bank of Russia, Coinbase). `fixture` gives made-up rates, for trying the app offline.                                                                             |
+| `BB_VAPID_SUBJECT`      | Left out: the app's https address is the contact the push service sees. Set a `mailto:` or `https:` URL only if Apple's push service refuses the default.                                              |
+| `BB_PUSH_ALLOWED_HOSTS` | Leave at its default, Apple's push service, the only place the app may send a push (requirement SEC-8).                                                                                                |
+
+The plain names in the same file (`APP_ORIGIN`, `PORT`, `DATA_DIR`,
+`RATES_FEED` ...) belong to `pnpm dev` and do nothing to the container.
 
 The time zone is not set here. It is a setting in the app (default
 Europe/Berlin) and governs "today", the schedule and the nightly backup.
@@ -338,15 +396,25 @@ docker compose stop
 docker compose up -d
 ```
 
+- **Any `docker compose` command says "BB_APP_ORIGIN is not set".** The
+  container settings are missing from `.env` (First install step 1). Nothing
+  was started. The plain `APP_ORIGIN` of `pnpm dev` does not count.
 - **It does not start and `docker compose logs` says the data (or backups)
   folder "cannot be written by the app".** The folder belongs to someone else
   than `BB_UID`/`BB_GID`. Make the folders as yourself (First install step 3)
   and set both variables (step 2), or change the owner of the folders to the
   user in the message.
-- **Port 8080 is in use.** Set `HOST_PORT` in `.env` to a free port, run
+- **Port 8080 is in use.** Set `BB_HOST_PORT` in `.env` to a free port, run
   `docker compose up -d`, and give Tailscale Serve the same port.
 - **`docker: command not found`.** Rancher Desktop is not running, or
   `~/.rd/bin` is not on the `PATH`.
+- **`scripts/deploy.sh` ended with `UNHEALTHY`.** Its output has the container's
+  last log lines. Nothing was deleted or rolled back. Fix the cause, or
+  `git checkout` the previous version, and run `scripts/deploy.sh` again; to go
+  back to older data, [restore](#restore) a backup.
+- **`scripts/deploy.sh` ended with `SKIPPED`.** `BB_APP_ORIGIN` is not set in
+  `.env`, or this project has no container yet. Follow
+  [First install](#first-install); the script never creates the deployment.
 - **After a restart of the Mac the app is down.** Rancher Desktop must start
   at login (Host preparation 1); the container then starts by itself.
 - **The data.** `data/` holds `budget-buddy.sqlite` and the keys; copy
