@@ -154,7 +154,7 @@ describe('sign in again when the app is re-opened', () => {
   });
 
   it('does not let a later presence call bring back a session the page said was away', async () => {
-    now += minute;
+    now += reopenLockAfterMs + 1;
     expect((await present(alex, reopenLockAfterMs + 1)).statusCode).toBe(401);
     // A page that returns with the connection (`visibilitychange` and
     // `online` together) can send a second call that claims nothing.
@@ -233,11 +233,33 @@ describe('sign in again when the app is re-opened', () => {
   });
 
   it('locks at once when the page says it was away for more than five minutes', async () => {
-    now += minute;
+    now += reopenLockAfterMs + 1;
     const response = await present(alex, reopenLockAfterMs + 1);
     expect(response.statusCode).toBe(401);
     expect(response.json().error.code).toBe('session_locked');
     // Not even a second later does an ordinary request get through.
+    expect((await me(alex)).statusCode).toBe(401);
+  });
+
+  it('keeps a session another tab of the device kept in use', async () => {
+    // Tab B stays visible and sends presence; tab A comes back from ten
+    // minutes in the background and says so. The device was never away.
+    for (
+      let elapsed = 0;
+      elapsed < 10 * minute;
+      elapsed += presenceIntervalMs
+    ) {
+      now += presenceIntervalMs;
+      expect((await present(alex, 0)).statusCode).toBe(200);
+    }
+    const returning = await present(alex, 10 * minute);
+    expect(returning.statusCode).toBe(200);
+    expect(returning.json()).toEqual({ lockOnReopen: true });
+    expect((await me(alex)).statusCode).toBe(200);
+    // The call refreshed it: five more minutes pass before it locks.
+    now += reopenLockAfterMs;
+    expect((await me(alex)).statusCode).toBe(200);
+    now += 1;
     expect((await me(alex)).statusCode).toBe(401);
   });
 

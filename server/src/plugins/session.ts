@@ -187,15 +187,23 @@ export function markSessionLocked(
     .run(lockedMark, sessionId);
 }
 
+/** When a session's app last said it was in use (`lockedMark` if locked). */
+export function readForegroundAt(
+  database: Database.Database,
+  sessionId: number,
+): bigint {
+  const row = database
+    .prepare('SELECT foreground_at FROM session WHERE id = ?')
+    .get(sessionId) as { foreground_at: bigint } | undefined;
+  return row?.foreground_at ?? BigInt(lockedMark);
+}
+
 /** Whether a session was answered as locked (see `markSessionLocked`). */
 export function isSessionMarkedLocked(
   database: Database.Database,
   sessionId: number,
 ): boolean {
-  const row = database
-    .prepare('SELECT foreground_at FROM session WHERE id = ?')
-    .get(sessionId) as { foreground_at: bigint } | undefined;
-  return row !== undefined && row.foreground_at === BigInt(lockedMark);
+  return readForegroundAt(database, sessionId) === BigInt(lockedMark);
 }
 
 /**

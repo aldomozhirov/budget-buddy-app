@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { forgetLastScreen } from '../../session/lock.js';
-import { goToSignIn } from '../../session/lock.js';
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import {
@@ -22,6 +20,7 @@ import {
   type RatesStatusResponse,
   type SettingsResponse,
 } from '@budget-buddy/shared';
+import { forgetLastScreen, goToSignIn } from '../../session/lock.js';
 import BbBackButton from '../../components/BbBackButton.vue';
 import BbButton from '../../components/BbButton.vue';
 import BbListCard from '../../components/BbListCard.vue';

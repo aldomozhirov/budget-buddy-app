@@ -8,8 +8,10 @@ import {
 } from '@budget-buddy/shared';
 import { systemClock, type Clock } from '../../clock.js';
 import {
+  isForegroundLapsed,
   isSessionMarkedLocked,
   markSessionLocked,
+  readForegroundAt,
   sendSessionLocked,
 } from '../../plugins/session.js';
 
@@ -21,9 +23,11 @@ import {
  *
  * The plugin skips its own lock check here, because this route decides: a
  * session that fell behind (the app was offline in the foreground) is
- * refreshed when the page says it was away for five minutes or less, and is
- * locked for good when the page says it was away for more, or when it was
- * already answered as locked.
+ * refreshed when the page says it was away for five minutes or less. It is
+ * locked for good when it was already answered as locked, or when the page
+ * says it was away for more and the server has heard nothing from the device
+ * for more than five minutes either: another tab of the device that is in use
+ * keeps it unlocked.
  */
 export const sessionRoutes: FastifyPluginAsync<{
   database: Database.Database;
@@ -49,13 +53,19 @@ export const sessionRoutes: FastifyPluginAsync<{
       const context = request.authContext!;
       const now = clock.now().getTime();
 
-      // A session that was answered as locked, or whose page says it was
-      // away for more than five minutes, is locked for good: no later call,
-      // whatever it claims, brings it back. Only a sign-in does.
+      // A session that was answered as locked is locked for good: no later
+      // call, whatever it claims, brings it back. Only a sign-in does. A page
+      // that says it was away for too long locks it only when no other tab
+      // of the device has said it is in use meanwhile.
       if (
         context.lockOnReopen &&
-        (parsed.data.awayMs > reopenLockAfterMs ||
-          isSessionMarkedLocked(database, context.sessionId))
+        (isSessionMarkedLocked(database, context.sessionId) ||
+          (parsed.data.awayMs > reopenLockAfterMs &&
+            isForegroundLapsed(
+              true,
+              readForegroundAt(database, context.sessionId),
+              now,
+            )))
       ) {
         markSessionLocked(database, context.sessionId);
         return sendSessionLocked(reply);
