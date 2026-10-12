@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 import {
+  checkinClosedErrorCode,
   checkinIdParamsSchema,
   checkinResponseSchema,
   checkinsResponseSchema,
@@ -157,8 +158,7 @@ export const checkinRoutes: FastifyPluginAsync<{
     });
     if (result === 'not_found')
       return sendNotFound(reply, 'Check-in not found.');
-    if (result === 'closed')
-      return sendForbiddenState(reply, 'This check-in is already closed.');
+    if (result === 'closed') return sendCheckinClosed(reply);
     if (result === 'inactive_account')
       return sendForbiddenState(
         reply,
@@ -187,8 +187,7 @@ export const checkinRoutes: FastifyPluginAsync<{
     });
     if (result === 'not_found')
       return sendNotFound(reply, 'Check-in not found.');
-    if (result === 'closed')
-      return sendForbiddenState(reply, 'This check-in is already closed.');
+    if (result === 'closed') return sendCheckinClosed(reply);
     const checkin = getCheckin(database, parsed.data.id, memberId, now);
     if (!checkin) return sendNotFound(reply, 'Check-in not found.');
     return checkinResponseSchema.parse({ checkin });
@@ -222,4 +221,13 @@ function sendProfileRequired(reply: FastifyReply) {
 
 function sendForbiddenState(reply: FastifyReply, message: string) {
   return reply.code(403).send({ error: { code: 'forbidden_state', message } });
+}
+
+function sendCheckinClosed(reply: FastifyReply) {
+  return reply.code(403).send({
+    error: {
+      code: checkinClosedErrorCode,
+      message: 'This check-in is already closed.',
+    },
+  });
 }

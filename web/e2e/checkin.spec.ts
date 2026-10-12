@@ -589,6 +589,11 @@ test('a stale focus refresh cannot overwrite a save that closes the check-in', a
     });
   });
 
+  // This test is about the read a focus event starts. The live stream makes
+  // its own read when it connects, which would take the held request, so the
+  // stream is refused here (live updates have their own spec).
+  await page.route('**/api/events', (route) => route.abort());
+
   try {
     await page.goto(`${origin}/check-in`);
     await expect(page.getByRole('heading', { name: 'Check-in' })).toBeVisible();

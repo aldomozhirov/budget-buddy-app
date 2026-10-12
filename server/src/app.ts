@@ -31,6 +31,8 @@ import { deviceRoutes } from './modules/devices/index.js';
 import { passkeyRoutes } from './modules/passkey/index.js';
 import { pushRoutes } from './modules/push/index.js';
 import { createCheckinEventBus, type CheckinEventBus } from './events.js';
+import { createLiveHub } from './live/hub.js';
+import { liveRoutes } from './live/routes.js';
 import { createRatesService, type RatesService } from './rates/service.js';
 
 const webDistPath = fileURLToPath(new URL('../../web/dist', import.meta.url));
@@ -88,6 +90,8 @@ export type AppOptions = {
    * registered, as in tests that don't use them.
    */
   push?: { publicKey: string; allowedHosts: readonly string[] };
+  /** Milliseconds between keep-alive comments on a live stream, for tests. */
+  liveHeartbeatMs?: number;
 };
 
 /**
@@ -165,6 +169,20 @@ export async function createApp(options: AppOptions) {
     database: options.database,
     clock,
     events,
+  });
+  // `preClose` runs before the HTTP server stops waiting for its open
+  // requests (an `onClose` hook runs after), so a stop or a redeploy never
+  // waits for a client to leave a stream.
+  const liveHub = createLiveHub(events);
+  app.addHook('preClose', async () => liveHub.close());
+  await app.register(liveRoutes, {
+    database: options.database,
+    hub: liveHub,
+    appOrigins,
+    clock,
+    ...(options.liveHeartbeatMs === undefined
+      ? {}
+      : { heartbeatMs: options.liveHeartbeatMs }),
   });
   await app.register(summaryRoutes, { database: options.database, clock });
   await app.register(homeRoutes, { database: options.database, clock });

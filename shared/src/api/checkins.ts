@@ -104,3 +104,10 @@ export const saveCheckinValueRequestSchema = z.union([
 
 /** Check-in returned after saving a value or closing it. */
 export const checkinResponseSchema = z.object({ checkin: checkinSchema });
+
+/**
+ * Error code of an answer that refuses a save or a close because the check-in
+ * is already closed. The screen reads it to show the closed screen instead of
+ * offering a retry that cannot succeed.
+ */
+export const checkinClosedErrorCode = 'checkin_closed';

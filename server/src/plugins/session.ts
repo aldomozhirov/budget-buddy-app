@@ -140,6 +140,31 @@ export async function installSessionPlugin(
   });
 }
 
+/**
+ * Whether a session still authenticates: it exists, has not expired, was
+ * opened under the family's current password and belongs to an active member.
+ * Long-lived responses use it to end themselves once the session is gone.
+ */
+export function isSessionLive(
+  database: Database.Database,
+  sessionId: number,
+  now: number,
+): boolean {
+  const row = database
+    .prepare(
+      `SELECT 1 AS live
+       FROM session s
+       JOIN family f ON f.id = 1
+       LEFT JOIN member m ON m.id = s.member_id
+       WHERE s.id = ?
+         AND s.expires_at > ?
+         AND s.password_epoch = f.password_epoch
+         AND (s.member_id IS NULL OR m.active = 1)`,
+    )
+    .get(sessionId, now);
+  return row !== undefined;
+}
+
 /** Reads and decodes one cookie value from a request header. */
 export function readCookie(
   header: string | undefined,
