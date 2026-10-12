@@ -108,7 +108,10 @@ function onKeydown(event: KeyboardEvent) {
       :tabindex="isTabStop(option, index) ? 0 : -1"
       @click="select(option)"
     >
-      <span class="seg" :class="{ 'seg-on': option.value === modelValue }">
+      <span
+        class="seg"
+        :class="{ 'seg-on': option.value === modelValue }"
+      >
         {{ option.label }}
       </span>
     </button>

@@ -479,7 +479,8 @@ test('a session that ended while a refused save is re-read goes to sign-in', asy
     await blair
       .getByRole('button', { name: 'Blair Everyday EUR unchanged' })
       .click();
-    await expect(blair).toHaveURL(/\/sign-in$/u);
+    // Signing in again returns to the screen it was on (MEM-7).
+    await expect(blair).toHaveURL(/\/sign-in\?next=\/check-in$/u);
     await expect(
       blair.getByRole('heading', { name: 'Check-in complete' }),
     ).toHaveCount(0);

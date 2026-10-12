@@ -34,6 +34,8 @@ export const lockedHere = ref(false);
 let router: Router | undefined;
 let timer: ReturnType<typeof setInterval> | undefined;
 let lastAliveAt = Date.now();
+/** True between leaving the foreground and coming back. */
+let awayNow = false;
 
 /** An in-app path that a sign-in may return to. */
 function isReturnable(path: unknown): path is string {
@@ -117,20 +119,30 @@ async function lock(): Promise<void> {
   lockedHere.value = true;
   signInReason.value = 'locked';
   setAuthState(null);
-  await router.replace(signInLocation(here));
+  const location = signInLocation(here);
+  await router.replace(location).catch(() => undefined);
+  if (router.currentRoute.value.path !== '/sign-in') {
+    // The sign-in screen could not be loaded (offline, and not kept by the
+    // service worker); a full load shows the cached shell instead of
+    // leaving the data on screen.
+    window.location.assign(router.resolve(location).fullPath);
+  }
 }
 
 type Sent = 'ok' | 'locked' | 'failed';
 
-/** Tells the server the app is in use; `awayMs` is how long it was not. */
-async function sendPresence(awayMs: number): Promise<Sent> {
+/**
+ * Tells the server the app is in use; `awayMs` is how long it was not.
+ * @param leaving True for the call made as the page leaves the foreground,
+ *   which must not be cancelled with the page.
+ */
+async function sendPresence(awayMs: number, leaving = false): Promise<Sent> {
   try {
     const response = await fetch(presencePath, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ awayMs }),
-      // The call made as the page is left must not be cancelled with it.
-      keepalive: true,
+      keepalive: leaving,
     });
     if (await isLockedAnswer(response)) return 'locked';
     if (!response.ok) return 'failed';
@@ -199,16 +211,20 @@ function stopTimer(): void {
 }
 
 function onHidden(): void {
-  if (!signedIn()) return;
+  // `pagehide` can follow `visibilitychange` once the page is already
+  // hidden; the absence is counted from the first of them.
+  if (awayNow || !signedIn()) return;
+  awayNow = true;
   lastAliveAt = Date.now();
   stopTimer();
   rememberScreen();
   // The last word before the page is gone: the server counts the absence
   // from here, not from the last beat.
-  void sendPresence(0);
+  void sendPresence(0, true);
 }
 
 function onVisible(): void {
+  awayNow = false;
   if (!signedIn()) return;
   void report(takeAway());
   startTimer();
@@ -237,7 +253,11 @@ export function installSessionLock(appRouter: Router): void {
         stopTimer();
         return;
       }
+      // Sign-in must open without a connection when the app locks, so its
+      // code is loaded while there is one.
+      void import('../screens/sign-in/SignInScreen.vue').catch(() => undefined);
       lockedHere.value = false;
+      awayNow = false;
       lastAliveAt = Date.now();
       if (document.visibilityState === 'visible') startTimer();
     },
