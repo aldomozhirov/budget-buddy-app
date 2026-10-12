@@ -2,6 +2,12 @@
 #
 #   docker compose up -d
 #
+# The family's app runs from the owner's development checkout, next to
+# `pnpm dev`, and both read the same `.env`. Compose reads ONLY the names that
+# start with BB_ from it (BB_APP_ORIGIN, BB_HOST_PORT, BB_UID, BB_GID,
+# BB_RATES_FEED, BB_VAPID_SUBJECT, BB_PUSH_ALLOWED_HOSTS). The plain names
+# (APP_ORIGIN, PORT, DATA_DIR, RATES_FEED ...) are `pnpm dev`'s and never
+# reach the container, so neither can start with the other's address.
 # The app listens on 127.0.0.1 only (DEP-6): Tailscale Serve on the host adds
 # HTTPS and forwards to it. Everything it keeps is in ./data and ./backups.
 services:
@@ -15,27 +21,29 @@ services:
     user: '${BB_UID:-1000}:${BB_GID:-1000}'
     ports:
       # Loopback only. Never write "8080:8080" or "0.0.0.0:8080:8080": that
-      # would open the app to the whole local network. HOST_PORT is not PORT,
-      # which `pnpm dev` uses for its own server.
-      - '127.0.0.1:${HOST_PORT:-8080}:8080'
+      # would open the app to the whole local network. BB_HOST_PORT is not
+      # PORT, which `pnpm dev` uses for its own server.
+      - '127.0.0.1:${BB_HOST_PORT:-8080}:8080'
     volumes:
       - ./data:/data
       - ./backups:/backups
     environment:
-      # The container's own settings are fixed here, so a .env made for
-      # development (HOST, PORT, DATA_DIR) cannot break it.
+      # The container's own settings are fixed here, and the rest come from
+      # BB_ names only, so the development settings in the same .env (HOST,
+      # PORT, DATA_DIR, APP_ORIGIN, RATES_FEED) cannot reach or break it.
       HOST: 0.0.0.0
       PORT: '8080'
       DATA_DIR: /data
       BACKUP_DIR: /backups
       # The https address of the app, e.g. https://<host>.<tailnet>.ts.net. It
-      # is also the Face ID relying party and the push contact.
-      APP_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN in .env (see .env.example)}
-      # Real price feeds. Set RATES_FEED=fixture in .env to trial offline.
-      RATES_FEED: ${RATES_FEED:-live}
+      # is also the Face ID relying party and the push contact. Without it
+      # compose refuses to start the container and prints this message.
+      APP_ORIGIN: ${BB_APP_ORIGIN:?BB_APP_ORIGIN is not set. Add the https address of the app to .env, e.g. BB_APP_ORIGIN=https://<host>.<tailnet>.ts.net (see .env.example). The container is not started without it.}
+      # Real price feeds. Set BB_RATES_FEED=fixture in .env to trial offline.
+      RATES_FEED: ${BB_RATES_FEED:-live}
       # Optional. Empty values fall back to the app's own defaults.
-      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
-      PUSH_ALLOWED_HOSTS: ${PUSH_ALLOWED_HOSTS:-*.push.apple.com}
+      VAPID_SUBJECT: ${BB_VAPID_SUBJECT:-}
+      PUSH_ALLOWED_HOSTS: ${BB_PUSH_ALLOWED_HOSTS:-*.push.apple.com}
       # TZ is not set: the family's time zone is a setting of the app (DEP-9).
     healthcheck:
       test:

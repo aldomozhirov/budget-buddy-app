@@ -23,7 +23,7 @@
 #   BB_BACKUP_DIR  the mounted backups folder       (default: ./backups)
 #   BB_COMPOSE     the compose command              (default: docker compose)
 #   BB_HEALTH_URL  where to wait for the app        (default: the port that
-#                  compose published for the app, else HOST_PORT, else 8080)
+#                  compose published for the app, else BB_HOST_PORT, else 8080)
 #   BB_VERIFY, BB_FILES, BB_UNDO, BB_STOP, BB_START
 #                  shell commands that replace the compose ones for steps 1,
 #                  3 to 5, the undo of those, 2 and 6; "$BB_FILE" holds the
@@ -32,6 +32,11 @@
 #                  BB_VERIFY must print "ok (migration version N)" when the
 #                  file is good, as server/dist/verifyBackup.js does.
 set -euo pipefail
+
+# Rancher Desktop keeps its binaries out of the default PATH.
+if ! command -v docker >/dev/null 2>&1 && [ -x "$HOME/.rd/bin/docker" ]; then
+  PATH="$HOME/.rd/bin:$PATH"
+fi
 
 say() { printf '%s\n' "$*"; }
 die() { printf 'Restore stopped: %s\n' "$*" >&2; exit 1; }
@@ -65,7 +70,7 @@ BB_STOP="${BB_STOP:-$BB_COMPOSE stop app}"
 BB_START="${BB_START:-$BB_COMPOSE up -d app}"
 
 # The address the app answers on: the port compose published, which follows
-# HOST_PORT in .env, unless BB_HEALTH_URL says otherwise.
+# BB_HOST_PORT in .env, unless BB_HEALTH_URL says otherwise.
 health_url() {
   if [ -n "${BB_HEALTH_URL:-}" ]; then
     printf '%s' "$BB_HEALTH_URL"
@@ -73,7 +78,7 @@ health_url() {
   fi
   local published
   published="$(eval "$BB_COMPOSE port app 8080" 2>/dev/null | head -n 1 | sed 's/.*://')"
-  printf 'http://127.0.0.1:%s/api/health' "${published:-${HOST_PORT:-8080}}"
+  printf 'http://127.0.0.1:%s/api/health' "${published:-${BB_HOST_PORT:-8080}}"
 }
 
 [ -d "$BB_DATA_DIR" ] || die "the data folder $BB_DATA_DIR does not exist. Run this from the install folder, or set BB_DATA_DIR."
