@@ -378,6 +378,13 @@ export function saveCheckinValue(
     return 'saved' as const;
   })();
 
+  if (result === 'saved') {
+    options.events.emit('checkin.valueSaved', {
+      checkinId: options.checkinId,
+      accountId: options.accountId,
+      savedBy: options.memberId,
+    });
+  }
   if (closedEvent) options.events.emit('checkin.closed', closedEvent);
   return result;
 }

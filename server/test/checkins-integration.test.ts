@@ -226,7 +226,7 @@ describe('check-in integration', () => {
     const rejected = await saveValue(checkinId, secondAccount, '22');
     expect(rejected.statusCode).toBe(403);
     expect(rejected.json()).toMatchObject({
-      error: { code: 'forbidden_state' },
+      error: { code: 'checkin_closed' },
     });
   });
 

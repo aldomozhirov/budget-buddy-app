@@ -11,6 +11,15 @@ export interface CheckinEvents {
     closedAt: number;
     closedBy: number | null;
   };
+  /**
+   * A value was saved or replaced. Carries no amount: it only tells the live
+   * stream (not the notifier) that the check-in changed.
+   */
+  'checkin.valueSaved': {
+    checkinId: number;
+    accountId: number;
+    savedBy: number;
+  };
   'checkin.followup': {
     checkinId: number;
     /**

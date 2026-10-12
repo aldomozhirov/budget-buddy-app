@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import {
+  checkinClosedErrorCode,
   checkinResponseSchema,
   currentCheckinResponseSchema,
   currenciesResponseSchema,
@@ -22,6 +23,7 @@ import { isOnline } from '../../composables/useOnline.js';
 import BbIcon from '../../components/BbIcon.vue';
 import BbSheet from '../../components/BbSheet.vue';
 import { useBack } from '../../composables/useBack.js';
+import { useLiveCheckin } from '../../composables/useLiveCheckin.js';
 import { navigationStack } from '../../router/index.js';
 import { authState, setAuthState } from '../../stores/auth.js';
 
@@ -45,7 +47,14 @@ const editingInitialAmount = ref<bigint | null>(null);
 const closeConfirmationOpen = ref(false);
 const saving = ref(false);
 const retryPayloads = ref<Record<number, SavePayload>>({});
+/** A value another member entered for the account open in the amount sheet. */
+const otherEntry = ref<{ accountId: number; amount: string } | null>(null);
 let loadVersion = 0;
+// Counts saves and closes, which make an older read stale.
+let mutations = 0;
+let readInFlight = false;
+// A change signalled while a read or a save was running, to read again.
+let readQueued = false;
 let selectionInitialized = false;
 
 /** UI-CHK-7: the footer's second sentence, left out when reminders are off. */
@@ -130,6 +139,14 @@ const openingCopy = computed(() => {
   if (scheduled) return `Opened by schedule ${when}, ${time}`;
   const name = round.openedBy?.name;
   return `Started by ${name ?? 'a family member'} ${when}, ${time}`;
+});
+
+/** Who closed the round, when it was another member (UI-CHK-8). */
+const closedByOther = computed(() => {
+  const closer = checkin.value?.closedBy;
+  return closer && closer.memberId !== currentMemberId.value
+    ? `${closer.name} closed the check-in`
+    : null;
 });
 
 function currencyFor(account: CheckinAccount) {
@@ -235,11 +252,21 @@ async function load(): Promise<void> {
   }
 }
 
-async function refreshCheckin(): Promise<void> {
+/**
+ * Re-reads the open check-in. A read for a signal that finds the screen busy
+ * is repeated when it is free, so a change never goes unseen; other reads
+ * (poll, focus, reconnect) are skipped then, as the answer in hand is fresh.
+ */
+async function refreshCheckin(signal = false): Promise<void> {
   const round = checkin.value;
-  if (!round || round.closedAt !== null || loading.value || saving.value)
+  if (!round || round.closedAt !== null || loading.value) return;
+  if (saving.value || readInFlight) {
+    if (signal) readQueued = true;
     return;
+  }
+  readInFlight = true;
   const version = ++loadVersion;
+  const mutationsAtStart = mutations;
   try {
     const [response, currenciesResponse] = await Promise.all([
       fetch(`/api/checkins/${round.id}`),
@@ -261,32 +288,131 @@ async function refreshCheckin(): Promise<void> {
     ) {
       throw new Error('Currency details are unavailable.');
     }
-    if (version !== loadVersion) return;
-    checkin.value = updated;
+    if (version !== loadVersion) {
+      // A save or close overtook this read; read again once it is over.
+      if (mutations !== mutationsAtStart) readQueued = true;
+      return;
+    }
     coins.value = currencyOptions.coins;
-    initializeSelection(updated);
-    if (updated.closedAt !== null) {
-      selectedAccountId.value = null;
-      editingInitialAmount.value = null;
+    applyRead(updated);
+  } catch {
+    // The next signal, poll or focus can recover without losing local state.
+  } finally {
+    readInFlight = false;
+    readAgainIfQueued();
+  }
+}
+
+function readAgainIfQueued(): void {
+  if (!readQueued || saving.value || readInFlight) return;
+  readQueued = false;
+  void refreshCheckin(true);
+}
+
+/** Takes a fresh read of the open check-in without losing local input. */
+function applyRead(updated: Checkin): void {
+  if (updated.closedAt !== null) {
+    showClosed(updated);
+    return;
+  }
+  noteOtherEntry(checkin.value, updated);
+  checkin.value = updated;
+  initializeSelection(updated);
+}
+
+/**
+ * Shows the closed screen (UI-CHK-8) for a check-in closed by anyone: an
+ * open amount sheet or close confirmation goes away with it.
+ */
+function showClosed(closed: Checkin): void {
+  checkin.value = closed;
+  selectedAccountId.value = null;
+  editingInitialAmount.value = null;
+  closeConfirmationOpen.value = false;
+  otherEntry.value = null;
+  actionError.value = '';
+  retryPayloads.value = {};
+  initializeSelection(closed);
+}
+
+function findAccount(
+  round: Checkin | null,
+  accountId: number | null,
+): CheckinAccount | null {
+  for (const member of round?.members ?? []) {
+    const account = member.accountList.find((item) => item.id === accountId);
+    if (account) return account;
+  }
+  return null;
+}
+
+/**
+ * Remembers that the account open in the amount sheet got a value that this
+ * screen did not save (CHK-7: saving still replaces it). The typed digits
+ * stay as they are.
+ */
+function noteOtherEntry(before: Checkin | null, after: Checkin): void {
+  const open = findAccount(after, selectedAccountId.value);
+  if (!open?.value) return;
+  const earlier = findAccount(before, open.id)?.value;
+  if (
+    !earlier ||
+    earlier.amount !== open.value.amount ||
+    earlier.takenAt !== open.value.takenAt
+  ) {
+    otherEntry.value = { accountId: open.id, amount: open.value.amount };
+  }
+}
+
+/** True when the server refused because the check-in is already closed. */
+async function refusedAsClosed(response: Response): Promise<boolean> {
+  if (response.status !== 403) return false;
+  try {
+    const body = (await response.json()) as { error?: { code?: unknown } };
+    return body.error?.code === checkinClosedErrorCode;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Switches to the closed screen after the server said the check-in is closed.
+ * No retry is offered: it could not succeed.
+ */
+async function showClosedAfterRefusal(round: Checkin): Promise<void> {
+  try {
+    const response = await fetch(`/api/checkins/${round.id}`);
+    if (response.ok) {
+      const closed = checkinResponseSchema.parse(await response.json()).checkin;
+      if (closed.closedAt !== null) {
+        showClosed(closed);
+        return;
+      }
     }
   } catch {
-    // The next focus or manual reload can recover without losing local state.
+    // Fall through: the server has already said it is closed.
   }
+  // Without the fresh copy, the refusal alone is enough to show the screen;
+  // "See summary" reads the real record.
+  showClosed({ ...round, closedAt: Date.now(), closedBy: null });
 }
 
 function onWindowFocus(): void {
   void refreshCheckin();
 }
 
-function onVisibilityChange(): void {
-  if (document.visibilityState === 'visible') void refreshCheckin();
-}
+useLiveCheckin({
+  isOpen: () => checkin.value !== null && checkin.value.closedAt === null,
+  checkinId: () => checkin.value?.id ?? null,
+  onRead: (signal) => void refreshCheckin(signal),
+});
 
 function openAccount(account: CheckinAccount): void {
   selectedAccountId.value = account.id;
   editingInitialAmount.value = account.value
     ? BigInt(account.value.amount)
     : null;
+  otherEntry.value = null;
   actionError.value = '';
 }
 
@@ -294,6 +420,7 @@ function closeAmountSheet(): void {
   if (saving.value) return;
   selectedAccountId.value = null;
   editingInitialAmount.value = null;
+  otherEntry.value = null;
   actionError.value = '';
 }
 
@@ -323,6 +450,7 @@ async function saveValue(
   const round = checkin.value;
   if (!round || saving.value || round.closedAt !== null) return;
   loadVersion += 1;
+  mutations += 1;
   saving.value = true;
   actionError.value = '';
   try {
@@ -335,6 +463,10 @@ async function saveValue(
       },
     );
     if (await handleUnauthorized(response)) return;
+    if (await refusedAsClosed(response)) {
+      await showClosedAfterRefusal(round);
+      return;
+    }
     if (!response.ok)
       throw new Error('Could not save this balance. Try again.');
     const updated = checkinResponseSchema.parse(await response.json()).checkin;
@@ -346,6 +478,7 @@ async function saveValue(
       closeConfirmationOpen.value = false;
       return;
     }
+    otherEntry.value = null;
     if (advance) {
       const next = nextPendingAccount(updated, account.id);
       selectedAccountId.value = next?.id ?? null;
@@ -365,6 +498,7 @@ async function saveValue(
     }
   } finally {
     saving.value = false;
+    readAgainIfQueued();
   }
 }
 
@@ -387,6 +521,7 @@ async function closeCheckin(): Promise<void> {
   const round = checkin.value;
   if (!round || saving.value) return;
   loadVersion += 1;
+  mutations += 1;
   saving.value = true;
   actionError.value = '';
   try {
@@ -396,6 +531,10 @@ async function closeCheckin(): Promise<void> {
       body: JSON.stringify({}),
     });
     if (await handleUnauthorized(response)) return;
+    if (await refusedAsClosed(response)) {
+      await showClosedAfterRefusal(round);
+      return;
+    }
     if (!response.ok)
       throw new Error('Could not close the check-in. Try again.');
     checkin.value = checkinResponseSchema.parse(await response.json()).checkin;
@@ -406,6 +545,7 @@ async function closeCheckin(): Promise<void> {
     actionError.value = 'Could not close the check-in. Try again.';
   } finally {
     saving.value = false;
+    readAgainIfQueued();
   }
 }
 
@@ -425,13 +565,11 @@ async function backHome(): Promise<void> {
 onMounted(() => {
   void load();
   window.addEventListener('focus', onWindowFocus);
-  document.addEventListener('visibilitychange', onVisibilityChange);
 });
 
 onBeforeUnmount(() => {
   loadVersion += 1;
   window.removeEventListener('focus', onWindowFocus);
-  document.removeEventListener('visibilitychange', onVisibilityChange);
 });
 </script>
 
@@ -651,6 +789,9 @@ onBeforeUnmount(() => {
         /></span>
         <h1 class="t-title">Check-in complete</h1>
         <p class="t-sub">Everyone’s balances are in.</p>
+        <p v-if="closedByOther" class="t-sub" role="status">
+          {{ closedByOther }}.
+        </p>
         <BbButton @click="seeSummary">See summary</BbButton>
         <BbButton variant="secondary" @click="backHome">Back home</BbButton>
       </div>
@@ -680,6 +821,15 @@ onBeforeUnmount(() => {
       @close="closeAmountSheet"
     >
       <div class="checkin-amount-sheet">
+        <p
+          v-if="otherEntry && otherEntry.accountId === selectedAccount.id"
+          class="checkin-other-entry"
+          role="status"
+        >
+          Another member entered
+          {{ displayAmount(selectedAccount, otherEntry.amount) }}. Saving
+          replaces it.
+        </p>
         <BbAmountInput
           :key="selectedAccount.id"
           :currency="currencyFor(selectedAccount)!"
@@ -994,6 +1144,14 @@ onBeforeUnmount(() => {
 .checkin-amount-sheet .error,
 .checkin-close-copy {
   margin: 0;
+}
+
+.checkin-other-entry {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--r-card);
+  background: var(--accent-soft);
+  font-size: 14px;
 }
 
 .checkin-closed {
