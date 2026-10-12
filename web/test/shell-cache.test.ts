@@ -159,6 +159,8 @@ describe('installShellCache', () => {
     installShellCache(worker.scope, entries);
     await worker.event('install');
     expect(await worker.request('/api/home')).toBeNull();
+    // The live check-in stream is a GET under /api, so it is never held.
+    expect(await worker.request('/api/events')).toBeNull();
     expect(
       await worker.request('/api/health', { mode: 'navigate' }),
     ).toBeNull();
