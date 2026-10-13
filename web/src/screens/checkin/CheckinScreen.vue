@@ -810,18 +810,28 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section v-else class="checkin-loading" aria-live="polite">
-      <p v-if="loading">Loading check-in…</p>
-      <template v-else-if="loadError">
-        <p class="error" role="alert">{{ loadError }}</p>
-        <BbButton variant="secondary" @click="load">Try again</BbButton>
-      </template>
-      <template v-else>
-        <h1 class="t-title">No check-in is open</h1>
-        <p class="t-sub">Start or join one from Check-ins.</p>
-        <RouterLink class="primary" to="/check-ins">Go to Check-ins</RouterLink>
-      </template>
-    </section>
+    <template v-else>
+      <header class="topbar checkin-topbar">
+        <BbBackButton :label="backLabel" @click="goBack" />
+        <!-- No title while loading or failed: it marks a loaded screen. -->
+        <h1 v-if="!loading && !loadError" class="t-title">
+          No check-in is open
+        </h1>
+      </header>
+      <section class="checkin-loading" aria-live="polite">
+        <p v-if="loading">Loading check-in…</p>
+        <template v-else-if="loadError">
+          <p class="error" role="alert">{{ loadError }}</p>
+          <BbButton variant="secondary" @click="load">Try again</BbButton>
+        </template>
+        <template v-else>
+          <p class="t-sub">Start or join one from Check-ins.</p>
+          <RouterLink class="primary" to="/check-ins"
+            >Go to Check-ins</RouterLink
+          >
+        </template>
+      </section>
+    </template>
 
     <BbSheet
       v-if="
@@ -1219,8 +1229,7 @@ onBeforeUnmount(() => {
   min-height: 0;
   flex: 1;
   overflow-y: auto;
-  padding: max(48px, calc(var(--safe-area-top) + 24px)) var(--gutter)
-    max(24px, var(--safe-area-bottom));
+  padding: 8px var(--gutter) max(24px, var(--safe-area-bottom));
 }
 
 @media (prefers-reduced-motion: reduce) {

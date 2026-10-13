@@ -219,21 +219,27 @@ test('check-in loading and no-open content clear safe-area insets', async ({
   const safeAreaStyle = await page.addStyleTag({
     content: ':root { --safe-area-top: 47px; --safe-area-bottom: 34px; }',
   });
-  const loadingSpacing = await loading.evaluate((element) => {
-    const section = element.closest('section');
-    return section instanceof HTMLElement
-      ? {
-          contentTop: element.getBoundingClientRect().top,
-          paddingTop: Number.parseFloat(getComputedStyle(section).paddingTop),
-          paddingBottom: Number.parseFloat(
-            getComputedStyle(section).paddingBottom,
-          ),
-        }
-      : null;
-  });
+  // The Back button sits in a top bar that clears the notch (48 px or more
+  // from the top edge); the message follows it.
+  const spacing = (name: string) =>
+    page.evaluate((label) => {
+      const back = document.querySelector(`[aria-label="${label}"]`);
+      const bar = back?.closest('header');
+      const section = document.querySelector('.checkin-loading');
+      return back && bar && section instanceof HTMLElement
+        ? {
+            backTop: back.getBoundingClientRect().top,
+            barPaddingTop: Number.parseFloat(getComputedStyle(bar).paddingTop),
+            paddingBottom: Number.parseFloat(
+              getComputedStyle(section).paddingBottom,
+            ),
+          }
+        : null;
+    }, name);
+  const loadingSpacing = await spacing('Back to home');
   expect(loadingSpacing).not.toBeNull();
-  expect(loadingSpacing!.paddingTop).toBeGreaterThanOrEqual(71);
-  expect(loadingSpacing!.contentTop).toBeGreaterThanOrEqual(71);
+  expect(loadingSpacing!.barPaddingTop).toBeGreaterThanOrEqual(47);
+  expect(loadingSpacing!.backTop).toBeGreaterThanOrEqual(47);
   expect(loadingSpacing!.paddingBottom).toBeGreaterThanOrEqual(34);
 
   continueCurrentRequest?.();
@@ -241,21 +247,10 @@ test('check-in loading and no-open content clear safe-area insets', async ({
     name: 'No check-in is open',
   });
   await expect(heading).toBeVisible();
-  const closedSpacing = await heading.evaluate((element) => {
-    const section = element.closest('section');
-    return section instanceof HTMLElement
-      ? {
-          headingTop: element.getBoundingClientRect().top,
-          paddingTop: Number.parseFloat(getComputedStyle(section).paddingTop),
-          paddingBottom: Number.parseFloat(
-            getComputedStyle(section).paddingBottom,
-          ),
-        }
-      : null;
-  });
+  const closedSpacing = await spacing('Back to home');
   expect(closedSpacing).not.toBeNull();
-  expect(closedSpacing!.paddingTop).toBeGreaterThanOrEqual(71);
-  expect(closedSpacing!.headingTop).toBeGreaterThanOrEqual(71);
+  expect(closedSpacing!.barPaddingTop).toBeGreaterThanOrEqual(47);
+  expect(closedSpacing!.backTop).toBeGreaterThanOrEqual(47);
   expect(closedSpacing!.paddingBottom).toBeGreaterThanOrEqual(34);
   await safeAreaStyle.evaluate((style) => style.parentNode?.removeChild(style));
   if (testInfo.project.name === 'iphone') {
