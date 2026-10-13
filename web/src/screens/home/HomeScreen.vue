@@ -24,7 +24,7 @@ import {
  * Home: greeting, the eye button, the open check-in banner, the Check-in
  * tile, the Family wealth card and the "Everything" grid (UI-HOME-1 to 6, D2).
  * Amounts are hidden whenever the screen opens, unless this device's setting
- * says otherwise; the eye shows them for 30 s. Nothing here stores whether
+ * says otherwise; the eye shows them for 30 s, counting the seconds down in the note. Nothing here stores whether
  * they are visible.
  */
 defineOptions({ name: 'HomeScreen' });
@@ -43,6 +43,15 @@ const visible = ref(false);
 // While set, amounts hide again at this instant (UTC epoch milliseconds).
 const hideAt = ref<number | null>(null);
 let hideTimer: ReturnType<typeof setTimeout> | undefined;
+// Ticks once a second during a timed reveal so the note counts down.
+let tickTimer: ReturnType<typeof setInterval> | undefined;
+const now = ref(Date.now());
+/** Whole seconds left of a timed reveal, rounded up; 30 when it starts. */
+const secondsLeft = computed(() =>
+  hideAt.value === null
+    ? 0
+    : Math.max(0, Math.ceil((hideAt.value - now.value) / 1000)),
+);
 
 const formatter = computed(() => createMoneyFormatter(coins.value));
 const currency = computed(() => home.value?.commonCurrency ?? '');
@@ -143,7 +152,9 @@ function openedWhen(openedDate: string, today: string): string {
 
 function hideAmounts(): void {
   clearTimeout(hideTimer);
+  clearInterval(tickTimer);
   hideTimer = undefined;
+  tickTimer = undefined;
   hideAt.value = null;
   visible.value = false;
 }
@@ -157,8 +168,12 @@ function toggleAmounts(): void {
   // With the device setting off, amounts are shown by default, so showing
   // them again after a manual hide needs no timer.
   if (!home.value?.hideAmounts) return;
-  hideAt.value = Date.now() + REVEAL_MS;
+  now.value = Date.now();
+  hideAt.value = now.value + REVEAL_MS;
   hideTimer = setTimeout(hideAmounts, REVEAL_MS);
+  tickTimer = setInterval(() => {
+    now.value = Date.now();
+  }, 1000);
 }
 
 /**
@@ -216,6 +231,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   clearTimeout(hideTimer);
+  clearInterval(tickTimer);
   document.removeEventListener('visibilitychange', hideWhenBackgrounded);
   window.removeEventListener('pagehide', hideOnPageHide);
 });
@@ -252,8 +268,9 @@ onBeforeUnmount(() => {
     </header>
 
     <div class="content app-content home-content">
-      <p v-if="hideAt !== null" class="t-sub home-note" role="status">
-        Amounts visible · hiding again in 30 s
+      <!-- A timer role is not announced on every tick. -->
+      <p v-if="hideAt !== null" class="t-sub home-note" role="timer">
+        Amounts visible · hiding again in {{ secondsLeft }} s
       </p>
 
       <p v-if="loading" class="home-state" role="status">Loading…</p>
