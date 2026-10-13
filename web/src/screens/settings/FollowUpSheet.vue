@@ -43,7 +43,7 @@ const options = computed(() =>
 const preview = computed(() =>
   days.value < 1
     ? 'No reminders. The banner still shows an open check-in.'
-    : `${summarizeFollowUp(days.value)} while a check-in is open, a reminder goes to each profile with accounts left. It never shows amounts.`,
+    : `${summarizeFollowUp(days.value)} while a check-in is open, a reminder goes to each profile with accounts left, or to all once every amount is in. It never shows amounts.`,
 );
 
 function close(): void {

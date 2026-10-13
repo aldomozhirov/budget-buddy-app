@@ -707,6 +707,32 @@ test('the current profile is selected on first load even with an Unassigned tab'
   ).toBeVisible();
 });
 
+test('with no active accounts the close confirmation does not claim every account has a value', async ({
+  page,
+}) => {
+  await setupFamily(page.context(), ['Alex', 'Blair'], 1);
+  const opened = await page.context().request.post(`${origin}/api/checkins`, {
+    headers: { Origin: origin },
+    data: {},
+  });
+  expect(opened.status()).toBe(201);
+
+  await page.goto(`${origin}/check-in`);
+  // The footer agrees: nothing is "in" when there is nothing to enter.
+  await expect(
+    page.getByText('It stays open until someone presses Close now.'),
+  ).toBeVisible();
+  await expect(page.getByText('Everyone’s balances are in.')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Close now' }).click();
+  const confirmation = page.getByRole('dialog', {
+    name: 'Close the check-in now?',
+  });
+  await expect(confirmation).toContainText(
+    '0 accounts without a value will keep the last balance, marked as “wasn’t changed”.',
+  );
+  await expect(confirmation).not.toContainText('Every account has a value.');
+});
+
 test('a profile without accounts is prompted to create one at New account', async ({
   page,
 }) => {

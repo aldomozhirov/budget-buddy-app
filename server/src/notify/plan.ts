@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import {
   activeMemberIds,
+  hasEveryValue,
   memberName,
   membersWithAccountsLeft,
 } from './recipients.js';
@@ -13,7 +14,9 @@ import type { NotificationEvent, NotificationPlan } from './types.js';
  * every other active member with their name, and a closed one to every active
  * member. A follow-up goes only to the active members who still own accounts
  * without a value in the open check-in (CHK-3); a schedule slot that finds a
- * check-in open sends the same reminder to the same members (CHK-2).
+ * check-in open sends the same reminder to the same members (CHK-2). Once
+ * every account has a value, both go to every active member with the text
+ * that asks to close it (owner's decision, 2026-10-13).
  */
 export function planNotification(
   database: Database.Database,
@@ -34,14 +37,20 @@ export function planNotification(
             : notificationText.startedBy(event.checkinId, starter),
       };
     }
-    case 'checkin.followup':
+    case 'checkin.followup': {
+      const complete = hasEveryValue(database, event.checkinId);
       return {
         event: event.kind,
         checkinId: event.checkinId,
         slot: event.slot,
-        recipients: membersWithAccountsLeft(database, event.checkinId),
-        content: notificationText.followUp(event.checkinId),
+        recipients: complete
+          ? everyone
+          : membersWithAccountsLeft(database, event.checkinId),
+        content: complete
+          ? notificationText.closeReminder(event.checkinId)
+          : notificationText.followUp(event.checkinId),
       };
+    }
     case 'checkin.closed':
       return {
         event: event.kind,

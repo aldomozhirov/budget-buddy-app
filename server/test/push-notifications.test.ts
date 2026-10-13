@@ -391,6 +391,20 @@ describe('Web Push notifications', () => {
         checkinId: 1,
         slot: '2026-11-12T13:00',
       });
+      // With her value in, every account has one and the reminder asks
+      // every member to close it.
+      expect(
+        (
+          await request('Blair', 'PUT', '/api/checkins/1/values/2', {
+            amount: '88800',
+          })
+        ).statusCode,
+      ).toBe(200);
+      await notifier.notify({
+        kind: 'checkin.followup',
+        checkinId: 1,
+        slot: '2026-11-12T15:00',
+      });
       expect((await closeCheckin('Blair', 1)).statusCode).toBe(200);
       await notifier.idle();
       // Later rounds, closed already, to announce the other texts.
@@ -423,6 +437,7 @@ describe('Web Push notifications', () => {
           'Check-in closed',
           'Casey closed the check-in',
           'Your check-in is waiting',
+          'Ready to close',
         ]),
       );
       for (const push of sender.sent) {
@@ -442,7 +457,7 @@ describe('Web Push notifications', () => {
           'title',
           'url',
         ]);
-        expect(push.payload).not.toMatch(/123456|654321/u);
+        expect(push.payload).not.toMatch(/123456|654321|88800/u);
       }
     });
   });

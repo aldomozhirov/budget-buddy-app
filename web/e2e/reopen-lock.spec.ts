@@ -82,8 +82,7 @@ test('coming back after more than 5 minutes asks to sign in and returns to the s
   page,
 }) => {
   await page.clock.install();
-  await page.goto(`${origin}/accounts`);
-  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+  await openAccounts(page);
 
   await away(page, 6 * minute);
   await expect(page).toHaveURL(`${origin}/sign-in?next=/accounts`);
@@ -112,8 +111,7 @@ test('events that arrive with a return send one presence call, and a lock holds 
     }
   });
   await page.clock.install();
-  await page.goto(`${origin}/accounts`);
-  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+  await openAccounts(page);
   await hide(page);
   backdate(10 * minute);
   await page.clock.fastForward(10 * minute);
@@ -150,8 +148,7 @@ test('a wrong password on the lock screen counts toward the lockout', async ({
   page,
 }) => {
   await page.clock.install();
-  await page.goto(`${origin}/accounts`);
-  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+  await openAccounts(page);
   await away(page, 6 * minute);
   await expect(page).toHaveURL(/\/sign-in/u);
   await page.getByRole('textbox', { name: 'Family password' }).fill('wrong');
@@ -163,8 +160,7 @@ test('a wrong password on the lock screen counts toward the lockout', async ({
 
 test('a short absence does not lock', async ({ page }) => {
   await page.clock.install();
-  await page.goto(`${origin}/accounts`);
-  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+  await openAccounts(page);
 
   await away(page, 4 * minute);
   await expect(page).toHaveURL(`${origin}/accounts`);
@@ -176,17 +172,17 @@ test('a short absence does not lock', async ({ page }) => {
 test('a fresh load follows the same five minutes, measured from the last time in the foreground', async ({
   page,
 }) => {
-  await page.goto(`${origin}/accounts`);
-  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+  await openAccounts(page);
 
   // A reload in the middle of use, and one after four minutes away.
   await page.reload();
   await expect(page).toHaveURL(`${origin}/accounts`);
+  await accountsLoaded(page);
   await hide(page);
   backdate(4 * minute);
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
   await expect(page).toHaveURL(`${origin}/accounts`);
+  await accountsLoaded(page);
 
   // After six minutes the load shows sign-in, where the Home Screen app
   // starts (Home) or where it was opened (a path).
@@ -202,8 +198,7 @@ test('a fresh load follows the same five minutes, measured from the last time in
 test('a Home Screen start at Home returns to the screen the app was left on', async ({
   page,
 }) => {
-  await page.goto(`${origin}/accounts`);
-  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+  await openAccounts(page);
   await hide(page);
   backdate(8 * minute);
   // iOS starts an installed app at its start URL, not where it was left.
@@ -224,8 +219,7 @@ test('a visible app reports every 30 seconds and is not locked however long it s
     }
   });
   await page.clock.install();
-  await page.goto(`${origin}/accounts`);
-  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+  await openAccounts(page);
   for (let beat = 0; beat < 40; beat += 1) {
     const sent = page.waitForResponse(
       (response) => new URL(response.url()).pathname === presencePath,
@@ -284,16 +278,14 @@ test('a member who navigates every 20 seconds keeps reporting and is not locked'
 test('a load just before the limit says so at once, so the next request is not refused', async ({
   page,
 }) => {
-  await page.goto(`${origin}/accounts`);
-  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+  await openAccounts(page);
   await hide(page);
   backdate(4 * minute + 45_000);
 
   const sent = page.waitForResponse(
     (response) => new URL(response.url()).pathname === presencePath,
   );
-  await page.goto(`${origin}/accounts`);
-  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+  await openAccounts(page);
   await sent;
   // 30 seconds of use pass before the first 30 s beat; they add to the gap
   // the server sees only if the load did not mark the app in use.
@@ -358,9 +350,7 @@ test('a notification tap on a locked device goes to sign-in, then to the screen 
 }) => {
   await page.clock.install();
   await page.goto(`${origin}/`);
-  await expect(
-    page.getByRole('link', { name: /Family wealth/u }),
-  ).toBeVisible();
+  await homeLoaded(page);
   await away(page, 6 * minute);
   await expect(page).toHaveURL(`${origin}/sign-in`);
 
@@ -378,9 +368,7 @@ test('a notification that opens a closed app on a locked device goes to sign-in 
   page,
 }) => {
   await page.goto(`${origin}/`);
-  await expect(
-    page.getByRole('link', { name: /Family wealth/u }),
-  ).toBeVisible();
+  await homeLoaded(page);
   await hide(page);
   backdate(10 * minute);
   // The worker opens a new window at the notification's address.
@@ -396,8 +384,7 @@ test('offline, a device that was away is locked on the page and cannot sign in u
   context,
 }) => {
   await page.clock.install();
-  await page.goto(`${origin}/accounts`);
-  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+  await openAccounts(page);
   await hide(page);
   await context.setOffline(true);
   await page.clock.fastForward(7 * minute);
@@ -439,8 +426,7 @@ test('Face ID on a locked device is asked for once, then the button waits, focus
   });
   addPasskeyRow();
   await page.clock.install();
-  await page.goto(`${origin}/accounts`);
-  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+  await openAccounts(page);
   await away(page, 6 * minute);
 
   await expect(page).toHaveURL(`${origin}/sign-in?next=/accounts`);
@@ -483,6 +469,35 @@ test('a device that is signed out, not locked, is not asked for Face ID by itsel
     page.getByText('Locked after more than 5 minutes away.'),
   ).toHaveCount(0);
 });
+
+/**
+ * Opens Accounts and waits until it has loaded. See `accountsLoaded`.
+ */
+async function openAccounts(page: Page): Promise<void> {
+  await page.goto(`${origin}/accounts`);
+  await accountsLoaded(page);
+}
+
+/**
+ * Waits until Accounts shows its list, not only its heading. The page reads
+ * its data after the heading shows; a read that leaves after the test has
+ * moved the server's clock is refused with `session_locked`, and the page
+ * then locks itself through that answer, never through the return call the
+ * test is about. A page that has not yet loaded its sign-in state also sends
+ * no call when it is hidden.
+ */
+async function accountsLoaded(page: Page): Promise<void> {
+  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+  await expect(page.getByText('Loading accounts…')).toHaveCount(0);
+}
+
+/** Waits until Home shows its data. See `accountsLoaded`. */
+async function homeLoaded(page: Page): Promise<void> {
+  await expect(
+    page.getByRole('link', { name: /Family wealth/u }),
+  ).toBeVisible();
+  await expect(page.getByText('Loading…', { exact: true })).toHaveCount(0);
+}
 
 /** Sets what the page reports about being in the foreground. */
 async function setVisibility(

@@ -730,6 +730,183 @@ describe('follow-up reminders', () => {
       ]);
     });
   });
+
+  /**
+   * Owner's decision, 2026-10-13: once every account has a value only "Close
+   * now" is left, so the follow-up and the slot ask every active member to
+   * close the check-in, with a text of their own.
+   */
+  describe('a check-in with a value for every account', () => {
+    const closeText = {
+      title: 'Ready to close',
+      body: 'All amounts are in. Close the check-in.',
+      url: '/check-ins/1',
+      tag: 'checkin-1-followup',
+    };
+    const waitingText = {
+      title: 'Your check-in is waiting',
+      body: 'Some of your accounts still need a balance.',
+      url: '/check-ins/1',
+      tag: 'checkin-1-followup',
+    };
+    const weekly = { kind: 'weeks', every: 1, weekday: 2, time: '09:00' };
+    const texts = () => sender.sent.map((push) => push.content);
+    const completeCheckin = async () => {
+      const id = await startCheckin();
+      await enterValue('Alex', id, 1);
+      await enterValue('Blair', id, 2);
+      return id;
+    };
+    const followUpRows = () =>
+      database
+        .prepare(
+          `SELECT member_id, slot FROM notification
+           WHERE event = 'checkin.followup' ORDER BY member_id, slot`,
+        )
+        .all();
+
+    it('is reminded by the follow-up: every active member, with the close text, once', async () => {
+      await completeCheckin();
+      at('2026-11-12T12:00:00Z');
+      await tick();
+
+      // Casey owns no account and is reminded too.
+      expect(sender.sent.map((push) => push.endpoint).sort()).toEqual(
+        alert(['Alex', 'Blair', 'Casey']),
+      );
+      expect(new Set(texts().map((text) => JSON.stringify(text)))).toEqual(
+        new Set([JSON.stringify(closeText)]),
+      );
+      expect(followUpRows()).toEqual([
+        { member_id: 1n, slot: '2026-11-12T13:00' },
+        { member_id: 2n, slot: '2026-11-12T13:00' },
+        { member_id: 3n, slot: '2026-11-12T13:00' },
+      ]);
+
+      // The same occasion again, as after a restart, sends nothing more.
+      database
+        .prepare("DELETE FROM job_run WHERE slot = '2026-11-12T13:00'")
+        .run();
+      await tick();
+      expect(sender.sent).toHaveLength(3);
+
+      // The next follow-up is a new occasion.
+      at('2026-11-14T12:00:00Z');
+      await tick();
+      expect(sender.sent).toHaveLength(6);
+    });
+
+    it('is reminded by a schedule slot, also with follow-ups off', async () => {
+      await setFollowupDays(0);
+      const saved = await request('Alex', 'PATCH', '/api/settings', {
+        cadence: weekly,
+      });
+      expect(saved.statusCode, saved.body).toBe(200);
+      await completeCheckin();
+
+      at('2026-11-17T08:00:00Z');
+      await tick();
+      expect(sender.sent.map((push) => push.endpoint).sort()).toEqual(
+        alert(['Alex', 'Blair', 'Casey']),
+      );
+      expect(texts().every((text) => text.body === closeText.body)).toBe(true);
+      expect(followUpRows()).toHaveLength(3);
+      expect(
+        database.prepare('SELECT COUNT(*) AS n FROM checkin').get(),
+      ).toEqual({ n: 1n });
+
+      database
+        .prepare("DELETE FROM job_run WHERE slot = '2026-11-17T09:00'")
+        .run();
+      await tick();
+      expect(sender.sent).toHaveLength(3);
+    });
+
+    it('gives one push when the slot and a follow-up fall in the same minute', async () => {
+      // Weekly Tuesday 09:00 slots; a check-in opened by the schedule counts
+      // its 7-day follow-ups from the same time.
+      await setFollowupDays(7);
+      await request('Alex', 'PATCH', '/api/settings', { cadence: weekly });
+      at('2026-11-17T08:00:00Z');
+      await tick();
+      await notifier.idle();
+      sender.sent.length = 0;
+      database.prepare('DELETE FROM notification').run();
+      await enterValue('Alex', 1, 1);
+      await enterValue('Blair', 1, 2);
+
+      at('2026-11-24T08:00:00Z');
+      await tick();
+      expect(sender.sent).toHaveLength(3);
+      expect(new Set(texts().map((text) => text.body))).toEqual(
+        new Set([closeText.body]),
+      );
+    });
+
+    it('sends nothing when follow-ups are off and no slot is due', async () => {
+      await completeCheckin();
+      await setFollowupDays(0);
+      at('2026-11-20T12:00:00Z');
+      await tick();
+      expect(sender.sent).toEqual([]);
+    });
+
+    it('reminds nobody once it is closed', async () => {
+      const id = await completeCheckin();
+      await request('Alex', 'POST', `/api/checkins/${id}/close`, {});
+      await notifier.idle();
+      sender.sent.length = 0;
+      at('2026-11-12T12:00:00Z');
+      await tick();
+      expect(sender.sent).toEqual([]);
+    });
+
+    it('goes back to the waiting reminder when an account is added', async () => {
+      await completeCheckin();
+      const added = await request('Alex', 'POST', '/api/accounts', {
+        name: 'Savings',
+        ownerMemberId: 2,
+        type: 'bank',
+        currency: 'EUR',
+        openingBalance: '500',
+      });
+      expect(added.statusCode, added.body).toBe(201);
+      at('2026-11-12T12:00:00Z');
+      await tick();
+      expect(reminded()).toEqual(alert(['Blair']));
+      expect(texts()).toEqual([waitingText]);
+    });
+
+    it('goes back to the waiting reminder when an amount is cleared', async () => {
+      const id = await completeCheckin();
+      database
+        .prepare('DELETE FROM snapshot WHERE checkin_id = ? AND account_id = 1')
+        .run(id);
+      at('2026-11-12T12:00:00Z');
+      await tick();
+      expect(reminded()).toEqual(alert(['Alex']));
+      expect(texts()).toEqual([waitingText]);
+    });
+
+    it('keeps the waiting text for members with accounts left and sends no close text', async () => {
+      const id = await startCheckin();
+      await enterValue('Alex', id, 1);
+      at('2026-11-12T12:00:00Z');
+      await tick();
+      expect(texts()).toEqual([waitingText]);
+      expect(reminded()).toEqual(alert(['Blair']));
+    });
+
+    it('sends no close reminder when there are no active accounts', async () => {
+      const id = await startCheckin();
+      database.prepare('UPDATE account SET active = 0').run();
+      expect(id).toBe(1);
+      at('2026-11-12T12:00:00Z');
+      await tick();
+      expect(sender.sent).toEqual([]);
+      expect(followUpRows()).toEqual([]);
+    });
+  });
 });
 
 function cookieHeader(response: { headers: Record<string, unknown> }): string {
