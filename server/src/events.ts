@@ -9,7 +9,8 @@ export interface CheckinEvents {
   'checkin.closed': {
     checkinId: number;
     closedAt: number;
-    closedBy: number | null;
+    /** The member who pressed "Close now"; nothing else closes a check-in. */
+    closedBy: number;
   };
   /**
    * A value was saved or replaced. Carries no amount: it only tells the live

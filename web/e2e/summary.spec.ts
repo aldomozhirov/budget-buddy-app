@@ -139,6 +139,50 @@ test('the summary shows the total, its two causes and the per-currency rows', as
   }
 });
 
+test('a list row with a description has the same vertical padding as a one-line row', async ({
+  page,
+}) => {
+  const seed = await seedFamily(page.context());
+  await page.goto(`${origin}/check-ins/${seed.second}`);
+  await expect(page.getByText('Wasn’t changed · 1')).toBeVisible();
+
+  const rowOf = (text: string) =>
+    page
+      .getByText(text, { exact: true })
+      .locator(
+        'xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " row ")][1]',
+      );
+  const measure = async (text: string) =>
+    rowOf(text).evaluate((row, label) => {
+      const style = getComputedStyle(row);
+      const box = row.getBoundingClientRect();
+      const textBox = [...row.querySelectorAll('span')]
+        .find((span) => span.textContent?.startsWith(label))!
+        .getBoundingClientRect();
+      return {
+        top: parseFloat(style.paddingTop),
+        bottom: parseFloat(style.paddingBottom),
+        gapAbove: textBox.top - box.top,
+        // The divider is outside the 56 px minimum of a row.
+        height: box.height - parseFloat(style.borderBottomWidth),
+      };
+    }, text);
+
+  const twoLines = await measure('Wasn’t changed · 1');
+  const oneLine = await measure('No accounts added or deactivated');
+  expect(twoLines.top).toBeGreaterThan(0);
+  expect(twoLines.top).toBe(oneLine.top);
+  expect(twoLines.bottom).toBe(oneLine.bottom);
+  // The title does not touch the card's top edge or the divider.
+  expect(twoLines.gapAbove).toBeGreaterThanOrEqual(twoLines.top);
+  // A row is as tall as before when its text is short: the padding counts
+  // inside the minimum height. A taller row grows by the padding on top.
+  expect(oneLine.height).toBe(56);
+  expect(twoLines.height).toBeGreaterThan(56);
+  const currency = await page.locator('.currency-row').first().boundingBox();
+  expect(currency?.height).toBe(61);
+});
+
 test('Check-ins says "Rate missing" once, and compares nothing across a gap', async ({
   page,
 }) => {
@@ -531,6 +575,7 @@ async function seedFamily(context: BrowserContext): Promise<Seed> {
   for (const id of [tradeRepublic, ing, tBank, revolut, bitcoin, cash]) {
     await put(context, `/api/checkins/${first}/values/${id}`, { same: true });
   }
+  await post(context, `/api/checkins/${first}/close`, {});
   await pause();
 
   const second = await startCheckin(context);

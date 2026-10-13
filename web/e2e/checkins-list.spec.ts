@@ -178,27 +178,69 @@ test('closed rows show the date, closer and carried-forward count', async ({
   );
   expect(closeResponse.status()).toBe(200);
 
-  const automaticallyClosed = await startCheckin(context);
+  const everyoneIn = await startCheckin(context);
   const saved = await context.request.put(
-    `${origin}/api/checkins/${automaticallyClosed}/values/${accountId}`,
+    `${origin}/api/checkins/${everyoneIn}/values/${accountId}`,
     { headers: { Origin: origin }, data: { same: true } },
   );
   expect(saved.status()).toBe(200);
+  // The last amount leaves it open; only "Close now" closes it.
+  const stillOpen = await context.request.get(
+    `${origin}/api/checkins/${everyoneIn}`,
+  );
+  expect((await stillOpen.json()).checkin.closedAt).toBeNull();
+  const closedEveryoneIn = await context.request.post(
+    `${origin}/api/checkins/${everyoneIn}/close`,
+    { headers: { Origin: origin }, data: {} },
+  );
+  expect(closedEveryoneIn.status()).toBe(200);
 
   await page.goto(`${origin}/check-ins`);
   const manualRow = page.getByRole('link', {
     name: /\d{2}\/\d{2}\/\d{4} · Alex closed it · 1 wasn’t changed/u,
   });
-  const automaticRow = page.getByRole('link', {
-    name: /\d{2}\/\d{2}\/\d{4} · Closed by itself · everyone in/u,
+  const everyoneInRow = page.getByRole('link', {
+    name: /\d{2}\/\d{2}\/\d{4} · Alex closed it · everyone in/u,
   });
   await expect(manualRow).toBeVisible();
-  await expect(automaticRow).toBeVisible();
+  await expect(everyoneInRow).toBeVisible();
   await expect(page.getByText(/^\d{2}\/\d{2}\/\d{4}$/u)).toHaveCount(2);
   await expectScheduleOff(page);
   // Totals sit behind the eye button until it is tapped (task 22).
   await expect(page.getByText('€ • • • • •')).toHaveCount(2);
   await expect(page.getByText(/€\d/u)).toHaveCount(0);
+});
+
+test('a check-in recorded as closed by itself, before Close now was the only way, keeps its label', async ({
+  page,
+}) => {
+  const context = page.context();
+  await setupFamily(context, ['Alex'], 1);
+  await createAccount(context, 'Everyday account', 1);
+  const id = await startCheckin(context);
+  const closed = await context.request.post(
+    `${origin}/api/checkins/${id}/close`,
+    { headers: { Origin: origin }, data: {} },
+  );
+  expect(closed.status()).toBe(200);
+
+  // The server no longer produces a close without a member; older records
+  // in the family's data still have none, so the list answer is edited.
+  await page.route('**/api/checkins', async (route) => {
+    if (route.request().method() !== 'GET') return route.continue();
+    const response = await route.fetch();
+    const body = (await response.json()) as {
+      checkins: { closedBy: unknown }[];
+    };
+    for (const checkin of body.checkins) checkin.closedBy = null;
+    return route.fulfill({ response, json: body });
+  });
+  await page.goto(`${origin}/check-ins`);
+  await expect(
+    page.getByRole('link', {
+      name: /\d{2}\/\d{2}\/\d{4} · Closed by itself · 1 wasn’t changed/u,
+    }),
+  ).toBeVisible();
 });
 
 /** The schedule is off: the header says so and no date is promised. */

@@ -88,7 +88,7 @@ describe('summary routes', () => {
     return ids;
   }
 
-  /** Runs one whole check-in through the API; the last value closes it. */
+  /** Runs one whole check-in through the API; "Close now" closes it. */
   async function runCheckin(values: Record<number, string>): Promise<number> {
     const started = await send('POST', '/api/checkins', {});
     const id = started.json().checkin.id as number;
@@ -100,6 +100,8 @@ describe('summary routes', () => {
       );
       expect(saved.statusCode).toBe(200);
     }
+    const closed = await send('POST', `/api/checkins/${id}/close`, {});
+    expect(closed.statusCode).toBe(200);
     return id;
   }
 
@@ -115,7 +117,6 @@ describe('summary routes', () => {
     const first = await runCheckin({ [eur]: '100000', [usd]: '50000' });
     now += day * 31;
     const second = await runCheckin({ [eur]: '110000', [usd]: '60000' });
-    // Saving the last value closed each check-in by itself.
     const open = await send('POST', '/api/checkins', {});
     const openId = open.json().checkin.id as number;
     const refused = await get(`/api/checkins/${openId}/summary`);

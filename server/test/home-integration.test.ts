@@ -114,6 +114,11 @@ describe('home and device routes', () => {
     expect(saved.statusCode).toBe(200);
   }
 
+  async function closeCheckin(checkinId: number): Promise<void> {
+    const closed = await send('POST', `/api/checkins/${checkinId}/close`, {});
+    expect(closed.statusCode).toBe(200);
+  }
+
   function addBackup(
     kind: string,
     status: string,
@@ -221,6 +226,7 @@ describe('home and device routes', () => {
     await saveValue(id, eur, '100000');
     await saveValue(id, usd, '50000');
     await saveValue(id, blair, '0');
+    await closeCheckin(id);
     // At the check-in: EUR 1,000.00 + USD 500.00 / 1.25 = EUR 1,400.00.
     expect((await home()).wealth).toEqual({
       checkinId: id,
@@ -262,6 +268,7 @@ describe('home and device routes', () => {
       await saveValue(id, eur, amount);
       await saveValue(id, usd, '0');
       await saveValue(id, blair, '0');
+      await closeCheckin(id);
       now += day;
     }
     const latest = (await get('/api/checkins'))
@@ -293,6 +300,7 @@ describe('home and device routes', () => {
     await saveValue(id, eur, '100000');
     await saveValue(id, usd, '50000');
     await saveValue(id, blair, '0');
+    await closeCheckin(id);
     database
       .prepare(
         `INSERT INTO account (name, owner_member_id, type, currency,

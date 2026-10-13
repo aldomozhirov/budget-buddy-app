@@ -87,7 +87,8 @@ if (command === 'seed') {
   await json('PUT', `/api/checkins/${checkinId}/values/${ids[2]}`, {
     amount: '-5',
   });
-  // The last value closes the check-in by itself, so there is no close call.
+  // The last value leaves the check-in open; only a close call ends it.
+  await json('POST', `/api/checkins/${checkinId}/close`, {}, 200);
   stdout.write(`seeded ${ids.length} accounts and check-in ${checkinId}\n`);
 } else if (command === 'dump') {
   await signIn();

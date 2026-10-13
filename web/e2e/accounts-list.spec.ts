@@ -446,6 +446,7 @@ test('marks old balances stale and labels balance details', async ({
   await expect(staleCash).toContainText('€240.00');
   await expect(staleCash.getByText('Stale')).toBeVisible();
   const staleRowBounds = await staleCash.boundingBox();
+  // The row padding sits inside the 64 px minimum: this row keeps its height.
   expect(staleRowBounds?.height).toBe(65);
   await expect(
     page.getByRole('link', { name: /Car loan · EUR/ }),

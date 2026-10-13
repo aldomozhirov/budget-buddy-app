@@ -179,7 +179,7 @@ describe('check-in integration', () => {
     ).toEqual({ amount: 0n, source: 'checkin' });
   });
 
-  it('auto-closes with no closer when the last active account is entered', async () => {
+  it('stays open when the last active account is entered, and closes at Close now', async () => {
     const firstAccount = await createAccount({
       name: 'First',
       openingBalance: '10',
@@ -210,20 +210,42 @@ describe('check-in integration', () => {
     expect(lastValue.statusCode).toBe(200);
     expect(lastValue.json().checkin).toMatchObject({
       completedAccounts: 2,
-      closedAt: fixedTime,
+      closedAt: null,
       closedBy: null,
     });
     expect(
-      database
-        .prepare('SELECT closed_by FROM checkin WHERE id = ?')
-        .get(checkinId),
-    ).toEqual({ closed_by: null });
-    expect(events.at(-1)).toMatchObject({
-      closedAt: fixedTime,
-      closedBy: null,
-    });
+      events.filter((event) => 'closedAt' in event && 'closedBy' in event),
+    ).toEqual([]);
 
-    const rejected = await saveValue(checkinId, secondAccount, '22');
+    // Still editable: a value can be replaced while it stays open.
+    const corrected = await saveValue(checkinId, secondAccount, '22');
+    expect(corrected.statusCode).toBe(200);
+    expect(corrected.json().checkin).toMatchObject({ closedAt: null });
+
+    now += 5_000;
+    const closed = await app.inject({
+      method: 'POST',
+      url: `/api/checkins/${checkinId}/close`,
+      headers: requestHeaders(),
+      payload: {},
+    });
+    expect(closed.statusCode).toBe(200);
+    expect(closed.json().checkin).toMatchObject({
+      closedAt: now,
+      closedBy: { memberId: 1, name: 'Alex' },
+      completedAccounts: 2,
+    });
+    // Nothing was missing, so nothing is carried forward.
+    expect(
+      database
+        .prepare(
+          "SELECT COUNT(*) AS n FROM snapshot WHERE checkin_id = ? AND source = 'carried_forward'",
+        )
+        .get(checkinId),
+    ).toEqual({ n: 0n });
+    expect(events.at(-1)).toMatchObject({ closedAt: now, closedBy: 1 });
+
+    const rejected = await saveValue(checkinId, secondAccount, '23');
     expect(rejected.statusCode).toBe(403);
     expect(rejected.json()).toMatchObject({
       error: { code: 'checkin_closed' },
@@ -375,7 +397,7 @@ describe('check-in integration', () => {
     expect(createdValue.json().checkin).toMatchObject({
       totalAccounts: 3,
       completedAccounts: 3,
-      closedAt: fixedTime,
+      closedAt: null,
       closedBy: null,
     });
   });

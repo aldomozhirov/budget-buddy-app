@@ -490,7 +490,7 @@ void load();
 }
 
 .closed-checkin-row {
-  min-height: 64px;
+  min-height: calc(64px - 2 * var(--row-pad));
   text-decoration: none;
 }
 

@@ -213,16 +213,16 @@ describe('Web Push notifications', () => {
       expect(sender.sent).toEqual([]);
     });
 
-    it('names no one when the check-in closed by itself', async () => {
+    it('names no one when the closing member is unknown', async () => {
       await startCheckin('Alex');
       await notifier.idle();
       sender.sent.length = 0;
       await notifier.notify({
         kind: 'checkin.closed',
         checkinId: 1,
-        closedBy: null,
+        closedBy: 999,
       });
-      expect(sender.sent[0]!.content.title).toBe('Check-in complete');
+      expect(sender.sent[0]!.content.title).toBe('Check-in closed');
     });
   });
 
@@ -406,7 +406,7 @@ describe('Web Push notifications', () => {
       await notifier.notify({
         kind: 'checkin.closed',
         checkinId: 3,
-        closedBy: null,
+        closedBy: 999,
       });
       await notifier.notify({
         kind: 'checkin.closed',
@@ -420,7 +420,7 @@ describe('Web Push notifications', () => {
           'Alex started a check-in',
           'Blair closed the check-in',
           'Time for a check-in',
-          'Check-in complete',
+          'Check-in closed',
           'Casey closed the check-in',
           'Your check-in is waiting',
         ]),
