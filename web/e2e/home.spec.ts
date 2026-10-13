@@ -511,6 +511,8 @@ async function closedCheckinThenRaiseIng(
   for (const account of [seed.trade, seed.ing, seed.cash, seed.revolut]) {
     await put(context, `/api/checkins/${id}/values/${account}`, { same: true });
   }
+  // Entering the last amount leaves it open; "Close now" closes it.
+  await post(context, `/api/checkins/${id}/close`, {});
   // The raise must be dated after the close.
   await new Promise((resolve) => setTimeout(resolve, 30));
   await post(context, `/api/accounts/${seed.ing}/snapshots`, {

@@ -58,9 +58,19 @@ let readInFlight = false;
 let readQueued = false;
 let selectionInitialized = false;
 
+/** True once every account has a value; only "Close now" closes it then. */
+const everyoneIn = computed(
+  () =>
+    checkin.value !== null &&
+    checkin.value.totalAccounts > 0 &&
+    checkin.value.completedAccounts === checkin.value.totalAccounts,
+);
+
 /** UI-CHK-7: the footer's second sentence, left out when reminders are off. */
 const footerText = computed(() => {
-  const base = 'Closes by itself when everyone is in.';
+  if (everyoneIn.value)
+    return 'Everyone’s balances are in. Close the check-in to finish.';
+  const base = 'It stays open until someone presses Close now.';
   const due = checkin.value?.nextReminderAt;
   if (due === null || due === undefined) return base;
   const when = describeReminderIn(new Date(due), new Date(), timeZone.value);
@@ -771,6 +781,7 @@ onBeforeUnmount(() => {
         <span>{{ footerText }}</span>
         <button
           class="checkin-close-button"
+          :class="{ 'checkin-close-button-ready': everyoneIn }"
           type="button"
           :disabled="saving || !isOnline"
           @click="closeConfirmationOpen = true"
@@ -862,7 +873,11 @@ onBeforeUnmount(() => {
       :closable="!saving"
       @close="closeConfirmationOpen = false"
     >
-      <p class="t-sub checkin-close-copy">
+      <p v-if="missingAccountCount === 0" class="t-sub checkin-close-copy">
+        Every account has a value. Closing finishes the check-in and makes the
+        summary ready.
+      </p>
+      <p v-else class="t-sub checkin-close-copy">
         {{ missingAccountCount }}
         {{ missingAccountCount === 1 ? 'account' : 'accounts' }} without a value
         will keep the last balance, marked as “wasn’t changed”.
@@ -1103,6 +1118,11 @@ onBeforeUnmount(() => {
   color: var(--ink) !important;
   font-size: 14px;
   font-weight: 600;
+}
+
+.checkin-close-button-ready {
+  background: var(--ink) !important;
+  color: var(--on-ink) !important;
 }
 
 .checkin-empty,

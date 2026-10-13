@@ -515,6 +515,7 @@
   /* editable row on a detail page; opens in place */
   width: 100%;
   min-height: 54px;
+  padding: 10px 0;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -738,6 +739,7 @@
 .bb .row {
   width: 100%;
   min-height: 56px;
+  padding: 10px 0; /* a taller row (title and wrapped description) keeps air */
   display: flex;
   align-items: center;
   gap: 12px;

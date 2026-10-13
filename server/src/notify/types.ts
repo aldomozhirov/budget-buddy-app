@@ -26,8 +26,8 @@ export type NotificationEvent =
   | {
       kind: 'checkin.closed';
       checkinId: number;
-      /** The member who closed it, or null when it closed by itself. */
-      closedBy: number | null;
+      /** The member who closed it. */
+      closedBy: number;
     }
   | {
       kind: 'checkin.followup';

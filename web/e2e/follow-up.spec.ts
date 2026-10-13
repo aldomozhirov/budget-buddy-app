@@ -177,7 +177,7 @@ test('the check-in footer says when the next reminder is due', async ({
   await page.goto(`${origin}/check-in`);
   await expect(
     page.getByText(
-      'Closes by itself when everyone is in. Next reminder in 2 days.',
+      'It stays open until someone presses Close now. Next reminder in 2 days.',
       { exact: true },
     ),
   ).toBeVisible();
@@ -186,7 +186,7 @@ test('the check-in footer says when the next reminder is due', async ({
   await page.reload();
   await expect(
     page.getByText(
-      'Closes by itself when everyone is in. Next reminder tomorrow.',
+      'It stays open until someone presses Close now. Next reminder tomorrow.',
       { exact: true },
     ),
   ).toBeVisible();
@@ -195,7 +195,7 @@ test('the check-in footer says when the next reminder is due', async ({
   await page.reload();
   await expect(
     page.getByText(
-      'Closes by itself when everyone is in. Next reminder in 7 days.',
+      'It stays open until someone presses Close now. Next reminder in 7 days.',
       { exact: true },
     ),
   ).toBeVisible();
@@ -208,7 +208,9 @@ test('the check-in footer leaves the reminder out when reminders are off', async
   await openCheckin(page);
   await page.goto(`${origin}/check-in`);
   await expect(
-    page.getByText('Closes by itself when everyone is in.', { exact: true }),
+    page.getByText('It stays open until someone presses Close now.', {
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(page.getByText(/Next reminder/u)).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Close now' })).toBeVisible();

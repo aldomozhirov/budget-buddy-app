@@ -41,10 +41,10 @@ export const notificationText = {
       tag: `checkin-${checkinId}-followup`,
     };
   },
-  /** The check-in closed; `closer` is null when it closed by itself. */
+  /** The check-in closed; `closer` is null only if the member is unknown. */
   closed(checkinId: number, closer: string | null): PushContent {
     return {
-      title: closer ? `${closer} closed the check-in` : 'Check-in complete',
+      title: closer ? `${closer} closed the check-in` : 'Check-in closed',
       body: 'The summary is ready.',
       url: checkinPath(checkinId),
       tag: `checkin-${checkinId}-closed`,

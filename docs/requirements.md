@@ -214,7 +214,7 @@ How a record arrives depends on its source:
 - **CHK-5 (Must).** The check-in screen shows all active accounts of the signed-in member on one screen, each with its name, currency, last balance and the date of that balance. For each account the member either taps "unchanged" (labelled "Same" in the design) or enters a new amount (ACC-9). "Unchanged" stores a fresh snapshot equal to the previous balance; only an account left without a value is carried forward (CHK-8). The member can switch to another member's accounts and fill those in too.
 - **CHK-6 (Must).** Each value is saved on the server as soon as it is entered. An open check-in survives a restart of the app or the server and can be continued on another device.
 - **CHK-7 (Must).** A value can be changed until the check-in closes. After that it is corrected through ACC-7.
-- **CHK-8 (Must).** The check-in closes by itself when every active account of every member has a value. Any member can also close it earlier. Each account without a value then gets its previous balance, marked as carried forward.
+- **CHK-8 (Must).** A check-in closes only when a member presses "Close now". Entering the last missing value does not close it: it stays open and every value stays editable (CHK-7) until someone closes it. Each account without a value then gets its previous balance, marked as carried forward; when every account has a value nothing is carried forward. Owner's decision, 2026-10-13: it used to close by itself on the last value, and the family found that inconvenient. Check-ins closed that way before this change keep no closing member and show "Closed by itself".
 - **CHK-9 (Must).** When a check-in closes, every member is notified, and the notification opens the summary page (SUM-1).
 - **CHK-10 (Should).** The check-in shows progress: which members have finished and how many accounts are still open.
 - **CHK-11 (Must, from spec 4).** An account that received a fresh balance from a connector, a statement or a confirmed photo draft since the check-in opened is shown pre-filled and marked with its source. The member only confirms it.
@@ -637,8 +637,8 @@ Every capability of the bot was read from its code on 2026-10-05.
 | An invalid value is rejected and asked again | ACC-9 |
 | A member already in a count is returned to it | CHK-6 |
 | A member without accounts is told to create one | CHK-12 |
-| The count completes when every active account has a value | CHK-8 |
-| On completion every member gets the summary, with a chart button | CHK-9, SUM-1 |
+| A member closes the count with "Close now"; the last value does not close it | CHK-8 |
+| On closing every member gets the summary, with a chart button | CHK-9, SUM-1 |
 | `/summary`: totals per currency | SUM-2, DSH-1 |
 | Equivalent in a chosen currency (an environment variable in the bot) | SUM-3, CUR-1 |
 | Comparison with the previous count: old value, difference, direction | SUM-2, SUM-3 |

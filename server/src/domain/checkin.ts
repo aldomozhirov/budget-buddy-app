@@ -285,7 +285,11 @@ function nextReminderAt(
   return next === null ? null : next.instant.getTime();
 }
 
-/** Saves one check-in value, writing a revision when it replaces a value. */
+/**
+ * Saves one check-in value, writing a revision when it replaces a value. It
+ * never closes the check-in, not even on the last missing value: only
+ * `closeCheckin` does (CHK-8).
+ */
 export function saveCheckinValue(
   database: Database.Database,
   options: {
@@ -297,7 +301,6 @@ export function saveCheckinValue(
     events: CheckinEventBus;
   },
 ): 'not_found' | 'closed' | 'inactive_account' | 'saved' {
-  let closedEvent: CheckinEventsClosed | undefined;
   const result = database.transaction(() => {
     const checkin = database
       .prepare('SELECT closed_at FROM checkin WHERE id = ?')
@@ -366,30 +369,6 @@ export function saveCheckinValue(
         );
     }
 
-    const unfinished = database
-      .prepare(
-        `SELECT COUNT(*) AS count
-         FROM account a
-         LEFT JOIN snapshot s
-           ON s.account_id = a.id AND s.checkin_id = ?
-         WHERE a.active = 1 AND s.id IS NULL`,
-      )
-      .get(options.checkinId) as { count: bigint };
-    const active = database
-      .prepare('SELECT COUNT(*) AS count FROM account WHERE active = 1')
-      .get() as { count: bigint };
-    if (active.count > 0n && unfinished.count === 0n) {
-      database
-        .prepare(
-          'UPDATE checkin SET closed_at = ?, closed_by = NULL WHERE id = ?',
-        )
-        .run(options.now, options.checkinId);
-      closedEvent = {
-        checkinId: options.checkinId,
-        closedAt: options.now,
-        closedBy: null,
-      };
-    }
     return 'saved' as const;
   })();
 
@@ -400,15 +379,8 @@ export function saveCheckinValue(
       savedBy: options.memberId,
     });
   }
-  if (closedEvent) options.events.emit('checkin.closed', closedEvent);
   return result;
 }
-
-type CheckinEventsClosed = {
-  checkinId: number;
-  closedAt: number;
-  closedBy: number | null;
-};
 
 /** Closes an open check-in and carries forward only its missing accounts. */
 export function closeCheckin(

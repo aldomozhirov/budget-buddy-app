@@ -446,7 +446,8 @@ test('marks old balances stale and labels balance details', async ({
   await expect(staleCash).toContainText('€240.00');
   await expect(staleCash.getByText('Stale')).toBeVisible();
   const staleRowBounds = await staleCash.boundingBox();
-  expect(staleRowBounds?.height).toBe(65);
+  // 65 px of content plus the shared 10 px of row padding above and below.
+  expect(staleRowBounds?.height).toBe(85);
   await expect(
     page.getByRole('link', { name: /Car loan · EUR/ }),
   ).toContainText('We owe · Check-in 01/09/2026');

@@ -279,19 +279,54 @@ for (const [name, run] of [
     },
   ],
   [
-    'a check-in that closes by itself shows the closed screen to the other member, without a closer',
-    async ({ blair, alexContext, checkinId, accounts }: Family) => {
+    'the last amount leaves the check-in open on both screens; Close now closes it for both (UI-CHK-7, UI-CHK-8)',
+    async ({ alex, blair, alexContext, checkinId, accounts }: Family) => {
       await blair.goto(`${origin}/check-in`);
+      await alex.goto(`${origin}/check-in`);
       await expect(
         blair.getByRole('heading', { name: 'Your accounts to check · 2' }),
       ).toBeVisible();
       for (const account of Object.keys(accounts)) {
         await put(alexContext, checkinId, accounts[account]!, '100');
       }
+
+      // Every amount is in: Blair's screen follows, still open, and says that
+      // Close now is the next step.
+      await expect(
+        blair.getByText('Everyone’s balances are in. Close the check-in', {
+          exact: false,
+        }),
+      ).toBeVisible();
+      await expect(
+        blair.getByRole('heading', { name: 'Check-in complete' }),
+      ).toHaveCount(0);
+      await expect(
+        blair.getByRole('button', { name: 'Close now' }),
+      ).toBeVisible();
+      // Amounts stay editable.
+      await expect(
+        blair.getByRole('button', {
+          name: 'Change balance of Blair Everyday EUR',
+        }),
+      ).toBeVisible();
+      const status = await alexContext.request.get(
+        `${origin}/api/checkins/${checkinId}`,
+      );
+      expect(
+        ((await status.json()) as { checkin: { closedAt: number | null } })
+          .checkin.closedAt,
+      ).toBeNull();
+
+      // Alex presses Close now; both screens end on the closed screen.
+      await alex.getByRole('button', { name: 'Close now' }).click();
+      await alex.getByRole('button', { name: 'Close check-in' }).click();
+      await expect(
+        alex.getByRole('heading', { name: 'Check-in complete' }),
+      ).toBeVisible();
       await expect(
         blair.getByRole('heading', { name: 'Check-in complete' }),
       ).toBeVisible();
-      await expect(blair.getByText(/closed the check-in/u)).toHaveCount(0);
+      await expect(blair.getByText('Alex closed the check-in.')).toBeVisible();
     },
   ],
   [

@@ -207,14 +207,19 @@ describe('live events stream', () => {
     expect(reader.text).not.toContain('Alex');
   });
 
-  it('signals both a change and a close when the last value closes it', async () => {
+  it('signals a change, not a close, for the last value; Close now signals the close', async () => {
     const { checkinId, accountIds } = await openCheckinWith(1);
     const { reader } = await connect();
     await reader.until(() => reader.text.includes(': connected'), 'preamble');
     await api('PUT', `/api/checkins/${checkinId}/values/${accountIds[0]}`, {
       same: true,
     });
-    await reader.until(() => reader.signals.length === 2, 'both signals');
+    await reader.until(() => reader.signals.length === 1, 'change signal');
+    expect(reader.signals).toEqual([{ kind: 'changed', checkinId }]);
+
+    const closed = await api('POST', `/api/checkins/${checkinId}/close`, {});
+    expect(closed.statusCode).toBe(200);
+    await reader.until(() => reader.signals.length === 2, 'closed signal');
     expect(reader.signals).toEqual([
       { kind: 'changed', checkinId },
       { kind: 'closed', checkinId },
@@ -450,7 +455,7 @@ describe('live hub', () => {
     events.emit('checkin.closed', {
       checkinId: 4,
       closedAt: 1,
-      closedBy: null,
+      closedBy: 1,
     });
     expect(received).toHaveLength(1);
     // A stream that arrives after the hub closed is ended at once.

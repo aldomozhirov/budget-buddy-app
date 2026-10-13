@@ -56,7 +56,7 @@ test.afterEach(async () => {
   expect(requestsMadeOffOrigin).toEqual([]);
 });
 
-test('profiles save balances together, close automatically, and return from summary home', async ({
+test('profiles save balances together, the last amount leaves it open, Close now closes it, and summary returns home', async ({
   browser,
   page,
 }, testInfo) => {
@@ -114,7 +114,7 @@ test('profiles save balances together, close automatically, and return from summ
     ).toBeVisible();
     await expect(
       page.getByText(
-        'Closes by itself when everyone is in. Next reminder in 2 days.',
+        'It stays open until someone presses Close now. Next reminder in 2 days.',
         { exact: true },
       ),
     ).toBeVisible();
@@ -212,9 +212,37 @@ test('profiles save balances together, close automatically, and return from summ
     await pageB
       .getByRole('button', { name: 'Alex Wallet EUR unchanged' })
       .click();
+    // The last amount does not close it: it stays open, Close now is next.
+    await expect(
+      pageB.getByText(
+        'Everyone’s balances are in. Close the check-in to finish.',
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await expect(
+      pageB.getByRole('heading', { name: 'Check-in complete' }),
+    ).toHaveCount(0);
+    await expect(
+      pageB.getByRole('button', { name: 'Close now' }),
+    ).toBeEnabled();
+    // The other device follows the last amount, still open and editable.
+    await expect(
+      page.getByRole('heading', { name: 'Check-in complete' }),
+    ).toHaveCount(0);
+    await expect(page.getByText('5 of 5', { exact: true })).toBeVisible();
+
+    await pageB.getByRole('button', { name: 'Close now' }).click();
+    await expect(
+      pageB.getByRole('dialog', { name: 'Close the check-in now?' }),
+    ).toContainText('Every account has a value.');
+    await pageB.getByRole('button', { name: 'Close check-in' }).click();
     await expect(
       pageB.getByRole('heading', { name: 'Check-in complete' }),
     ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Check-in complete' }),
+    ).toBeVisible();
+    await expect(page.getByText('Blair closed the check-in.')).toBeVisible();
     await expect(
       pageB.getByRole('button', { name: 'See summary' }),
     ).toBeVisible();
@@ -521,9 +549,7 @@ test('focus refresh after another profile saves preserves the open amount draft'
   }
 });
 
-test('a stale focus refresh cannot overwrite a save that closes the check-in', async ({
-  page,
-}) => {
+test('a stale focus refresh cannot overwrite a Close now', async ({ page }) => {
   await setupFamily(page.context(), ['Alex'], 1);
   await createAccount(page.context(), 'Reserve', 1, '123450');
   const opened = await page.context().request.post(`${origin}/api/checkins`, {
@@ -602,6 +628,14 @@ test('a stale focus refresh cannot overwrite a save that closes the check-in', a
     await Promise.all([staleCaptured, currenciesCaptured]);
 
     await page.getByRole('button', { name: 'Reserve EUR unchanged' }).click();
+    await expect(
+      page.getByText(
+        'Everyone’s balances are in. Close the check-in to finish.',
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Close now' }).click();
+    await page.getByRole('button', { name: 'Close check-in' }).click();
     await expect(
       page.getByRole('heading', { name: 'Check-in complete' }),
     ).toBeVisible();
