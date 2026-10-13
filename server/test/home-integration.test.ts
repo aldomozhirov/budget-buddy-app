@@ -6,6 +6,7 @@ import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
 import { migrateDatabase } from '../src/db/migrate.js';
+import { turnOffReopenLock } from './reopenLock.js';
 
 const migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url));
 const origin = 'https://budget-buddy.test';
@@ -43,6 +44,7 @@ describe('home and device routes', () => {
       },
     });
     expect(setup.statusCode).toBe(201);
+    turnOffReopenLock(database);
     const header = setup.headers['set-cookie'];
     cookies = (Array.isArray(header) ? header : [header])
       .filter((value): value is string => typeof value === 'string')

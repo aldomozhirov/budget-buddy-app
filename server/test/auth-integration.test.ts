@@ -7,6 +7,7 @@ import type { InjectOptions } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
 import { migrateDatabase } from '../src/db/migrate.js';
+import { turnOffReopenLock } from './reopenLock.js';
 
 const migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url));
 const origin = 'https://budget-buddy.test';
@@ -122,6 +123,8 @@ describe('authentication integration', () => {
 
   it('refuses an expired session and extends a session on successful use', async () => {
     const setup = await createFamily();
+    // This test is about the 90-day lifetime, not the five-minute lock.
+    turnOffReopenLock(database);
     const cookies = sessionCookies(setup);
     const initial = database
       .prepare('SELECT expires_at FROM session')

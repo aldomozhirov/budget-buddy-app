@@ -24,6 +24,7 @@ import { migrateDatabase } from '../src/db/migrate.js';
 import { createBackupJob } from '../src/jobs/backup.js';
 import { createJobRunner } from '../src/jobs/runner.js';
 import type { JobSettings } from '../src/jobs/types.js';
+import { turnOffReopenLock } from './reopenLock.js';
 
 const migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url));
 const origin = 'https://budget-buddy.test';
@@ -487,6 +488,7 @@ describe('nightly backup', () => {
         },
       });
       expect(setup.statusCode).toBe(201);
+      turnOffReopenLock(database);
       const header = setup.headers['set-cookie'];
       cookies = (Array.isArray(header) ? header : [header])
         .filter((value): value is string => typeof value === 'string')

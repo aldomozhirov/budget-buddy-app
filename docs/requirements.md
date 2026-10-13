@@ -185,11 +185,12 @@ How a record arrives depends on its source:
 ### MEM: members and sign-in (spec 1)
 
 - **MEM-1 (Must).** On first start, when no member exists, the app shows a setup screen that sets the family password and creates a profile for each member, at least one.
-- **MEM-2 (Must).** A device signs in with the family password and then opens a profile: the device's default profile, or one the member picks, optionally remembered as the default. A signed-in member can switch to another profile and set or clear the device's default profile at any time. The device stays signed in until it signs out or the session expires.
+- **MEM-2 (Must).** A device signs in with the family password and then opens a profile: the device's default profile, or one the member picks, optionally remembered as the default. A signed-in member can switch to another profile and set or clear the device's default profile at any time. The device stays signed in until it signs out or the session expires, unless it asks to sign in again when it is re-opened (MEM-7).
 - **MEM-3 (Must).** Any signed-in member can add a profile, rename one, and deactivate or reactivate one. A deactivated profile cannot be opened. Its accounts and history stay. Any signed-in member can change the family password, which signs out every other device and deletes their push subscriptions (NTF-2); the device that makes the change stays signed in and keeps its subscription (owner's decision, 2026-10-11).
 - **MEM-4 (Must).** Every member can see and change all data. There are no roles and no private accounts.
 - **MEM-5 (Must).** Every snapshot, transaction and envelope adjustment stores who created it, who last changed it, and when. A corrected balance keeps its previous values in a change history.
 - **MEM-6 (Could).** A device can be unlocked with a passkey (Face ID or Touch ID) instead of the family password.
+- **MEM-7 (Must).** A device asks to sign in again when the app is opened fresh, or comes back to the foreground after more than 5 minutes away; a shorter absence does not lock it, and a device in use in the foreground is never locked, however long. It is on by default for every device, including those already signed in when it shipped. A per-device switch in Settings next to "Unlock with Face ID" turns it off (the device then stays signed in, as in MEM-2) or on; any member using the device can change it, and it affects no other device. With Face ID on the device, Face ID is asked for on that sign-in screen and success opens the device's profile at the screen where the member was; cancelling or failing leaves the normal sign-in with "Use Face ID" and the family password. Without Face ID the family password signs in and the device's default profile opens by itself. Nothing is lost silently: the app returns to the screen it was on, though text typed and not saved may be lost. Decided by the owner on 2026-10-12; design in spec 1, "Sign in again when the app is re-opened".
 
 ### ACC: accounts (spec 1)
 
@@ -424,6 +425,8 @@ How a record arrives depends on its source:
 
 LM Studio runs on the host, so calls to it do not leave the machine.
 
+- **SEC-9 (Must).** The five-minute rule of MEM-7 is the server's: after more than 5 minutes without the app saying it is in use, the server refuses every request of that session, and ends its live stream, until the device signs in again. This holds for a tab that never ran the app's timer. Failed sign-in attempts on a locked device count toward the existing lockout (SEC-2), and the family password change, sign-out and the password reset command keep their rules. Push subscriptions stay, so a locked device still gets notifications. Decided by the owner on 2026-10-12.
+
 ### 6.3 IOS: behaviour on iPhone and iPad
 
 - **IOS-1 (Must).** The app can be installed on the Home Screen and runs there without browser controls.
@@ -609,6 +612,7 @@ The owner has not confirmed these. Use them as defaults, and change them if the 
 | Starter categories (CAT-3) | Expense: Groceries, Eating out, Housing, Utilities, Transport, Health, Insurance, Subscriptions, Shopping, Travel, Leisure, Gifts, Fees and taxes, Other. Income: Salary, Other income. |
 | Who may manage profiles and the family password (MEM-3) | Every member. |
 | Failed sign-ins (SEC-2) | After three wrong passwords, sign-in waits 30 seconds. |
+| Sign in again when re-opened (MEM-7, SEC-9) | On for every device, after more than 5 minutes away. The owner's decision of 2026-10-12, not a default. |
 | Family password length | At least 10 characters. |
 | Revealed home screen amounts (DSH-1) | Hidden again after 30 seconds. |
 | Within budget (section 4.4) | A month counts as within budget when its closing balance is zero or more. For a carry-over envelope this includes what was carried in. |

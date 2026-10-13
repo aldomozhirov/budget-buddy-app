@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { goToSignIn } from '../../session/lock.js';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
@@ -177,7 +178,7 @@ async function request(
   const response = await fetch(path, init);
   if (response.status === 401) {
     setAuthState(null);
-    await router.replace('/sign-in');
+    await goToSignIn();
   }
   return response;
 }

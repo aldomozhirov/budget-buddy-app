@@ -162,13 +162,14 @@ export function openSession(
 
     database
       .prepare(
-        'INSERT INTO session (token_hash, device_id, member_id, password_epoch, created_at, last_used_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO session (token_hash, device_id, member_id, password_epoch, created_at, last_used_at, foreground_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       )
       .run(
         tokenHash,
         deviceId,
         defaultMemberId,
         options.passwordEpoch,
+        now,
         now,
         now,
         now + sessionLifetimeMs,

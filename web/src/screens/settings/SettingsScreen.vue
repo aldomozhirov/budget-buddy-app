@@ -20,6 +20,7 @@ import {
   type RatesStatusResponse,
   type SettingsResponse,
 } from '@budget-buddy/shared';
+import { forgetLastScreen, goToSignIn } from '../../session/lock.js';
 import BbBackButton from '../../components/BbBackButton.vue';
 import BbButton from '../../components/BbButton.vue';
 import BbListCard from '../../components/BbListCard.vue';
@@ -29,6 +30,7 @@ import BbSwitch from '../../components/BbSwitch.vue';
 import BackupSheet from './BackupSheet.vue';
 import ExportRow from './ExportRow.vue';
 import FaceIdRow from './FaceIdRow.vue';
+import LockOnReopenRow from './LockOnReopenRow.vue';
 import CommonCurrencySheet from './CommonCurrencySheet.vue';
 import CoinsSheet from './CoinsSheet.vue';
 import RatesStatusSheet from './RatesStatusSheet.vue';
@@ -104,6 +106,7 @@ const backupRow = computed(() =>
 const hideHomeAmounts = ref<boolean | null>(null);
 const hideHomeAmountsError = ref('');
 const faceIdError = ref('');
+const lockError = ref('');
 // Null until the browser has been asked; the switch waits for it.
 const pushState = ref<PushState | null>(null);
 const notificationsSheetOpen = ref(false);
@@ -250,7 +253,7 @@ async function loadBackupStatus(): Promise<void> {
 /** Sends the member to sign in when the server has ended the session. */
 async function handleSignedOut(): Promise<void> {
   setAuthState(null);
-  await router.replace('/sign-in');
+  await goToSignIn();
 }
 
 async function loadMoneySettings(): Promise<void> {
@@ -263,7 +266,7 @@ async function loadMoneySettings(): Promise<void> {
     ]);
     if (settingsResponse.status === 401 || currenciesResponse.status === 401) {
       setAuthState(null);
-      await router.replace('/sign-in');
+      await goToSignIn();
       return;
     }
     if (!settingsResponse.ok || !currenciesResponse.ok) {
@@ -338,7 +341,7 @@ async function loadMembers(): Promise<void> {
     const response = await fetch('/api/members');
     if (response.status === 401) {
       setAuthState(null);
-      await router.replace('/sign-in');
+      await goToSignIn();
       return;
     }
     if (!response.ok) throw new Error('Could not load profiles. Try again.');
@@ -481,7 +484,7 @@ async function syncProfilesAfterChange(): Promise<void> {
   try {
     const state = await refreshAuthState();
     if (!state?.member) {
-      await router.replace('/sign-in');
+      await goToSignIn();
       return;
     }
     await loadMembers();
@@ -570,6 +573,7 @@ async function signOut(): Promise<void> {
     });
     if (!response.ok) throw new Error('Sign-out failed.');
     setAuthState(null);
+    forgetLastScreen();
     await router.replace('/sign-in');
   } catch {
     screenError.value =
@@ -669,12 +673,16 @@ async function readApiError(response: Response): Promise<{
             </template>
           </BbRow>
           <FaceIdRow @error="faceIdError = $event" />
+          <LockOnReopenRow @error="lockError = $event" />
         </BbListCard>
         <p v-if="passwordChanged" class="settings-notice" role="status">
           Family password changed.
         </p>
         <p v-if="faceIdError" class="error" role="alert">
           {{ faceIdError }}
+        </p>
+        <p v-if="lockError" class="error" role="alert">
+          {{ lockError }}
         </p>
       </section>
 

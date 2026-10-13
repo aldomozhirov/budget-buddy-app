@@ -141,6 +141,7 @@ export const authRoutes: FastifyPluginAsync<{
       device: {
         defaultMemberId: context.defaultMemberId,
         hasPasskey: context.hasPasskey,
+        lockOnReopen: context.lockOnReopen,
       },
     };
   });

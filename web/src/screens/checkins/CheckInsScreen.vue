@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { goToSignIn } from '../../session/lock.js';
 import { computed, ref } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import {
@@ -171,7 +172,7 @@ function closedSummary(checkin: Checkin): string {
 async function handleUnauthorized(responses: Response[]): Promise<boolean> {
   if (!responses.some((response) => response.status === 401)) return false;
   setAuthState(null);
-  await router.replace('/sign-in');
+  await goToSignIn();
   return true;
 }
 

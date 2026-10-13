@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { goToSignIn } from '../../session/lock.js';
 import { computed, ref, watch } from 'vue';
-import { RouterLink, useRoute, useRouter } from 'vue-router';
+import { RouterLink, useRoute } from 'vue-router';
 import {
   checkinSummarySchema,
   currenciesResponseSchema,
@@ -34,7 +35,6 @@ import WealthChart from './WealthChart.vue';
 defineOptions({ name: 'SummaryScreen' });
 
 const route = useRoute();
-const router = useRouter();
 const { label: backLabel, goBack } = useBack();
 
 const summary = ref<CheckinSummary | null>(null);
@@ -126,7 +126,7 @@ async function load(): Promise<void> {
     if (request !== latestRequest) return;
     if (summaryResponse.status === 401 || currenciesResponse.status === 401) {
       setAuthState(null);
-      await router.replace('/sign-in');
+      await goToSignIn();
       return;
     }
     if (summaryResponse.status === 403) {
@@ -271,7 +271,7 @@ void load();
           :common-currency="common"
           :formatter="formatter"
           :time-zone="timeZone"
-          @unauthorized="router.replace('/sign-in')"
+          @unauthorized="goToSignIn()"
         />
 
         <template v-if="summary.previous !== null">

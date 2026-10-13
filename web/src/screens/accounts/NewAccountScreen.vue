@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import { goToSignIn } from '../../session/lock.js';
 import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
 import {
   accountResponseSchema,
   currenciesResponseSchema,
@@ -27,7 +27,6 @@ import { replaceScreen } from '../../router/index.js';
 /** Creates an account and its optional opening balance. */
 defineOptions({ name: 'NewAccountScreen' });
 
-const router = useRouter();
 const { label: backLabel, goBack } = useBack();
 const members = ref<ManagedMember[]>([]);
 const currencies = ref<CurrencyOption[]>([]);
@@ -90,7 +89,7 @@ async function loadFormOptions(): Promise<void> {
       )
     ) {
       setAuthState(null);
-      await router.replace('/sign-in');
+      await goToSignIn();
       return;
     }
     if (!memberResponse.ok || !currencyResponse.ok || !settingsResponse.ok) {
@@ -173,7 +172,7 @@ async function saveAccount(): Promise<void> {
     const payload: unknown = await response.json();
     if (response.status === 401) {
       setAuthState(null);
-      await router.replace('/sign-in');
+      await goToSignIn();
       return;
     }
     if (!response.ok) {

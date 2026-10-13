@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { goToSignIn } from '../../session/lock.js';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import {
@@ -200,7 +201,7 @@ function initializeSelection(round: Checkin): void {
 async function handleUnauthorized(response: Response): Promise<boolean> {
   if (response.status !== 401) return false;
   setAuthState(null);
-  await router.replace('/sign-in');
+  await goToSignIn();
   return true;
 }
 

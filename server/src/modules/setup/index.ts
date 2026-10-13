@@ -123,12 +123,13 @@ export const setupRoutes: FastifyPluginAsync<{
             );
           database
             .prepare(
-              'INSERT INTO session (token_hash, device_id, member_id, password_epoch, created_at, last_used_at, expires_at) VALUES (?, ?, ?, 0, ?, ?, ?)',
+              'INSERT INTO session (token_hash, device_id, member_id, password_epoch, created_at, last_used_at, foreground_at, expires_at) VALUES (?, ?, ?, 0, ?, ?, ?, ?)',
             )
             .run(
               tokenHash,
               deviceId,
               firstMemberId,
+              now,
               now,
               now,
               now + sessionLifetimeMs,

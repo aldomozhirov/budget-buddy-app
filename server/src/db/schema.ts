@@ -325,6 +325,10 @@ export const device = sqliteTable(
     hideHomeAmounts: booleanInteger('hide_home_amounts', { mode: 'boolean' })
       .notNull()
       .default(true),
+    /** Ask to sign in again after more than 5 minutes away (MEM-7). */
+    lockOnReopen: booleanInteger('lock_on_reopen', { mode: 'boolean' })
+      .notNull()
+      .default(true),
     label: text('label'),
     createdAt: integer('created_at').notNull(),
     lastSeenAt: integer('last_seen_at').notNull(),
@@ -333,6 +337,10 @@ export const device = sqliteTable(
     check(
       'device_hide_home_amounts_boolean_check',
       sql`${table.hideHomeAmounts} IN (0, 1)`,
+    ),
+    check(
+      'device_lock_on_reopen_boolean_check',
+      sql`${table.lockOnReopen} IN (0, 1)`,
     ),
   ],
 );
@@ -349,6 +357,8 @@ export const session = sqliteTable(
     passwordEpoch: integer('password_epoch').notNull(),
     createdAt: integer('created_at').notNull(),
     lastUsedAt: integer('last_used_at').notNull(),
+    /** The last time the app told the server it was in use (SEC-9). */
+    foregroundAt: integer('foreground_at').notNull().default(0),
     expiresAt: integer('expires_at').notNull(),
   },
   (table) => [

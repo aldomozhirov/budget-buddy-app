@@ -60,7 +60,7 @@ describe('actions that need the server (IOS-6)', () => {
       const offline = await load(false);
       offline.auth.setAuthState({
         ...switchState,
-        device: { defaultMemberId: null, hasPasskey },
+        device: { defaultMemberId: null, hasPasskey, lockOnReopen: true },
       });
       const html = await offline.render(offline.FaceIdRow, {});
       expect(html).toContain('role="switch"');
@@ -70,7 +70,7 @@ describe('actions that need the server (IOS-6)', () => {
     const online = await load(true);
     online.auth.setAuthState({
       ...switchState,
-      device: { defaultMemberId: null, hasPasskey: false },
+      device: { defaultMemberId: null, hasPasskey: false, lockOnReopen: true },
     });
     expect(await online.render(online.FaceIdRow, {})).not.toMatch(disabled);
   });

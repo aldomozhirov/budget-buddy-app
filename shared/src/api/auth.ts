@@ -35,6 +35,8 @@ export const authMeResponseSchema = z.object({
   device: z.object({
     defaultMemberId: z.number().int().positive().nullable(),
     hasPasskey: z.boolean(),
+    /** Whether this device asks to sign in again when reopened (MEM-7). */
+    lockOnReopen: z.boolean().default(true),
   }),
 });
 
