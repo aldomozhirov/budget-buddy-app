@@ -24,8 +24,8 @@ import {
  * Home: greeting, the eye button, the open check-in banner, the Check-in
  * tile, the Family wealth card and the "Everything" grid (UI-HOME-1 to 6, D2).
  * Amounts are hidden whenever the screen opens, unless this device's setting
- * says otherwise; the eye shows them for 30 s, counting the seconds down in the note. Nothing here stores whether
- * they are visible.
+ * says otherwise; the eye shows them for 30 s, counting the seconds down in
+ * the note. Nothing here stores whether they are visible.
  */
 defineOptions({ name: 'HomeScreen' });
 
