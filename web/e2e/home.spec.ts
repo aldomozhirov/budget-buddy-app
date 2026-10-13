@@ -111,7 +111,14 @@ test('amounts are hidden after a reload, and the eye shows them for 30 s', async
   const hide = page.getByRole('button', { name: 'Hide amounts' });
   await expect(hide).toHaveAttribute('aria-pressed', 'true');
 
-  await page.clock.runFor(29_000);
+  await page.clock.runFor(1_000);
+  await expect(
+    page.getByText('Amounts visible · hiding again in 29 s', { exact: true }),
+  ).toBeVisible();
+  await page.clock.runFor(28_000);
+  await expect(
+    page.getByText('Amounts visible · hiding again in 1 s', { exact: true }),
+  ).toBeVisible();
   await expect(wealth).toContainText('€3,272.00');
   await page.clock.runFor(1_000);
   await expect(wealth).toContainText('€ • • • • •');
