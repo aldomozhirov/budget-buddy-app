@@ -123,8 +123,9 @@ body,
 }
 
 .bb .settings-card-message {
-  min-height: 56px;
-  padding: 10px 0;
+  box-sizing: content-box;
+  min-height: calc(56px - 2 * var(--row-pad));
+  padding: var(--row-pad) 0;
   margin: 0;
   display: flex;
   align-items: center;
@@ -173,8 +174,9 @@ body,
 }
 
 .bb .settings-money-empty {
-  min-height: 56px;
-  padding: 10px 0;
+  box-sizing: content-box;
+  min-height: calc(56px - 2 * var(--row-pad));
+  padding: var(--row-pad) 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -572,7 +574,7 @@ body,
 }
 
 .bb .profile-sheet-switch-row {
-  min-height: 64px;
+  min-height: calc(64px - 2 * var(--row-pad));
 }
 
 .bb .profile-sheet-error {

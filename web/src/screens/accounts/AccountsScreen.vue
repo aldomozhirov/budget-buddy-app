@@ -553,7 +553,7 @@ onMounted(() => void loadOptions());
 }
 .accounts-row {
   position: relative;
-  min-height: 64px;
+  min-height: calc(64px - 2 * var(--row-pad));
   gap: 12px;
 }
 .accounts-row-inactive {

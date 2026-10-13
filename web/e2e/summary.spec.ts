@@ -163,7 +163,8 @@ test('a list row with a description has the same vertical padding as a one-line 
         top: parseFloat(style.paddingTop),
         bottom: parseFloat(style.paddingBottom),
         gapAbove: textBox.top - box.top,
-        height: box.height,
+        // The divider is outside the 56 px minimum of a row.
+        height: box.height - parseFloat(style.borderBottomWidth),
       };
     }, text);
 
@@ -174,7 +175,12 @@ test('a list row with a description has the same vertical padding as a one-line 
   expect(twoLines.bottom).toBe(oneLine.bottom);
   // The title does not touch the card's top edge or the divider.
   expect(twoLines.gapAbove).toBeGreaterThanOrEqual(twoLines.top);
-  expect(twoLines.height).toBeGreaterThanOrEqual(56);
+  // A row is as tall as before when its text is short: the padding counts
+  // inside the minimum height. A taller row grows by the padding on top.
+  expect(oneLine.height).toBe(56);
+  expect(twoLines.height).toBeGreaterThan(56);
+  const currency = await page.locator('.currency-row').first().boundingBox();
+  expect(currency?.height).toBe(61);
 });
 
 test('Check-ins says "Rate missing" once, and compares nothing across a gap', async ({

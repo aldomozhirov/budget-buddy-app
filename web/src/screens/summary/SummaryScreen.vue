@@ -436,7 +436,7 @@ void load();
 }
 
 .currency-row {
-  min-height: 60px;
+  min-height: calc(60px - 2 * var(--row-pad));
 }
 
 .currency-code {
@@ -464,7 +464,7 @@ void load();
 }
 
 .group-row {
-  min-height: 48px;
+  min-height: calc(48px - 2 * var(--row-pad));
 }
 
 .group-row:has(+ .group-total) {
