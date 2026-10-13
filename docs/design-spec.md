@@ -29,7 +29,7 @@ For building, use `docs/design/html/`: `bb.css` is the design system as one styl
 |---|---|---|---|---|
 | Home | `Main.dc.html` | Private overview and entry point | DSH-1, DSH-4, NTF-1 | App start |
 | Add expense / income / transfer | `AddExpense.dc.html`; variants with search sheets open: `SearchAccounts.dc.html`, `SearchCategories.dc.html` | Record a transaction | TXN-1 to TXN-4, TXN-7, CAT-5, ACC-9 | Home button and tiles, Transactions |
-| Check-in | `CheckIn.dc.html` | Enter balances | CHK-5 to CHK-10 | Home banner and tile, Check-ins, notification |
+| Check-in | `CheckIn.dc.html` | Enter balances | CHK-5 to CHK-10 | Home banner and tile (while one is open), Check-ins, notification |
 | Check-ins | `CheckIns.dc.html` | Open check-in and past ones | SUM-1, CHK-1 | Home |
 | Check-in summary | `CheckInSummary.dc.html` | Result of one check-in | SUM-1 to SUM-6 | Home wealth card, Check-ins, Check-in closed screen, notification |
 | Envelopes | `Envelopes.dc.html` | All envelopes this month | ENV-3 | Home envelopes card, Settings |
@@ -63,7 +63,8 @@ Home entry points:
 
 | Element | Opens |
 |---|---|
-| Check-in banner, "Check-in" tile | Check-in |
+| Check-in banner | Check-in |
+| "Check-in" tile | Check-in while one is open, otherwise Check-ins, where "Start a check-in now" is (owner's decision, 2026-10-13) |
 | "Income" and "Transfer" tiles | Add screen with that kind selected |
 | Envelopes card | Envelopes |
 | "Needs a category · N" | Transactions, Needs a category tab |

@@ -385,7 +385,7 @@ test('the wealth card and Wealth history open the latest summary', async ({
   ).toBeVisible();
 });
 
-test('the greeting shows the date, the Check-in tile opens the check-in', async ({
+test('the greeting shows the date; with no check-in open the Check-in tile opens Check-ins and Back returns to Home', async ({
   page,
 }) => {
   await seedFamily(page.context());
@@ -399,7 +399,29 @@ test('the greeting shows the date, the Check-in tile opens the check-in', async 
   const tiles = page.getByRole('navigation', { name: 'Quick actions' });
   await expect(tiles.getByRole('link')).toHaveText(['Check-in']);
   await tiles.getByRole('link', { name: 'Check-in' }).click();
+  await expect(page).toHaveURL(/\/check-ins$/u);
+  await expect(
+    page.getByRole('button', { name: 'Start a check-in now' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Back to home' }).click();
+  await expect(page).toHaveURL(`${origin}/`);
+  await expect(page.getByRole('heading', { name: 'Hi, Alena' })).toBeVisible();
+});
+
+test('with a check-in open the Check-in tile opens the check-in', async ({
+  page,
+}) => {
+  await seedFamily(page.context());
+  await post(page.context(), '/api/checkins', {});
+  await page.goto(`${origin}/`);
+  await expect(page.getByRole('heading', { name: 'Hi, Alena' })).toBeVisible();
+  await page
+    .getByRole('navigation', { name: 'Quick actions' })
+    .getByRole('link', { name: 'Check-in' })
+    .click();
   await expect(page).toHaveURL(/\/check-in$/u);
+  await page.getByRole('button', { name: 'Back to home' }).click();
+  await expect(page).toHaveURL(`${origin}/`);
 });
 
 test('a backup older than two days shows a warning that opens Settings', async ({

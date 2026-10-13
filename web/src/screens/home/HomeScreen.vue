@@ -63,6 +63,14 @@ const lastCheckinDate = computed(() =>
 const summaryLink = computed(() =>
   wealth.value ? `/check-ins/${wealth.value.checkinId}` : '/check-ins',
 );
+/**
+ * The tile opens the open check-in, or Check-ins when none is open, where
+ * the member can start one. Home may be stale; the check-in screen's
+ * no-check-in state has a way back too.
+ */
+const checkinTileLink = computed(() =>
+  checkin.value ? '/check-in' : '/check-ins',
+);
 const dateLine = computed(() => {
   if (!home.value) return '';
   const parts = new Intl.DateTimeFormat('en-GB', {
@@ -301,7 +309,7 @@ onBeforeUnmount(() => {
         </RouterLink>
 
         <nav class="home-tiles" aria-label="Quick actions">
-          <RouterLink class="tile" to="/check-in">
+          <RouterLink class="tile" :to="checkinTileLink">
             <BbIcon name="checkin" :size="22" />
             Check-in
           </RouterLink>
