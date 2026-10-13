@@ -246,6 +246,62 @@ test('a visible app reports every 30 seconds and is not locked however long it s
   ).toBe(200);
 });
 
+test('a member who navigates every 20 seconds keeps reporting and is not locked', async ({
+  page,
+}) => {
+  const calls: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === presencePath) {
+      calls.push(request.postData() ?? '');
+    }
+  });
+  await page.clock.install();
+  await page.goto(`${origin}/`);
+  await expect(page.getByRole('link', { name: 'Accounts' })).toBeVisible();
+  const afterLoad = calls.length;
+  // 18 moves between screens, 20 s apart: 6 minutes of active use, each move
+  // refreshing the sign-in state as the route guard does.
+  for (let move = 0; move < 18; move += 1) {
+    await page.clock.runFor(20_000);
+    if (move % 2 === 0) {
+      await page.getByRole('link', { name: 'Accounts' }).click();
+      await expect(page).toHaveURL(`${origin}/accounts`);
+    } else {
+      await page.goBack();
+      await expect(page).toHaveURL(`${origin}/`);
+    }
+  }
+  // A beat every 30 s: 12 in 6 minutes. With the timer restarted by each
+  // move there would be none.
+  await expect.poll(() => calls.length - afterLoad).toBeGreaterThanOrEqual(10);
+  // The last beat is recent on the server, so a request is not refused.
+  backdate(minute);
+  expect(
+    (await page.context().request.get(`${origin}/api/auth/me`)).status(),
+  ).toBe(200);
+});
+
+test('a load just before the limit says so at once, so the next request is not refused', async ({
+  page,
+}) => {
+  await page.goto(`${origin}/accounts`);
+  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+  await hide(page);
+  backdate(4 * minute + 45_000);
+
+  const sent = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === presencePath,
+  );
+  await page.goto(`${origin}/accounts`);
+  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+  await sent;
+  // 30 seconds of use pass before the first 30 s beat; they add to the gap
+  // the server sees only if the load did not mark the app in use.
+  backdate(30_000);
+  const request = await page.context().request.get(`${origin}/api/accounts`);
+  expect(request.status()).toBe(200);
+});
+
 test('Settings: the switch turns the lock off and on for this device', async ({
   page,
 }) => {

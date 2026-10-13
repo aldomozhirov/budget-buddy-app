@@ -265,18 +265,26 @@ export function installSessionLock(appRouter: Router): void {
   });
   watch(
     authState,
-    (state) => {
+    (state, previous) => {
       if (state === null) {
         stopTimer();
         return;
       }
+      // Every navigation refreshes the state; only a page that was signed out
+      // starts over. A running timer and the last-alive mark are left alone.
+      if (previous !== null) return;
       // Sign-in must open without a connection when the app locks, so its
       // code is loaded while there is one.
       void import('../screens/sign-in/SignInScreen.vue').catch(() => undefined);
       lockedHere.value = false;
       awayNow = false;
       lastAliveAt = Date.now();
-      if (document.visibilityState === 'visible') startTimer();
+      if (document.visibilityState === 'visible') {
+        // The server's mark is only as fresh as the last call: say now that
+        // the app is open, not 30 s from now.
+        void report(0);
+        startTimer();
+      }
     },
     { flush: 'sync' },
   );
