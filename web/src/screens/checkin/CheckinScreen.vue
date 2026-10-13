@@ -873,7 +873,7 @@ onBeforeUnmount(() => {
       :closable="!saving"
       @close="closeConfirmationOpen = false"
     >
-      <p v-if="missingAccountCount === 0" class="t-sub checkin-close-copy">
+      <p v-if="everyoneIn" class="t-sub checkin-close-copy">
         Every account has a value. Closing finishes the check-in and makes the
         summary ready.
       </p>

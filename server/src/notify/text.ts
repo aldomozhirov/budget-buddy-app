@@ -41,6 +41,20 @@ export const notificationText = {
       tag: `checkin-${checkinId}-followup`,
     };
   },
+  /**
+   * An open check-in has a value for every account, so only closing is
+   * left: the follow-up (CHK-3) and the schedule slot that finds it open
+   * (CHK-2) send it to every active member instead of the text above. It
+   * shares that text's tag, so it replaces a waiting reminder on the device.
+   */
+  closeReminder(checkinId: number): PushContent {
+    return {
+      title: 'Ready to close',
+      body: 'All amounts are in. Close the check-in.',
+      url: checkinPath(checkinId),
+      tag: `checkin-${checkinId}-followup`,
+    };
+  },
   /** The check-in closed; `closer` is null only if the member is unknown. */
   closed(checkinId: number, closer: string | null): PushContent {
     return {

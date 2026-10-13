@@ -124,7 +124,7 @@ test('the follow-up sheet changes how often reminders go out and keeps it', asyn
 
   await sheet.getByRole('button', { name: 'Every 3 days' }).click();
   await expect(sheet.getByRole('status')).toHaveText(
-    'Every 3 days while a check-in is open, a reminder goes to each profile with accounts left. It never shows amounts.',
+    'Every 3 days while a check-in is open, a reminder goes to each profile with accounts left, or to all once every amount is in. It never shows amounts.',
   );
 
   if (testInfo.project.name === 'iphone') {
