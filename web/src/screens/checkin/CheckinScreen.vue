@@ -813,7 +813,7 @@ onBeforeUnmount(() => {
     <template v-else>
       <header class="topbar checkin-topbar">
         <BbBackButton :label="backLabel" @click="goBack" />
-        <!-- No title while loading or failed: the heading marks a loaded screen. -->
+        <!-- No title while loading or failed: it marks a loaded screen. -->
         <h1 v-if="!loading && !loadError" class="t-title">
           No check-in is open
         </h1>
