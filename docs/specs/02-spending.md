@@ -1,0 +1,397 @@
+# Spec 02: Spending
+
+Status: written by the planning session on 2026-10-13, with the owner's answers of the same day (D1 to D5). The defaults O1 to O15 wait for the owner's confirmation. Roadmap entry: spec 2 in `docs/requirements.md` section 8. Built by AO workers one task at a time, in order (`AGENTS.md`).
+
+Inputs: `AGENTS.md`, `docs/requirements.md` (TXN, CAT, ENV, DSH-4, sections 4.2, 4.4, 4.6, 6), `docs/design-spec.md` (sections 4, 5, 9, 10, 12, 14), `docs/design/html/` (`bb.css`, `screens/`), `docs/design/prototype/` (`AddExpense`, `Envelopes`, `EnvelopeDetail`, `Transactions`, `ToLabel`, `TransactionsFilter`, `TransactionDetail`, `Categories`, `Rules`, `SearchAccounts`, `SearchCategories`, `Main`), and spec 1 (`docs/specs/01-foundation-and-wealth.md`), whose stack, money rules, API conventions, offline rules (task 27) and lock (Design 9) this spec extends.
+
+## Goal
+
+The family stops using Goodbudget. Every member records an expense from Home in one tap, with only an amount if they like, also at a till without a connection; it reaches the server exactly once when the phone is back online. Income and transfers between the family's accounts are recorded the same way. The three envelopes (Groceries, Eating out, Unexpected) live in the app with the balances taken over from Goodbudget, are topped up on the 1st of each month in carry-over or reset mode, also when the server was off that day, and keep a record of every month. Home shows this month's envelopes, hidden as shares until revealed. Merchant rules and suggestions fill in categories; whatever is saved without one waits in "Needs a category" with a suggestion. Transactions can be listed, searched, filtered, edited and deleted. Balances and wealth stay as they are: transactions never change a balance (requirements section 3, snapshot-first).
+
+## Decisions taken with the owner for this spec
+
+| # | Topic | Decision |
+|---|---|---|
+| D1 | Offline entry and the lock (TXN-7, IOS-6, MEM-7) | Decided 2026-10-13. Online, sign-in works as now: a locked device shows the sign-in screen and nothing else. **Offline**, the sign-in screen is skipped and the app opens a **limited Home**: the greeting, "Add expense" and the Income and Transfer tiles work; every other card is hidden until a proper sign-in, which needs the connection. This replaces spec 1's offline lock screen (Design 9, "Offline") for a device that has the add options on the phone (D3); a device without them (signed out, or never signed in) keeps the sign-in screen. Offline Face ID is not needed and not built. Design section 4. |
+| D2 | Sending from a locked session (SEC-9) | Decided 2026-10-13. A transaction added offline is sent as soon as there is a connection, even while the device is still locked. The server accepts exactly one request from a session locked by time away: `POST /api/transactions`, which only adds and answers with the new id. Every other request of a locked session is still refused. This amends SEC-9 ("refuses every request of that session") by that one exception, like the add-only import tokens of IMP-2. |
+| D3 | What stays on the phone | Decided 2026-10-13. Only the names the Add form offers: profiles; account names, owners, types and currencies (no balances); categories; envelopes (no balances); rules; known merchants; the device's own account and category order; and the transactions not yet sent. Refreshed while signed in and online; wiped on sign-out and when the server says the session has ended (`unauthenticated`). Balances, envelope amounts and every other figure are never stored. This replaces spec 1's "no data is written to the device" (task 27, decision 1; Design 9, limit e). |
+| D4 | Currency of a transaction (TXN-1) | Decided 2026-10-13. A transaction is always in its account's currency; for a transfer, each side is in its own account's currency. The form shows the currency and changes it with the account. No `currency` column is stored on a transaction. A card payment abroad is typed as the amount the bank charged. This narrows TXN-1's "a currency" field. |
+| D5 | Split (TXN-9) and recurring transactions (TXN-10) | Decided 2026-10-13: both deferred to a later spec. The data model stores category, envelope and envelope amount per **part** from the start (`txn_part`), one part per expense or income for now, so split can be added later without reworking envelopes or the reports of spec 3. "Split" is hidden on the transaction page. |
+| D6 | Spec shape | One file, five milestones, 19 tasks; each milestone ends in something the owner can try. Merges deploy to the family's app at once (`AGENTS.md`), so the family should not create its real envelopes before task 19. |
+
+Requirement changes to report to the owner (the planning session cannot edit `requirements.md`): D1 (MEM-7 and IOS-6: offline skips sign-in for the limited Home), D2 (SEC-9 exception), D3 (data on the device), D4 (TXN-1 currency), D5 (TXN-9 and TXN-10 deferred, both Should), and O12 (TXN-11 left to spec 4 as the roadmap says; CAT-4 and ENV-8, both Could, not built).
+
+## Out of scope
+
+- Split (TXN-9) and recurring transactions (TXN-10), per D5. Attaching an image (TXN-11) is in spec 4 (roadmap). The transaction page leaves out "Split" and "Attach receipt".
+- Merging and grouping categories (CAT-4) and a top-up day setting (ENV-8), both Could.
+- Drafts, the inbox, photo reading and model suggestions (DRF, PHO, CAT-8): spec 4. The `status` column exists (Design 2) but spec 2 writes only `confirmed`.
+- Matching and merging incoming records (requirements 4.6), the import API, Apple Pay and statements: specs 5 and 6. `source_ref` and `external_id` exist and stay empty.
+- Reconciliation and reports (REC, RPT, SUM-7): spec 3. Home's "Everything" grid leaves out Reports until then.
+- An envelope-overspent notification (NTF-5).
+- Showing Home, Envelopes or Transactions data after an offline reload (D3): those screens keep spec 1's can't-load state; only the limited Home and the Add form work.
+- Live updates (spec 1, UI-CHK-9) for the new screens: they refresh on focus, as Home does.
+
+## Defaults to confirm
+
+Chosen by the planning session where the requirements and the design are silent or ambiguous. Use them unless the owner objects; the "Needed by" column says which task applies each one.
+
+| # | Item | Default | Needed by |
+|---|---|---|---|
+| O1 | Starter categories (CAT-3). The family already did its first start. | Migration 0005 adds the starter list of requirements section 11 to an existing family (14 expense, 2 income categories, in that order, no default envelopes); a fresh install gets it at first start. The family edits it in Categories. No list of the owner's own is needed. | 1 |
+| O2 | Goodbudget switch-over (requirements 10.2) | Nothing is seeded. On the switch-over day the owner creates the three envelopes in the app with their monthly amount, mode and Goodbudget's current balance as the starting balance (task 19). | 19 |
+| O3 | An envelope created mid-month | Its starting balance is this month's balance (the form proposes the monthly amount). The first top-up is on the next 1st. An expense dated before the envelope's first month counts in that first month. | 2 |
+| O4 | Changing the monthly amount or mode (ENV-4) | Stored as a plan for the next month; the envelope shows "From 1 November: €550.00 a month" until then. A second change in the same month replaces the pending one. | 2, 3 |
+| O5 | Moving money between envelopes in different currencies | Not offered: "Move money" lists only envelopes of the same currency. | 3, 6 |
+| O6 | Changing an envelope's currency (ENV-7) | Allowed only while it has no expenses and no adjustments; its amounts are relabelled like an account's (ACC-5). | 3 |
+| O7 | What waits in "Needs a category" (CAT-7) | Confirmed expenses (refunds included) and incomes without a category; transfers never. Labelling an expense there that has no envelope also gives it the category's default envelope (completing CAT-5's on-save rule), and the undo message says so. Changing the category on the transaction page never changes the envelope. | 14 |
+| O8 | Suggestion order (CAT-5, CAT-7) | Design section 3.6. | 9, 14 |
+| O9 | Rule matching (CAT-6) | Case-insensitive: a merchant matches when it contains any of the rule's comma-separated words, and the rule's account, if set, is the transaction's. The first rule in the list wins. Rules apply to expenses only (income has no merchant field). A rule whose category is archived is skipped; an archived envelope in a rule is left out. "Save rule" on a transaction page puts the new rule first. | 4, 10, 15 |
+| O10 | "Move money" and "History" on Envelopes (UI-NAV-5). The prototype had one envelope page, so the target was always Groceries. | "Move money" opens a move sheet on Envelopes with "From" and "To" chips; "History" opens a sheet listing the envelopes, and a pick opens that envelope on its History tab. On an envelope page both act on that envelope, as designed. | 5, 6 |
+| O11 | A transfer between two currencies (TXN-4). The prototype has one amount. | A second line "Arrives as $21.86" under the amount, filled in at the date's rate and edited on the same keypad after a tap. Without a rate it reads "Type what arrives in Wise $" and must be typed. | 11 |
+| O12 | Screens and tiles that wait for later specs | Reports (spec 3) is not in the "Everything" grid; "Split" (D5) and "Attach receipt" (TXN-11, spec 4) are not on the transaction page. | 15, 16 |
+| O13 | Deleting what a rule names | An account cannot be deleted while a rule is limited to it ("Rule 5 is limited to this account. Change or delete the rule first."). Deleting an unused category also deletes the rules that name it, and the confirmation says how many. | 4, 8 |
+| O14 | Transactions of one account (UI-ACC-2, UI-NAV-5) | The period filter gains "All time"; "Transactions" on an account opens the list filtered to that account for all time. | 13 |
+| O15 | Account chips on Add (TXN-1, TXN-2) | Design section 3.7: the member's most used accounts first, their cash account always among them, then an "All…" chip. | 9, 10 |
+
+## Design
+
+### 1. What spec 2 adds to the stack
+
+Nothing new is expected. The device store is IndexedDB through a small wrapper in `web/src/offline/` (no `idb` package); the envelope bars are hand-built SVG, like `LineChart.vue`; UUIDs come from `crypto.randomUUID()`. A task that needs a new dependency stops and asks (`ao report --needs-input`).
+
+New code goes to `shared/src/api/{categories,envelopes,rules,transactions,addOptions}.ts`, `shared/src/spending/` (rule matching, merchant keys, the on-save fill, envelope month helpers shared with the web app), `server/src/domain/{envelopes,transactions,suggestions}.ts`, `server/src/modules/{categories,envelopes,rules,transactions,addOptions}/`, `server/src/jobs/envelopeTopUp.ts`, `web/src/screens/{add,transactions,envelopes,categories}/`, `web/src/offline/` and `web/src/components/charts/BarChart.vue`.
+
+### 2. Data model (migration 0005)
+
+Conventions of spec 1 Design 4 hold: `id INTEGER PRIMARY KEY`, foreign keys on, amounts as `INTEGER` minor units read as `bigint`, `*_by` columns reference `member.id`, constraints in the schema. Months are `YYYY-MM` and dates `YYYY-MM-DD` in the family time zone (COR-2). Names are compared case-folded with the app's `unicode_casefold` SQL function, as member names are.
+
+| Table | Columns | Constraints and notes |
+|---|---|---|
+| `category` | `name`, `kind` (`expense`/`income`), `default_envelope_id` (nullable), `position`, `archived_at` (nullable), `created_by` (nullable: null for the starter list), `created_at`, `updated_by` (nullable), `updated_at` | `UNIQUE (kind, unicode_casefold(name))`, archived ones included, so a name can't come back twice ("An archived category has this name. Restore it instead."). `CHECK`: `default_envelope_id` only on `expense`. Never deleted while a part uses it (COR-5). |
+| `envelope` | `name`, `currency`, `starting_balance`, `starting_month`, `topup_from_month`, `default_category_id` (nullable), `position`, `archived_at` (nullable), `created_by`, `created_at`, `updated_by`, `updated_at` | `UNIQUE (unicode_casefold(name))`. `topup_from_month` is the first month that gets a top-up: `starting_month + 1` at creation, moved to the month after a restore. `currency` is an ISO code or a coin, validated in the service. |
+| `envelope_plan` | `envelope_id`, `from_month`, `monthly_amount`, `mode` (`carry_over`/`reset`), `created_by`, `created_at` | `UNIQUE (envelope_id, from_month)`, `CHECK (monthly_amount >= 0)`. Creation writes the plan from `starting_month`; a change in month M writes (or replaces) the plan from M + 1 (O4). The plan of month M is the latest with `from_month ≤ M`. |
+| `envelope_topup` | `envelope_id`, `month`, `amount`, `mode`, `created_at` | `UNIQUE (envelope_id, month)`. Written only by the top-up job, with the amount and mode of that month's plan. Never edited. |
+| `envelope_adjustment` | `envelope_id`, `date`, `amount` (signed, in the envelope's currency, ≠ 0), `note` (nullable), `move_id` (nullable TEXT; the two sides of a move share it), `created_by`, `created_at` | A move is two rows: −amount on the source, +amount on the target, same date and `move_id`. Deleting one side deletes both. Not edited (MEM-5: who and when are stored). |
+| `txn` | `client_id` (nullable TEXT, UUID), `client_hash` (nullable: SHA-256 of the first create request's body, for the retry rule of section 4), `kind` (`expense`/`income`/`transfer`), `status` (`draft`/`confirmed`, default `confirmed`), `date`, `account_id`, `amount`, `to_account_id` (nullable), `to_amount` (nullable), `member_id` (paid by, received by or done by), `merchant` (nullable), `merchant_key` (nullable), `note` (nullable), `source` (`typed` in spec 2; later `photo`/`apple_pay`/`statement`/`connector`), `source_ref` (nullable), `external_id` (nullable), `entered_at` (nullable: the moment it was typed on the device), `created_by`, `created_at`, `updated_by`, `updated_at` | Named `txn` because `transaction` is an SQL keyword. `UNIQUE (client_id)` where not null (TXN-7). `UNIQUE (source_ref, external_id)` where both are not null, and `external_id` requires `source_ref`, as on `snapshot`. `CHECK`s: expense `amount ≠ 0` (negative is a refund, TXN-8); income `amount > 0`; transfer `amount > 0`, `to_amount > 0`, `to_account_id` not null and ≠ `account_id`; non-transfers have no `to_*`; transfers have no merchant. Indexes: `(date DESC, id DESC)`, `(account_id, date)`, `(to_account_id, date)` where not null, `(member_id, date)`, `(merchant_key)` where not null. Every query in spec 2 reads `status = 'confirmed'` only (requirements 4.6: a draft counts nowhere). |
+| `txn_part` | `txn_id` (ON DELETE CASCADE), `position`, `amount`, `category_id` (nullable), `envelope_id` (nullable), `envelope_amount` (nullable), `envelope_amount_manual` (0/1) | One part per expense or income in spec 2 (D5), `amount` equal to the transaction's; transfers have none. The service keeps Σ part amounts = transaction amount. `envelope_id` only on expenses. `envelope_amount` is in the envelope's currency (section 3.3); null with an envelope means its rate is missing. Indexes: `(txn_id)`, `(envelope_id)` where not null, `(category_id)`, and a partial index where `category_id IS NULL` for "Needs a category". |
+| `txn_revision` | `txn_id` (no FK, so it survives deletion), `action` (`update`/`delete`), `changes` (JSON: `{field: [old, new]}`, amounts as decimal-integer strings, ids as numbers; a delete stores every field's old value), `changed_by`, `changed_at` | MEM-5 and UI-TXN-7. The fields and their JSON shape are a zod schema in `shared/src/api/transactions.ts`. |
+| `rule` | `position`, `pattern` (as typed: "REWE, EDEKA, LIDL, ALDI"), `category_id` (an expense category), `envelope_id` (nullable), `account_id` (nullable), `created_by`, `created_at`, `updated_by`, `updated_at` | `UNIQUE (position)`, positions 1..n without gaps (reordering rewrites them in one transaction). |
+
+Every new table and column is listed in `server/src/export/files.ts`, exported or left out on purpose (its test fails otherwise): `categories`, `envelopes`, `envelope_plans`, `envelope_topups`, `envelope_adjustments`, `transactions`, `transaction_parts`, `transaction_revisions` and `rules` CSVs, amounts in task 28's format with a currency column. The migration test of spec 1 (a database made by the previous `main`, run through the server) is repeated for 0005, and the migration counts in `smoke` and `foundation-integration` move from 5 to 6.
+
+### 3. Domain rules
+
+#### 3.1 Envelope months (requirements 4.4, ENV-2, ENV-4, ENV-6)
+
+One function, `envelopeMonths(envelope, upTo)` in `server/src/domain/envelopes.ts`, gives the record of every month from `starting_month` to `upTo`, computed from the stored rows (never stored itself), so a later correction of an old expense shows up in its month (requirements 4.4, last rule). For month M:
+
+- `topUp` = the `envelope_topup` row of M, or 0 when there is none (the starting month, an archived month, or a month the job has not reached yet).
+- `opening`: in the starting month, `starting_balance`; later, the previous month's `closing`, except when M's top-up row has mode `reset`, which makes it 0 and records the previous closing as `dropped`.
+- `adjustments` = Σ `envelope_adjustment.amount` dated in M (moves included).
+- `spent` = Σ `envelope_amount` of confirmed expense parts with this envelope whose transaction is dated in M; a refund subtracts. An expense dated before `starting_month` counts in `starting_month` (O3). A part with a missing envelope amount makes the month `incomplete` and adds nothing.
+- `available` = `opening + topUp + adjustments`; `closing` = `available − spent`; a closed month (before the current one) is `withinBudget` when `closing ≥ 0` (requirements 4.4 and section 11; for carry-over this includes what was carried in).
+- `result` = `topUp + adjustments − spent`, used for "Left over, net" (3.2).
+
+The current month's `closing` is the envelope's balance ("€187.60 left"; negative is "overspent"). Archived envelopes keep their records and get no top-ups. The month of "today" is taken in the family time zone.
+
+**Top-up job** (`jobs/envelopeTopUp.ts`, job name `envelope-topup`). One slot per month, keyed `YYYY-MM-01T00:00` in the family time zone (a midnight that a daylight-saving change skips runs at the first valid minute, as the cadence slots do). A run inserts, for every envelope that is not archived, the missing `envelope_topup` rows for every month from `topup_from_month` up to the slot's month, with the amount and mode of that month's plan (`INSERT … ON CONFLICT DO NOTHING`). Because the runner makes up only the latest missed slot, filling every missing month is what makes a server that was off across one or more 1sts come out right (ENV-2, COR-3); running a slot twice inserts nothing. The runner already runs due slots at start.
+
+#### 3.2 Envelope statistics (ENV-9)
+
+For a period of closed months (selector "Last 6 months", "Last 12 months", "This year", "All"): months within budget and their share ("Within budget 3 of 5 months"), average spent (Σ `spent` ÷ months), the largest overspend (the most negative `closing`, with its month: "€41.00 · Sep") and "Left over, net" (Σ `result`, signed). The current month is not in the statistics; the chart shows it outlined.
+
+#### 3.3 Envelope amounts (requirements 4.4, ENV-7)
+
+- An expense part with an envelope stores `envelope_amount` in the envelope's currency. When the account's currency is the envelope's, it equals the part amount.
+- Otherwise it is converted with the shared `convert` at the rate of the transaction's date (or the nearest earlier date) when the transaction is saved, rounded once, and stored. Later rate changes do not change it. With no rate, it stays null; `fillPendingEnvelopeAmounts()` fills it after the rates service stores new rates and at start.
+- A member can type it by hand on the transaction page (`envelope_amount_manual = 1`). A later change of the amount, date, account or envelope recomputes it and clears the manual flag.
+- Relabelling an account's currency (ACC-5) rescales the account's transaction amounts (each side of a transfer on its own account) exactly as it rescales snapshots, and recomputes the non-manual envelope amounts of its parts. The confirmation sheet counts transactions with snapshots ("All 8 stored amounts …").
+
+#### 3.4 Kinds, signs and what a transaction touches
+
+- **Expense**: `amount` is what left the account; negative is a refund (TXN-8), which restores the envelope and reduces the category's spending. **Income**: `amount > 0` into the account. **Transfer**: `amount` leaves `account_id`, `to_amount` arrives in `to_account_id`, each in its account's currency; equal when the currencies are equal (TXN-4). A cash withdrawal, an exchange, a securities purchase and a debt repayment are transfers.
+- Every confirmed transaction belongs to an account (TXN-5). A transaction never changes a balance, a snapshot, a check-in, the summary or Home's wealth figure (requirements 3).
+- The kind cannot change after saving; a wrong kind is deleted and typed again.
+- A date is a calendar date, not after today in the family time zone and not before 2000-01-01. An account or a profile may be inactive on a saved transaction (history), but the form offers only active ones, and the server refuses new transactions on an account that is already deactivated on that date.
+
+#### 3.5 Filling category and envelope (CAT-5, UI-ADD-8 to UI-ADD-12)
+
+- **While typing** (client): picking a merchant applies the first matching rule (3.8) to the category and envelope fields that are empty or were filled by a rule; a field the member set by hand is never overwritten; another merchant replaces what the previous rule set, and a merchant without a rule clears it. Category and envelope do not fill each other.
+- **On save** (server, on create only): an empty envelope takes the chosen category's default envelope, and an empty category takes the chosen envelope's default category, both read from the submitted values (they do not chain), and only from active defaults. The response says what was filled (`filled: {envelope?: 'category', category?: 'envelope'}`), and the form previews it before saving with the same shared function, `fillOnSave` in `shared/src/spending/`.
+- An edit (PATCH) never fills anything. Labelling from "Needs a category" is the one exception (O7).
+
+#### 3.6 Suggestions (CAT-5, CAT-7; O8)
+
+- **Category chips on Add** (up to 4, active categories of the form's kind, no duplicates): a matching rule's category first, then the categories used most often with the same merchant key, then those used most often with the chosen envelope, then this member's most used in the last 90 days, then the family's, then list order.
+- **Category search sheet**: "Recent" is this member's last three distinct categories; "All categories" is alphabetical; "Add category “…”" creates one (online only).
+- **Suggestion for a row in "Needs a category"** (one chip): a rule matching its merchant and account, else the most used category with the same merchant key, else the default category of its envelope, else the payer's most used category on that account in the last 90 days, else the family's most used in the last 90 days, else the first active category of its kind. So every row has a suggestion while any active category of its kind exists (roadmap "Done when").
+- Counts use confirmed transactions only. A merchant key is the merchant trimmed, with inner white space collapsed and case-folded (`merchantKey` in `shared/src/spending/`).
+
+#### 3.7 Accounts on the form (TXN-1, TXN-2; O15)
+
+- The default account is the member's most used: the most expenses created by this profile in the last 90 days, ties broken by the latest. With no history: the member's own active accounts, bank before cash, then by name; then everyone else's.
+- The chips show up to five accounts in that order and then "All…". The member's own active cash account is always among them (it replaces the fifth when needed). A pick from the search sheet goes to the front of the row (UI-ADD-2).
+- A chip shows the account's name, the owner's name in front for another member's account ("Max · DKB"), and the currency symbol after it when the currency is not the common currency or when two chips would read the same ("Cash €", "Cash $", "Wise $").
+- The search sheet lists active accounts grouped "Yours", "Max’s", each row "Name · EUR" with "Yours · Bank", and matches name, currency, type and owner (`SearchAccounts`).
+
+#### 3.8 Rules (CAT-6; O9, O13)
+
+`matchRule(merchant, accountId, rules)` in `shared/src/spending/rules.ts` is used by the form (also offline), the suggestions and the server. A pattern is split on commas, each word trimmed and case-folded; empty words are dropped. Rules are tried by `position`. The rule list, ordering and editing are in Categories → Rules (UI-CAT-3).
+
+#### 3.9 Revisions and record (MEM-5, UI-TXN-7)
+
+Every PATCH writes one `txn_revision` with the fields that changed; a delete writes one with every old value. The transaction page's "Record" lists "Typed in by Alena" with the time it was typed (`entered_at`, else `created_at`), then every revision in words: "Category changed to Groceries by Max · 14:30", "Amount changed to €23.80 by Alena · yesterday". Names are today's names.
+
+#### 3.10 Archiving and deleting (CAT-1, ENV-1, ACC-8, COR-5; O13)
+
+- A category or envelope that a part uses can be renamed or archived, never deleted. An unused one can be deleted. Archived ones are not offered on the form, in rules or as defaults, and are listed under "Archived · kept for history" (categories) or in Archived envelopes; restoring makes them usable again.
+- An account with transactions on either side cannot be deleted (ACC-8 now counts transactions); the account page says why.
+
+#### 3.11 Rates for transactions (CUR-3)
+
+The rates service's backfill (spec 1 task 20) reaches each currency back to its earliest snapshot. Spec 2 extends it to the earliest transaction date of each account currency and to envelope currencies, and requests a backfill after a transaction is created or moved to an earlier date. Lists and Home convert to the common currency at each transaction's own date (the RPT convention); a missing rate marks a total incomplete, never guesses.
+
+### 4. Offline entry and the locked device (D1, D2, D3; TXN-7, IOS-6, UI-ADD-14)
+
+**Add options on the phone.** `GET /api/add-options` returns everything the Add form needs and nothing else (D3): the active profiles; the active accounts with name, owner, type, currency, its decimals and symbol; this profile's account order (3.7); the active categories with kind, default envelope and this profile's order (3.6); the active envelopes with currency and default category; the rules; the 500 most recently used merchants with their keys; the common currency and the family time zone. No amounts. The page stores it in IndexedDB (`web/src/offline/addOptions.ts`) with the profile it belongs to, refreshes it whenever Home or the Add form loads online, and deletes it, with the outbox, on sign-out and on any `401 unauthenticated` (session ended or family password changed). A `session_locked` answer keeps it.
+
+**Outbox** (`web/src/offline/outbox.ts`). Saving on the Add form always writes the transaction to the outbox first, with a fresh `client_id`, the profile it was entered as and `entered_at`, and then tries to send it. The outbox sends on save, at app start, on `online`, on return to the foreground, and every 30 s while items wait and the page is visible; Safari has no background sync, so nothing is sent while the app is closed. Two tabs may send the same item; the server's `client_id` rule makes that harmless. An item leaves the outbox on 200 or 201. A network failure or 5xx keeps it. `401 unauthenticated` keeps it until a sign-in. A 4xx refusal (validation, a deleted account) marks it "Couldn’t send" with the server's message and a "Delete" action; it is never sent again by itself. The page asks for persistent storage (`navigator.storage.persist()`); whether iOS keeps IndexedDB of a Home Screen app for weeks is checked in task 19.
+
+**Idempotent create.** `POST /api/transactions` takes the `client_id`. A second request with the same `client_id` and the same body as the first (compared through `client_hash`, so an edit made since on another device does not matter) answers 200 with the stored id; with a different body, 409 `conflict`. So a retry never creates a duplicate (TXN-7).
+
+**The locked exception (D2).** The session plugin lets `POST /api/transactions` through for a session refused only because of time away (`session_locked`); it does not refresh `foreground_at`, does not extend the session, and the answer is `{id}` only. An expired session, a changed family password and a session without a profile are refused as before. A test iterates the route table: a locked session gets `session_locked` on every route but this one and presence.
+
+**Limited Home (D1).** Offline, when the device is locked (`lockedHere`, spec 1 Design 9) or Home has nothing loaded (an offline reload), and the add options are on the phone, the app shows Home in a limited form instead of the sign-in screen or Home's can't-load state: the date and "Hi, Alena" (the profile of the stored options), the Income and Transfer tiles (two tiles, half the row each), a card "Waiting to send · 2" listing what waits by merchant or category without amounts (shown only when something waits), a card "Balances, envelopes and check-ins show when you’re back online." ("… back online and signed in." when locked), and the sticky "Add expense". No eye button, no avatar, no other card. Every other route offline-and-locked goes to the limited Home, except `/add`. When the connection returns: a locked device goes to sign-in with `next` set, as today, and the outbox sends meanwhile (D2); an unlocked one loads Home normally. Without stored options the sign-in screen of spec 1 shows, unchanged.
+
+**On the Add form offline.** The form reads the stored options, shows "Offline. It stays on this phone and sends itself later." (UI-ADD-14) and saves to the outbox; the saved screen reads "Expense saved on this phone" (or "Income …", "Transfer …"). "Add category" is disabled offline. Suggestions offline use the stored orders and rules only.
+
+**"Waiting to send" in lists.** Online, Home shows the waiting card when anything waits or failed. The Transactions list shows outbox items at the top of their day with the tag "Waiting to send" or "Couldn’t send"; they are not in the list's sums. Opening one shows a sheet with its summary, the error if any, and "Delete".
+
+**Sign-out.** Sign-out first tries to send the outbox. If anything is still unsent, the profile sheet's sign-out asks "1 expense hasn’t been sent yet. Signing out deletes it from this phone." with "Sign out anyway" and "Keep me signed in". Sign-out is disabled offline (task 27).
+
+**Limits.** (a) Attribution: `created_by` is the session's profile when it is sent, which is the profile it was entered as unless the device switched profiles in between; "Paid by" is sent explicitly. (b) An item added while locked and offline, on a device whose session then expires, waits until someone signs in on that phone. (c) The stored names and the outbox can be read by anyone who can run code in the app's origin on an unlocked phone; that is accepted (D3).
+
+### 5. API
+
+Every route follows spec 1 Design 7 (session with a profile, zod schemas in `shared/src/api`, the error shape, CSRF on writes), except the locked exception of section 4.
+
+| Route | Purpose | Refs |
+|---|---|---|
+| `GET /api/categories?kind=`, `POST /api/categories`, `PATCH /api/categories/:id`, `DELETE /api/categories/:id` | List with "used this year" counts and whether used at all; create; rename, default envelope, archive, restore; delete when unused (with its rules, O13) | CAT-1–3, UI-CAT-1–2 |
+| `GET /api/envelopes?archived=`, `POST /api/envelopes`, `GET /api/envelopes/:id?month=`, `PATCH /api/envelopes/:id`, `DELETE /api/envelopes/:id` | List with this month's state; create; one envelope with a month's record, expenses and adjustments; name, default category, starting balance, currency while unused, monthly amount and mode (plan, O4), archive, restore; delete when unused | ENV-1, ENV-3, ENV-4, ENV-7 |
+| `GET /api/envelopes/:id/history?period=` | Monthly records and the statistics of 3.2 | ENV-6, ENV-9 |
+| `POST /api/envelopes/:id/adjustments`, `POST /api/envelopes/moves`, `DELETE /api/envelope-adjustments/:id` | Adjust with a note; move between same-currency envelopes (O5); delete an adjustment or a whole move | ENV-5 |
+| `GET /api/rules`, `POST /api/rules`, `PATCH /api/rules/:id`, `PUT /api/rules/order`, `DELETE /api/rules/:id` | Rules in order; reorder by the full list of ids | CAT-6, UI-CAT-3 |
+| `GET /api/add-options` | The stored options of section 4 | TXN-1, TXN-2, TXN-7 |
+| `GET /api/merchants?q=` | Known merchants (most recent spelling, last used), each with the rule that matches it | UI-ADD-3 |
+| `GET /api/suggestions/categories?kind&merchant&envelopeId&accountId` | Ordered category ids for the chips (3.6) | CAT-5 |
+| `POST /api/transactions` (*also from a locked session*, section 4) | Create, idempotent by `client_id`; answers the transaction and `filled` (or `{id}` when locked) | TXN-1–5, TXN-7, TXN-8, CAT-5 |
+| `GET /api/transactions?period&from&to&member&account&category&envelope&kind&q&cursor` | Page of 50, newest first (keyset on date and id), with day totals for the days in the page and the summary (count, spent, income in the common currency) of everything matched | TXN-6, UI-TXN-1, UI-TXN-2 |
+| `GET /api/transactions/facets?facet=&…` | Counts per option of one filter, with the other filters applied | UI-TXN-1 |
+| `GET /api/transactions/:id`, `PATCH /api/transactions/:id`, `DELETE /api/transactions/:id` | One transaction with its revisions; edit any field but the kind; delete | TXN-6, MEM-5, UI-TXN-4–8 |
+| `GET /api/transactions/needs-category?cursor`, `POST /api/transactions/label` | The list of CAT-7 in pages of 50, with one suggestion each and the count; label several at once (`[{id, categoryId \| null}]`, null to undo) | CAT-7, UI-TXN-3 |
+| `GET /api/home` (extended) | Adds this month's envelopes (name, currency, available, spent, left, share used, over), the month's spent total in the common currency and the "Needs a category" count | DSH-4, UI-HOME-1, UI-HOME-2 |
+
+Filters: `period` is `this_month` (default), `last_month`, `last_3_months`, `this_year`, `all` or `custom` with `from` and `to`; `member` is the payer; `category` accepts `none` for "No category"; `envelope` accepts `none`; `kind` is `expense`, `income`, `transfer` or `refund` (an expense below zero). The search `q` splits on white space; each word must match the merchant, note, category, envelope, account or payer name, or, when it is a number, an amount (`64.2` and `64.20` match 64.20; `64` matches any amount from 64.00 to 64.99).
+
+### 6. Screens
+
+Each screen follows its `design-spec.md` section and `docs/design/html/screens/<Screen>.html|png`; `bb.css` wins where they differ. Read the `design-system` and `build-a-screen` skills first.
+
+| Screen | Route | Reference | Notes |
+|---|---|---|---|
+| Add expense, income, transfer | `/add?kind=` | `AddExpense`, `SearchAccounts`, `SearchCategories`, UI-ADD-1–14, UI-AMT-1–3 | Close button, not Back. Fits a 390 × 844 screen without scrolling, the offline note included (UI-ADD-1; the prototype overflows by 20 px). O11 for transfers. |
+| Transactions | `/transactions?tab=needs-category&account=…` | `Transactions`, `ToLabel`, `TransactionsFilter`, UI-TXN-1–3 | "+" opens Add. Infinite scroll in pages of 50. |
+| Transaction | `/transactions/:id` | `TransactionDetail`, UI-TXN-4–8 | Title "Expense", "Income" or "Transfer". No "Split", no "Attach receipt" (O12). |
+| Envelopes | `/envelopes` | `Envelopes`, UI-ENV-1 | "+" opens the new-envelope sheet; O10. |
+| Envelope | `/envelopes/:id?tab=history&sheet=move` | `EnvelopeDetail`, UI-ENV-2–5 | The sliders icon opens the edit sheet. |
+| Archived envelopes | `/envelopes/archived` | not designed | A list card of archived envelopes with "Restore"; empty: "No archived envelopes." |
+| Categories and rules | `/categories?tab=expense\|income\|rules` | `Categories`, `Rules`, UI-CAT-1–3 | Sheets as in the prototype. |
+| Home | `/` | `Main`, UI-HOME-1–6 | Adds the spending parts (task 16) and the limited Home (task 18). |
+| Settings | `/settings` | `Settings`, UI-SET-1 | The "Spending" section: Envelopes ("3 · top up on the 1st"), Categories (count), Rules (count). |
+| Account | `/accounts/:id` | `AccountDetail`, UI-ACC-2 | The "Transactions" button (O14). |
+
+Back labels (UI-NAV-2): "Back to transactions", "Back to transaction", "Back to envelopes", "Back to envelope", "Back to categories", "Back to settings", "Back to account". Natural parents: Transaction → Transactions, Envelope and Archived envelopes → Envelopes, everything else → Home.
+
+**Undesigned parts and their copy.** These follow existing `bb.css` patterns (list card, chips, bottom sheet, keypad) with no new CSS unless a task says why. Each task that builds one attaches an iPhone-size screenshot to its pull request and adds the rule to `docs/design-spec.md` under the section named:
+- New and edit envelope sheet (UI-ENV-6, section 9): "New envelope" / "Edit envelope"; Name; "Monthly amount"; Currency (default the common currency); mode chips "Resets monthly" and "Carries over"; "Starting balance · what’s in it now" (new envelopes only; the monthly amount proposed); "Default category · used on save when an expense has none"; "Add envelope" / "Save". On edit, a changed amount or mode shows "Applies from the top-up on 1 November."; the bottom row offers "Delete" ("Unused, so it can be deleted.") or "Archive" ("It has 6 expenses, so it can only be archived. They keep this envelope."), or "Restore".
+- Envelope header with a pending plan: "From 1 November: €550.00 a month". Starting month spent line: "€45.00 spent of €187.60 · starting balance". Carry-over header: "€300.00 a month · carries over on the 1st".
+- Adjust hint on a carry-over envelope: "Use − to take money out. It carries over to next month." (the design's "Applies to this month only." stays for reset envelopes).
+- Adjustment and move rows in the month tab: "Moved €50.00 to Unexpected", "Added €20.00 · note", "Took out €20.00"; a tap opens "Delete this adjustment?" or "Delete this move? Both envelopes change back." with "Delete" and "Keep it".
+- Envelopes' move sheet (O10): "Move money", "From" and "To" chips, keypad, "Move €50.00 to Unexpected". History picker: "History", one row per envelope.
+- Transfer in two currencies (O11): "Arrives as $21.86", "Type what arrives in Wise $", Save "Save €20.00 → $21.86".
+- Envelope amount of a foreign-currency expense on the transaction page: the Envelope row reads "Groceries · counts as €21.40"; opened, it adds "Counts in the envelope as" with the keypad.
+- Period filter option "All time" (O14).
+- Limited Home (UI-HOME-7, section 4) and the outbox texts of Design section 4: "Waiting to send · 2", "Balances, envelopes and check-ins show when you’re back online.", "Couldn’t send", the sign-out question.
+
+## Tasks
+
+How to read a task: as in spec 1. **Refs** are requirement and design IDs. **Depends** lists tasks that must be merged first. **Files** are the expected places. **Model** is named when a task should start on Opus (`--model claude-opus-5-5`); otherwise the project default. Every task meets the definition of done in `AGENTS.md`. "E2E" means a Playwright test in `web/e2e/` on WebKit at iPhone and iPad sizes; read the `webkit-e2e` skill first.
+
+Rules for every task in this spec:
+- Read the `money-rules` skill before touching amounts or dates; task 2 adds the envelope rules to it.
+- A new table or column goes into `server/src/export/files.ts` in the same task.
+- A new route goes into the route-table tests of spec 1 (401 without a session; `session_locked` when locked, except section 4's exception).
+- Merging deploys to the family's app (`AGENTS.md`). A migration must be tested on a database made by the previous `main`; the app's own `pre_migration` backup runs before it.
+- Amount fields use `BbAmountInput` and the keypad (UI-AMT-1–4); a leading minus only where UI-AMT-3 allows it (refunds and envelope adjustments).
+- Actions that need the server use `needsServer` (task 27), except what section 4 makes work offline.
+
+### Milestone A: spending data and rules on the server
+
+Try it: the server tests show envelopes topped up across a month change, also after a simulated downtime.
+
+- [ ] **1. Spending schema and starter categories.**
+  Refs: Design 2, CAT-3, O1, COR-5, BKP-3. Depends: none.
+  Files: `server/src/db/schema.ts`, `server/drizzle/0005_*.sql`, `server/src/modules/setup/` (seed at first start), `server/src/export/files.ts`, migration and export tests.
+  Do: Every table of Design 2 with its constraints and indexes, in one migration. The migration inserts the starter categories of requirements section 11 for an existing family; first start inserts them for a new one. Export the new tables.
+  Acceptance: the migration runs on an empty database and on one made by the previous `main` (members, accounts, snapshots, check-ins, sessions, passkeys and push subscriptions survive, foreign keys pass); an existing family gets 16 starter categories once, and a second start adds none; a fresh first start gets them too; each `CHECK` and `UNIQUE` of Design 2 is shown by a failing insert (expense amount 0, income below zero, transfer to the same account, a duplicate `client_id`, a duplicate category name in another case, a second `envelope_topup` for one month); the export lists the new CSVs and its column test passes.
+
+- [ ] **2. Envelope months and the top-up job.**
+  Refs: requirements 4.4, ENV-2, ENV-4, ENV-6, ENV-9, COR-3, COR-4, QUA-3, O3, O4. Depends: 1. Model: Opus.
+  Files: `server/src/domain/envelopes.ts`, `server/src/jobs/envelopeTopUp.ts`, `server/src/index.ts` (add the job), `.opencode/skills/money-rules/SKILL.md` (a short "Envelopes" section), tests.
+  Do: Design 3.1 and 3.2, and `fillPendingEnvelopeAmounts` of 3.3 (wired to the rates service's "rates stored" point and to start). Rows for the tests are inserted directly; no API yet.
+  Acceptance: unit tests with a fake clock and hand-computed figures: a carry-over and a reset envelope over four months, with an overspent month, a negative balance carried over, adjustments, a move, and a refund; the reset month records the dropped closing; a monthly amount changed mid-month applies from the next top-up and not before, and a second change in the month replaces the first; an envelope created on the 13th has no top-up that month and is topped up on the next 1st; an expense dated before its first month counts in the first month; an archived envelope gets no top-ups and a restored one is topped up from the month after; the job run twice for a slot inserts nothing new; a server off from 28 October to 3 December tops up November and December at start; the first of the month at 00:00 in Europe/Berlin and in a zone whose midnight is skipped by daylight saving; a month with a part whose envelope amount is missing is `incomplete`; the statistics of 3.2 on a worked example, including "Left over, net" for both modes; a performance test with 10 years of monthly records and 100,000 transactions computes all envelopes' current state in under 300 ms on the developer machine.
+
+- [ ] **3. Envelopes API.**
+  Refs: ENV-1, ENV-3–5, ENV-7, MEM-5, SEC-4, O4–O6. Depends: 2.
+  Files: `server/src/modules/envelopes/`, `shared/src/api/envelopes.ts`.
+  Do: The envelope routes of Design 5. Creating writes the envelope and its first plan; editing the amount or mode writes the next month's plan; archiving and restoring follow 3.1 and 3.10.
+  Acceptance: integration tests: create, list and read with this month's state; a name clash in another case is refused; the currency changes while unused and is refused (`conflict`) once an expense or adjustment exists; a move between envelopes of different currencies is refused; a move writes two rows with one `move_id`, and deleting either removes both; deleting a used envelope returns `conflict`, archiving it works; history returns the records and statistics of task 2 for each period; every write stores the profile.
+
+- [ ] **4. Categories and rules API.**
+  Refs: CAT-1–3, CAT-6, O9, O13, SEC-4. Depends: 1.
+  Files: `server/src/modules/{categories,rules}/`, `shared/src/api/{categories,rules}.ts`, `shared/src/spending/{rules,merchantKey}.ts`.
+  Do: The category and rule routes of Design 5, `matchRule` and `merchantKey` (Design 3.6, 3.8).
+  Acceptance: unit tests for `matchRule`: case-insensitive with umlauts (`rewe` matches "REWE City", `Bäckerei` matches "BÄCKEREI MÜLLER"), any of several words, an account-limited rule, first match wins, archived category skipped, archived envelope left out; integration tests: a default envelope on an income category is refused; renaming to an existing name (also archived) is refused; a used category cannot be deleted and can be archived and restored; deleting an unused category deletes its rules and says how many; reordering rewrites positions without gaps; a rule with an income category is refused.
+
+### Milestone B: envelopes and categories on screen
+
+Try it: Settings → Spending → Envelopes: create a reset and a carry-over envelope, move money, adjust one, look at History; edit categories and rules.
+
+- [ ] **5. Envelopes screen and envelope sheets.**
+  Refs: ENV-1, ENV-3, UI-ENV-1, UI-NAV-4, UI-NAV-5, UI-SET-1, O10, Design 6. Depends: 3, 4.
+  Files: `web/src/screens/envelopes/{EnvelopesScreen,EnvelopeSheet,ArchivedEnvelopesScreen}.vue`, `web/src/screens/settings/SettingsScreen.vue` (Spending section), router.
+  Do: The Envelopes screen per design, the new and edit envelope sheet, Archived envelopes, the move sheet and the History picker of O10, and the three Spending rows in Settings. The edit sheet is opened from the envelope page in task 6; build it here.
+  Acceptance: E2E: from Settings → Spending → Envelopes, create "Groceries" (€500.00, resets, starting €187.60) and "Unexpected" (€300.00, carries over); the cards show the amount left, the mode tag, "€0.00 spent of €187.60 · starting balance" and "Left in all envelopes" equal to the sum of the cards; the move sheet moves €50.00 and both cards change; an envelope taken below zero (seeded rows in the database, as spec 1's E2E tests seed) shows "−€14.50 overspent" with the warning outline; the edit sheet offers Delete for an unused envelope and Archive for a used one, and Archived envelopes lists an archived one with Restore; the Settings row reads "2 · top up on the 1st".
+
+- [ ] **6. Envelope page.**
+  Refs: ENV-3, ENV-5, ENV-6, ENV-9, UI-ENV-2–5, UI-MOT-2, UI-NAV-5, O10. Depends: 5.
+  Files: `web/src/screens/envelopes/EnvelopeScreen.vue`, `web/src/components/charts/BarChart.vue`, sheets beside it.
+  Do: The header with the plan (and a pending one), the hero card with "26 days to go", "Move money" and "Adjust" sheets per UI-ENV-5, the month tab (expenses open their transaction once task 15 exists; until then they are not links) with adjustment rows, the History tab with the bar chart against the monthly amount, the period selector, the statistics and the records. `BarChart` is plain SVG: one bar per month, the limit as a line, over-limit bars in `warn`, the current month outlined, an accessible summary, bars grow in on open (UI-MOT-2) and not with reduced motion.
+  Acceptance: E2E with seeded months: `/envelopes/<id>?tab=history` opens on History and `?sheet=move` with the move sheet up; History shows "Within budget 3 of 5 months" and the other statistics of the seed; a reset envelope's September record reads "€541.00 spent of €500.00" and "€41.00 over"; Adjust with `−20` and a note shows "Took out €20.00" and the left amount drops by €20.00; deleting a move restores both envelopes; the carry-over hint is the carry-over text.
+
+- [ ] **7. Categories and rules screen.**
+  Refs: CAT-1–3, CAT-6, UI-CAT-1–3, UI-NAV-4. Depends: 4, 5.
+  Files: `web/src/screens/categories/`.
+  Do: The tabs Expense, Income and "Rules · N", the category sheet (name, default envelope, Delete/Archive/Restore with their hints) and the rule sheet (Merchant contains, category, envelope, account "Any" or one), moving a rule up, "+" for a new category or rule.
+  Acceptance: E2E: the starter list shows in order with "unused"; give Groceries the default envelope Groceries and the row shows "Default envelope: Groceries"; add "Pets", delete it; archive a used category and it moves under "Archived · kept for history"; create the rule "REWE, EDEKA" → Groceries · Groceries and move it to first place; an income category has no default-envelope field.
+
+### Milestone C: recording transactions
+
+Try it: on an iPhone-sized browser, add an expense with only an amount, one with a merchant that has a rule, a refund, an income and a transfer from EUR to USD.
+
+- [ ] **8. Transactions API: create, read, edit, delete.**
+  Refs: TXN-1–8, CAT-2, CAT-5 (on save), MEM-5, ACC-5, ACC-8, CUR-3, COR-1, SEC-4, Design 3.3–3.5, 3.9–3.11, 4 (idempotent create). Depends: 3, 4. Model: Opus.
+  Files: `server/src/modules/transactions/`, `server/src/domain/transactions.ts`, `shared/src/api/transactions.ts`, `shared/src/spending/fillOnSave.ts`, `server/src/modules/accounts/` (ACC-8, relabel), `server/src/rates/service.ts` (backfill).
+  Do: `POST`, `GET /:id`, `PATCH`, `DELETE` of Design 5. Validation of kinds, signs, dates and accounts (3.4); the on-save fill (3.5); envelope amounts (3.3); revisions (3.9); ACC-8 with transactions; relabel with transactions; backfill (3.11). The locked exception waits for task 17.
+  Acceptance: integration tests: an expense with only an amount and an account saves with today's date and the session's profile as payer; the same `client_id` twice gives one row (200 the second time) and with another body 409; a refund of −19.99 restores the envelope by €19.99; an expense with category Groceries and no envelope gets the Groceries envelope and `filled.envelope = 'category'`, and with the envelope set to Unexpected keeps it; an archived default is not applied; a PATCH that clears the envelope does not refill it; an expense from a USD account into a EUR envelope stores the converted amount at the date's rate, a later rate does not change it, a hand-typed one is kept until the amount changes, and with no rate it is null until rates arrive; a transfer EUR → USD stores both amounts, and one to the same account is refused; a date tomorrow is refused; a transaction on an account deactivated before its date is refused; every PATCH writes one revision with old and new values and a DELETE writes one with all; deleting an account with a transaction returns `conflict`; relabelling an account EUR → JPY rescales its transaction amounts; creating a transaction dated before the earliest snapshot requests a backfill for that date.
+
+- [ ] **9. Add options, merchants and suggestions API.**
+  Refs: TXN-1, TXN-2, CAT-5, UI-ADD-2–4, Design 3.6, 3.7, 4 (add options), O8, O15. Depends: 8.
+  Files: `server/src/modules/addOptions/`, `server/src/domain/suggestions.ts`, `server/src/modules/transactions/` (merchants, suggestions), `shared/src/api/addOptions.ts`.
+  Acceptance: integration tests: the add options contain no amount field at all (checked against the schema) and only active profiles, accounts, categories and envelopes; the account order follows 3.7, with the cash account among the first five; the chip-label rule gives "Cash €" and "Cash $" when both exist; merchants come with their most recent spelling and matching rule; the category chips for a merchant used five times with Transport put Transport first, and a rule's category goes before it; the suggestions read confirmed transactions only.
+
+- [ ] **10. Add expense screen.**
+  Refs: TXN-1, TXN-2, TXN-8, CAT-5, ACC-9, IOS-4, UI-ADD-1–13, UI-AMT-1–3, UI-NAV-1, UI-A11Y-1–3, Design 3.5–3.7. Depends: 9. Model: Opus.
+  Files: `web/src/screens/add/` (screen, sheets for accounts, merchant, category, date, payer, note, the saved view), router.
+  Do: The expense kind complete, per design and the prototype's logic (`AddExpense.dc.html`: `applyMerchant`, the post-factum block). The kind control is present; Income and Transfer come in task 11 and are disabled until then. Saving goes straight to the API in this task (the outbox is task 17), with a `client_id`. "Undo" deletes the saved expense; "Add another" opens an empty form of the same kind; "Done" goes back.
+  Acceptance: E2E: open `/add` (Home's button comes in task 16), type `23.80`, Save → "Expense saved" with "€23.80 · ING Visa" and "No category yet. It waits in Needs a category, with a suggestion.", whose link points to `/transactions?tab=needs-category` (the screen comes in task 13); the whole form fits 390 × 844 with no scrolling; picking "REWE" with a rule fills Category and Envelope with "Category · from REWE rule" and "Rule applied · change", picking "Shell" without a rule clears them, and a category picked by hand survives a merchant change; with only Groceries picked the envelope label previews "Envelope · optional · if empty, Groceries" and the saved view says "Groceries envelope added from the Groceries category."; tapping a selected chip clears it; `−19.99` saves a refund ("Save −€19.99"); the date sheet has future days disabled; Paid by shows the hint and a changed tile gets the stronger border; "All…" on accounts finds "Max · DKB" by typing "max" and puts it first in the row; "Add category “Pets”" creates and selects it; "Undo" removes the expense.
+
+- [ ] **11. Income and transfer on the Add screen.**
+  Refs: TXN-3, TXN-4, UI-ADD-1, UI-ADD-2, UI-ADD-4, UI-ADD-6, O11. Depends: 10.
+  Files: `web/src/screens/add/`.
+  Do: Income ("Paid into", income categories, "Received by", no merchant or envelope) and Transfer ("From" and "To" rows, "Done by", no category), with the second amount of O11 when the currencies differ. Switching the kind clears category and envelope, as the prototype does. The Home tiles open `/add?kind=income` and `/add?kind=transfer` once Home has them (task 16); test with the URL here.
+  Acceptance: E2E: income `4200` into DKB with Salary saves "Income saved"; a transfer of `200` from ING to Cash € saves one amount; a transfer of `20` from ING (EUR) to Wise $ shows "Arrives as $…" from the fixture rate, a tap and `21.86` changes it, and the saved transaction has both amounts; the To row never offers the From account; without a rate the second line asks to type it and Save stays disabled until it is.
+
+### Milestone D: lists, labelling and Home
+
+Try it: find last week's groceries, label three expenses at once and undo it, correct a transaction, see the envelopes on Home with amounts hidden.
+
+- [ ] **12. Transactions list API.**
+  Refs: TXN-6, UI-TXN-1, UI-TXN-2, PRF-1, COR-4, Design 3.11, 5. Depends: 8.
+  Files: `server/src/modules/transactions/list.ts`, `shared/src/api/transactions.ts`, tests.
+  Acceptance: integration tests: every filter alone and combined; `none` for category and envelope; refunds under `kind=refund`; search words over each field, the amount rule of Design 5, and a word with an umlaut; keyset pages of 50 without gaps or repeats, also when many transactions share a date; day totals and the summary match a hand sum, convert at each date's rate and say incomplete on a missing rate; facet counts equal the count the list returns with that option; drafts (inserted directly) never appear; a performance test with 100,000 transactions over 10 years answers the first page, its summary and a facet in under 300 ms each on the developer machine.
+
+- [ ] **13. Transactions screen.**
+  Refs: TXN-6, UI-TXN-1, UI-TXN-2, UI-NAV-5, UI-ACC-2, O14. Depends: 12, 11.
+  Files: `web/src/screens/transactions/TransactionsScreen.vue`, filter sheet, `web/src/screens/accounts/AccountScreen.vue` ("Transactions" button).
+  Do: Search field, tabs "All" and "Needs a category · N" (the tab's content is task 14), filter chips with the sheet ("Pick any. None picked shows all.", counts, "Reset", "Show N transactions"), "Clear", the summary line, rows grouped by day with day totals and tags. Rows open the transaction once task 15 exists. The envelope page's expense rows become links in task 15 too.
+  Acceptance: E2E with seeded data: the period chip defaults to the month and is filled; picking Max and Groceries shows only those, with counts in the sheet; the summary reads "N transactions · €X spent · +€Y in" matching the rows; searching "64.2" finds the €64.20 expense; a refund shows "+€19.99" with "Refund"; "Transactions" on an account opens the list for that account and "All time"; scrolling loads the next page.
+
+- [ ] **14. Needs a category.**
+  Refs: CAT-7, CAT-2, UI-TXN-3, UI-NAV-5, O7, O8, Design 3.6. Depends: 13, 9.
+  Files: `server/src/modules/transactions/needsCategory.ts`, `web/src/screens/transactions/NeedsCategoryTab.vue`.
+  Do: The API of Design 5 and the tab per design: the intro line, rows with tick box, the suggestion chip and "Other…" (the category search sheet), "Apply suggestions to N selected", the undo message, "Everything is labelled".
+  Acceptance: integration tests: an expense saved with only an amount is listed with a suggestion even on a database with no history; the suggestion chain of 3.6 step by step; labelling an expense without envelope gives it the default envelope (O7), and the undo puts both back; labelling writes revisions. E2E: tap a suggestion and the row leaves with "PayPal *Spotify → Subscriptions" and "Undo"; tick three and apply, "3 expenses labelled", Undo brings them back; the tab's count follows (Home's count comes in task 16).
+
+- [ ] **15. Transaction page.**
+  Refs: TXN-6, CAT-6, MEM-5, UI-TXN-4–8, UI-NAV-2, O9, O12, Design 3.3, 3.9. Depends: 13.
+  Files: `web/src/screens/transactions/TransactionScreen.vue`, links from Transactions and the envelope page.
+  Do: Per design, with rows that open in place (Paid from opens the account), the envelope row with "None" and, for another currency, the envelope amount; the rule offer of UI-TXN-6 (shown when no rule already gives that category to the merchant; "Save rule" puts the rule first, O9); "Record"; Delete with UI-TXN-8's text. Transfers show From, To, both amounts, Done by, Date and Note.
+  Acceptance: E2E: change the category of "REWE" to Groceries → "Always label REWE as Groceries?" → "Save rule" → "Rule saved: REWE → Groceries" and the rule is first in Categories → Rules; "Just this once" saves nothing else; the envelope row offers "None" and choosing it keeps the category; "Record" shows "Typed in by Alena" and "Category changed to Groceries by Alena"; Delete says "€64.20 goes back into Groceries. This can’t be undone." and returns to the list without the row; Back goes to where the page was opened from (Transactions, the envelope page).
+
+- [ ] **16. Home: spending.**
+  Refs: DSH-4, UI-HOME-1, UI-HOME-2, UI-HOME-3, UI-NAV-5, NTF-1, O12. Depends: 14, 6.
+  Files: `server/src/domain/home.ts`, `shared/src/api/home.ts`, `web/src/screens/home/HomeScreen.vue`.
+  Do: The order of UI-HOME-1: tiles Income, Transfer, Check-in; the envelopes card ("October · Day 13 of 31", "€ • • • • spent", one bar per active envelope with "62% used" or "Over budget" while hidden, "€187.60 left of €500.00" or "€14.50 over" when revealed; hidden without envelopes); "Needs a category" with its count when above zero; the wealth card; the "Everything" grid of Transactions, Envelopes, Accounts, Check-ins, Wealth history, Categories and Settings; the sticky "Add expense". Hidden amounts are never rendered (spec 1 task 23); the eye's 30 s and the countdown cover the new amounts.
+  Acceptance: E2E: after a reload the envelopes card shows shares and "Over budget" and no digits other than the day and the shares; the eye reveals the amounts and they hide again; the card opens Envelopes, "Needs a category · 3" opens that tab, the tiles open Add with their kind; the grid lists exactly the seven entries; the sticky button stays in view at both sizes and clear of the home indicator.
+
+### Milestone E: offline and the switch-over
+
+Try it: in airplane mode on an iPhone, open the app, add an expense from the limited Home, reconnect and see it arrive once; then switch the family from Goodbudget.
+
+- [ ] **17. Expenses saved offline (outbox).**
+  Refs: TXN-7, IOS-6, UI-ADD-13, UI-ADD-14, UI-TXN-2, SEC-9 (D2), D3, Design 4. Depends: 16, 11. Model: Opus.
+  Files: `web/src/offline/{db,outbox}.ts`, `web/src/screens/add/`, `web/src/screens/transactions/`, `web/src/screens/home/`, `web/src/screens/home/ProfileSheet.vue`, `server/src/plugins/session.ts` (the locked exception), tests.
+  Do: Section 4's outbox, sending rules, "Waiting to send" and "Couldn’t send" in lists and on Home, the sign-out question, and the locked exception on the server. The page that is open keeps its loaded options when it goes offline; storing them on the phone is task 18.
+  Acceptance: server tests: a locked session can `POST /api/transactions` and gets `{id}` only, `foreground_at` and `expires_at` unchanged, and every other route gives `session_locked` (route table); an expired session or one from before a family password change is refused. Web unit tests with a fake IndexedDB: an item survives a reload; a network error keeps it, a 4xx marks it failed, a 401 `unauthenticated` keeps it; two senders at once create one transaction. E2E (service worker allowed): load Add online, go offline, save → "Expense saved on this phone" and the offline note; the Transactions list (loaded before) shows it with "Waiting to send"; back online it is sent once (the server has exactly one row with that `client_id`) and the tag goes; a server refusal shows "Couldn’t send" with Delete; signing out with an unsent item asks first.
+
+- [ ] **18. Offline Home and the locked phone.**
+  Refs: D1, D3, IOS-6, MEM-7, UI-AUTH-9, UI-VIS-8, Design 4 (add options, limited Home). Depends: 17.
+  Files: `web/src/offline/addOptions.ts`, `web/src/session/lock.ts`, `web/src/router/guards.ts`, `web/src/screens/home/`, `web/src/screens/add/`, `docs/design-spec.md` (UI-HOME-7, and UI-AUTH-9's offline paragraph pointing to it), `docs/specs/01-foundation-and-wealth.md` (a line under Design 9 "Offline" pointing here).
+  Do: Store and refresh the add options; wipe them and the outbox on sign-out and on `unauthenticated`; the limited Home and the offline routing of section 4; the Add form from stored options.
+  Acceptance: web unit tests: the stored record has no amount fields; sign-out and a 401 `unauthenticated` delete it and the outbox; `session_locked` keeps both. E2E (service worker allowed, both devices): signed in, reload offline → limited Home with the two tiles and the info card, no eye, no avatar, nothing else; more than 5 minutes away offline → limited Home with "… back online and signed in." instead of the sign-in screen, and a notification-tap route also lands there; Add from it saves to the outbox with the stored accounts and categories and a matching rule applied; reconnecting while locked sends the expense (one row on the server) and shows sign-in with `next`; after "Sign out" an offline reload shows the sign-in screen of spec 1, not the limited Home; the form still fits 390 × 844 with the offline note.
+
+- [ ] **19. Spec acceptance and the switch-over from Goodbudget.**
+  Refs: roadmap spec 2 "Done when", O2, QUA-2. Depends: all.
+  Files: this spec ("Trial results" and the checklist below).
+  Do: With the owner, on the Mac mini and the family's phones, record the date and result of each:
+  - [ ] Switch-over: the three envelopes exist with the balances taken over from Goodbudget (created in the app by the owner on the day, O2), Goodbudget is no longer used.
+  - [ ] An expense typed on an iPhone in airplane mode, from the limited Home, arrives exactly once after reconnecting; also after the app was closed and reopened offline in between.
+  - [ ] The first month change after the switch-over tops up one carry-over and one reset envelope correctly, and both then show the closed month's closing balance and whether it stayed within budget. The case of a server off on the 1st is shown by task 2's tests; if the owner wants it on the real setup, stop the container before the 1st and start it after.
+  - [ ] An expense saved with only an amount is listed in "Needs a category" with a suggested category.
+  - [ ] An item waiting in the outbox for at least two days is still there and is sent (IndexedDB kept by iOS for a Home Screen app).
+  Acceptance: every line is ticked with a date, or the failure is described, and the owner has seen it.
+
+### Order
+
+Tasks run one at a time (Playwright's fixed port). Tasks 3 and 4 depend only on milestone A's earlier tasks and may swap; everything else runs in number order.
+
+## Verification
+
+As spec 1 (`pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm e2e`, `pnpm build`), plus the performance tests of tasks 2 and 12, and `scripts/restore-test.sh` once after task 1 (the backup and restore must carry the new tables). Then task 19 is ticked with the owner.
+
+## Trial results
+
+To be filled in by task 19.
+
+| Trial | Date | Result | Decision |
+|---|---|---|---|
+| Offline entry on a real iPhone (task 19) | | | |
+| Outbox kept by iOS for two days (task 19) | | | |
+| Spec acceptance (task 19) | | | |
+
+## Change log
+
+- 2026-10-13: written by the planning session. The owner decided D1 to D5: offline, the sign-in screen is skipped for a limited Home that can add; a transaction added offline is sent at once, even from a locked session (SEC-9 exception); only the Add form's names and unsent transactions stay on the phone; a transaction is always in its account's currency; split and recurring transactions are deferred, with parts in the data model from the start. Defaults O1 to O15 wait for the owner.
