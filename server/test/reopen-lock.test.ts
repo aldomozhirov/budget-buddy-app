@@ -122,6 +122,15 @@ describe('sign in again when the app is re-opened', () => {
       ['GET', '/api/home'],
       ['GET', '/api/accounts'],
       ['GET', '/api/devices/current'],
+      ['GET', '/api/envelopes'],
+      ['POST', '/api/envelopes'],
+      ['GET', '/api/envelopes/1'],
+      ['PATCH', '/api/envelopes/1'],
+      ['DELETE', '/api/envelopes/1'],
+      ['GET', '/api/envelopes/1/history'],
+      ['POST', '/api/envelopes/1/adjustments'],
+      ['POST', '/api/envelopes/moves'],
+      ['DELETE', '/api/envelope-adjustments/1'],
       ['POST', '/api/auth/sign-out'],
     ] as const) {
       const response = await call(alex, method, url, {});

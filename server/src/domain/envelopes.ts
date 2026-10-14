@@ -160,25 +160,33 @@ export interface EnvelopeStatistics {
 }
 
 /**
- * Computes the statistics of the closed months of `months` (as returned by
- * `envelopeMonths`) in a period: the last 6 or 12, those of the current
- * month's calendar year, or all. The current month never counts.
+ * The closed months of `months` (as returned by `envelopeMonths`) that a
+ * period covers: the last 6 or 12, those of the current month's calendar
+ * year, or all. The current month never counts.
  */
+export function closedMonthsInPeriod(
+  months: readonly EnvelopeMonth[],
+  period: StatisticsPeriod,
+  currentMonth: string,
+): EnvelopeMonth[] {
+  const closed = months.filter((month) => month.closed);
+  const year = currentMonth.slice(0, 4);
+  return period === 'last6'
+    ? closed.slice(-6)
+    : period === 'last12'
+      ? closed.slice(-12)
+      : period === 'thisYear'
+        ? closed.filter(({ month }) => month.startsWith(`${year}-`))
+        : closed;
+}
+
+/** Computes the statistics of the closed months in a period (Design 3.2). */
 export function envelopeStatistics(
   months: readonly EnvelopeMonth[],
   period: StatisticsPeriod,
   currentMonth: string,
 ): EnvelopeStatistics {
-  const closed = months.filter((month) => month.closed);
-  const year = currentMonth.slice(0, 4);
-  const chosen =
-    period === 'last6'
-      ? closed.slice(-6)
-      : period === 'last12'
-        ? closed.slice(-12)
-        : period === 'thisYear'
-          ? closed.filter(({ month }) => month.startsWith(`${year}-`))
-          : closed;
+  const chosen = closedMonthsInPeriod(months, period, currentMonth);
   let spent = 0n;
   let leftOverNet = 0n;
   let withinBudget = 0;

@@ -10,10 +10,7 @@ import {
   currencyRelabelResponseSchema,
   deleteAccountResponseSchema,
   endOfLocalDay,
-  getCurrency,
-  isMinorInRange,
   parseMinor,
-  roundHalfAwayFromZero,
   todayInTimeZone,
   toMinorString,
   updateAccountRequestSchema,
@@ -23,6 +20,7 @@ import { systemClock, type Clock } from '../../clock.js';
 import type { BackfillRequester } from '../../rates/service.js';
 import { balanceAt, type AccountBalance } from '../../domain/balance.js';
 import { notifyOpenCheckinChanged } from '../../domain/checkin.js';
+import { lookupCurrency, rescaleMinor } from '../../domain/currencies.js';
 import type { CheckinEventBus } from '../../events.js';
 
 /** Registers account listing, maintenance, balance and currency routes. */
@@ -497,25 +495,6 @@ function findAccount(
   }).map(toAccountResponse)[0];
 }
 
-function lookupCurrency(
-  database: Database.Database,
-  code: string,
-): Currency | undefined {
-  const iso = getCurrency(code);
-  if (iso) return iso;
-  const coin = database
-    .prepare(
-      'SELECT code, name, decimals FROM coin WHERE code = ? COLLATE NOCASE',
-    )
-    .get(code) as
-    { code: string; name: string; decimals: bigint | number } | undefined;
-  return coin
-    ? getCurrency(code, [
-        { code: coin.code, name: coin.name, decimals: Number(coin.decimals) },
-      ])
-    : undefined;
-}
-
 function memberExists(database: Database.Database, memberId: number): boolean {
   return (
     database.prepare('SELECT 1 FROM member WHERE id = ?').get(memberId) !==
@@ -661,28 +640,6 @@ function hasRescaleRemainder(
   if (toDecimals >= fromDecimals) return false;
   const divisor = 10n ** BigInt(fromDecimals - toDecimals);
   return amount % divisor !== 0n;
-}
-
-function rescaleMinor(
-  amount: bigint,
-  fromDecimals: number,
-  toDecimals: number,
-): bigint {
-  let result: bigint;
-  if (toDecimals >= fromDecimals) {
-    result = amount * 10n ** BigInt(toDecimals - fromDecimals);
-  } else {
-    const divisor = 10n ** BigInt(fromDecimals - toDecimals);
-    const absolute = amount < 0n ? -amount : amount;
-    const whole = absolute / divisor;
-    const remainder = (absolute % divisor)
-      .toString()
-      .padStart(fromDecimals - toDecimals, '0');
-    const value = `${amount < 0n ? '-' : ''}${whole}.${remainder}`;
-    result = roundHalfAwayFromZero(value, 0);
-  }
-  if (!isMinorInRange(result)) throw new RangeError('Amount is too large');
-  return result;
 }
 
 function sendValidation(
