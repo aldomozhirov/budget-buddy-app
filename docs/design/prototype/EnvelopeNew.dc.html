@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Budget Buddy — New envelope</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit}a:hover{color:inherit}
+.bb-light{--bg:#F4F3EF;--surface:#FFFFFF;--ink:#15171A;--on-ink:#F4F3EF;--muted:#5C6168;--line:#E2E0D9;--soft:#EAE8E2;--accent:#1D5C45;--accent-soft:#DCEAE3;--warn:#A2470F;--warn-soft:#F5E2D4;--scrim:rgba(20,20,18,.36)}
+.bb-dark{--bg:#111214;--surface:#1A1C1F;--ink:#F1F0EC;--on-ink:#111214;--muted:#A3A8AF;--line:#2B2E33;--soft:#24272B;--accent:#7CC6A3;--accent-soft:#1D3229;--warn:#F2A574;--warn-soft:#3A2618;--scrim:rgba(0,0,0,.55)}
+.bb button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer}
+.bb .num{font-variant-numeric:tabular-nums}
+.bb svg{flex:none}
+.bb .scroll::-webkit-scrollbar{display:none}
+.bb .seg{flex:1;height:36px;border-radius:10px;font-size:14px;font-weight:500;color:var(--muted);text-align:center}
+.bb .seg-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.bb .chip{flex:none;height:44px;padding:0 16px;border-radius:22px;background:var(--surface);border:1px solid var(--line);font-size:15px;font-weight:500;display:flex;align-items:center;white-space:nowrap}
+.bb .chip-on{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.bb .key{height:46px;border-radius:12px;background:var(--bg);font-size:21px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.bb .key-op{background:var(--soft);font-size:19px}
+.bb .note{width:100%;box-sizing:border-box;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;padding:0 12px;outline:none}
+.bb .note::placeholder{color:var(--muted)}
+.bb .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* motion */
+@keyframes bb-in-fwd{from{transform:translateX(100%)}to{transform:none}}
+@keyframes bb-in-back{from{transform:translateX(-28%);opacity:.6}to{transform:none;opacity:1}}
+@keyframes bb-fade{from{opacity:0}to{opacity:1}}
+@keyframes bb-sheet{from{transform:translateY(100%)}to{transform:none}}
+@keyframes bb-grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes bb-growy{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes bb-draw{from{stroke-dashoffset:1400}to{stroke-dashoffset:0}}
+@keyframes bb-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes bb-shake{0%,100%{transform:none}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+@keyframes bb-down{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.bb.nav-fwd{animation:bb-in-fwd .42s cubic-bezier(.32,.72,0,1) both;box-shadow:-12px 0 32px rgba(0,0,0,.12)}
+.bb.nav-back{animation:bb-in-back .38s cubic-bezier(.32,.72,0,1) both}
+.bb [role="dialog"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both;will-change:transform}
+.bb div[style*="var(--scrim)"],.bb div[style*="rgba(20,20,18,.36)"],.bb div[style*="rgba(20, 20, 18, 0.36)"]{animation:bb-fade .3s ease-out both}
+.bb div[style*="inset: 0"][style*="background: var(--bg)"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both}
+.bb span[style*="width: 72px; height: 72px"],.bb span[style*="width: 56px; height: 56px; border-radius: 28px; background: var(--accent-soft)"]{animation:bb-pop .4s cubic-bezier(.2,.8,.2,1) .25s both}
+.bb [style*="height: 6px"]>[style*="height: 6px"],.bb [style*="height: 4px"]>[style*="height: 4px"]{transform-origin:left center;animation:bb-grow .8s cubic-bezier(.2,.8,.2,1) .3s both;transition:width .45s cubic-bezier(.2,.8,.2,1),background-color .3s}
+.bb div[title][style*="border-radius: 6px 6px 0 0"]{transform-origin:bottom;animation:bb-growy .7s cubic-bezier(.2,.8,.2,1) .3s both}
+.bb polyline{stroke-dasharray:1400;animation:bb-draw 1.1s cubic-bezier(.4,0,.2,1) .3s both}
+.bb button,.bb a{transition:transform .12s ease,background-color .18s ease,color .18s ease,border-color .18s ease,opacity .18s ease}
+.bb button:active:not([disabled]),.bb a:active{transform:scale(.97)}
+.bb .key:active{transform:scale(.92)}
+.bb .knob{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb .switch{transition:background-color .22s}
+.bb span[style*="width: 27px; height: 27px"]{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb span[style*="width: 51px; height: 31px"]{transition:background-color .22s}
+.bb .pw-err{animation:bb-shake .4s ease}
+.bb [role="alert"]:not(:empty),.bb [role="status"]{animation:bb-fade .3s ease-out both}
+.bb .wrap{animation:bb-down .22s ease-out both}
+.bb .lbl{font-size:12px;font-weight:500;color:var(--muted);letter-spacing:.02em}
+.bb .hrow{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px}
+.bb .hrow::-webkit-scrollbar{display:none}
+.bb .chip-ghost{background:transparent;color:var(--muted);border-style:dashed}
+.bb .input{width:100%;box-sizing:border-box;height:48px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:16px;padding:0 12px;outline:none}
+.bb .input:focus{border-color:var(--ink)}
+.bb .opt{width:100%;min-height:56px;display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid var(--line);text-align:left;text-decoration:none}
+.bb .card{display:flex;flex-direction:column;border-radius:20px;background:var(--surface)}
+.bb .amt{width:100%;height:52px;box-sizing:border-box;border-radius:12px;border:1px solid var(--line);background:var(--bg);display:flex;align-items:center;gap:8px;padding:0 12px;text-align:left}
+.bb .amt-on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.bb .cur{flex:1;height:36px;border-radius:10px;font-size:14px;font-weight:600;color:var(--muted);text-align:center}
+.bb .cur-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+@media (prefers-reduced-motion: reduce){.bb,.bb *{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div class="bb {{themeClass}}" onClickCapture="{{navCapture}}" style="width: 390px; height: 844px; position: relative; overflow: hidden; background: var(--bg); color: var(--ink); font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.4; display: flex; flex-direction: column">
+<sc-if value="{{isNew}}" hint-placeholder-val="{{ true }}">
+<div style="padding: 48px 16px 8px; display: flex; align-items: center; gap: 12px">
+<a href="Main.dc.html" aria-label="Back to home" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+</a>
+<div style="flex: 1; display: flex; flex-direction: column">
+<h1 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em">Envelopes</h1>
+<span style="font-size: 13px; color: var(--muted)">October · next top-up on 1 November</span>
+</div>
+<button onClick="{{openSheet}}" aria-label="New envelope" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+</button>
+</div>
+<div class="scroll" style="flex: 1; overflow-y: auto; padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; padding: 0 4px">
+<span style="color: var(--muted); font-size: 14px">Left in all envelopes</span>
+<span class="num" style="font-size: 17px; font-weight: 600">{{totalLeft}}</span>
+</div>
+<sc-for list="{{cards}}" as="c" hint-placeholder-count="2">
+<a href="EnvelopeDetail.dc.html" style="display: flex; flex-direction: column; gap: 10px; padding: 18px 16px; border-radius: 20px; background: var(--surface); text-decoration: none">
+<span style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-weight: 600; font-size: 17px">{{c.name}}</span>
+<span style="font-size: 12px; font-weight: 500; color: var(--muted); padding: 3px 8px; border-radius: 6px; background: var(--soft)">{{c.mode}}</span>
+</span>
+<span class="num" style="font-size: 30px; font-weight: 600; letter-spacing: -0.02em">{{c.left}} <span style="font-size: 15px; font-weight: 500; color: var(--muted); letter-spacing: 0">left</span></span>
+<span style="display: block; height: 6px; border-radius: 3px; background: var(--soft); overflow: hidden"><span style="display: block; height: 6px; border-radius: 3px; {{c.bar}}"></span></span>
+<span class="num" style="font-size: 13px; color: var(--muted)">{{c.line}}</span>
+</a>
+</sc-for>
+<sc-if value="{{added}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="padding: 10px 14px; border-radius: 14px; background: var(--soft); font-size: 14px; display: flex; align-items: center; gap: 8px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>{{added}}</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{isEdit}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 48px 16px 8px; display: flex; align-items: center; gap: 12px">
+<a href="Envelopes.dc.html" aria-label="Back to envelopes" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+</a>
+<div style="flex: 1; display: flex; flex-direction: column">
+<h1 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em">{{savedName}}</h1>
+<span style="font-size: 13px; color: var(--muted)">€500.00 a month · resets on the 1st</span>
+<sc-if value="{{pendingLine}}" hint-placeholder-val="{{ false }}">
+<span class="num" style="font-size: 13px; font-weight: 500; color: var(--accent)">{{pendingLine}}</span>
+</sc-if>
+</div>
+<button onClick="{{openSheet}}" aria-label="Edit envelope" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+</button>
+</div>
+<div style="padding: 8px 16px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 18px 16px; border-radius: 20px; background: var(--surface)">
+<span class="num" style="font-size: 36px; font-weight: 600; letter-spacing: -0.02em">€187.60 <span style="font-size: 15px; font-weight: 500; color: var(--muted); letter-spacing: 0">left</span></span>
+<span style="display: block; height: 6px; border-radius: 3px; background: var(--soft); overflow: hidden"><span style="display: block; height: 6px; width: 62%; border-radius: 3px; background: var(--accent)"></span></span>
+<span class="num" style="font-size: 13px; color: var(--muted)">€312.40 spent of €500.00 · 6 expenses · 26 days to go</span>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{sheetOpen}}" hint-placeholder-val="{{ true }}">
+<div onClick="{{closeSheet}}" style="position: absolute; inset: 0; background: var(--scrim)"></div>
+<div role="dialog" aria-label="{{sheetTitle}}" style="position: absolute; left: 0; right: 0; bottom: 0; top: 44px; background: var(--surface); border-radius: 24px 24px 0 0; padding: 10px 16px 30px; display: flex; flex-direction: column; gap: 10px">
+<div aria-hidden="true" style="align-self: center; width: 36px; height: 5px; border-radius: 3px; background: var(--line)"></div>
+<div style="display: flex; align-items: center; gap: 12px">
+<h2 style="flex: 1; margin: 0; font-size: 18px; font-weight: 600">{{sheetTitle}}</h2>
+<button onClick="{{closeSheet}}" aria-label="Close" style="width: 44px; height: 44px; border-radius: 22px; background: var(--bg); display: flex; align-items: center; justify-content: center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+</div>
+
+<div class="scroll" style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding-bottom: 4px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="env-name" class="lbl">Name</label>
+<input id="env-name" class="input" type="text" autocomplete="off" placeholder="e.g. Groceries" value="{{name}}" onChange="{{onName}}" onFocus="{{blurAmounts}}">
+<sc-if value="{{nameError}}" hint-placeholder-val="{{ false }}">
+<span role="alert" style="font-size: 12px; color: var(--warn)">{{nameError}}</span>
+</sc-if>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="lbl" id="lbl-cur">Currency or coin</span>
+<div role="radiogroup" aria-labelledby="lbl-cur" style="display: flex; gap: 8px; flex-wrap: wrap; opacity: {{curOpacity}}">
+<sc-for list="{{currencies}}" as="c" hint-placeholder-count="3">
+<button role="radio" aria-checked="{{c.on}}" disabled="{{c.off}}" class="{{c.cls}}" onClick="{{c.pick}}">{{c.label}}</button>
+</sc-for>
+<button class="chip chip-ghost" onClick="{{openCur}}" disabled="{{curLocked}}" aria-haspopup="dialog" aria-label="Other currency or coin">Other…</button>
+</div>
+<sc-if value="{{curLocked}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 12px; color: var(--muted)">The currency stays: it has expenses.</span>
+</sc-if>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="lbl" id="lbl-monthly">Monthly amount</span>
+<button class="{{monthlyCls}}" onClick="{{focusMonthly}}" aria-labelledby="lbl-monthly" aria-pressed="{{monthlyOn}}">
+<span class="num" style="flex: 1; font-size: 18px; font-weight: 600; color: {{monthlyColor}}">{{monthlyText}}</span>
+<span style="font-size: 12px; font-weight: 600; color: var(--muted)">{{curCode}}</span>
+</button>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="lbl">Each month</span>
+<div role="radiogroup" aria-label="Each month" style="display: flex; gap: 8px">
+<sc-for list="{{modes}}" as="m" hint-placeholder-count="2">
+<button role="radio" aria-checked="{{m.on}}" class="{{m.cls}}" onClick="{{m.pick}}" style="flex: 1; justify-content: center">{{m.label}}</button>
+</sc-for>
+</div>
+<span style="font-size: 12px; color: var(--muted)">{{modeHint}}</span>
+</div>
+
+<sc-if value="{{isNew}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="lbl" id="lbl-start">Starting balance · what’s in it now</span>
+<button class="{{startCls}}" onClick="{{focusStart}}" aria-labelledby="lbl-start" aria-pressed="{{startOn}}">
+<span class="num" style="flex: 1; font-size: 18px; font-weight: 600; color: {{startColor}}">{{startText}}</span>
+<span style="font-size: 12px; color: var(--muted)">{{startHint}}</span>
+</button>
+</div>
+</sc-if>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="lbl">Default category · used on save when an expense has none</span>
+<div class="hrow" role="radiogroup" aria-label="Default category">
+<sc-for list="{{cats}}" as="c" hint-placeholder-count="4">
+<button role="radio" aria-checked="{{c.on}}" class="{{c.cls}}" onClick="{{c.pick}}">{{c.label}}</button>
+</sc-for>
+<button class="chip chip-ghost" onClick="{{openCat}}" aria-haspopup="dialog" aria-label="All categories">All…</button>
+</div>
+</div>
+
+<sc-if value="{{planChanged}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 14px; background: var(--accent-soft); font-size: 14px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></svg>
+<span style="flex: 1">Applies from the top-up on 1 November.</span>
+</div>
+</sc-if>
+
+<sc-if value="{{isEdit}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: center; gap: 12px; padding-top: 12px; border-top: 1px solid var(--line)">
+<span style="flex: 1; font-size: 13px; color: var(--muted)">{{lifeHint}}</span>
+<button onClick="{{lifeAction}}" style="flex: none; height: 44px; padding: 0 16px; border-radius: 22px; background: var(--bg); font-weight: 600; font-size: 14px; color: {{lifeColor}}">{{lifeLabel}}</button>
+</div>
+</sc-if>
+</div>
+
+<sc-if value="{{keypadOpen}}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px">
+<sc-for list="{{keys}}" as="key" hint-placeholder-count="20">
+<button class="{{key.cls}}" aria-label="{{key.aria}}" onClick="{{key.press}}">{{key.label}}</button>
+</sc-for>
+</div>
+</sc-if>
+<button onClick="{{confirm}}" disabled="{{confirmDisabled}}" class="num" style="flex: none; height: 56px; border-radius: 18px; background: {{confirmBg}}; color: {{confirmFg}}; font-weight: 600; font-size: 16px; text-align: center">{{confirmLabel}}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{catOpen}}" hint-placeholder-val="{{ false }}">
+<div onClick="{{closeCat}}" style="position: absolute; inset: 0; background: var(--scrim)"></div>
+<div role="dialog" aria-label="Default category" style="position: absolute; left: 0; right: 0; bottom: 0; top: 96px; background: var(--surface); border-radius: 24px 24px 0 0; padding: 10px 16px 0; display: flex; flex-direction: column; gap: 12px">
+<div aria-hidden="true" style="align-self: center; width: 36px; height: 5px; border-radius: 3px; background: var(--line)"></div>
+<div style="display: flex; align-items: center; gap: 12px">
+<h2 style="flex: 1; margin: 0; font-size: 18px; font-weight: 600">Default category</h2>
+<button onClick="{{closeCat}}" aria-label="Close" style="width: 44px; height: 44px; border-radius: 22px; background: var(--bg); display: flex; align-items: center; justify-content: center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+</div>
+<div style="position: relative">
+<label for="cat-q" class="sr">Search or add a category</label>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position: absolute; left: 14px; top: 15px"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4 4"></path></svg>
+<input id="cat-q" class="input" type="search" autocomplete="off" placeholder="Search or add a category" value="{{catQuery}}" onChange="{{onCatQuery}}" style="padding-left: 42px">
+</div>
+<div class="scroll" style="flex: 1; overflow-y: auto; margin: 0 -16px; padding: 0 16px 34px">
+<sc-for list="{{catGroups}}" as="g" hint-placeholder-count="2">
+<div style="display: flex; flex-direction: column">
+<h3 style="margin: 20px 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted)">{{g.title}}</h3>
+<sc-for list="{{g.items}}" as="o" hint-placeholder-count="4">
+<button class="opt" role="radio" aria-checked="{{o.on}}" onClick="{{o.pick}}">
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+<span style="font-weight: 500">{{o.label}}</span>
+<sc-if value="{{o.sub}}" hint-placeholder-val="{{ false }}"><span style="font-size: 13px; color: var(--muted)">{{o.sub}}</span></sc-if>
+</span>
+<sc-if value="{{o.on}}" hint-placeholder-val="{{ false }}">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+</sc-if>
+</button>
+</sc-for>
+</div>
+</sc-for>
+<sc-if value="{{catCreate}}" hint-placeholder-val="{{ false }}">
+<button class="opt" onClick="{{createCat}}" style="color: var(--accent); font-weight: 600; border-bottom: 0">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>{{catCreate}}</button>
+</sc-if>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{curOpen}}" hint-placeholder-val="{{ false }}">
+<div onClick="{{closeCur}}" style="position: absolute; inset: 0; background: var(--scrim)"></div>
+<div role="dialog" aria-label="Currency or coin" style="position: absolute; left: 0; right: 0; bottom: 0; top: 96px; background: var(--surface); border-radius: 24px 24px 0 0; padding: 10px 16px 0; display: flex; flex-direction: column; gap: 12px">
+<div aria-hidden="true" style="align-self: center; width: 36px; height: 5px; border-radius: 3px; background: var(--line)"></div>
+<div style="display: flex; align-items: center; gap: 12px">
+<h2 style="flex: 1; margin: 0; font-size: 18px; font-weight: 600">Currency or coin</h2>
+<button onClick="{{closeCur}}" aria-label="Close" style="width: 44px; height: 44px; border-radius: 22px; background: var(--bg); display: flex; align-items: center; justify-content: center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+</div>
+<div style="position: relative">
+<label for="cur-q" class="sr">Search currencies and coins</label>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position: absolute; left: 14px; top: 15px"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4 4"></path></svg>
+<input id="cur-q" class="input" type="search" autocomplete="off" placeholder="Search: code or name" value="{{curQuery}}" onChange="{{onCurQuery}}" style="padding-left: 42px">
+</div>
+<div class="scroll" style="flex: 1; overflow-y: auto; margin: 0 -16px; padding: 0 16px 34px">
+<sc-for list="{{curGroups}}" as="g" hint-placeholder-count="2">
+<div style="display: flex; flex-direction: column">
+<h3 style="margin: 20px 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted)">{{g.title}}</h3>
+<sc-for list="{{g.items}}" as="o" hint-placeholder-count="4">
+<button class="opt" role="radio" aria-checked="{{o.on}}" onClick="{{o.pick}}">
+<span style="width: 44px; flex: none; font-weight: 600">{{o.code}}</span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+<span style="font-weight: 500">{{o.name}}</span>
+<span style="font-size: 13px; color: var(--muted)">{{o.sub}}</span>
+</span>
+<sc-if value="{{o.on}}" hint-placeholder-val="{{ false }}">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+</sc-if>
+</button>
+</sc-for>
+</div>
+</sc-for>
+<sc-if value="{{curNoMatch}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 16px 4px; color: var(--muted); font-size: 14px">{{curNoMatch}}</p>
+</sc-if>
+</div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"mode":{"editor":"enum","options":["new","edit"],"default":"new"},"usage":{"editor":"enum","options":["used","unused","archived"],"default":"used"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  nav(from) {
+    return {
+      themeClass: (this.props.dark ? 'bb-dark' : 'bb-light') + ' ' + (function () { try { return sessionStorage.getItem('bb-nav') === 'back' ? 'nav-back' : 'nav-fwd'; } catch (e) { return 'nav-fwd'; } })(),
+      navCapture: function (e) {
+        var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+        if (!a) return;
+        var href = a.getAttribute('href') || '', label = (a.getAttribute('aria-label') || '') + ' ' + (a.textContent || '');
+        var back = href === 'Main.dc.html' || /^\s*(Back|Close|Cancel|Done|Later|Keep)/.test(label) || /^\s*(Back home|Back to)/.test(a.textContent || '');
+        try { sessionStorage.setItem('bb-nav', back ? 'back' : 'fwd'); if (!back && from) sessionStorage.setItem('bb-from:' + href, from); } catch (err) {}
+      }
+    };
+  }
+  evaluate(s) {
+    var t = s.replace(/−/g, '-').replace(/×/g, '*').replace(/÷/g, '/');
+    var i = 0;
+    function peek() { return t[i]; }
+    function num() {
+      var st = i;
+      while (i < t.length && /[0-9.]/.test(t[i])) i++;
+      var str = t.slice(st, i);
+      if (!str || !/^(\d+\.?\d*|\.\d+)$/.test(str)) throw new Error('num');
+      return parseFloat(str);
+    }
+    function factor() {
+      if (peek() === '-') { i++; return -factor(); }
+      if (peek() === '+') { i++; return factor(); }
+      var v;
+      if (peek() === '(') { i++; v = expr(); if (peek() !== ')') throw new Error('paren'); i++; }
+      else v = num();
+      while (peek() === '%') { i++; v = v / 100; }
+      return v;
+    }
+    function term() {
+      var v = factor();
+      while (peek() === '*' || peek() === '/') {
+        var op = t[i++]; var r = factor();
+        if (op === '/') { if (r === 0) throw new Error('div0'); v = v / r; } else v = v * r;
+      }
+      return v;
+    }
+    function expr() {
+      var v = term();
+      while (peek() === '+' || peek() === '-') {
+        var op = t[i++]; var r = term();
+        v = op === '+' ? v + r : v - r;
+      }
+      return v;
+    }
+    var v = expr();
+    if (i !== t.length) throw new Error('trailing');
+    return Math.round(v * 100) / 100;
+  }
+  tryEval(s) { try { return s ? this.evaluate(s) : null; } catch (e) { return null; } }
+  keypad(onKey) {
+    var KEYS = ['7', '8', '9', '(', ')', '4', '5', '6', '×', '÷', '1', '2', '3', '+', '−', '.', '0', '%', '⌫', 'C'];
+    var ARIA = { '(': 'Open bracket', ')': 'Close bracket', '×': 'Multiply', '÷': 'Divide', '+': 'Plus', '−': 'Minus', '%': 'Percent', '⌫': 'Delete', 'C': 'Clear', '.': 'Decimal point' };
+    return KEYS.map(function (k) {
+      return { label: k, aria: ARIA[k] || k, cls: /[0-9.]/.test(k) ? 'key' : 'key key-op', press: function () { onKey(k); } };
+    });
+  }
+  typed(e, k) {
+    if (k === 'C') return '';
+    if (k === '⌫') return e.slice(0, -1);
+    return (e + k).slice(0, 40);
+  }
+
+  constructor(props) {
+    super(props);
+    var edit = props.mode === 'edit';
+    this.state = edit
+      ? { sheet: true, name: 'Groceries', monthly: '500', cur: 'EUR', mode: 'reset', start: null, cat: 'Groceries', focus: null, fresh: false, life: props.usage || 'used', pending: null, savedName: 'Groceries', cards: null, added: '' }
+      : { sheet: true, name: '', monthly: '', cur: 'EUR', mode: 'reset', start: null, cat: null, focus: 'monthly', fresh: false, life: 'unused', pending: null, savedName: '', cards: null, added: '' };
+  }
+  renderVals() {
+    var self = this, st = this.state;
+    var edit = (this.props.mode || 'new') === 'edit';
+    // every ISO currency and the coins the family tracks; a sample here
+    var ALL = [
+      ['EUR', 'Euro', '€'], ['USD', 'US dollar', '$'], ['RUB', 'Russian ruble', '₽'],
+      ['AED', 'UAE dirham', 'AED '], ['BTC', 'Bitcoin', '₿'], ['CAD', 'Canadian dollar', 'CA$'], ['CHF', 'Swiss franc', 'CHF '],
+      ['CZK', 'Czech koruna', 'Kč '], ['DKK', 'Danish krone', 'kr '], ['ETH', 'Ether', 'Ξ'], ['GBP', 'British pound', '£'],
+      ['GEL', 'Georgian lari', '₾'], ['HUF', 'Hungarian forint', 'Ft '], ['JPY', 'Japanese yen', '¥'], ['KZT', 'Kazakh tenge', '₸'],
+      ['NOK', 'Norwegian krone', 'kr '], ['PLN', 'Polish złoty', 'zł '], ['RSD', 'Serbian dinar', 'RSD '], ['SEK', 'Swedish krona', 'kr '],
+      ['THB', 'Thai baht', '฿'], ['TRY', 'Turkish lira', '₺'], ['UAH', 'Ukrainian hryvnia', '₴']
+    ].map(function (c) { return { code: c[0], name: c[1], sym: c[2], coin: c[0] === 'BTC' || c[0] === 'ETH' }; });
+    var IN_USE = { EUR: 'Common currency · 3 envelopes · 14 accounts', USD: '4 accounts', RUB: '2 accounts' };
+    function curOf(code) { return ALL.filter(function (c) { return c.code === code; })[0]; }
+    var sym = curOf(st.cur).sym;
+    function money(v, s) { return (v < 0 ? '−' : '') + (s || sym) + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    var monthly = this.tryEval(st.monthly);
+    var start = st.start === null ? monthly : this.tryEval(st.start);
+    var TAKEN = ['groceries', 'eating out', 'unexpected', 'holiday'];
+    var trimmed = st.name.trim();
+    var nameError = '';
+    if (!edit && trimmed && TAKEN.indexOf(trimmed.toLowerCase()) >= 0) nameError = trimmed.toLowerCase() === 'holiday' ? 'An archived envelope has this name. Restore it instead.' : 'An envelope with this name already exists.';
+    var planChanged = edit && ((monthly !== null && monthly !== 500) || st.mode !== 'reset');
+    var valid = !!trimmed && !nameError && monthly !== null && monthly >= 0 && (edit || start !== null);
+    var curLocked = edit && st.life === 'used';
+
+    function onKey(k) {
+      var f = self.state.focus; if (!f) return;
+      var cur = f === 'monthly' ? self.state.monthly : (self.state.start === null ? '' : self.state.start);
+      if (self.state.fresh) cur = '';
+      var patch = { fresh: false }; patch[f] = self.typed(cur, k);
+      self.setState(patch);
+    }
+    var base = [
+      { name: 'Groceries', mode: 'Resets monthly', left: '€187.60', bar: 'width: 62%; background: var(--accent)', line: '€312.40 spent of €500.00 · 6 expenses', leftV: 187.6 },
+      { name: 'Unexpected', mode: 'Carries over', left: '€375.00', bar: 'width: 11%; background: var(--accent)', line: '€45.00 spent of €420.00 · €300.00 + €120.00 carried from September', leftV: 375 }
+    ];
+    var cards = st.cards || base;
+    var total = cards.reduce(function (s, c) { return s + c.leftV; }, 0);
+
+    var modes = [{ id: 'reset', label: 'Resets monthly' }, { id: 'carry', label: 'Carries over' }].map(function (m) {
+      var on = st.mode === m.id;
+      return { label: m.label, on: on, cls: on ? 'chip chip-on' : 'chip', pick: function () { self.setState({ mode: m.id, focus: null }); } };
+    });
+    // chips: the currencies the family already uses; one picked under "Other…" goes to the front
+    var chipCodes = Object.keys(IN_USE);
+    if (chipCodes.indexOf(st.cur) < 0) chipCodes.unshift(st.cur);
+    var currencies = chipCodes.map(function (c) {
+      var on = st.cur === c;
+      return { label: c, on: on, off: curLocked && !on, cls: on ? 'chip chip-on' : 'chip', pick: function () { if (!curLocked) self.setState({ cur: c }); } };
+    });
+    var q = (st.curQuery || '').trim().toLowerCase();
+    function citem(c) {
+      return { code: c.code, name: c.name, sub: IN_USE[c.code] || (c.coin ? 'Coin' : 'Currency'), on: st.cur === c.code,
+        pick: function () { self.setState({ cur: c.code, curOpen: false, curQuery: '' }); } };
+    }
+    var curGroups = [], curNoMatch = '';
+    if (!q) {
+      curGroups.push({ title: 'In use', items: ALL.filter(function (c) { return IN_USE[c.code]; }).map(citem) });
+      curGroups.push({ title: 'All currencies and coins', items: ALL.filter(function (c) { return !IN_USE[c.code]; }).map(citem) });
+    } else {
+      var hits = ALL.filter(function (c) { return (c.code + ' ' + c.name).toLowerCase().indexOf(q) >= 0; }).map(citem);
+      if (hits.length) curGroups.push({ title: hits.length + (hits.length === 1 ? ' match' : ' matches'), items: hits });
+      else curNoMatch = 'No currency or coin matches “' + st.curQuery.trim() + '”.';
+    }
+    // expense categories only (a default envelope belongs to an expense category); active ones
+    var ALL_CAT = ['Groceries', 'Eating out', 'Housing', 'Utilities', 'Transport', 'Health', 'Insurance', 'Subscriptions', 'Shopping', 'Travel', 'Leisure', 'Gifts', 'Fees and taxes', 'Other'].concat(st.newCats || []);
+    var USED = { 'Groceries': 'Default for the Groceries envelope', 'Eating out': 'Default for the Eating out envelope' };
+    // chips: None, the three most used, and one picked under "All…" in front
+    var chipCats = ['Groceries', 'Eating out', 'Health'];
+    if (st.cat && chipCats.indexOf(st.cat) < 0) chipCats.unshift(st.cat);
+    var cats = [null].concat(chipCats).map(function (val) {
+      var on = st.cat === val;
+      return { label: val || 'None', on: on, cls: on ? 'chip chip-on' : 'chip', pick: function () { self.setState({ cat: val, focus: null }); } };
+    });
+    var cq = (st.catQuery || '').trim().toLowerCase();
+    function catItem(c) {
+      return { label: c || 'None', sub: c ? (USED[c] || '') : 'Expenses without a category stay without one', on: st.cat === c,
+        pick: function () { self.setState({ cat: c, catOpen: false, catQuery: '' }); } };
+    }
+    var catGroups = [], catCreate = '';
+    if (!cq) {
+      catGroups.push({ title: 'Most used', items: [null, 'Groceries', 'Eating out', 'Health'].map(catItem) });
+      catGroups.push({ title: 'All categories', items: ALL_CAT.slice().sort().map(catItem) });
+    } else {
+      var chits = ALL_CAT.filter(function (c) { return c.toLowerCase().indexOf(cq) >= 0; }).sort().map(catItem);
+      if (chits.length) catGroups.push({ title: chits.length + (chits.length === 1 ? ' match' : ' matches'), items: chits });
+      if (!ALL_CAT.some(function (c) { return c.toLowerCase() === cq; })) {
+        var nm = st.catQuery.trim(); nm = nm.charAt(0).toUpperCase() + nm.slice(1);
+        catCreate = 'Add category “' + nm + '”';
+      }
+    }
+    var LIFE = {
+      used: { hint: 'It has 6 expenses, so it can only be archived. They keep this envelope.', label: 'Archive', color: 'var(--ink)', next: 'archived' },
+      unused: { hint: 'Unused, so it can be deleted.', label: 'Delete', color: 'var(--warn)', next: 'deleted' },
+      archived: { hint: 'Archived · kept for history. Restored, it is topped up from 1 November.', label: 'Restore', color: 'var(--accent)', next: 'used' },
+      deleted: { hint: 'Deleted.', label: 'Undo', color: 'var(--ink)', next: 'unused' }
+    }[st.life];
+    var monthlyOn = st.focus === 'monthly', startOn = st.focus === 'start';
+    return Object.assign(this.nav(edit ? 'EnvelopeEdit.dc.html' : 'EnvelopeNew.dc.html'), {
+      isNew: !edit, isEdit: edit,
+      cards: cards, totalLeft: money(total, '€'), added: st.added,
+      savedName: st.savedName || 'Groceries',
+      pendingLine: st.pending,
+      sheetOpen: st.sheet,
+      sheetTitle: edit ? 'Edit envelope' : 'New envelope',
+      openSheet: function () { self.setState({ sheet: true }); },
+      closeSheet: function () { self.setState({ sheet: false, focus: null }); },
+      name: st.name,
+      onName: function (e) { self.setState({ name: e.target.value }); },
+      blurAmounts: function () { self.setState({ focus: null }); },
+      nameError: nameError,
+      monthlyCls: monthlyOn ? 'amt amt-on' : 'amt', monthlyOn: monthlyOn,
+      monthlyText: monthly === null ? sym + '0.00' : money(monthly),
+      monthlyColor: monthly === null ? 'var(--muted)' : 'var(--ink)',
+      focusMonthly: function () { self.setState({ focus: 'monthly', fresh: !!self.state.monthly }); },
+      startCls: startOn ? 'amt amt-on' : 'amt', startOn: startOn,
+      startText: start === null ? sym + '0.00' : money(start),
+      startColor: start === null ? 'var(--muted)' : 'var(--ink)',
+      startHint: st.start === null ? 'Proposed: the monthly amount' : 'Goodbudget’s balance, say',
+      focusStart: function () { self.setState({ focus: 'start', fresh: true }); },
+      currencies: currencies, curLocked: curLocked, curOpacity: curLocked ? '.6' : '1',
+      curCode: st.cur,
+      curOpen: !!st.curOpen,
+      openCur: function () { if (!curLocked) self.setState({ curOpen: true, curQuery: '', focus: null }); },
+      closeCur: function () { self.setState({ curOpen: false, curQuery: '' }); },
+      curQuery: st.curQuery || '',
+      onCurQuery: function (e) { self.setState({ curQuery: e.target.value }); },
+      curGroups: curGroups, curNoMatch: curNoMatch,
+      catOpen: !!st.catOpen,
+      openCat: function () { self.setState({ catOpen: true, catQuery: '', focus: null }); },
+      closeCat: function () { self.setState({ catOpen: false, catQuery: '' }); },
+      catQuery: st.catQuery || '',
+      onCatQuery: function (e) { self.setState({ catQuery: e.target.value }); },
+      catGroups: catGroups, catCreate: catCreate,
+      createCat: function () {
+        var nm = self.state.catQuery.trim(); nm = nm.charAt(0).toUpperCase() + nm.slice(1);
+        self.setState({ newCats: (self.state.newCats || []).concat([nm]), cat: nm, catOpen: false, catQuery: '' });
+      },
+      modes: modes,
+      modeHint: st.mode === 'reset' ? 'On the 1st it starts again from the monthly amount. What was left is dropped.' : 'On the 1st the monthly amount is added to what’s left, or to the overspend.',
+      cats: cats,
+      planChanged: planChanged,
+      lifeHint: LIFE.hint, lifeLabel: LIFE.label, lifeColor: LIFE.color,
+      lifeAction: function () { self.setState({ life: LIFE.next }); },
+      keypadOpen: !!st.focus,
+      keys: this.keypad(onKey),
+      confirmDisabled: !valid,
+      confirmBg: valid ? 'var(--ink)' : 'var(--soft)',
+      confirmFg: valid ? 'var(--on-ink)' : 'var(--muted)',
+      confirmLabel: edit ? 'Save' : (valid ? 'Add envelope' : (!trimmed ? 'Name the envelope' : 'Enter the monthly amount')),
+      confirm: function () {
+        if (!valid) return;
+        if (edit) {
+          self.setState({ sheet: false, focus: null, savedName: trimmed, pending: planChanged ? 'From 1 November: ' + money(monthly) + ' a month' + (st.mode === 'carry' ? ' · carries over' : '') : null });
+          return;
+        }
+        var card = { name: trimmed, mode: st.mode === 'reset' ? 'Resets monthly' : 'Carries over', left: money(start), bar: 'width: 0%; background: var(--accent)', line: money(0) + ' spent of ' + money(start) + ' · starting balance', leftV: st.cur === 'EUR' ? start : 0 };
+        self.setState({ sheet: false, focus: null, cards: cards.concat([card]), added: trimmed + ' added. First top-up on 1 November.', name: '', monthly: '', start: null, cat: null });
+      }
+    });
+  }
+}
+</script>
+</body>
+</html>

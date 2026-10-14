@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Budget Buddy — Envelopes · history</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit}a:hover{color:inherit}
+.bb-light{--bg:#F4F3EF;--surface:#FFFFFF;--ink:#15171A;--on-ink:#F4F3EF;--muted:#5C6168;--line:#E2E0D9;--soft:#EAE8E2;--accent:#1D5C45;--accent-soft:#DCEAE3;--warn:#A2470F;--warn-soft:#F5E2D4;--scrim:rgba(20,20,18,.36)}
+.bb-dark{--bg:#111214;--surface:#1A1C1F;--ink:#F1F0EC;--on-ink:#111214;--muted:#A3A8AF;--line:#2B2E33;--soft:#24272B;--accent:#7CC6A3;--accent-soft:#1D3229;--warn:#F2A574;--warn-soft:#3A2618;--scrim:rgba(0,0,0,.55)}
+.bb button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer}
+.bb .num{font-variant-numeric:tabular-nums}
+.bb svg{flex:none}
+.bb .scroll::-webkit-scrollbar{display:none}
+.bb .seg{flex:1;height:36px;border-radius:10px;font-size:14px;font-weight:500;color:var(--muted);text-align:center}
+.bb .seg-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.bb .chip{flex:none;height:44px;padding:0 16px;border-radius:22px;background:var(--surface);border:1px solid var(--line);font-size:15px;font-weight:500;display:flex;align-items:center;white-space:nowrap}
+.bb .chip-on{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.bb .key{height:46px;border-radius:12px;background:var(--bg);font-size:21px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.bb .key-op{background:var(--soft);font-size:19px}
+.bb .note{width:100%;box-sizing:border-box;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;padding:0 12px;outline:none}
+.bb .note::placeholder{color:var(--muted)}
+.bb .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* motion */
+@keyframes bb-in-fwd{from{transform:translateX(100%)}to{transform:none}}
+@keyframes bb-in-back{from{transform:translateX(-28%);opacity:.6}to{transform:none;opacity:1}}
+@keyframes bb-fade{from{opacity:0}to{opacity:1}}
+@keyframes bb-sheet{from{transform:translateY(100%)}to{transform:none}}
+@keyframes bb-grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes bb-growy{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes bb-draw{from{stroke-dashoffset:1400}to{stroke-dashoffset:0}}
+@keyframes bb-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes bb-shake{0%,100%{transform:none}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+@keyframes bb-down{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.bb.nav-fwd{animation:bb-in-fwd .42s cubic-bezier(.32,.72,0,1) both;box-shadow:-12px 0 32px rgba(0,0,0,.12)}
+.bb.nav-back{animation:bb-in-back .38s cubic-bezier(.32,.72,0,1) both}
+.bb [role="dialog"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both;will-change:transform}
+.bb div[style*="var(--scrim)"],.bb div[style*="rgba(20,20,18,.36)"],.bb div[style*="rgba(20, 20, 18, 0.36)"]{animation:bb-fade .3s ease-out both}
+.bb div[style*="inset: 0"][style*="background: var(--bg)"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both}
+.bb span[style*="width: 72px; height: 72px"],.bb span[style*="width: 56px; height: 56px; border-radius: 28px; background: var(--accent-soft)"]{animation:bb-pop .4s cubic-bezier(.2,.8,.2,1) .25s both}
+.bb [style*="height: 6px"]>[style*="height: 6px"],.bb [style*="height: 4px"]>[style*="height: 4px"]{transform-origin:left center;animation:bb-grow .8s cubic-bezier(.2,.8,.2,1) .3s both;transition:width .45s cubic-bezier(.2,.8,.2,1),background-color .3s}
+.bb div[title][style*="border-radius: 6px 6px 0 0"]{transform-origin:bottom;animation:bb-growy .7s cubic-bezier(.2,.8,.2,1) .3s both}
+.bb polyline{stroke-dasharray:1400;animation:bb-draw 1.1s cubic-bezier(.4,0,.2,1) .3s both}
+.bb button,.bb a{transition:transform .12s ease,background-color .18s ease,color .18s ease,border-color .18s ease,opacity .18s ease}
+.bb button:active:not([disabled]),.bb a:active{transform:scale(.97)}
+.bb .key:active{transform:scale(.92)}
+.bb .knob{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb .switch{transition:background-color .22s}
+.bb span[style*="width: 27px; height: 27px"]{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb span[style*="width: 51px; height: 31px"]{transition:background-color .22s}
+.bb .pw-err{animation:bb-shake .4s ease}
+.bb [role="alert"]:not(:empty),.bb [role="status"]{animation:bb-fade .3s ease-out both}
+.bb .wrap{animation:bb-down .22s ease-out both}
+.bb .lbl{font-size:12px;font-weight:500;color:var(--muted);letter-spacing:.02em}
+.bb .hrow{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px}
+.bb .hrow::-webkit-scrollbar{display:none}
+.bb .chip-ghost{background:transparent;color:var(--muted);border-style:dashed}
+.bb .input{width:100%;box-sizing:border-box;height:48px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:16px;padding:0 12px;outline:none}
+.bb .input:focus{border-color:var(--ink)}
+.bb .opt{width:100%;min-height:56px;display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid var(--line);text-align:left;text-decoration:none}
+.bb .card{display:flex;flex-direction:column;border-radius:20px;background:var(--surface)}
+
+@media (prefers-reduced-motion: reduce){.bb,.bb *{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div class="bb {{themeClass}}" onClickCapture="{{navCapture}}" style="width: 390px; height: 844px; position: relative; overflow: hidden; background: var(--bg); color: var(--ink); font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.4; display: flex; flex-direction: column">
+<div style="padding: 48px 16px 8px; display: flex; align-items: center; gap: 12px">
+<a href="Main.dc.html" aria-label="Back to home" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+</a>
+<div style="flex: 1; display: flex; flex-direction: column">
+<h1 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em">Envelopes</h1>
+<span style="font-size: 13px; color: var(--muted)">October · next top-up on 1 November</span>
+</div>
+<a href="EnvelopeNew.dc.html" aria-label="New envelope" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+</a>
+</div>
+
+<div class="scroll" style="flex: 1; overflow-y: auto; padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; padding: 0 4px">
+<span style="color: var(--muted); font-size: 14px">Left in all envelopes</span>
+<span class="num" style="font-size: 17px; font-weight: 600">{{totalLeft}}</span>
+</div>
+<sc-if value="{{moved}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="padding: 10px 14px; border-radius: 14px; background: var(--soft); font-size: 14px; display: flex; align-items: center; gap: 8px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>{{moved}}</div>
+</sc-if>
+<sc-for list="{{cards}}" as="c" hint-placeholder-count="3">
+<a href="EnvelopeDetail.dc.html" style="display: flex; flex-direction: column; gap: 10px; padding: 18px 16px; border-radius: 20px; background: var(--surface); text-decoration: none; box-shadow: {{c.ring}}">
+<span style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-weight: 600; font-size: 17px">{{c.name}}</span>
+<span style="font-size: 12px; font-weight: 500; color: var(--muted); padding: 3px 8px; border-radius: 6px; background: var(--soft)">{{c.mode}}</span>
+</span>
+<span class="num" style="font-size: 30px; font-weight: 600; letter-spacing: -0.02em; color: {{c.color}}">{{c.left}} <span style="font-size: 15px; font-weight: 500; letter-spacing: 0; color: {{c.wordColor}}">{{c.word}}</span></span>
+<span style="display: block; height: 6px; border-radius: 3px; background: var(--soft); overflow: hidden"><span style="display: block; height: 6px; border-radius: 3px; {{c.bar}}"></span></span>
+<span class="num" style="font-size: 13px; color: var(--muted)">{{c.line}}</span>
+</a>
+</sc-for>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 4px">
+<button onClick="{{openMove}}" aria-haspopup="dialog" style="height: 52px; border-radius: 16px; background: var(--surface); font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h15l-3-3"></path><path d="M20 16H5l3 3"></path></svg>Move money</button>
+<button onClick="{{openHistory}}" aria-haspopup="dialog" style="height: 52px; border-radius: 16px; background: var(--surface); font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5"></path><path d="M4 19h16"></path><path d="M7 15l4-4 3 3 5-6"></path></svg>History</button>
+</div>
+<a href="ArchivedEnvelopes.dc.html" style="display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0 4px; text-decoration: none; color: var(--muted); font-size: 14px">
+<span>Archived envelopes · 1</span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+</div>
+
+<sc-if value="{{isMove}}" hint-placeholder-val="{{ true }}">
+<div onClick="{{close}}" style="position: absolute; inset: 0; background: var(--scrim)"></div>
+<div role="dialog" aria-label="Move money" style="position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 24px 24px 0 0; padding: 10px 16px 30px; display: flex; flex-direction: column; gap: 12px">
+<div aria-hidden="true" style="align-self: center; width: 36px; height: 5px; border-radius: 3px; background: var(--line)"></div>
+<div style="display: flex; align-items: center; gap: 12px">
+<h2 style="flex: 1; margin: 0; font-size: 18px; font-weight: 600">Move money</h2>
+<button onClick="{{close}}" aria-label="Close" style="width: 44px; height: 44px; border-radius: 22px; background: var(--bg); display: flex; align-items: center; justify-content: center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="lbl" id="lbl-from">From</span>
+<div class="hrow" role="radiogroup" aria-labelledby="lbl-from">
+<sc-for list="{{froms}}" as="t" hint-placeholder-count="3">
+<button role="radio" class="{{t.cls}}" aria-checked="{{t.on}}" onClick="{{t.pick}}">{{t.label}}</button>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="lbl" id="lbl-to">To</span>
+<div class="hrow" role="radiogroup" aria-labelledby="lbl-to">
+<sc-for list="{{tos}}" as="t" hint-placeholder-count="2">
+<button role="radio" class="{{t.cls}}" aria-checked="{{t.on}}" onClick="{{t.pick}}">{{t.label}}</button>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; padding: 12px 14px; border-radius: 16px; background: var(--bg)">
+<span class="num" style="height: 18px; font-size: 13px; color: var(--muted)">{{exprLine}}</span>
+<span class="num" style="font-size: 32px; font-weight: 600; letter-spacing: -0.02em; color: {{amountColor}}">{{amountText}}</span>
+<span class="num" style="font-size: 12px; color: {{hintColor}}">{{hint}}</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px">
+<sc-for list="{{keys}}" as="key" hint-placeholder-count="20">
+<button class="{{key.cls}}" aria-label="{{key.aria}}" onClick="{{key.press}}">{{key.label}}</button>
+</sc-for>
+</div>
+<button onClick="{{confirm}}" disabled="{{confirmDisabled}}" class="num" style="height: 56px; border-radius: 18px; background: {{confirmBg}}; color: {{confirmFg}}; font-weight: 600; font-size: 16px; text-align: center">{{confirmLabel}}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{isHistory}}" hint-placeholder-val="{{ false }}">
+<div onClick="{{close}}" style="position: absolute; inset: 0; background: var(--scrim)"></div>
+<div role="dialog" aria-label="History" style="position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 24px 24px 0 0; padding: 10px 16px 30px; display: flex; flex-direction: column; gap: 8px">
+<div aria-hidden="true" style="align-self: center; width: 36px; height: 5px; border-radius: 3px; background: var(--line)"></div>
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="flex: 1; display: flex; flex-direction: column">
+<h2 style="margin: 0; font-size: 18px; font-weight: 600">History</h2>
+<span style="font-size: 13px; color: var(--muted)">Pick an envelope to see its months.</span>
+</div>
+<button onClick="{{close}}" aria-label="Close" style="width: 44px; height: 44px; border-radius: 22px; background: var(--bg); display: flex; align-items: center; justify-content: center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+</div>
+<div style="display: flex; flex-direction: column">
+<sc-for list="{{histRows}}" as="h" hint-placeholder-count="3">
+<a href="{{h.href}}" onClick="{{h.go}}" class="opt" style="border-bottom: {{h.border}}">
+<span style="flex: 1; display: flex; flex-direction: column">
+<span style="font-weight: 500">{{h.name}}</span>
+<span style="font-size: 13px; color: var(--muted)">{{h.sub}}</span>
+</span>
+<span class="num" style="font-size: 13px; color: {{h.statColor}}">{{h.stat}}</span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+</sc-for>
+</div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"sheet":{"editor":"enum","options":["move","history","none"],"default":"history"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  nav(from) {
+    return {
+      themeClass: (this.props.dark ? 'bb-dark' : 'bb-light') + ' ' + (function () { try { return sessionStorage.getItem('bb-nav') === 'back' ? 'nav-back' : 'nav-fwd'; } catch (e) { return 'nav-fwd'; } })(),
+      navCapture: function (e) {
+        var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+        if (!a) return;
+        var href = a.getAttribute('href') || '', label = (a.getAttribute('aria-label') || '') + ' ' + (a.textContent || '');
+        var back = href === 'Main.dc.html' || /^\s*(Back|Close|Cancel|Done|Later|Keep)/.test(label) || /^\s*(Back home|Back to)/.test(a.textContent || '');
+        try { sessionStorage.setItem('bb-nav', back ? 'back' : 'fwd'); if (!back && from) sessionStorage.setItem('bb-from:' + href, from); } catch (err) {}
+      }
+    };
+  }
+  evaluate(s) {
+    var t = s.replace(/−/g, '-').replace(/×/g, '*').replace(/÷/g, '/');
+    var i = 0;
+    function peek() { return t[i]; }
+    function num() {
+      var st = i;
+      while (i < t.length && /[0-9.]/.test(t[i])) i++;
+      var str = t.slice(st, i);
+      if (!str || !/^(\d+\.?\d*|\.\d+)$/.test(str)) throw new Error('num');
+      return parseFloat(str);
+    }
+    function factor() {
+      if (peek() === '-') { i++; return -factor(); }
+      if (peek() === '+') { i++; return factor(); }
+      var v;
+      if (peek() === '(') { i++; v = expr(); if (peek() !== ')') throw new Error('paren'); i++; }
+      else v = num();
+      while (peek() === '%') { i++; v = v / 100; }
+      return v;
+    }
+    function term() {
+      var v = factor();
+      while (peek() === '*' || peek() === '/') {
+        var op = t[i++]; var r = factor();
+        if (op === '/') { if (r === 0) throw new Error('div0'); v = v / r; } else v = v * r;
+      }
+      return v;
+    }
+    function expr() {
+      var v = term();
+      while (peek() === '+' || peek() === '-') {
+        var op = t[i++]; var r = term();
+        v = op === '+' ? v + r : v - r;
+      }
+      return v;
+    }
+    var v = expr();
+    if (i !== t.length) throw new Error('trailing');
+    return Math.round(v * 100) / 100;
+  }
+  tryEval(s) { try { return s ? this.evaluate(s) : null; } catch (e) { return null; } }
+  keypad(onKey) {
+    var KEYS = ['7', '8', '9', '(', ')', '4', '5', '6', '×', '÷', '1', '2', '3', '+', '−', '.', '0', '%', '⌫', 'C'];
+    var ARIA = { '(': 'Open bracket', ')': 'Close bracket', '×': 'Multiply', '÷': 'Divide', '+': 'Plus', '−': 'Minus', '%': 'Percent', '⌫': 'Delete', 'C': 'Clear', '.': 'Decimal point' };
+    return KEYS.map(function (k) {
+      return { label: k, aria: ARIA[k] || k, cls: /[0-9.]/.test(k) ? 'key' : 'key key-op', press: function () { onKey(k); } };
+    });
+  }
+  typed(e, k) {
+    if (k === 'C') return '';
+    if (k === '⌫') return e.slice(0, -1);
+    return (e + k).slice(0, 40);
+  }
+
+  constructor(props) {
+    super(props);
+    var s = props.sheet || 'history';
+    this.state = { sheet: s === 'none' ? null : s, from: 'groceries', to: 'unexpected', expr: '50', left: { groceries: 187.6, eating: -14.5, unexpected: 375 }, moved: '' };
+  }
+  renderVals() {
+    var self = this, st = this.state;
+    function eur(v) { return (v < 0 ? '−' : '') + '€' + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    var ENV = [
+      { id: 'groceries', name: 'Groceries', mode: 'Resets monthly', avail: 500, spent: 312.4, n: 6, since: 'Resets monthly · since May 2026', stat: '3 of 5 months within budget' },
+      { id: 'eating', name: 'Eating out', mode: 'Resets monthly', avail: 200, spent: 214.5, n: 4, since: 'Resets monthly · since May 2026', stat: '2 of 5 months within budget' },
+      { id: 'unexpected', name: 'Unexpected', mode: 'Carries over', avail: 420, spent: 45, n: 2, since: 'Carries over · since May 2026', stat: '4 of 5 months within budget' }
+    ];
+    function byId(id) { return ENV.filter(function (e) { return e.id === id; })[0]; }
+    var cards = ENV.map(function (e) {
+      var left = st.left[e.id], avail = Math.round((left + e.spent) * 100) / 100, over = left < 0;
+      var pct = avail > 0 ? Math.max(0, Math.min(100, Math.round(e.spent / avail * 100))) : 100;
+      return {
+        name: e.name, mode: e.mode, left: eur(left), word: over ? 'overspent' : 'left',
+        color: over ? 'var(--warn)' : 'var(--ink)', wordColor: over ? 'var(--warn)' : 'var(--muted)',
+        ring: over ? 'inset 0 0 0 1.5px var(--warn)' : 'none',
+        bar: 'width: ' + (over ? 100 : pct) + '%; background: ' + (over ? 'var(--warn)' : 'var(--accent)'),
+        line: eur(e.spent) + ' spent of ' + eur(avail) + ' · ' + e.n + ' expenses'
+      };
+    });
+    var total = ENV.reduce(function (s, e) { return s + st.left[e.id]; }, 0);
+    var froms = ENV.map(function (e) {
+      var on = st.from === e.id;
+      return { label: e.name, on: on, cls: on ? 'chip chip-on' : 'chip', pick: function () {
+        var to = self.state.to === e.id ? ENV.filter(function (x) { return x.id !== e.id; })[0].id : self.state.to;
+        self.setState({ from: e.id, to: to });
+      } };
+    });
+    var tos = ENV.filter(function (e) { return e.id !== st.from; }).map(function (e) {
+      var on = st.to === e.id;
+      return { label: e.name, on: on, cls: on ? 'chip chip-on' : 'chip', pick: function () { self.setState({ to: e.id }); } };
+    });
+    var value = this.tryEval(st.expr);
+    var valid = value !== null && value > 0;
+    var from = byId(st.from), to = byId(st.to), fromLeft = st.left[st.from];
+    var short = valid && value > fromLeft;
+    var histRows = ENV.map(function (e, i) {
+      return { name: e.name, sub: e.since, stat: e.stat, statColor: 'var(--muted)', href: 'EnvelopeDetail.dc.html', border: i < ENV.length - 1 ? '1px solid var(--line)' : '0',
+        go: function () { try { sessionStorage.setItem('bb-env-intent', 'history'); } catch (err) {} } };
+    });
+    return Object.assign(this.nav('Envelopes.dc.html'), {
+      cards: cards, totalLeft: eur(total), moved: st.moved,
+      isMove: st.sheet === 'move', isHistory: st.sheet === 'history',
+      openMove: function () { self.setState({ sheet: 'move', expr: '' }); },
+      openHistory: function () { self.setState({ sheet: 'history' }); },
+      close: function () { self.setState({ sheet: null }); },
+      froms: froms, tos: tos,
+      exprLine: /[+−×÷%()]/.test(st.expr) ? st.expr : '',
+      amountText: value === null ? '€0' : eur(value),
+      amountColor: value === null ? 'var(--muted)' : 'var(--ink)',
+      hint: short ? from.name + ' has only ' + eur(fromLeft) + ' left. It will go below zero.' : from.name + ' has ' + eur(fromLeft) + ' left',
+      hintColor: short ? 'var(--warn)' : 'var(--muted)',
+      keys: this.keypad(function (k) { self.setState({ expr: self.typed(self.state.expr, k) }); }),
+      confirmDisabled: !valid,
+      confirmBg: valid ? 'var(--ink)' : 'var(--soft)',
+      confirmFg: valid ? 'var(--on-ink)' : 'var(--muted)',
+      confirmLabel: valid ? 'Move ' + eur(value) + ' to ' + to.name : 'Enter an amount',
+      confirm: function () {
+        if (!valid) return;
+        var left = Object.assign({}, self.state.left);
+        left[st.from] = Math.round((left[st.from] - value) * 100) / 100;
+        left[st.to] = Math.round((left[st.to] + value) * 100) / 100;
+        self.setState({ left: left, sheet: null, expr: '', moved: 'Moved ' + eur(value) + ' from ' + from.name + ' to ' + to.name });
+      },
+      histRows: histRows
+    });
+  }
+}
+</script>
+</body>
+</html>

@@ -217,6 +217,114 @@
       "title": "Sign in · too many tries",
       "is_interactive": true,
       "radius": 28
+    },
+    "EnvelopeNew.dc.html": {
+      "x": 0,
+      "y": 7130,
+      "w": 390,
+      "h": 844,
+      "title": "New envelope",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "EnvelopeEdit.dc.html": {
+      "x": 470,
+      "y": 7130,
+      "w": 390,
+      "h": 844,
+      "title": "Edit envelope",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "EnvelopesMove.dc.html": {
+      "x": 940,
+      "y": 7130,
+      "w": 390,
+      "h": 844,
+      "title": "Envelopes · move money",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "EnvelopesHistory.dc.html": {
+      "x": 1410,
+      "y": 7130,
+      "w": 390,
+      "h": 844,
+      "title": "Envelopes · history",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "ArchivedEnvelopes.dc.html": {
+      "x": 1880,
+      "y": 7130,
+      "w": 390,
+      "h": 844,
+      "title": "Archived envelopes",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "EnvelopeCarryOver.dc.html": {
+      "x": 2350,
+      "y": 7130,
+      "w": 390,
+      "h": 844,
+      "title": "Envelope · Unexpected (carries over)",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "AddTransferFx.dc.html": {
+      "x": 0,
+      "y": 8330,
+      "w": 390,
+      "h": 844,
+      "title": "Transfer · two currencies",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "TransactionFx.dc.html": {
+      "x": 470,
+      "y": 8330,
+      "w": 390,
+      "h": 844,
+      "title": "Expense · another currency",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "TransactionsOutbox.dc.html": {
+      "x": 940,
+      "y": 8330,
+      "w": 390,
+      "h": 844,
+      "title": "Transactions · waiting to send",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "HomeWaiting.dc.html": {
+      "x": 1410,
+      "y": 8330,
+      "w": 390,
+      "h": 844,
+      "title": "Home · waiting to send",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "HomeOffline.dc.html": {
+      "x": 1880,
+      "y": 8330,
+      "w": 390,
+      "h": 844,
+      "title": "Home · offline",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "HomeOfflineLocked.dc.html": {
+      "x": 2350,
+      "y": 8330,
+      "w": 390,
+      "h": 844,
+      "title": "Home · offline and locked",
+      "is_interactive": true,
+      "radius": 28
     }
   },
   "createdOnFiles": {
@@ -264,6 +372,20 @@
       "text": "Sign in, profiles & first start",
       "kind": "title1",
       "maxW": 1800
+    },
+    "spec2env": {
+      "x": 0,
+      "y": 6860,
+      "text": "Spec 2 · envelope sheets and states",
+      "kind": "title1",
+      "maxW": 2740
+    },
+    "spec2txn": {
+      "x": 0,
+      "y": 8060,
+      "text": "Spec 2 · other currencies and offline",
+      "kind": "title1",
+      "maxW": 2740
     }
   },
   "order": [
@@ -290,7 +412,19 @@
     "Setup.dc.html",
     "SignIn.dc.html",
     "SignInPick.dc.html",
-    "SignInLocked.dc.html"
+    "SignInLocked.dc.html",
+    "EnvelopeNew.dc.html",
+    "EnvelopeEdit.dc.html",
+    "EnvelopesMove.dc.html",
+    "EnvelopesHistory.dc.html",
+    "ArchivedEnvelopes.dc.html",
+    "EnvelopeCarryOver.dc.html",
+    "AddTransferFx.dc.html",
+    "TransactionFx.dc.html",
+    "TransactionsOutbox.dc.html",
+    "HomeWaiting.dc.html",
+    "HomeOffline.dc.html",
+    "HomeOfflineLocked.dc.html"
   ],
   "pages": [],
   "title": "Budget Buddy"

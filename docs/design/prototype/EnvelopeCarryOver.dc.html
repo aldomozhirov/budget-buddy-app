@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Budget Buddy — Envelope · carries over</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit}a:hover{color:inherit}
+.bb-light{--bg:#F4F3EF;--surface:#FFFFFF;--ink:#15171A;--on-ink:#F4F3EF;--muted:#5C6168;--line:#E2E0D9;--soft:#EAE8E2;--accent:#1D5C45;--accent-soft:#DCEAE3;--warn:#A2470F;--warn-soft:#F5E2D4;--scrim:rgba(20,20,18,.36)}
+.bb-dark{--bg:#111214;--surface:#1A1C1F;--ink:#F1F0EC;--on-ink:#111214;--muted:#A3A8AF;--line:#2B2E33;--soft:#24272B;--accent:#7CC6A3;--accent-soft:#1D3229;--warn:#F2A574;--warn-soft:#3A2618;--scrim:rgba(0,0,0,.55)}
+.bb button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer}
+.bb .num{font-variant-numeric:tabular-nums}
+.bb svg{flex:none}
+.bb .scroll::-webkit-scrollbar{display:none}
+.bb .seg{flex:1;height:36px;border-radius:10px;font-size:14px;font-weight:500;color:var(--muted);text-align:center}
+.bb .seg-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.bb .chip{flex:none;height:44px;padding:0 16px;border-radius:22px;background:var(--surface);border:1px solid var(--line);font-size:15px;font-weight:500;display:flex;align-items:center;white-space:nowrap}
+.bb .chip-on{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.bb .key{height:46px;border-radius:12px;background:var(--bg);font-size:21px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.bb .key-op{background:var(--soft);font-size:19px}
+.bb .note{width:100%;box-sizing:border-box;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;padding:0 12px;outline:none}
+.bb .note::placeholder{color:var(--muted)}
+.bb .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* motion */
+@keyframes bb-in-fwd{from{transform:translateX(100%)}to{transform:none}}
+@keyframes bb-in-back{from{transform:translateX(-28%);opacity:.6}to{transform:none;opacity:1}}
+@keyframes bb-fade{from{opacity:0}to{opacity:1}}
+@keyframes bb-sheet{from{transform:translateY(100%)}to{transform:none}}
+@keyframes bb-grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes bb-growy{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes bb-draw{from{stroke-dashoffset:1400}to{stroke-dashoffset:0}}
+@keyframes bb-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes bb-shake{0%,100%{transform:none}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+@keyframes bb-down{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.bb.nav-fwd{animation:bb-in-fwd .42s cubic-bezier(.32,.72,0,1) both;box-shadow:-12px 0 32px rgba(0,0,0,.12)}
+.bb.nav-back{animation:bb-in-back .38s cubic-bezier(.32,.72,0,1) both}
+.bb [role="dialog"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both;will-change:transform}
+.bb div[style*="var(--scrim)"],.bb div[style*="rgba(20,20,18,.36)"],.bb div[style*="rgba(20, 20, 18, 0.36)"]{animation:bb-fade .3s ease-out both}
+.bb div[style*="inset: 0"][style*="background: var(--bg)"]{animation:bb-sheet .42s cubic-bezier(.32,.72,0,1) both}
+.bb span[style*="width: 72px; height: 72px"],.bb span[style*="width: 56px; height: 56px; border-radius: 28px; background: var(--accent-soft)"]{animation:bb-pop .4s cubic-bezier(.2,.8,.2,1) .25s both}
+.bb [style*="height: 6px"]>[style*="height: 6px"],.bb [style*="height: 4px"]>[style*="height: 4px"]{transform-origin:left center;animation:bb-grow .8s cubic-bezier(.2,.8,.2,1) .3s both;transition:width .45s cubic-bezier(.2,.8,.2,1),background-color .3s}
+.bb div[title][style*="border-radius: 6px 6px 0 0"]{transform-origin:bottom;animation:bb-growy .7s cubic-bezier(.2,.8,.2,1) .3s both}
+.bb polyline{stroke-dasharray:1400;animation:bb-draw 1.1s cubic-bezier(.4,0,.2,1) .3s both}
+.bb button,.bb a{transition:transform .12s ease,background-color .18s ease,color .18s ease,border-color .18s ease,opacity .18s ease}
+.bb button:active:not([disabled]),.bb a:active{transform:scale(.97)}
+.bb .key:active{transform:scale(.92)}
+.bb .knob{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb .switch{transition:background-color .22s}
+.bb span[style*="width: 27px; height: 27px"]{transition:left .22s cubic-bezier(.3,.7,.3,1)}
+.bb span[style*="width: 51px; height: 31px"]{transition:background-color .22s}
+.bb .pw-err{animation:bb-shake .4s ease}
+.bb [role="alert"]:not(:empty),.bb [role="status"]{animation:bb-fade .3s ease-out both}
+.bb .wrap{animation:bb-down .22s ease-out both}
+.bb .lbl{font-size:12px;font-weight:500;color:var(--muted);letter-spacing:.02em}
+.bb .hrow{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px}
+.bb .hrow::-webkit-scrollbar{display:none}
+.bb .chip-ghost{background:transparent;color:var(--muted);border-style:dashed}
+.bb .input{width:100%;box-sizing:border-box;height:48px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:16px;padding:0 12px;outline:none}
+.bb .input:focus{border-color:var(--ink)}
+.bb .opt{width:100%;min-height:56px;display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid var(--line);text-align:left;text-decoration:none}
+.bb .card{display:flex;flex-direction:column;border-radius:20px;background:var(--surface)}
+.bb .seg{flex:1;height:36px;border-radius:10px;font-size:14px;font-weight:500;color:var(--muted);text-align:center}
+.bb .seg-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+@media (prefers-reduced-motion: reduce){.bb,.bb *{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div class="bb {{themeClass}}" onClickCapture="{{navCapture}}" style="width: 390px; height: 844px; position: relative; overflow: hidden; background: var(--bg); color: var(--ink); font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.4; display: flex; flex-direction: column">
+<div style="padding: 48px 16px 8px; display: flex; align-items: center; gap: 12px">
+<a href="Envelopes.dc.html" aria-label="Back to envelopes" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+</a>
+<div style="flex: 1; display: flex; flex-direction: column">
+<h1 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em">Unexpected</h1>
+<span class="num" style="font-size: 13px; color: var(--muted)">€300.00 a month · carries over on the 1st</span>
+<span class="num" style="font-size: 13px; font-weight: 500; color: var(--accent)">From 1 November: €350.00 a month</span>
+</div>
+<a href="EnvelopeEdit.dc.html" aria-label="Edit envelope" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+</a>
+</div>
+
+<div class="scroll" style="flex: 1; overflow-y: auto; padding: 8px 16px 32px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 18px 16px; border-radius: 20px; background: var(--surface)">
+<span class="num" style="font-size: 36px; font-weight: 600; letter-spacing: -0.02em; color: {{leftColor}}">{{leftText}} <span style="font-size: 15px; font-weight: 500; color: var(--muted); letter-spacing: 0">{{leftWord}}</span></span>
+<span style="display: block; height: 6px; border-radius: 3px; background: var(--soft); overflow: hidden"><span style="display: block; height: 6px; border-radius: 3px; {{barStyle}}"></span></span>
+<span class="num" style="font-size: 13px; color: var(--muted)">{{spentLine}}</span>
+<span class="num" style="font-size: 13px; color: var(--muted)">{{availLine}}</span>
+<sc-if value="{{status}}" hint-placeholder-val="{{ false }}">
+<span role="status" class="num" style="font-size: 13px; color: var(--accent); font-weight: 500">{{status}}</span>
+</sc-if>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 6px">
+<button onClick="{{openMove}}" style="height: 44px; border-radius: 14px; background: var(--bg); font-weight: 600; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 6px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h15l-3-3"></path><path d="M20 16H5l3 3"></path></svg>Move money</button>
+<button onClick="{{openAdjust}}" style="height: 44px; border-radius: 14px; background: var(--bg); font-weight: 600; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 6px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>Adjust</button>
+</div>
+</div>
+
+<div role="tablist" aria-label="View" style="display: flex; gap: 2px; padding: 3px; border-radius: 13px; background: var(--soft)">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="2">
+<button role="tab" aria-selected="{{t.on}}" class="{{t.cls}}" onClick="{{t.pick}}">{{t.label}}</button>
+</sc-for>
+</div>
+
+<sc-if value="{{showMonth}}" hint-placeholder-val="{{ true }}">
+<div class="card" style="padding: 4px 16px">
+<sc-for list="{{rows}}" as="x" hint-placeholder-count="4">
+<sc-if value="{{x.isExpense}}" hint-placeholder-val="{{ true }}">
+<a href="TransactionDetail.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 60px; text-decoration: none; border-bottom: {{x.border}}">
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+<span style="font-weight: 500">{{x.title}}</span>
+<span style="font-size: 13px; color: var(--muted)">{{x.meta}}</span>
+</span>
+<span class="num" style="font-weight: 500">{{x.amount}}</span>
+</a>
+</sc-if>
+<sc-if value="{{x.isAdjust}}" hint-placeholder-val="{{ false }}">
+<button onClick="{{x.ask}}" aria-haspopup="dialog" style="width: 100%; display: flex; align-items: center; gap: 12px; min-height: 60px; text-align: left; border-bottom: {{x.border}}">
+<span aria-hidden="true" style="width: 32px; height: 32px; border-radius: 16px; background: var(--soft); display: flex; align-items: center; justify-content: center; flex: none">
+<sc-if value="{{x.isMove}}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h15l-3-3"></path><path d="M20 16H5l3 3"></path></svg></sc-if>
+<sc-if value="{{x.isPlain}}" hint-placeholder-val="{{ true }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg></sc-if>
+</span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+<span class="num" style="font-weight: 500">{{x.title}}</span>
+<span style="font-size: 13px; color: var(--muted)">{{x.meta}}</span>
+</span>
+<span class="num" style="font-weight: 500; color: {{x.amountColor}}">{{x.amount}}</span>
+</button>
+</sc-if>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{showHistory}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px; padding: 18px 16px; border-radius: 20px; background: var(--surface)">
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<h2 style="margin: 0; font-size: 15px; font-weight: 600">Spent per month</h2>
+<span style="font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px"><span style="display: inline-block; width: 14px; border-top: 2px dashed var(--muted)"></span>€300 a month</span>
+</div>
+<div role="img" aria-label="Spent per month, May to October: €140, €410, €390, €140, €300, and €45 so far in October. June and July went over €300." style="position: relative; height: 132px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; align-items: end; border-bottom: 1px solid var(--line)">
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 88px; border-top: 2px dashed var(--muted); opacity: .55"></div>
+<sc-for list="{{bars}}" as="b" hint-placeholder-count="6">
+<div title="{{b.title}}" style="border-radius: 6px 6px 0 0; {{b.style}}"></div>
+</sc-for>
+</div>
+<div aria-hidden="true" style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-top: -8px">
+<sc-for list="{{bars}}" as="b" hint-placeholder-count="6">
+<span style="font-size: 12px; color: var(--muted); text-align: center">{{b.label}}</span>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<div style="padding: 12px; border-radius: 14px; background: var(--bg); display: flex; flex-direction: column"><span style="font-size: 12px; color: var(--muted)">Within budget</span><span class="num" style="font-weight: 600; font-size: 17px">4 of 5 months</span></div>
+<div style="padding: 12px; border-radius: 14px; background: var(--bg); display: flex; flex-direction: column"><span style="font-size: 12px; color: var(--muted)">Average spent</span><span class="num" style="font-weight: 600; font-size: 17px">€276.00</span></div>
+<div style="padding: 12px; border-radius: 14px; background: var(--bg); display: flex; flex-direction: column"><span style="font-size: 12px; color: var(--muted)">Largest overspend</span><span class="num" style="font-weight: 600; font-size: 17px; color: var(--warn)">€40.00 · Jul</span></div>
+<div style="padding: 12px; border-radius: 14px; background: var(--bg); display: flex; flex-direction: column"><span style="font-size: 12px; color: var(--muted)">Left over, net</span><span class="num" style="font-weight: 600; font-size: 17px">−€180.00</span></div>
+</div>
+<button style="align-self: flex-start; height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid var(--line); font-size: 13px; font-weight: 600">Last 6 months ▾</button>
+</div>
+<div class="card" style="padding: 4px 16px">
+<sc-for list="{{records}}" as="r" hint-placeholder-count="5">
+<div style="display: flex; align-items: center; gap: 12px; min-height: 56px; border-bottom: {{r.border}}">
+<span style="flex: 1; display: flex; flex-direction: column">
+<span style="font-weight: 500">{{r.month}}</span>
+<span class="num" style="font-size: 13px; color: var(--muted)">{{r.spent}}</span>
+</span>
+<span class="num" style="font-weight: 500; color: {{r.color}}">{{r.closing}}</span>
+</div>
+</sc-for>
+</div>
+</sc-if>
+</div>
+
+<sc-if value="{{sheetOpen}}" hint-placeholder-val="{{ false }}">
+<div onClick="{{closeSheet}}" style="position: absolute; inset: 0; background: var(--scrim)"></div>
+<div role="dialog" aria-label="{{sheetTitle}}" style="position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 24px 24px 0 0; padding: 10px 16px 30px; display: flex; flex-direction: column; gap: 12px">
+<div aria-hidden="true" style="align-self: center; width: 36px; height: 5px; border-radius: 3px; background: var(--line)"></div>
+<div style="display: flex; align-items: center; gap: 12px">
+<h2 style="flex: 1; margin: 0; font-size: 18px; font-weight: 600">{{sheetTitle}}</h2>
+<button onClick="{{closeSheet}}" aria-label="Close" style="width: 44px; height: 44px; border-radius: 22px; background: var(--bg); display: flex; align-items: center; justify-content: center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+</div>
+<sc-if value="{{isMove}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="lbl" id="lbl-to">From Unexpected to</span>
+<div class="hrow" role="radiogroup" aria-labelledby="lbl-to">
+<sc-for list="{{targets}}" as="t" hint-placeholder-count="2">
+<button role="radio" class="{{t.cls}}" aria-checked="{{t.on}}" onClick="{{t.pick}}">{{t.label}}</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+<div style="display: flex; flex-direction: column; padding: 12px 14px; border-radius: 16px; background: var(--bg)">
+<span class="num" style="height: 18px; font-size: 13px; color: var(--muted)">{{exprLine}}</span>
+<span class="num" style="font-size: 32px; font-weight: 600; letter-spacing: -0.02em; color: {{amountColor}}">{{amountText}}</span>
+<span style="font-size: 12px; color: var(--muted)">{{sheetHint}}</span>
+</div>
+<sc-if value="{{isAdjust}}" hint-placeholder-val="{{ false }}">
+<label for="adj-note" class="sr">Note</label>
+<input id="adj-note" class="input" type="text" placeholder="Note, e.g. Birthday money" value="{{note}}" onChange="{{onNote}}">
+</sc-if>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px">
+<sc-for list="{{keys}}" as="key" hint-placeholder-count="20">
+<button class="{{key.cls}}" aria-label="{{key.aria}}" onClick="{{key.press}}">{{key.label}}</button>
+</sc-for>
+</div>
+<button onClick="{{confirm}}" disabled="{{confirmDisabled}}" class="num" style="height: 56px; border-radius: 18px; background: {{confirmBg}}; color: {{confirmFg}}; font-weight: 600; font-size: 16px; text-align: center">{{confirmLabel}}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{asking}}" hint-placeholder-val="{{ false }}">
+<div onClick="{{keep}}" style="position: absolute; inset: 0; background: var(--scrim)"></div>
+<div role="dialog" aria-label="{{askTitle}}" style="position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 24px 24px 0 0; padding: 24px 16px 30px; display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 20px; font-weight: 600">{{askTitle}}</h2>
+<p class="num" style="margin: 0 0 10px; color: var(--muted)">{{askText}}</p>
+<button onClick="{{doDelete}}" style="height: 56px; border-radius: 18px; background: var(--warn); color: var(--surface); font-weight: 600; font-size: 16px; text-align: center">Delete</button>
+<button onClick="{{keep}}" style="height: 56px; border-radius: 18px; background: var(--bg); font-weight: 600; font-size: 16px; text-align: center">Keep it</button>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"tab":{"editor":"enum","options":["month","history"],"default":"month"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  nav(from) {
+    return {
+      themeClass: (this.props.dark ? 'bb-dark' : 'bb-light') + ' ' + (function () { try { return sessionStorage.getItem('bb-nav') === 'back' ? 'nav-back' : 'nav-fwd'; } catch (e) { return 'nav-fwd'; } })(),
+      navCapture: function (e) {
+        var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+        if (!a) return;
+        var href = a.getAttribute('href') || '', label = (a.getAttribute('aria-label') || '') + ' ' + (a.textContent || '');
+        var back = href === 'Main.dc.html' || /^\s*(Back|Close|Cancel|Done|Later|Keep)/.test(label) || /^\s*(Back home|Back to)/.test(a.textContent || '');
+        try { sessionStorage.setItem('bb-nav', back ? 'back' : 'fwd'); if (!back && from) sessionStorage.setItem('bb-from:' + href, from); } catch (err) {}
+      }
+    };
+  }
+  evaluate(s) {
+    var t = s.replace(/−/g, '-').replace(/×/g, '*').replace(/÷/g, '/');
+    var i = 0;
+    function peek() { return t[i]; }
+    function num() {
+      var st = i;
+      while (i < t.length && /[0-9.]/.test(t[i])) i++;
+      var str = t.slice(st, i);
+      if (!str || !/^(\d+\.?\d*|\.\d+)$/.test(str)) throw new Error('num');
+      return parseFloat(str);
+    }
+    function factor() {
+      if (peek() === '-') { i++; return -factor(); }
+      if (peek() === '+') { i++; return factor(); }
+      var v;
+      if (peek() === '(') { i++; v = expr(); if (peek() !== ')') throw new Error('paren'); i++; }
+      else v = num();
+      while (peek() === '%') { i++; v = v / 100; }
+      return v;
+    }
+    function term() {
+      var v = factor();
+      while (peek() === '*' || peek() === '/') {
+        var op = t[i++]; var r = factor();
+        if (op === '/') { if (r === 0) throw new Error('div0'); v = v / r; } else v = v * r;
+      }
+      return v;
+    }
+    function expr() {
+      var v = term();
+      while (peek() === '+' || peek() === '-') {
+        var op = t[i++]; var r = term();
+        v = op === '+' ? v + r : v - r;
+      }
+      return v;
+    }
+    var v = expr();
+    if (i !== t.length) throw new Error('trailing');
+    return Math.round(v * 100) / 100;
+  }
+  tryEval(s) { try { return s ? this.evaluate(s) : null; } catch (e) { return null; } }
+  keypad(onKey) {
+    var KEYS = ['7', '8', '9', '(', ')', '4', '5', '6', '×', '÷', '1', '2', '3', '+', '−', '.', '0', '%', '⌫', 'C'];
+    var ARIA = { '(': 'Open bracket', ')': 'Close bracket', '×': 'Multiply', '÷': 'Divide', '+': 'Plus', '−': 'Minus', '%': 'Percent', '⌫': 'Delete', 'C': 'Clear', '.': 'Decimal point' };
+    return KEYS.map(function (k) {
+      return { label: k, aria: ARIA[k] || k, cls: /[0-9.]/.test(k) ? 'key' : 'key key-op', press: function () { onKey(k); } };
+    });
+  }
+  typed(e, k) {
+    if (k === 'C') return '';
+    if (k === '⌫') return e.slice(0, -1);
+    return (e + k).slice(0, 40);
+  }
+
+  constructor(props) {
+    super(props);
+    this.state = {
+      tab: props.tab || 'month', sheet: null, expr: '', note: '', target: 'eating', ask: null, status: '',
+      adj: [
+        { id: 'a1', kind: 'move', amount: -50, other: 'Eating out', meta: 'Fri 2 Oct · Alena', after: 'e1' },
+        { id: 'a2', kind: 'adjust', amount: 50, note: 'Birthday money', meta: 'Thu 1 Oct · Max', after: 'e2' }
+      ]
+    };
+  }
+  renderVals() {
+    var self = this, st = this.state;
+    function eur(v) { return (v < 0 ? '−' : '') + '€' + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    var opening = 120, topUp = 300, spent = 45;
+    var adjSum = st.adj.reduce(function (s, a) { return s + a.amount; }, 0);
+    var avail = opening + topUp + adjSum, left = avail - spent;
+    var pct = avail > 0 ? Math.max(0, Math.min(100, Math.round(spent / avail * 100))) : 100;
+
+    function adjTitle(a) {
+      if (a.kind === 'move') return a.amount < 0 ? 'Moved ' + eur(-a.amount) + ' to ' + a.other : 'Moved ' + eur(a.amount) + ' from ' + a.other;
+      return (a.amount > 0 ? 'Added ' : 'Took out ') + eur(Math.abs(a.amount)) + (a.note ? ' · ' + a.note : '');
+    }
+    var EXP = [
+      { id: 'e1', title: 'Apotheke', meta: 'Today · Max · DKB', amount: 12.5 },
+      { id: 'e2', title: 'Amazon', meta: 'Thu 1 Oct · Alena · ING Visa', amount: 32.5 }
+    ];
+    var list = [];
+    st.adj.filter(function (a) { return a.after === 'top'; }).forEach(function (a) { list.push(a); });
+    EXP.forEach(function (e) {
+      list.push(e);
+      st.adj.filter(function (a) { return a.after === e.id; }).forEach(function (a) { list.push(a); });
+    });
+    var rows = list.map(function (x, i) {
+      var border = i < list.length - 1 ? '1px solid var(--line)' : '0';
+      if (!x.kind) return { isExpense: true, isAdjust: false, title: x.title, meta: x.meta, amount: eur(x.amount), border: border };
+      return { isExpense: false, isAdjust: true, isMove: x.kind === 'move', isPlain: x.kind !== 'move', title: adjTitle(x), meta: x.meta,
+        amount: (x.amount > 0 ? '+' : '') + eur(x.amount), amountColor: x.amount > 0 ? 'var(--accent)' : 'var(--ink)', border: border,
+        ask: function () { self.setState({ ask: x.id }); } };
+    });
+
+    var tabs = [{ id: 'month', label: 'October' }, { id: 'history', label: 'History' }].map(function (t) {
+      var on = st.tab === t.id;
+      return { label: t.label, on: on, cls: on ? 'seg seg-on' : 'seg', pick: function () { self.setState({ tab: t.id }); } };
+    });
+    var HIST = [['May', 140], ['Jun', 410], ['Jul', 390], ['Aug', 140], ['Sep', 300], ['Oct', 45]];
+    var bars = HIST.map(function (h, i) {
+      var over = h[1] > 300, current = i === HIST.length - 1;
+      var color = current ? 'var(--accent-soft)' : (over ? 'var(--warn)' : 'var(--accent)');
+      return { label: h[0], title: h[0] + ': ' + eur(h[1]), style: 'height: ' + Math.round(h[1] / 450 * 132) + 'px; background: ' + color + (current ? '; box-shadow: inset 0 0 0 1.5px var(--accent)' : '') };
+    });
+    var REC = [
+      ['September 2026', 300, 420, '€300.00 + €120.00 carried in', 120],
+      ['August 2026', 140, 260, '€300.00 − €40.00 carried in', 120],
+      ['July 2026', 390, 350, '€300.00 + €50.00 carried in', -40],
+      ['June 2026', 410, 460, '€300.00 + €160.00 carried in', 50],
+      ['May 2026', 140, 300, 'starting balance', 160]
+    ];
+    var records = REC.map(function (r, i) {
+      return { month: r[0], spent: eur(r[1]) + ' spent of ' + eur(r[2]) + ' · ' + r[3],
+        closing: eur(r[4]) + (r[4] < 0 ? ' over · carried' : ' carried'), color: r[4] < 0 ? 'var(--warn)' : 'var(--ink)',
+        border: i < REC.length - 1 ? '1px solid var(--line)' : '0' };
+    });
+
+    var isMove = st.sheet === 'move', isAdjust = st.sheet === 'adjust';
+    var value = this.tryEval(st.expr);
+    var valid = value !== null && value !== 0 && (!isMove || value > 0);
+    var TGT = [{ id: 'groceries', label: 'Groceries' }, { id: 'eating', label: 'Eating out' }];
+    var targets = TGT.map(function (t) {
+      var on = st.target === t.id;
+      return { label: t.label, on: on, cls: on ? 'chip chip-on' : 'chip', pick: function () { self.setState({ target: t.id }); } };
+    });
+    var tgtLabel = TGT.filter(function (t) { return t.id === st.target; })[0].label;
+
+    var asked = st.adj.filter(function (a) { return a.id === st.ask; })[0];
+    return Object.assign(this.nav('EnvelopeCarryOver.dc.html'), {
+      leftText: eur(left), leftWord: left >= 0 ? 'left' : 'overspent', leftColor: left >= 0 ? 'var(--ink)' : 'var(--warn)',
+      barStyle: 'width: ' + pct + '%; background: ' + (left >= 0 ? 'var(--accent)' : 'var(--warn)'),
+      spentLine: eur(spent) + ' spent of ' + eur(avail) + ' · 2 expenses · 26 days to go',
+      availLine: '€300.00 + €120.00 carried from September' + (adjSum ? (adjSum > 0 ? ' + ' : ' − ') + eur(Math.abs(adjSum)) + ' adjusted' : ''),
+      status: st.status,
+      tabs: tabs, showMonth: st.tab === 'month', showHistory: st.tab === 'history',
+      rows: rows, bars: bars, records: records,
+      sheetOpen: !!st.sheet, isMove: isMove, isAdjust: isAdjust,
+      sheetTitle: isMove ? 'Move money' : 'Adjust balance',
+      targets: targets,
+      exprLine: /[+×÷%()]|.−/.test(st.expr) ? st.expr : '',
+      amountText: value === null ? '€0' : eur(value),
+      amountColor: value === null ? 'var(--muted)' : 'var(--ink)',
+      sheetHint: isMove ? 'Unexpected has ' + eur(left) + ' left' : 'Use − to take money out. It carries over to next month.',
+      note: st.note,
+      onNote: function (e) { self.setState({ note: e.target.value }); },
+      keys: this.keypad(function (k) { self.setState({ expr: self.typed(self.state.expr, k) }); }),
+      confirmDisabled: !valid,
+      confirmBg: valid ? 'var(--ink)' : 'var(--soft)',
+      confirmFg: valid ? 'var(--on-ink)' : 'var(--muted)',
+      confirmLabel: !valid ? 'Enter an amount' : (isMove ? 'Move ' + eur(value) + ' to ' + tgtLabel : (value > 0 ? 'Add ' : 'Take out ') + eur(Math.abs(value))),
+      confirm: function () {
+        if (!valid) return;
+        var a = isMove ? { id: 'n' + Date.now(), kind: 'move', amount: -value, other: tgtLabel, meta: 'Today · Alena', after: 'top' }
+          : { id: 'n' + Date.now(), kind: 'adjust', amount: value, note: st.note.trim(), meta: 'Today · Alena', after: 'top' };
+        self.setState({ adj: [a].concat(self.state.adj), sheet: null, expr: '', note: '', tab: 'month', status: adjTitle(a) + ' today' });
+      },
+      openMove: function () { self.setState({ sheet: 'move', expr: '' }); },
+      openAdjust: function () { self.setState({ sheet: 'adjust', expr: '' }); },
+      closeSheet: function () { self.setState({ sheet: null, expr: '' }); },
+      asking: !!asked,
+      askTitle: asked && asked.kind === 'move' ? 'Delete this move?' : 'Delete this adjustment?',
+      askText: asked ? (asked.kind === 'move' ? adjTitle(asked) + '. Both envelopes change back.' : adjTitle(asked) + '. Unexpected changes back by ' + eur(Math.abs(asked.amount)) + '.') : '',
+      keep: function () { self.setState({ ask: null }); },
+      doDelete: function () {
+        var gone = self.state.ask;
+        self.setState({ ask: null, adj: self.state.adj.filter(function (a) { return a.id !== gone; }), status: asked.kind === 'move' ? 'Move deleted. Both envelopes changed back.' : 'Adjustment deleted.' });
+      }
+    });
+  }
+}
+</script>
+</body>
+</html>

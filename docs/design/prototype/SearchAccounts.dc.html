@@ -25,7 +25,7 @@ a{color:inherit}a:hover{color:inherit}
 .bb .chip-ghost{background:transparent;color:var(--muted);border-style:dashed}
 .bb .seg{flex:1;height:36px;border-radius:10px;font-size:14px;font-weight:500;color:var(--muted)}
 .bb .seg-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
-.bb .key{height:44px;border-radius:12px;background:var(--surface);font-size:21px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.bb .key{height:42px;border-radius:12px;background:var(--surface);font-size:21px;font-weight:500;display:flex;align-items:center;justify-content:center}
 .bb .key:active{background:var(--soft)}
 .bb .key-op{background:var(--soft);font-size:19px}
 .bb .lbl{font-size:12px;font-weight:500;color:var(--muted);letter-spacing:.02em}
@@ -207,7 +207,7 @@ Offline. It stays on this phone and sends itself later.
 <div class="sheet-scroll" style="flex: 1; overflow-y: auto; margin: 0 -16px; padding: 0 16px 34px">
 <sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
 <div style="display: flex; flex-direction: column">
-<h3 style="margin: 10px 0 2px; font-size: 12px; font-weight: 500; letter-spacing: .02em; color: var(--muted)">{{g.title}}</h3>
+<h3 style="margin: 20px 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted)">{{g.title}}</h3>
 <sc-for list="{{g.items}}" as="o" hint-placeholder-count="4">
 <button class="opt" onClick="{{o.pick}}" aria-pressed="{{o.on}}">
 <span style="flex: 1; min-width: 0; display: flex; flex-direction: column">

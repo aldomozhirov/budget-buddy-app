@@ -1,6 +1,6 @@
 # Budget Buddy prototype
 
-Snapshot of the clickable prototype the owner reviewed (version of 2026-10-06). The rules it shows are written down in `docs/design-spec.md`; read that first and use these files as the visual and behavioural reference.
+Snapshot of the clickable prototype the owner reviewed (version of 2026-10-06, refreshed on 2026-10-14 with the screens of spec 2). The rules it shows are written down in `docs/design-spec.md`; read that first and use these files as the visual and behavioural reference.
 
 - For building, prefer `docs/design/html/`: the same screens as plain static HTML with screenshots, and `bb.css`, the consolidated stylesheet.
 - One `*.dc.html` file per screen. `docs/design-spec.md` section 2 maps each file to its screen and requirements, and section 19 explains how to read a file and what to ignore in it.

@@ -78,6 +78,8 @@
 .bb .t-sub { font-size: 13px; color: var(--muted); }                                        /* subtitle, meta line */
 .bb .h { margin: 6px 4px 0; font-size: 13px; font-weight: 500; color: var(--muted); }       /* section label */
 .bb .lbl { font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: .02em; } /* field label */
+.bb .t-group { margin: 20px 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); } /* group heading in a sheet list: "Recent", "All categories" */
+.bb .t-group:first-child { margin-top: 8px; }
 .bb .t-sub.warn, .bb .h.warn, .bb .lbl.warn { color: var(--warn); }                     /* colour utilities win over muted text styles */
 .bb .t-sub.pos, .bb .h.pos { color: var(--accent); }
 
@@ -161,13 +163,13 @@
 .bb .meta-set { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }   /* changed from the default */
 .bb .meta-l { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; color: var(--muted); letter-spacing: .02em; }
 .bb .meta-v { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 4px; font-size: 14px; font-weight: 600; }
-.bb .field {                                      /* editable row on a detail page; opens in place */
+.bb .field {                                      /* editable row on a detail page; opens a sheet (UI-TXN-4) */
   width: 100%; box-sizing: content-box; min-height: calc(54px - 2 * var(--row-pad)); padding: var(--row-pad) 0; display: flex; align-items: center; gap: 12px; text-align: left; border-bottom: 1px solid var(--line);
 }
 .bb .field-l { flex: none; width: 96px; font-size: 14px; color: var(--muted); }
 .bb .field-v { flex: 1; min-width: 0; font-weight: 500; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bb .field::after { content: ""; flex: none; width: 7px; height: 7px; margin: 0 4px 3px 2px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .2s ease; }
-.bb .field[aria-expanded="true"]::after { transform: rotate(-135deg); margin-bottom: -3px; }
+.bb .field::after { content: ""; flex: none; width: 7px; height: 7px; margin: 0 4px 0 2px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); }   /* right chevron: opens a sheet or a screen */
+.bb .field:active { background: var(--soft); }
 .bb .field-link::after { transform: rotate(-45deg); margin-bottom: 0; }             /* opens another screen */
 
 .bb .text, .bb .search, .bb .pw {
@@ -193,6 +195,13 @@
 .bb .key { height: 44px; border-radius: var(--r-key); background: var(--surface); font-size: 21px; font-weight: 500; display: flex; align-items: center; justify-content: center; }
 .bb .sheet .key { height: 48px; background: var(--bg); }
 .bb .key-op, .bb .sheet .key-op { background: var(--soft); font-size: 19px; }
+
+/* date sheet: month calendar, Monday first; future days disabled */
+.bb .cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.bb .cal-wd { text-align: center; font-size: 12px; color: var(--muted); }
+.bb .day { height: 44px; border-radius: var(--r-key); font-size: 16px; font-weight: 500; display: flex; align-items: center; justify-content: center; }
+.bb .day[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); }
+.bb .day:disabled { color: var(--line); cursor: default; }
 
 /* ---------- 9. Surfaces ---------- */
 .bb .card { display: flex; flex-direction: column; border-radius: var(--r-card); background: var(--surface); padding: 0 14px; }

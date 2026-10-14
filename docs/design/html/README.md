@@ -1,6 +1,6 @@
 # Budget Buddy: HTML and CSS reference
 
-Static HTML exports of the approved prototype, plus the consolidated stylesheet. Generated on 2026-10-06 from `docs/design/prototype/`. The rules behind them are in `docs/design-spec.md`.
+Static HTML exports of the approved prototype, plus the consolidated stylesheet. Generated on 2026-10-06 from `docs/design/prototype/`; the screens of spec 2 and the screens they changed were added on 2026-10-14. The rules behind them are in `docs/design-spec.md`.
 
 | Path | What it is | Use it for |
 |---|---|---|

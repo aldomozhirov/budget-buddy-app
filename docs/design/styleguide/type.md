@@ -11,4 +11,5 @@ Geist, falling back to the system UI font. Base 15 px, line height 1.4. Every am
 - **Body** body · 15 / 400, line height 1.4 · It stays open until someone presses Close now.
 - **Section label** .h · 13 / 500, muted · Biggest changes
 - **Meta line, subtitle** .t-sub · 13 / 400, muted · Last €1,986.30 on 02/09/2026
+- **Sheet group heading** .t-group · 11 / 600, uppercase, +0.08em, muted; 20 above, 6 below · All categories
 - **Field label** .lbl · 12 / 500, muted, +0.02em · Category · from REWE rule

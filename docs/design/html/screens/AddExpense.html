@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Budget Buddy — Add expense</title>
 <!-- Static export of the prototype screen "Add expense" (prototype file AddExpense.dc.html), default state.
-     Generated on 2026-10-06. Layout and copy are the reference; see docs/design/html/README.md. -->
+     Generated on 2026-10-14. Layout and copy are the reference; see docs/design/html/README.md. -->
 <link rel="stylesheet" href="../fonts/geist.css">
 <style>
 body{margin:0}
@@ -101,10 +101,13 @@ a{color:inherit}a:hover{color:inherit}
 <div style="display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0 2px">
 <span class="num" style="height: 18px; font-size: 14px; color: var(--muted)"></span>
 <div style="display: flex; align-items: baseline; gap: 8px">
-<span class="num" style="font-size: 46px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; color: var(--muted)">€0</span>
+<button aria-label="Amount €0" class="num" style="font-size: 46px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; color: var(--muted); opacity: 1">€0</button>
 <button aria-label="Change currency" style="height: 30px; padding: 0 10px; border-radius: 8px; background: var(--soft); font-size: 13px; font-weight: 600">EUR</button>
 </div>
+
+
 <span style="height: 16px; font-size: 12px; color: var(--warn)"></span>
+
 </div>
 
 <div style="display: flex; flex-direction: column; gap: 6px">
