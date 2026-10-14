@@ -2,7 +2,7 @@
 
 Rules: UI-ADD-2, UI-ADD-4, UI-ADD-5, UI-VIS-2
 
-One-tap choices for account, category and envelope. A row scrolls sideways to the screen edges. Selected means ink fill. Tapping a selected category or envelope chip clears it.
+One-tap choices for account, category, envelope and currency: a handful of likely values, then “All…” or “Other…” opening the full list in a sheet (UI-NAV-7). A pick from the sheet goes to the front of the row. A row scrolls sideways to the screen edges. Selected means ink fill. Tapping a selected category or envelope chip clears it.
 
 | Class or state | Meaning |
 |---|---|

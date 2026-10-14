@@ -10,7 +10,7 @@ Status: drafted on 2026-10-06 from the clickable prototype the owner reviewed. T
 - Copy shown in quotes is the intended text. Keep it unless a task says otherwise.
 - **Must**, **Should** and **Could** mean what they mean in the requirements.
 
-Prototype: the Budget Buddy design canvas (private Claude artifact `https://claude.ai/artifact/JXe83ygWw5adVt42HE1x8d`). Each screen is one file named in section 2. A copy of every screen file, taken on 2026-10-06, is in `docs/design/prototype/`; its README says how to refresh it.
+Prototype: the Budget Buddy design canvas (private Claude artifact `https://claude.ai/artifact/JXe83ygWw5adVt42HE1x8d`). Each screen is one file named in section 2. A copy of every screen file, taken on 2026-10-06 and refreshed on 2026-10-14 with the screens of spec 2, is in `docs/design/prototype/`; its README says how to refresh it.
 
 For building, use `docs/design/html/`: `bb.css` is the design system as one stylesheet (tokens, components, motion) and the canonical styling reference; `screens/` has every screen as static HTML and a PNG screenshot; `styleguide.html` is the style guide and component library for developers.
 
@@ -27,15 +27,17 @@ For building, use `docs/design/html/`: `bb.css` is the design system as one styl
 
 | Screen | Prototype file(s) | Purpose | Requirements | Reached from |
 |---|---|---|---|---|
-| Home | `Main.dc.html` | Private overview and entry point | DSH-1, DSH-4, NTF-1 | App start |
-| Add expense / income / transfer | `AddExpense.dc.html`; variants with search sheets open: `SearchAccounts.dc.html`, `SearchCategories.dc.html` | Record a transaction | TXN-1 to TXN-4, TXN-7, CAT-5, ACC-9 | Home button and tiles, Transactions |
+| Home | `Main.dc.html`; variants: `HomeWaiting.dc.html` (waiting to send, sign-out question), `HomeOffline.dc.html` and `HomeOfflineLocked.dc.html` (limited Home, UI-HOME-7) | Private overview and entry point | DSH-1, DSH-4, NTF-1, TXN-7 | App start |
+| Add expense / income / transfer | `AddExpense.dc.html`; variants with search sheets open: `SearchAccounts.dc.html`, `SearchCategories.dc.html`; `AddTransferFx.dc.html` (transfer in two currencies) | Record a transaction | TXN-1 to TXN-4, TXN-7, CAT-5, ACC-9 | Home button and tiles, Transactions |
 | Check-in | `CheckIn.dc.html` | Enter balances | CHK-5 to CHK-10 | Home banner and tile (while one is open), Check-ins, notification |
 | Check-ins | `CheckIns.dc.html` | Open check-in and past ones | SUM-1, CHK-1 | Home |
 | Check-in summary | `CheckInSummary.dc.html` | Result of one check-in | SUM-1 to SUM-6 | Home wealth card, Check-ins, Check-in closed screen, notification |
-| Envelopes | `Envelopes.dc.html` | All envelopes this month | ENV-3 | Home envelopes card, Settings |
-| Envelope | `EnvelopeDetail.dc.html` | One envelope: month, history, move, adjust | ENV-3, ENV-5, ENV-6, ENV-9 | Envelopes |
-| Transactions | `Transactions.dc.html`; variants: `ToLabel.dc.html` (Needs a category tab), `TransactionsFilter.dc.html` (filter sheet open) | List, search, filter, label | TXN-6, CAT-7 | Home |
-| Transaction | `TransactionDetail.dc.html` | View and edit one transaction | TXN-6, CAT-6, MEM-5 | Transactions, Envelope |
+| Envelopes | `Envelopes.dc.html`; variants: `EnvelopesMove.dc.html` (move sheet), `EnvelopesHistory.dc.html` (history picker) | All envelopes this month | ENV-3 | Home envelopes card, Settings |
+| Envelope | `EnvelopeDetail.dc.html`; variant: `EnvelopeCarryOver.dc.html` (carry-over envelope with a pending plan, adjustments and a move) | One envelope: month, history, move, adjust | ENV-3, ENV-5, ENV-6, ENV-9 | Envelopes |
+| New and edit envelope | `EnvelopeNew.dc.html`, `EnvelopeEdit.dc.html` (sheets) | Create, change, archive or delete an envelope | ENV-1, ENV-4, ENV-7 | Envelopes "+", the envelope page's cog |
+| Archived envelopes | `ArchivedEnvelopes.dc.html` | Archived envelopes with Restore | ENV-1 | Envelopes |
+| Transactions | `Transactions.dc.html`; variants: `ToLabel.dc.html` (Needs a category tab), `TransactionsFilter.dc.html` (filter sheet open), `TransactionsOutbox.dc.html` (items waiting to send) | List, search, filter, label | TXN-6, TXN-7, CAT-7 | Home |
+| Transaction | `TransactionDetail.dc.html`; variant: `TransactionFx.dc.html` (expense in another currency) | View and edit one transaction | TXN-6, CAT-6, MEM-5 | Transactions, Envelope |
 | Accounts | `Accounts.dc.html` | All accounts | ACC-3, DSH-3 | Home |
 | Account | `AccountDetail.dc.html` | Balance history and settings | ACC-4 to ACC-8 | Accounts, Check-in summary, Transaction |
 | New account | `NewAccount.dc.html` | Create an account | ACC-1, ACC-2, ACC-10 | Accounts, First start |
@@ -48,16 +50,17 @@ Not prototyped yet. Design them in the same system before building them:
 
 - **Wealth history** (DSH-2, RPT-4). Until it exists, Home's "Wealth history" link opens the latest check-in summary, whose chart covers the need.
 - **Reports** (RPT), **Reconciliation** (REC), **Inbox** (DRF), photo capture and confirmation (PHO), import and connector settings (IMP, APL, STM, CON).
-- **New envelope**, **Archived envelopes**, **Add profile**, the currency, coin, rate and time zone editors in Settings, **Split** (TXN-9) and **Attach receipt** (TXN-11). The prototype shows their entry points only.
+- **Add profile**, the currency, coin, rate and time zone editors in Settings, **Split** (TXN-9) and **Attach receipt** (TXN-11). The prototype shows their entry points only.
 
 ## 3. Navigation
 
 - **UI-NAV-1 (Must).** Home is the root. Every other screen is pushed on top of the screen that opened it and has a 44-point round Back button at the top left.
 - **UI-NAV-2 (Must).** Back returns to the screen the member came from, not to a fixed parent. Its accessible label names that screen: "Back to home", "Back to check-ins", "Back to check-in", "Back to transaction", "Back to accounts". Examples: the summary opened from Home's wealth card goes back to Home; opened from the Check-ins list it goes back to the list. Use the router's history; when there is none (a notification or a reload opened the screen), fall back to the screen's natural parent.
 - **UI-NAV-3 (Must).** After the check-in closes, "See summary" opens the summary, and Back from there goes to Home, not to the finished check-in.
-- **UI-NAV-4 (Must).** Pickers, filters, short forms and confirmations open as bottom sheets over a dimmed page. A sheet has a drag handle, a title, and closes on its Close button, a tap on the dimmed area or a swipe down. The page behind the sheet does not scroll while it is open. A confirmation sheet states the consequence and offers the action and a way out ("Keep it", "Cancel", "Keep it open").
-- **UI-NAV-5 (Must).** Links that open a screen in a particular state carry that state: "Move money" on Envelopes opens the envelope with the move sheet up; "History" opens its History tab; "Transactions" on an account opens the list filtered to that account; "Needs a category" opens the Transactions tab of that name.
+- **UI-NAV-4 (Must).** Pickers, filters, short forms and confirmations open as bottom sheets over a dimmed page. A sheet has a drag handle, a title, and closes on its Close button, a tap on the dimmed area or a swipe down. The page behind the sheet does not scroll while it is open. A list in a sheet may be split into groups ("Recent", "All categories", "In use"); the group heading is a small uppercase label with clear space above it, so it never reads as a row (UI-VIS-9). A confirmation sheet states the consequence and offers the action and a way out ("Keep it", "Cancel", "Keep it open").
+- **UI-NAV-5 (Must).** Links that open a screen in a particular state carry that state: "Move money" on Envelopes opens the move sheet with "From" and "To" chips, and on an envelope page the move sheet for that envelope; "History" on Envelopes opens a sheet listing the envelopes, and a pick opens that envelope on its History tab (spec 02, O10); "Transactions" on an account opens the list filtered to that account; "Needs a category" opens the Transactions tab of that name.
 - **UI-NAV-6 (Must).** A notification about a check-in opens the check-in while it is open, and its summary once it is closed (CHK-9).
+- **UI-NAV-7 (Must).** Chips are for a handful of one-tap choices (accounts, suggested categories, envelopes, the family's currencies), always followed by "All…" or "Other…" when the full list is longer. A long list, a calendar or a text entry opens in a sheet with search where it helps: the same sheets wherever a value is picked (Add expense, the transaction page, the envelope form). A pick from a sheet goes to the front of its chip row. Owner's decision, 2026-10-14.
 
 Home entry points:
 
@@ -81,6 +84,9 @@ Home entry points:
 - **UI-HOME-4 (Should).** Settings → This device → "Hide amounts on Home" is on by default. Turning it off shows amounts on Home on that device; the eye then hides them for the rest of the visit.
 - **UI-HOME-5 (Must).** The check-in banner contains no amounts. It says who opened the check-in and what is left for the signed-in profile: "Monthly check-in is open · Opened today · 4 of your accounts to check", or "Check-in is open · Max started it today · 4 of your accounts left". When the signed-in profile started the check-in itself, it reads "You" in place of the name: "Check-in is open · You started it today · 4 of your accounts left". The opening day is written without digits ("today", "yesterday", "on Saturday", "over a week ago"), and a profile with nothing left reads "Opened today · you’re done".
 - **UI-HOME-6 (Must).** Home shows one wealth figure: the equivalent in the common currency, with the change since the latest closed check-in when revealed (spec 01, O2): "+€1,742.00 since check-in of 02/09/2026". The totals per currency and the date of the oldest balance are on the check-in summary (DSH-1 as amended).
+
+- **UI-HOME-7 (Must).** Limited Home (spec 02, D1). Offline, when the device is locked or nothing is loaded and the Add form's options are on the phone, Home shows only: the date and "Hi, Alena" with an "Offline" label in place of the eye and avatar; the Income and Transfer tiles (half the row each); "Waiting to send · N" when something waits, listing each item by merchant, or category when there is none, with its time and no amount; the note "Balances, envelopes and check-ins show when you’re back online." ("… back online and signed in." when locked); and the sticky "Add expense". Prototype: `HomeOffline.dc.html`, `HomeOfflineLocked.dc.html`.
+- **UI-HOME-8 (Must).** Online, while anything waits or failed to send, Home shows the "Waiting to send · N" card under the tiles ("One couldn’t be sent. Open it to see why."), opening Transactions. Sign-out with unsent items asks first: "2 expenses haven’t been sent yet. Signing out deletes them from this phone." with "Sign out anyway" and "Keep me signed in" (spec 02, section 4). Prototype: `HomeWaiting.dc.html`.
 
 Other screens that list money totals put the same eye button in their header. The Check-ins list hides its totals by default; Accounts, Account, Check-in and Summary show amounts by default because reaching them is deliberate.
 
@@ -108,6 +114,7 @@ Other screens that list money totals put the same eye button in their header. Th
 
 - **UI-ADD-13 (Must).** The saved screen shows "Expense saved" (or "Expense saved on this phone" when offline), a one-line summary ("€23.80 · REWE · ING Visa · Groceries"), and the buttons "Done", "Add another" and "Undo". An expense saved without a category adds "No category yet. It waits in Needs a category, with a suggestion.", where "Needs a category" is a link.
 - **UI-ADD-14 (Must).** Offline, the note "Offline. It stays on this phone and sends itself later." is shown and saving works (TXN-7). Until it is sent, the transaction carries the tag "Waiting to send" in lists.
+- **UI-ADD-15 (Must).** A transfer between accounts in two currencies (TXN-4, spec 02 O11) shows a second line under the amount, "Arrives as $21.86", filled from the date's rate. A tap moves the keypad to it (the first amount dims; a tap on it moves back). Without a rate it reads "Type what arrives in Wise $" in the warning colour and Save stays disabled. Save reads "Save €20.00 → $21.86". Prototype: `AddTransferFx.dc.html`.
 
 ## 6. Amount entry
 
@@ -141,18 +148,23 @@ Other screens that list money totals put the same eye button in their header. Th
 - **UI-ENV-2 (Must).** The envelope page shows the monthly amount and mode ("€500.00 a month · resets on the 1st"), the amount left, the month's spending and adjustments, the buttons "Move money" and "Adjust", and the tabs "October" and "History".
 - **UI-ENV-3 (Must).** The month tab lists the expenses charged to the envelope; each opens its transaction.
 - **UI-ENV-4 (Must).** History shows spending per month as bars against the monthly amount, the statistics of ENV-9 ("Within budget 3 of 5 months", average spent, largest overspend, left over net), a period selector, and the monthly records (ENV-6).
-- **UI-ENV-5 (Must).** "Move money" picks a target envelope and an amount on the keypad (ENV-5). "Adjust" takes a signed amount and a note, with the hint "Use − to take money out. Applies to this month only."
+- **UI-ENV-5 (Must).** "Move money" picks a target envelope and an amount on the keypad (ENV-5). "Adjust" takes a signed amount and a note, with the hint "Use − to take money out. Applies to this month only." (reset envelopes) or "Use − to take money out. It carries over to next month." (carry-over envelopes).
+- **UI-ENV-6 (Must).** New and edit envelope is a tall sheet (`EnvelopeNew.dc.html`, `EnvelopeEdit.dc.html`): Name; "Currency or coin" as chips of the currencies the family uses plus "Other…", which opens a searchable sheet grouped "In use" and "All currencies and coins" (UI-NAV-7; the chips are disabled with "The currency stays: it has expenses." once it is used, O6); "Monthly amount" on the keypad; "Each month" as "Resets monthly" or "Carries over" with a one-line explanation; "Starting balance · what’s in it now" (new only, proposing the monthly amount); "Default category · used on save when an expense has none" as None, three chips and "All…", which opens the category sheet ("Search or add a category", groups "Most used" and "All categories"). Editing the amount or mode shows "Applies from the top-up on 1 November." The bottom row offers "Delete" ("Unused, so it can be deleted."), "Archive" ("It has 6 expenses, so it can only be archived. They keep this envelope.") or "Restore". The button reads "Add envelope" or "Save".
+- **UI-ENV-7 (Must).** The envelope header adds a pending plan in the accent colour ("From 1 November: €350.00 a month"); a carry-over envelope reads "€300.00 a month · carries over on the 1st" and its hero adds "€300.00 + €120.00 carried from September"; in the starting month the line reads "€45.00 spent of €187.60 · starting balance". The envelope page's settings button is the cog and opens the edit sheet.
+- **UI-ENV-8 (Must).** The month tab lists adjustments and moves among the expenses by date, with a round icon: "Moved €50.00 to Eating out", "Added €50.00 · Birthday money", "Took out €20.00". A tap asks "Delete this adjustment?" or "Delete this move? Both envelopes change back." with "Delete" and "Keep it". Prototype: `EnvelopeCarryOver.dc.html`.
+- **UI-ENV-9 (Must).** Envelopes' move sheet has "From" and "To" chips (same currency only, O5), the keypad, the hint "Groceries has €187.60 left" (warning colour when the move would take it below zero) and "Move €50.00 to Unexpected". The history picker lists each envelope with its mode, start and "3 of 5 months within budget". Archived envelopes is a list card with "Restore" per envelope and an undo message; empty, it reads "No archived envelopes."
 
 ## 10. Transactions
 
 - **UI-TXN-1 (Must).** The list has a search field, two tabs ("All" and "Needs a category · N") and filter chips: period, member, account, category, envelope and kind (TXN-6). A chip opens a sheet with counts per option and "Reset"; an active chip is filled. "Clear" resets all. A summary line shows the count and sum of what is listed.
 - **UI-TXN-2 (Must).** Rows are grouped by day with a day total. A row shows the merchant (or the category when there is no merchant), a meta line (account, member, category or envelope), the signed amount, and tags where they apply: "No category", "Waiting to send", "Refund", "Transfer".
 - **UI-TXN-3 (Must).** The Needs a category tab (CAT-7) starts with "These were saved without a category. Tap a suggestion, or tick several and apply all." Each row has its suggestion as a one-tap chip and "Other…". Several rows can be ticked and labelled with "Apply suggestions to N". Every labelling can be undone from a short message. An empty tab says "Everything is labelled".
-- **UI-TXN-4 (Must).** A transaction page shows the signed amount, merchant, "Monday 5 October · paid by Alena", and then one row per field: Category, Envelope, Paid from, Paid by, Date, Merchant, Note. A row opens in place to edit (its chevron turns), except "Paid from", which opens the account.
-- **UI-TXN-5 (Must).** The envelope row offers every envelope and "None".
+- **UI-TXN-4 (Must).** A transaction page shows the signed amount, merchant, "Monday 5 October · paid by Alena", and then one row per field in the order of the Add form: Paid from, Merchant, Category, Envelope, Date, Paid by, Note. Every row ends in a right chevron and opens a sheet, the same sheets as on Add expense (UI-NAV-7): Merchant and Category are searchable lists ("Search or type a merchant" with "Use “…”" and "No merchant"; "Search or add a category" with "Recent" and "All categories"); Envelope lists every envelope with its mode and what is left; Paid by lists the profiles; Date is the month calendar with future days disabled and "Today"; Note is a text box with "Done". "Paid from" opens the account. A transfer shows From, To, both amounts, Done by, Date and Note. Changed by the owner on 2026-10-14: rows no longer open in place.
+- **UI-TXN-5 (Must).** The envelope sheet offers every envelope and "None", with "Changing it never changes the category." For an expense in another currency than its envelope, the row reads "Groceries · counts as €21.40" and the sheet adds "Counts in the envelope as" with the keypad and the rate it used ("At the rate of 2 October: $1 = €0.9149."); a typed amount is marked as typed by hand (spec 02, section 3.3). Prototype: `TransactionFx.dc.html`.
 - **UI-TXN-6 (Must).** When the category of a transaction with a merchant changes, the page offers a rule: "Always label REWE as Groceries?" with "Save rule" and "Just this once" (CAT-6).
 - **UI-TXN-7 (Must).** A "Record" section lists who entered the transaction and every later change with the profile and time (MEM-5).
 - **UI-TXN-8 (Must).** Delete asks first and states the effect: "€64.20 goes back into Groceries. This can’t be undone."
+- **UI-TXN-9 (Must).** Items still on the phone are listed at the top of their day with "Waiting to send" (`soft`) or "Couldn’t send" (`warn-soft`) and are left out of the day totals ("Items still on this phone are not in the day totals."). A tap opens a sheet with the item's details, the server's message for a failed one, a hint and "Delete" / "Keep it". Prototype: `TransactionsOutbox.dc.html`.
 
 ## 11. Accounts
 
@@ -235,8 +247,12 @@ The values below are implemented in `docs/design/html/bb.css`. Where a prototype
 | Progress bar | 6 high, `soft` track, `accent` fill, `warn` when over. |
 | Tag | 11 to 12 px semibold in a small rounded box: `warn-soft`/`warn` for warnings, `soft`/`muted` otherwise. |
 | Switch | 51 × 31, `accent` when on. |
+| Detail row | At least 54 high, label 96 wide in `muted`, value right-aligned, right chevron; opens a sheet (UI-TXN-4). |
+| Sheet group heading | 11 px semibold uppercase, 0.08 em tracking, `muted`; 20 px above, 6 px below (`.t-group`). |
+| Calendar day | 44 high, 12 radius; selected `ink` fill; future days in `line` and disabled. |
 
-- **UI-VIS-6 (Should).** Icons are simple outline icons with a 1.8 to 2 px stroke at 18 to 22 px, in the style of Lucide. Bundle them; do not load them from a CDN (SEC-7).
+- **UI-VIS-6 (Should).** Icons are simple outline icons with a 1.8 to 2 px stroke at 18 to 22 px, in the style of Lucide. Bundle them; do not load them from a CDN (SEC-7). Settings, on any screen, is the cog (Lucide `settings`); the sliders icon is not used (owner, 2026-10-14).
+- **UI-VIS-9 (Must).** Group headings inside a sheet list are small uppercase labels with space above them, so they read as section dividers, not as rows (owner, 2026-10-14).
 
 ### 15.4 Motion
 
@@ -294,6 +310,7 @@ The prototype review settled these. `docs/requirements.md` has been amended to m
 | Sign-in | One family password and one profile per person, with a default profile per device. No per-member passwords and no invitations. | Section 2, section 4.1, MEM-1, MEM-2, MEM-3, SET-1, section 11 |
 | Home | Home hides amounts by default and shows one wealth figure. Per-currency totals live on the check-in summary. | DSH-1 |
 | Sign in again | A device asks to sign in again when opened fresh or returned to after more than 5 minutes away; on by default, with a per-device switch in Settings (owner, 2026-10-12). | MEM-2, MEM-7, SEC-9 |
+| Pickers (2026-10-14) | Long lists, calendars and text open in sheets with search; chips only for a few one-tap choices, followed by "All…" or "Other…". The transaction page's rows open these sheets in the Add form's order. Settings is a cog everywhere. | None (design only) |
 | Category and envelope | Merchant rules pre-select both while typing. Category and envelope fill each other only on save, and only into an empty field. There is no "No envelope" choice on the add form. | CAT-1, CAT-5, TXN-1 |
 
 Known limits of the prototype that the implementation must not copy:

@@ -325,7 +325,7 @@ class Component extends DCLogic {
     var selCount = unl.filter(function (t) { return st.selected[t.id]; }).length;
 
     var FDEF = {
-      period: { title: 'Period', single: true, none: 'October', opts: [['oct', 'This month', 'October 2026'], ['sep', 'Last month', 'September 2026'], ['q', 'Last 3 months', 'August – October'], ['year', 'This year', '2026'], ['custom', 'Custom dates…', '']] },
+      period: { title: 'Period', single: true, none: 'October', opts: [['oct', 'This month', 'October 2026'], ['sep', 'Last month', 'September 2026'], ['q', 'Last 3 months', 'August – October'], ['year', 'This year', '2026'], ['all', 'All time', 'Since the first transaction'], ['custom', 'Custom dates…', '']] },
       who: { title: 'Who', none: 'Everyone', opts: [['Alena', 'Alena', 'You'], ['Max', 'Max', ''], ['Sofia', 'Sofia', '']] },
       acc: { title: 'Account', none: 'Account', opts: [['ING Visa', 'ING Visa', 'Alena · EUR'], ['DKB', 'DKB', 'Max · EUR'], ['Revolut', 'Revolut', 'Sofia · EUR'], ['N26', 'N26', 'Sofia · EUR'], ['Cash €', 'Cash €', 'Shared · EUR']] },
       cat: { title: 'Category', none: 'Category', opts: [['Groceries', 'Groceries', ''], ['Eating out', 'Eating out', ''], ['Health', 'Health', ''], ['Shopping', 'Shopping', ''], ['Salary', 'Salary', ''], ['Subscriptions', 'Subscriptions', ''], ['Transport', 'Transport', ''], ['No category', 'No category', 'Waiting to be labelled']] },

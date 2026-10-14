@@ -201,20 +201,20 @@ Each screen follows its `design-spec.md` section and `docs/design/html/screens/<
 
 | Screen | Route | Reference | Notes |
 |---|---|---|---|
-| Add expense, income, transfer | `/add?kind=` | `AddExpense`, `SearchAccounts`, `SearchCategories`, UI-ADD-1–14, UI-AMT-1–3 | Close button, not Back. Fits a 390 × 844 screen without scrolling, the offline note included (UI-ADD-1; the prototype overflows by 20 px). O11 for transfers. |
-| Transactions | `/transactions?tab=needs-category&account=…` | `Transactions`, `ToLabel`, `TransactionsFilter`, UI-TXN-1–3 | "+" opens Add. Infinite scroll in pages of 50. |
-| Transaction | `/transactions/:id` | `TransactionDetail`, UI-TXN-4–8 | Title "Expense", "Income" or "Transfer". No "Split", no "Attach receipt" (O12). |
-| Envelopes | `/envelopes` | `Envelopes`, UI-ENV-1 | "+" opens the new-envelope sheet; O10. |
-| Envelope | `/envelopes/:id?tab=history&sheet=move` | `EnvelopeDetail`, UI-ENV-2–5 | The sliders icon opens the edit sheet. |
-| Archived envelopes | `/envelopes/archived` | not designed | A list card of archived envelopes with "Restore"; empty: "No archived envelopes." |
+| Add expense, income, transfer | `/add?kind=` | `AddExpense`, `SearchAccounts`, `SearchCategories`, `AddTransferFx`, UI-ADD-1–15, UI-AMT-1–3 | Close button, not Back. Fits a 390 × 844 screen without scrolling, the offline note included (UI-ADD-1; the prototype overflows by 20 px). O11 for transfers. |
+| Transactions | `/transactions?tab=needs-category&account=…` | `Transactions`, `ToLabel`, `TransactionsFilter`, `TransactionsOutbox`, UI-TXN-1–3, UI-TXN-9 | "+" opens Add. Infinite scroll in pages of 50. |
+| Transaction | `/transactions/:id` | `TransactionDetail`, `TransactionFx`, UI-TXN-4–8 | Title "Expense", "Income" or "Transfer". No "Split", no "Attach receipt" (O12). |
+| Envelopes | `/envelopes` | `Envelopes`, `EnvelopesMove`, `EnvelopesHistory`, `EnvelopeNew`, UI-ENV-1, UI-ENV-6, UI-ENV-9 | "+" opens the new-envelope sheet; O10. |
+| Envelope | `/envelopes/:id?tab=history&sheet=move` | `EnvelopeDetail`, `EnvelopeCarryOver`, `EnvelopeEdit`, UI-ENV-2–8 | The sliders icon opens the edit sheet. |
+| Archived envelopes | `/envelopes/archived` | `ArchivedEnvelopes`, UI-ENV-9 | A list card of archived envelopes with "Restore"; empty: "No archived envelopes." |
 | Categories and rules | `/categories?tab=expense\|income\|rules` | `Categories`, `Rules`, UI-CAT-1–3 | Sheets as in the prototype. |
-| Home | `/` | `Main`, UI-HOME-1–6 | Adds the spending parts (task 16) and the limited Home (task 18). |
+| Home | `/` | `Main`, `HomeWaiting`, `HomeOffline`, `HomeOfflineLocked`, UI-HOME-1–8 | Adds the spending parts (task 16) and the limited Home (task 18). |
 | Settings | `/settings` | `Settings`, UI-SET-1 | The "Spending" section: Envelopes ("3 · top up on the 1st"), Categories (count), Rules (count). |
 | Account | `/accounts/:id` | `AccountDetail`, UI-ACC-2 | The "Transactions" button (O14). |
 
 Back labels (UI-NAV-2): "Back to transactions", "Back to transaction", "Back to envelopes", "Back to envelope", "Back to categories", "Back to settings", "Back to account". Natural parents: Transaction → Transactions, Envelope and Archived envelopes → Envelopes, everything else → Home.
 
-**Undesigned parts and their copy.** These follow existing `bb.css` patterns (list card, chips, bottom sheet, keypad) with no new CSS unless a task says why. Each task that builds one attaches an iPhone-size screenshot to its pull request and adds the rule to `docs/design-spec.md` under the section named:
+**Parts designed after this spec was written.** Designed on 2026-10-14; the screens are in `docs/design/html/screens/` and the rules in `docs/design-spec.md` (UI-NAV-7, UI-HOME-7, UI-HOME-8, UI-ADD-15, UI-ENV-5 to UI-ENV-9, UI-TXN-4, UI-TXN-5, UI-TXN-9, UI-VIS-9). Where the design and the copy below differ, the design spec wins. The transaction page's rows now open sheets in the Add form's order (UI-TXN-4), not chips in place. The list below is the original copy:
 - New and edit envelope sheet (UI-ENV-6, section 9): "New envelope" / "Edit envelope"; Name; "Monthly amount"; Currency (default the common currency); mode chips "Resets monthly" and "Carries over"; "Starting balance · what’s in it now" (new envelopes only; the monthly amount proposed); "Default category · used on save when an expense has none"; "Add envelope" / "Save". On edit, a changed amount or mode shows "Applies from the top-up on 1 November."; the bottom row offers "Delete" ("Unused, so it can be deleted.") or "Archive" ("It has 6 expenses, so it can only be archived. They keep this envelope."), or "Restore".
 - Envelope header with a pending plan: "From 1 November: €550.00 a month". Starting month spent line: "€45.00 spent of €187.60 · starting balance". Carry-over header: "€300.00 a month · carries over on the 1st".
 - Adjust hint on a carry-over envelope: "Use − to take money out. It carries over to next month." (the design's "Applies to this month only." stays for reset envelopes).

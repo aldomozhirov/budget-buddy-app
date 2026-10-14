@@ -104,10 +104,15 @@ Offline. It stays on this phone and sends itself later.
 <div style="display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0 2px">
 <span class="num" style="height: 18px; font-size: 14px; color: var(--muted)">{{exprLine}}</span>
 <div style="display: flex; align-items: baseline; gap: 8px">
-<span class="num" style="font-size: 46px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; color: {{amountColor}}">{{amountText}}</span>
+<button onClick="{{editAmount}}" aria-label="{{amountAria}}" class="num" style="font-size: 46px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; color: {{amountColor}}; opacity: {{amountOpacity}}">{{amountText}}</button>
 <button aria-label="Change currency" style="height: 30px; padding: 0 10px; border-radius: 8px; background: var(--soft); font-size: 13px; font-weight: 600">{{currency}}</button>
 </div>
+<sc-if value="{{fx}}" hint-placeholder-val="{{ false }}">
+<button onClick="{{editArrive}}" aria-label="{{arriveAria}}" aria-pressed="{{arriveEdit}}" class="num" style="height: 32px; margin-top: 2px; padding: 0 12px; border-radius: 16px; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; background: {{arriveBg}}; color: {{arriveFg}}; box-shadow: {{arriveRing}}">{{arriveText}}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"></path></svg></button>
+</sc-if>
+<sc-if value="{{noFx}}" hint-placeholder-val="{{ true }}">
 <span style="height: 16px; font-size: 12px; color: var(--warn)">{{errorText}}</span>
+</sc-if>
 </div>
 
 <div style="display: flex; flex-direction: column; gap: 6px">
@@ -207,7 +212,7 @@ Offline. It stays on this phone and sends itself later.
 <div class="sheet-scroll" style="flex: 1; overflow-y: auto; margin: 0 -16px; padding: 0 16px 34px">
 <sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
 <div style="display: flex; flex-direction: column">
-<h3 style="margin: 10px 0 2px; font-size: 12px; font-weight: 500; letter-spacing: .02em; color: var(--muted)">{{g.title}}</h3>
+<h3 style="margin: 20px 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted)">{{g.title}}</h3>
 <sc-for list="{{g.items}}" as="o" hint-placeholder-count="4">
 <button class="opt" onClick="{{o.pick}}" aria-pressed="{{o.on}}">
 <span style="flex: 1; min-width: 0; display: flex; flex-direction: column">
@@ -309,12 +314,14 @@ Offline. It stays on this phone and sends itself later.
 
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"offline":{"editor":"boolean","default":false},"picker":{"editor":"enum","options":["none","account","category"],"default":"none"},"pickerQuery":{"editor":"text","default":""},"$preview":{"width":390,"height":844}}'>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"offline":{"editor":"boolean","default":false},"kind":{"editor":"enum","options":["expense","income","transfer"],"default":"expense"},"to":{"editor":"enum","options":["cash","wise","tbank"],"default":"cash"},"amount":{"editor":"text","default":""},"picker":{"editor":"enum","options":["none","account","category"],"default":"none"},"pickerQuery":{"editor":"text","default":""},"$preview":{"width":390,"height":844}}'>
 class Component extends DCLogic {
   constructor(props) {
     super(props);
     var p = props.picker && props.picker !== 'none' ? props.picker : null;
-    this.state = { kind: 'expense', expr: p ? '23.80' : '', acc: 'ing', to: 'cash', env: null, cat: null, envSrc: null, saved: false, picker: p, query: props.pickerQuery || '', customCats: [], extraAcc: null, extraTo: null, extraCat: null, merchant: null, catSrc: null, day: 5, payer: 'Alena', note: '', noteDraft: '', mini: null };
+    var to0 = props.to || 'cash';
+    this.state = { kind: props.kind || 'expense', expr: p ? '23.80' : (props.amount || ''), acc: 'ing', to: to0, extraTo0: ['ing', 'cash', 'rev', 'wise', 'cashusd'].indexOf(to0) < 0 ? to0 : null, arrive: null, arriveEdit: false, arriveFresh: false, env: null, cat: null, envSrc: null, saved: false, picker: p, query: props.pickerQuery || '', customCats: [], extraAcc: null, extraTo: null, extraCat: null, merchant: null, catSrc: null, day: 5, payer: 'Alena', note: '', noteDraft: '', mini: null };
+    if (this.state.extraTo0) this.state.extraTo = this.state.extraTo0;
   }
   evaluate(s) {
     var t = s.replace(/−/g, '-').replace(/×/g, '*').replace(/÷/g, '/');
@@ -444,6 +451,15 @@ class Component extends DCLogic {
 
     function press(k) {
       return function () {
+        // O11: after a tap on "Arrives as", the keypad types the second amount
+        if (self.state.arriveEdit) {
+          var r = self.state.arriveFresh ? '' : (self.state.arrive || '');
+          if (k === 'C') r = '';
+          else if (k === '⌫') r = r.slice(0, -1);
+          else r = (r + k).slice(0, 40);
+          self.setState({ arrive: r, arriveFresh: false });
+          return;
+        }
         var e = self.state.expr;
         if (k === 'C') e = '';
         else if (k === '⌫') e = e.slice(0, -1);
@@ -464,17 +480,17 @@ class Component extends DCLogic {
       { id: 'transfer', label: 'Transfer' }
     ].map(function (k) {
       var on = st.kind === k.id;
-      return { label: k.label, on: on, cls: on ? 'seg seg-on' : 'seg', pick: function () { self.setState({ kind: k.id, cat: null, catSrc: null, env: null, envSrc: null }); } };
+      return { label: k.label, on: on, cls: on ? 'seg seg-on' : 'seg', pick: function () { self.setState({ kind: k.id, cat: null, catSrc: null, env: null, envSrc: null, arrive: null, arriveEdit: false }); } };
     });
 
     function pickFrom(id) {
       var to = self.state.to === id ? (id === 'cash' ? 'ing' : 'cash') : self.state.to;
-      var patch = { acc: id, to: to };
+      var patch = { acc: id, to: to, arrive: null, arriveEdit: false };
       if (TOP.indexOf(id) < 0) patch.extraAcc = id;
       self.setState(patch);
     }
     function pickTo(id) {
-      var patch = { to: id };
+      var patch = { to: id, arrive: null, arriveEdit: false };
       if (TOP.indexOf(id) < 0) patch.extraTo = id;
       self.setState(patch);
     }
@@ -611,6 +627,14 @@ class Component extends DCLogic {
     if (!st.env && !finalEnv && isExpense && !st.cat && finalCat && CAT_ENV[finalCat]) { finalEnv = CAT_ENV[finalCat]; envFrom = 'the ' + rule.n + ' rule'; }
     var envLabel = finalEnv ? envById(finalEnv).label : null;
     var toAcc = accById(st.to);
+    // O11: a transfer between two currencies has a second amount, from the date's rate or typed
+    var RATE = { 'EUR>USD': 1.093, 'USD>EUR': 0.9149 };
+    var fx = isTransfer && acc.cur !== toAcc.cur;
+    var rate = fx ? (RATE[acc.cur + '>' + toAcc.cur] || null) : null;
+    var autoArrive = fx && rate && value !== null && value > 0 ? Math.round(value * rate * 100) / 100 : null;
+    var arriveVal = !fx ? null : (st.arrive !== null ? (st.arrive ? this.tryEval(st.arrive) : null) : autoArrive);
+    var arriveOk = arriveVal !== null && arriveVal > 0;
+    var canSave = valid && (!fx || (value > 0 && arriveOk));
     var parts = [];
     if (value !== null) parts.push((value < 0 ? '−' : '') + acc.sym + fmt(value));
     if (st.merchant && isExpense) parts.push(st.merchant);
@@ -620,6 +644,7 @@ class Component extends DCLogic {
     if (envLabel) parts.push(envLabel);
     if (finalCat && finalCat !== envLabel) parts.push(finalCat);
 
+    if (fx && arriveOk && parts.length) parts[0] = parts[0] + ' → ' + toAcc.sym + fmt(arriveVal);
     var offline = !!this.props.offline;
     var noun = isExpense ? 'Expense' : isIncome ? 'Income' : 'Transfer';
     return {
@@ -648,18 +673,33 @@ class Component extends DCLogic {
       amountText: amountText,
       amountColor: shown === null ? 'var(--muted)' : 'var(--ink)',
       errorText: errorText,
-      saveDisabled: !valid,
-      saveBg: valid ? 'var(--ink)' : 'var(--soft)',
-      saveFg: valid ? 'var(--on-ink)' : 'var(--muted)',
-      saveLabel: valid ? 'Save ' + (value < 0 ? '−' : '') + acc.sym + fmt(value) : 'Enter an amount',
-      save: function () { if (valid) self.setState({ saved: true }); },
+      fx: fx,
+      noFx: !fx,
+      arriveEdit: st.arriveEdit,
+      arriveText: arriveOk ? 'Arrives as ' + toAcc.sym + fmt(arriveVal) : 'Type what arrives in ' + toAcc.label,
+      arriveAria: arriveOk ? 'Arrives as ' + toAcc.sym + fmt(arriveVal) + '. Change' : 'Type what arrives in ' + toAcc.label,
+      arriveBg: st.arriveEdit ? 'var(--surface)' : (arriveOk ? 'var(--soft)' : 'var(--warn-soft)'),
+      arriveFg: arriveOk || st.arriveEdit ? 'var(--ink)' : 'var(--warn)',
+      arriveRing: st.arriveEdit ? 'inset 0 0 0 2px var(--ink)' : 'none',
+      editArrive: function () {
+        if (self.state.arriveEdit) return;
+        self.setState({ arriveEdit: true, arriveFresh: true, arrive: self.state.arrive !== null ? self.state.arrive : (autoArrive !== null ? autoArrive.toFixed(2) : '') });
+      },
+      editAmount: function () { if (self.state.arriveEdit) self.setState({ arriveEdit: false }); },
+      amountAria: st.arriveEdit ? 'Amount ' + amountText + '. Type it again' : 'Amount ' + amountText,
+      amountOpacity: st.arriveEdit ? '.45' : '1',
+      saveDisabled: !canSave,
+      saveBg: canSave ? 'var(--ink)' : 'var(--soft)',
+      saveFg: canSave ? 'var(--on-ink)' : 'var(--muted)',
+      saveLabel: canSave ? 'Save ' + (value < 0 ? '−' : '') + acc.sym + fmt(value) + (fx ? ' → ' + toAcc.sym + fmt(arriveVal) : '') : (fx && valid && value > 0 ? 'Type what arrives' : 'Enter an amount'),
+      save: function () { if (canSave) self.setState({ saved: true, arriveEdit: false }); },
       saved: st.saved,
       savedTitle: offline ? noun + ' saved on this phone' : noun + ' saved',
       savedSummary: parts.join(' · '),
       savedNoCat: !isTransfer && !finalCat,
       savedAuto: !!(catFrom || envFrom),
       savedAutoText: [envFrom ? envLabel + ' envelope added from ' + envFrom : '', catFrom ? finalCat + ' category added from ' + catFrom : ''].filter(Boolean).join('. ') + '.',
-      again: function () { self.setState({ saved: false, expr: '', env: null, envSrc: null, cat: null, catSrc: null, merchant: null, note: '' }); },
+      again: function () { self.setState({ saved: false, expr: '', arrive: null, arriveEdit: false, env: null, envSrc: null, cat: null, catSrc: null, merchant: null, note: '' }); },
       undo: function () { self.setState({ saved: false }); },
       openAccounts: function () { self.setState({ picker: 'account', query: '' }); },
       openTo: function () { self.setState({ picker: 'to', query: '' }); },

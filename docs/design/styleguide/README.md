@@ -23,13 +23,13 @@ Read this index, then open only the sections the task needs. Each section has th
 | [Segmented control](segmented.md) | UI-ADD-1, UI-ACC-1, UI-A11Y-2 | `.segmented` `.seg[aria-selected="true"]` `.segmented-sm` |
 | [Switch and tick box](switch.md) | UI-AUTH-5, UI-SET-1, UI-TXN-3 | `.switch[aria-checked]` `.opt` `.box[aria-checked], .opt[aria-checked] .box` |
 | [Merchant field and meta tiles](fields.md) | UI-ADD-3, UI-ADD-6 | `.field-btn` `.meta` `.meta-set` |
-| [Detail rows](detail-fields.md) | UI-TXN-4, UI-TXN-5 | `.field` `.field-link` `.expand` |
+| [Detail rows](detail-fields.md) | UI-TXN-4, UI-TXN-5, UI-NAV-7 | `.field` `.field-link` |
 | [Text, search and password](text-inputs.md) | UI-AUTH-3, UI-TXN-1 | `.text` `.search` `.pw` `.error[role="alert"]` `.shake` |
 | [Amount and keypad](keypad.md) | UI-AMT-1 to UI-AMT-4, ACC-9 | `.amount` `.amount-expr` `.keypad` `.key / .key-op` |
 | [Cards and banner](cards.md) | UI-ENV-1, UI-HOME-5, UI-SUM-2 | `.card` `.card-hero` `.card-warn` `.banner` `.progress / .progress-over` |
 | [List rows, tags and badges](rows.md) | UI-ACC-1, UI-TXN-2, UI-CHK-3 | `.row` `.tag` `.tag-warn` `.badge` |
 | [Hidden amounts](masked.md) | UI-HOME-2, UI-HOME-3, DSH-1 | `.masked` |
-| [Sheets](sheets.md) | UI-NAV-4, UI-CHK-7, UI-TXN-8 | `.scrim` `.sheet` `.sheet-handle / .sheet-head` |
+| [Sheets](sheets.md) | UI-NAV-4, UI-CHK-7, UI-TXN-8 | `.scrim` `.sheet` `.sheet-handle / .sheet-head` `.t-group` `.opt[aria-checked]` `.cal / .day` |
 | [Top bar](topbar.md) | UI-NAV-1, UI-NAV-2 | `.topbar` `.t-title / .t-sub` |
 | [Pattern: private Home](p-home.md) | UI-HOME-1 to UI-HOME-6 |  |
 | [Pattern: category and envelope on Add expense](p-add.md) | UI-ADD-8 to UI-ADD-12, CAT-5 |  |

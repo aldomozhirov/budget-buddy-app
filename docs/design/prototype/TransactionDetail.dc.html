@@ -19,18 +19,14 @@ a{color:inherit}a:hover{color:inherit}
 .bb .num{font-variant-numeric:tabular-nums}
 .bb svg{flex:none}
 .bb .scroll::-webkit-scrollbar{display:none}
-.bb .field{width:100%;min-height:54px;display:flex;align-items:center;gap:12px;text-align:left;border-bottom:1px solid var(--line)}
-.bb .field-l{flex:none;width:96px;font-size:14px;color:var(--muted)}
-.bb .field-v{flex:1;min-width:0;font-weight:500;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bb .field-link::after{transform:rotate(-45deg);margin-bottom:0}
-.bb .field::after{content:"";flex:none;width:7px;height:7px;margin:0 4px 3px 2px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .2s ease}
-.bb .field[aria-expanded="true"]::after{transform:rotate(-135deg);margin-bottom:-3px}
-.bb .field:active{background:var(--soft)}
-.bb .wrap{display:flex;flex-wrap:wrap;gap:8px;padding:4px 0 14px;border-bottom:1px solid var(--line)}
-.bb .chip{height:40px;padding:0 14px;border-radius:20px;background:var(--bg);border:1px solid var(--line);font-size:14px;font-weight:500;display:flex;align-items:center;white-space:nowrap}
+.bb .seg{flex:1;height:36px;border-radius:10px;font-size:14px;font-weight:500;color:var(--muted);text-align:center}
+.bb .seg-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.bb .chip{flex:none;height:44px;padding:0 16px;border-radius:22px;background:var(--surface);border:1px solid var(--line);font-size:15px;font-weight:500;display:flex;align-items:center;white-space:nowrap}
 .bb .chip-on{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
-.bb .minput{width:100%;box-sizing:border-box;height:48px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:16px;padding:0 12px;outline:none}
-.bb .minput:focus{border-color:var(--ink)}
+.bb .key{height:46px;border-radius:12px;background:var(--bg);font-size:21px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.bb .key-op{background:var(--soft);font-size:19px}
+.bb .note{width:100%;box-sizing:border-box;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;padding:0 12px;outline:none}
+.bb .note::placeholder{color:var(--muted)}
 .bb .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 /* motion */
@@ -63,11 +59,29 @@ a{color:inherit}a:hover{color:inherit}
 .bb .pw-err{animation:bb-shake .4s ease}
 .bb [role="alert"]:not(:empty),.bb [role="status"]{animation:bb-fade .3s ease-out both}
 .bb .wrap{animation:bb-down .22s ease-out both}
+.bb .lbl{font-size:12px;font-weight:500;color:var(--muted);letter-spacing:.02em}
+.bb .hrow{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px}
+.bb .hrow::-webkit-scrollbar{display:none}
+.bb .chip-ghost{background:transparent;color:var(--muted);border-style:dashed}
+.bb .input{width:100%;box-sizing:border-box;height:48px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:16px;padding:0 12px;outline:none}
+.bb .input:focus{border-color:var(--ink)}
+.bb .opt{width:100%;min-height:56px;display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid var(--line);text-align:left;text-decoration:none}
+.bb .card{display:flex;flex-direction:column;border-radius:20px;background:var(--surface)}
+.bb .field{width:100%;min-height:54px;display:flex;align-items:center;gap:12px;text-align:left;border-bottom:1px solid var(--line);text-decoration:none;color:var(--ink)}
+.bb .field-l{flex:none;width:96px;font-size:14px;color:var(--muted)}
+.bb .field-v{flex:1;min-width:0;font-weight:500;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bb .field::after{content:"";flex:none;width:7px;height:7px;margin:0 4px 0 2px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(-45deg)}
+.bb .field:active{background:var(--soft)}
+.bb .day{height:44px;border-radius:12px;font-size:16px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.bb .day-on{background:var(--ink);color:var(--on-ink)}
+.bb .day-off{color:var(--line);cursor:default}
+.bb .noteinput{width:100%;box-sizing:border-box;min-height:96px;border-radius:14px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:16px;padding:12px 14px;outline:none;resize:none}
+.bb .noteinput:focus{border-color:var(--ink)}
+.bb .grp{margin:20px 0 6px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 @media (prefers-reduced-motion: reduce){.bb,.bb *{animation:none!important;transition:none!important}}
 </style>
 </helmet>
 <div class="bb {{themeClass}}" onClickCapture="{{navCapture}}" style="width: 390px; height: 844px; position: relative; overflow: hidden; background: var(--bg); color: var(--ink); font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.4; display: flex; flex-direction: column">
-
 <div style="padding: 48px 16px 8px; display: flex; align-items: center; gap: 12px">
 <a href="Transactions.dc.html" aria-label="Back to transactions" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
@@ -77,11 +91,10 @@ a{color:inherit}a:hover{color:inherit}
 </div>
 
 <div class="scroll" style="flex: 1; overflow-y: auto; padding: 8px 16px 32px; display: flex; flex-direction: column; gap: 14px">
-
 <div style="display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 0 8px">
-<button aria-label="Change amount" class="num" style="font-size: 44px; font-weight: 600; letter-spacing: -0.03em">−€64.20</button>
+<button aria-label="Change amount" class="num" style="font-size: 44px; font-weight: 600; letter-spacing: -0.03em">{{amountText}}</button>
 <span style="font-size: 17px; font-weight: 500">{{merchantValue}}</span>
-<span style="font-size: 13px; color: var(--muted)">{{dateLong}} · paid by {{payerValue}}</span>
+<span style="font-size: 13px; color: var(--muted)">{{dateLong}} · paid by {{payer}}</span>
 </div>
 
 <sc-if value="{{rulePrompt}}" hint-placeholder-val="{{ false }}">
@@ -95,132 +108,158 @@ a{color:inherit}a:hover{color:inherit}
 </div>
 </sc-if>
 <sc-if value="{{ruleSaved}}" hint-placeholder-val="{{ false }}">
-<div style="padding: 10px 14px; border-radius: 14px; background: var(--soft); font-size: 14px; display: flex; align-items: center; gap: 8px">
+<div role="status" style="padding: 10px 14px; border-radius: 14px; background: var(--soft); font-size: 14px; display: flex; align-items: center; gap: 8px">
 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>{{ruleSavedText}}</div>
 </sc-if>
 
-<div style="display: flex; flex-direction: column; border-radius: 18px; background: var(--surface); padding: 0 16px">
-<button class="field" onClick="{{toggleCat}}" aria-expanded="{{catOpen}}"><span class="field-l">Category</span><span class="field-v">{{catValue}}</span></button>
-<sc-if value="{{catOpen}}" hint-placeholder-val="{{ false }}">
-<div class="wrap">
-<sc-for list="{{cats}}" as="c" hint-placeholder-count="5">
-<button class="{{c.cls}}" aria-pressed="{{c.on}}" onClick="{{c.pick}}">{{c.label}}</button>
-</sc-for>
-</div>
-</sc-if>
-<button class="field" onClick="{{toggleEnv}}" aria-expanded="{{envOpen}}"><span class="field-l">Envelope</span><span class="field-v">{{envValue}}</span></button>
-<sc-if value="{{envOpen}}" hint-placeholder-val="{{ false }}">
-<div class="wrap">
-<sc-for list="{{envs}}" as="c" hint-placeholder-count="4">
-<button class="{{c.cls}}" aria-pressed="{{c.on}}" onClick="{{c.pick}}">{{c.label}}</button>
-</sc-for>
-</div>
-</sc-if>
-<a class="field field-link" href="AccountDetail.dc.html" style="text-decoration: none; color: var(--ink)"><span class="field-l">Paid from</span><span class="field-v">ING Visa · EUR</span></a>
-<button class="field" onClick="{{togglePayer}}" aria-expanded="{{payerOpen}}"><span class="field-l">Paid by</span><span class="field-v">{{payerValue}}</span></button>
-<sc-if value="{{payerOpen}}" hint-placeholder-val="{{ false }}">
-<div class="wrap">
-<sc-for list="{{payers}}" as="c" hint-placeholder-count="3">
-<button class="{{c.cls}}" aria-pressed="{{c.on}}" onClick="{{c.pick}}">{{c.label}}</button>
-</sc-for>
-</div>
-</sc-if>
-<button class="field" onClick="{{toggleDate}}" aria-expanded="{{dateOpen}}"><span class="field-l">Date</span><span class="field-v num">{{dateValue}}</span></button>
-<sc-if value="{{dateOpen}}" hint-placeholder-val="{{ false }}">
-<div class="wrap">
-<sc-for list="{{dates}}" as="c" hint-placeholder-count="4">
-<button class="{{c.cls}}" aria-pressed="{{c.on}}" onClick="{{c.pick}}">{{c.label}}</button>
-</sc-for>
-<button class="chip" style="border-style: dashed; color: var(--muted)">Other date…</button>
-</div>
-</sc-if>
-<button class="field" onClick="{{toggleMerchant}}" aria-expanded="{{merchantOpen}}"><span class="field-l">Merchant</span><span class="field-v">{{merchantValue}}</span></button>
-<sc-if value="{{merchantOpen}}" hint-placeholder-val="{{ false }}">
-<div class="wrap" style="flex-direction: column; flex-wrap: nowrap">
-<label for="m-in" class="sr">Merchant</label>
-<input id="m-in" class="minput" type="text" autocomplete="off" placeholder="Type a merchant" value="{{merchantDraft}}" onChange="{{onMerchant}}">
-<div style="display: flex; flex-wrap: wrap; gap: 8px">
-<sc-for list="{{merchants}}" as="c" hint-placeholder-count="4">
-<button class="{{c.cls}}" onClick="{{c.pick}}">{{c.label}}</button>
-</sc-for>
-</div>
-<button onClick="{{saveMerchant}}" style="height: 44px; border-radius: 14px; background: var(--ink); color: var(--on-ink); font-weight: 600; text-align: center">Save merchant</button>
-</div>
-</sc-if>
-<button class="field" style="border-bottom: 0"><span class="field-l">Note</span><span class="field-v" style="color: var(--muted); font-weight: 400">Add a note</span></button>
+<div class="card" style="border-radius: 18px; padding: 0 16px">
+<a class="field" href="AccountDetail.dc.html"><span class="field-l">Paid from</span><span class="field-v">{{accountValue}}</span></a>
+<button class="field" onClick="{{openMerchant}}" aria-haspopup="dialog"><span class="field-l">Merchant</span><span class="field-v">{{merchantValue}}</span></button>
+<button class="field" onClick="{{openCategory}}" aria-haspopup="dialog"><span class="field-l">Category</span><span class="field-v">{{catValue}}</span></button>
+<button class="field" onClick="{{openEnvelope}}" aria-haspopup="dialog"><span class="field-l">Envelope</span><span class="field-v num">{{envValue}}</span></button>
+<button class="field" onClick="{{openDate}}" aria-haspopup="dialog"><span class="field-l">Date</span><span class="field-v num">{{dateValue}}</span></button>
+<button class="field" onClick="{{openPayer}}" aria-haspopup="dialog"><span class="field-l">Paid by</span><span class="field-v">{{payer}}</span></button>
+<button class="field" onClick="{{openNote}}" aria-haspopup="dialog" style="border-bottom: 0"><span class="field-l">Note</span><span class="field-v" style="color: {{noteColor}}; font-weight: {{noteWeight}}">{{noteValue}}</span></button>
 </div>
 
 <div style="display: flex; flex-direction: column; gap: 6px">
 <h2 style="margin: 0 4px; font-size: 13px; font-weight: 500; color: var(--muted)">Record</h2>
-<div style="display: flex; flex-direction: column; border-radius: 18px; background: var(--surface); padding: 4px 16px">
-<div style="display: flex; gap: 12px; align-items: center; min-height: 48px; border-bottom: 1px solid var(--line)">
+<div class="card" style="border-radius: 18px; padding: 4px 16px">
+<div style="display: flex; gap: 12px; align-items: center; min-height: 48px; border-bottom: {{firstBorder}}">
 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>
-<span style="flex: 1; font-size: 14px">Typed in by Alena</span>
-<span class="num" style="font-size: 13px; color: var(--muted)">12:04</span>
+<span style="flex: 1; font-size: 14px">{{typedBy}}</span>
+<span class="num" style="font-size: 13px; color: var(--muted)">{{typedAt}}</span>
 </div>
 <sc-for list="{{history}}" as="h" hint-placeholder-count="1">
-<div style="display: flex; gap: 12px; align-items: center; min-height: 48px; border-bottom: 1px solid var(--line)">
+<div style="display: flex; gap: 12px; align-items: center; min-height: 48px; border-bottom: {{h.border}}">
 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"></path></svg>
-<span style="flex: 1; font-size: 14px">{{h.text}}</span>
+<span class="num" style="flex: 1; font-size: 14px">{{h.text}}</span>
 <span class="num" style="font-size: 13px; color: var(--muted)">{{h.time}}</span>
 </div>
 </sc-for>
-<div style="display: flex; gap: 12px; align-items: center; min-height: 48px">
+<sc-if value="{{showExtras}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; gap: 12px; align-items: center; min-height: 48px; border-top: 1px solid var(--line)">
 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10"></path><path d="M17 17v6M14 20h6"></path></svg>
 <span style="flex: 1; font-size: 14px; color: var(--muted)">Attach receipt</span>
 </div>
+</sc-if>
 </div>
 </div>
 
+<sc-if value="{{showExtras}}" hint-placeholder-val="{{ false }}">
 <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
 <button style="height: 52px; border-radius: 16px; background: var(--surface); font-weight: 600; text-align: center">Split</button>
 <button onClick="{{askDelete}}" style="height: 52px; border-radius: 16px; background: var(--surface); color: var(--warn); font-weight: 600; text-align: center">Delete</button>
 </div>
+</sc-if>
+<sc-if value="{{noExtras}}" hint-placeholder-val="{{ true }}">
+<button onClick="{{askDelete}}" style="height: 52px; border-radius: 16px; background: var(--surface); color: var(--warn); font-weight: 600; text-align: center">Delete</button>
+</sc-if>
 </div>
+
+<sc-if value="{{sheetOpen}}" hint-placeholder-val="{{ false }}">
+<div onClick="{{closeSheet}}" style="position: absolute; inset: 0; background: var(--scrim)"></div>
+<div role="dialog" aria-label="{{sheetTitle}}" style="position: absolute; left: 0; right: 0; bottom: 0; top: {{sheetTop}}; background: var(--surface); border-radius: 24px 24px 0 0; padding: 10px 16px 0; display: flex; flex-direction: column; gap: 12px">
+<div aria-hidden="true" style="align-self: center; width: 36px; height: 5px; border-radius: 3px; background: var(--line)"></div>
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="flex: 1; display: flex; flex-direction: column">
+<h2 style="margin: 0; font-size: 18px; font-weight: 600">{{sheetTitle}}</h2>
+<sc-if value="{{sheetHint}}" hint-placeholder-val="{{ false }}"><span style="font-size: 13px; color: var(--muted)">{{sheetHint}}</span></sc-if>
+</div>
+<button onClick="{{closeSheet}}" aria-label="Close" style="width: 44px; height: 44px; border-radius: 22px; background: var(--bg); display: flex; align-items: center; justify-content: center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+</div>
+
+<sc-if value="{{hasSearch}}" hint-placeholder-val="{{ false }}">
+<div style="position: relative">
+<label for="sheet-q" class="sr">{{searchPlaceholder}}</label>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position: absolute; left: 14px; top: 15px"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4 4"></path></svg>
+<input id="sheet-q" class="input" type="search" autocomplete="off" placeholder="{{searchPlaceholder}}" value="{{query}}" onChange="{{onQuery}}" style="padding-left: 42px">
+</div>
+</sc-if>
+
+<sc-if value="{{isList}}" hint-placeholder-val="{{ true }}">
+<div class="scroll" style="flex: {{listFlex}}; overflow-y: auto; margin: 0 -16px; padding: 0 16px {{listPad}}">
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
+<div role="radiogroup" aria-label="{{g.aria}}" style="display: flex; flex-direction: column">
+<sc-if value="{{g.title}}" hint-placeholder-val="{{ true }}"><h3 class="grp">{{g.title}}</h3></sc-if>
+<sc-for list="{{g.items}}" as="o" hint-placeholder-count="4">
+<button class="opt" role="radio" aria-checked="{{o.on}}" onClick="{{o.pick}}">
+<sc-if value="{{o.initial}}" hint-placeholder-val="{{ false }}">
+<span aria-hidden="true" style="width: 36px; height: 36px; border-radius: 18px; background: var(--ink); color: var(--on-ink); display: flex; align-items: center; justify-content: center; font-weight: 600; flex: none">{{o.initial}}</span>
+</sc-if>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+<span style="font-weight: 500">{{o.label}}</span>
+<sc-if value="{{o.sub}}" hint-placeholder-val="{{ false }}"><span style="font-size: 13px; color: var(--muted)">{{o.sub}}</span></sc-if>
+</span>
+<sc-if value="{{o.on}}" hint-placeholder-val="{{ false }}">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+</sc-if>
+</button>
+</sc-for>
+</div>
+</sc-for>
+<sc-if value="{{createLabel}}" hint-placeholder-val="{{ false }}">
+<button class="opt" onClick="{{create}}" style="color: var(--accent); font-weight: 600; border-bottom: 0">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>{{createLabel}}</button>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{showCount}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; padding: 12px 14px; border-radius: 14px; background: var(--bg)">
+<span class="lbl">Counts in the envelope as</span>
+<span class="num" style="font-size: 28px; font-weight: 600; letter-spacing: -0.02em">{{countText}}</span>
+<span class="num" style="font-size: 12px; color: var(--muted)">{{countHint}}</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px">
+<sc-for list="{{keys}}" as="key" hint-placeholder-count="20">
+<button class="{{key.cls}}" aria-label="{{key.aria}}" onClick="{{key.press}}">{{key.label}}</button>
+</sc-for>
+</div>
+<button onClick="{{saveCount}}" disabled="{{countDisabled}}" class="num" style="height: 52px; margin-bottom: 30px; border-radius: 16px; background: {{countBg}}; color: {{countFg}}; font-weight: 600; text-align: center">{{countLabel}}</button>
+</sc-if>
+
+<sc-if value="{{isDate}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 0 4px">
+<button aria-label="Previous month" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg></button>
+<span style="font-weight: 600">October 2026</span>
+<button aria-label="Next month" disabled="{{ true }}" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; opacity: .3"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
+</div>
+<div aria-hidden="true" style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; text-align: center; font-size: 12px; color: var(--muted)">
+<span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; padding-bottom: 6px">
+<sc-for list="{{calDays}}" as="d" hint-placeholder-count="35">
+<button class="{{d.cls}}" onClick="{{d.pick}}" disabled="{{d.off}}" aria-label="{{d.aria}}" aria-pressed="{{d.on}}">{{d.label}}</button>
+</sc-for>
+</div>
+<button onClick="{{pickToday}}" style="height: 48px; margin-bottom: 30px; border-radius: 16px; background: var(--bg); font-weight: 600; text-align: center">Today</button>
+</sc-if>
+
+<sc-if value="{{isNote}}" hint-placeholder-val="{{ false }}">
+<label for="note-in" class="sr">Note</label>
+<textarea id="note-in" class="noteinput" placeholder="e.g. Birthday cake for Sofia" value="{{noteDraft}}" onChange="{{onNoteDraft}}"></textarea>
+<button onClick="{{saveNote}}" style="height: 56px; margin-bottom: 30px; border-radius: 18px; background: var(--ink); color: var(--on-ink); font-weight: 600; font-size: 16px; text-align: center">Done</button>
+</sc-if>
+</div>
+</sc-if>
 
 <sc-if value="{{confirmDelete}}" hint-placeholder-val="{{ false }}">
 <div onClick="{{cancelDelete}}" style="position: absolute; inset: 0; background: var(--scrim)"></div>
 <div role="dialog" aria-label="Delete expense" style="position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 24px 24px 0 0; padding: 24px 16px 30px; display: flex; flex-direction: column; gap: 10px">
 <h2 style="margin: 0; font-size: 20px; font-weight: 600">Delete this expense?</h2>
-<p style="margin: 0 0 10px; color: var(--muted)">€64.20 goes back into Groceries. This can’t be undone.</p>
+<p class="num" style="margin: 0 0 10px; color: var(--muted)">{{deleteText}}</p>
 <a href="Transactions.dc.html" style="height: 56px; border-radius: 18px; background: var(--warn); color: var(--surface); font-weight: 600; font-size: 16px; display: flex; align-items: center; justify-content: center; text-decoration: none">Delete</a>
 <button onClick="{{cancelDelete}}" style="height: 56px; border-radius: 18px; background: var(--bg); font-weight: 600; font-size: 16px; text-align: center">Keep it</button>
 </div>
 </sc-if>
-
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":390,"height":844}}'>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"variant":{"editor":"enum","options":["eur","fx"],"default":"eur"},"sheet":{"editor":"enum","options":["none","category","envelope","payer","date","merchant","note"],"default":"none"},"$preview":{"width":390,"height":844}}'>
 class Component extends DCLogic {
-  constructor(props) {
-    super(props);
-    this.state = { cat: 'Groceries', env: 'Groceries', merchant: 'REWE', merchantDraft: 'REWE', day: 5, payer: 'Alena', open: null, catOpen: false, envOpen: false, rulePrompt: false, ruleSaved: false, history: [], confirmDelete: false };
-  }
-  renderVals() {
-    var self = this;
-    var st = this.state;
-    function dayShort(d) { return d === 5 ? 'Today' : (d === 4 ? 'Yesterday' : ['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed'][(d - 1) % 7] + ' ' + d + ' Oct'); }
-    function dayLong(d) { return (d === 5 ? 'Today, ' : (d === 4 ? 'Yesterday, ' : '')) + d + ' October 2026'; }
-    function toggle(k) { self.setState({ open: self.state.open === k ? null : k, catOpen: false, envOpen: false }); }
-    function change(patch, text) {
-      if (text) patch.history = self.state.history.concat([{ text: text + ' by Alena', time: 'now' }]);
-      self.setState(patch);
-    }
-    var CATS = ['Groceries', 'Eating out', 'Shopping', 'Household', 'Gifts', 'Other'];
-    var ENVS = ['Groceries', 'Eating out', 'Unexpected', 'None'];
-    var cats = CATS.map(function (c) {
-      var on = st.cat === c;
-      return { label: c, on: on, cls: on ? 'chip chip-on' : 'chip', pick: function () {
-        if (c === self.state.cat) { self.setState({ catOpen: false }); return; }
-        self.setState({ cat: c, catOpen: false, rulePrompt: true, ruleSaved: false, history: self.state.history.concat([{ text: 'Category changed to ' + c + ' by Alena', time: 'now' }]) });
-      } };
-    });
-    var envs = ENVS.map(function (e) {
-      var on = st.env === e;
-      return { label: e, on: on, cls: on ? 'chip chip-on' : 'chip', pick: function () {
-        self.setState({ env: e, envOpen: false, history: e === self.state.env ? self.state.history : self.state.history.concat([{ text: 'Envelope changed to ' + e + ' by Alena', time: 'now' }]) });
-      } };
-    });
+  nav(from) {
     return {
       themeClass: (this.props.dark ? 'bb-dark' : 'bb-light') + ' ' + (function () { try { return sessionStorage.getItem('bb-nav') === 'back' ? 'nav-back' : 'nav-fwd'; } catch (e) { return 'nav-fwd'; } })(),
       navCapture: function (e) {
@@ -228,50 +267,221 @@ class Component extends DCLogic {
         if (!a) return;
         var href = a.getAttribute('href') || '', label = (a.getAttribute('aria-label') || '') + ' ' + (a.textContent || '');
         var back = href === 'Main.dc.html' || /^\s*(Back|Close|Cancel|Done|Later|Keep)/.test(label) || /^\s*(Back home|Back to)/.test(a.textContent || '');
-        try { sessionStorage.setItem('bb-nav', back ? 'back' : 'fwd'); if (!back) sessionStorage.setItem('bb-from:' + href, 'TransactionDetail.dc.html'); } catch (err) {}
-      },
+        try { sessionStorage.setItem('bb-nav', back ? 'back' : 'fwd'); if (!back && from) sessionStorage.setItem('bb-from:' + href, from); } catch (err) {}
+      }
+    };
+  }
+  evaluate(s) {
+    var t = s.replace(/−/g, '-').replace(/×/g, '*').replace(/÷/g, '/');
+    var i = 0;
+    function peek() { return t[i]; }
+    function num() {
+      var st = i;
+      while (i < t.length && /[0-9.]/.test(t[i])) i++;
+      var str = t.slice(st, i);
+      if (!str || !/^(\d+\.?\d*|\.\d+)$/.test(str)) throw new Error('num');
+      return parseFloat(str);
+    }
+    function factor() {
+      if (peek() === '-') { i++; return -factor(); }
+      if (peek() === '+') { i++; return factor(); }
+      var v;
+      if (peek() === '(') { i++; v = expr(); if (peek() !== ')') throw new Error('paren'); i++; }
+      else v = num();
+      while (peek() === '%') { i++; v = v / 100; }
+      return v;
+    }
+    function term() {
+      var v = factor();
+      while (peek() === '*' || peek() === '/') {
+        var op = t[i++]; var r = factor();
+        if (op === '/') { if (r === 0) throw new Error('div0'); v = v / r; } else v = v * r;
+      }
+      return v;
+    }
+    function expr() {
+      var v = term();
+      while (peek() === '+' || peek() === '-') {
+        var op = t[i++]; var r = term();
+        v = op === '+' ? v + r : v - r;
+      }
+      return v;
+    }
+    var v = expr();
+    if (i !== t.length) throw new Error('trailing');
+    return Math.round(v * 100) / 100;
+  }
+  tryEval(s) { try { return s ? this.evaluate(s) : null; } catch (e) { return null; } }
+  keypad(onKey) {
+    var KEYS = ['7', '8', '9', '(', ')', '4', '5', '6', '×', '÷', '1', '2', '3', '+', '−', '.', '0', '%', '⌫', 'C'];
+    var ARIA = { '(': 'Open bracket', ')': 'Close bracket', '×': 'Multiply', '÷': 'Divide', '+': 'Plus', '−': 'Minus', '%': 'Percent', '⌫': 'Delete', 'C': 'Clear', '.': 'Decimal point' };
+    return KEYS.map(function (k) {
+      return { label: k, aria: ARIA[k] || k, cls: /[0-9.]/.test(k) ? 'key' : 'key key-op', press: function () { onKey(k); } };
+    });
+  }
+  typed(e, k) {
+    if (k === 'C') return '';
+    if (k === '⌫') return e.slice(0, -1);
+    return (e + k).slice(0, 40);
+  }
+
+  constructor(props) {
+    super(props);
+    var fx = props.variant === 'fx';
+    var s = props.sheet && props.sheet !== 'none' ? props.sheet : null;
+    this.state = fx
+      ? { sheet: s, query: '', cat: 'Groceries', env: 'Groceries', merchant: 'Whole Foods', day: 2, payer: 'Max', note: '', noteDraft: '', count: 21.4, manual: false, expr: '', newCats: [], rulePrompt: false, ruleSaved: false, history: [], confirmDelete: false }
+      : { sheet: s, query: '', cat: 'Groceries', env: 'Groceries', merchant: 'REWE', day: 5, payer: 'Alena', note: '', noteDraft: '', count: 64.2, manual: false, expr: '', newCats: [], rulePrompt: false, ruleSaved: false, history: [], confirmDelete: false };
+  }
+  renderVals() {
+    var self = this, st = this.state;
+    var fx = (this.props.variant || 'eur') === 'fx';
+    function eur(v) { return '€' + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    var WD = ['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed'];
+    function dayShort(d) { return d === 5 ? 'Today' : (d === 4 ? 'Yesterday' : WD[(d - 1) % 7] + ' ' + d + ' Oct'); }
+    function dayLong(d) { return (d === 5 ? 'Today, ' : (d === 4 ? 'Yesterday, ' : '')) + d + ' October 2026'; }
+    function log(text) { return self.state.history.concat([{ text: text + ' by Alena', time: 'now' }]); }
+    function close(patch) { patch.sheet = null; patch.query = ''; patch.expr = ''; self.setState(patch); }
+    var q = (st.query || '').trim().toLowerCase();
+    function match(s) { return !q || s.toLowerCase().indexOf(q) >= 0; }
+
+    var groups = [], createLabel = '', create = null, title = '', hint = '', searchPh = '', top = '96px';
+    var sheet = st.sheet;
+    if (sheet === 'category') {
+      title = 'Category'; searchPh = 'Search or add a category';
+      var ALL = ['Groceries', 'Eating out', 'Housing', 'Utilities', 'Transport', 'Health', 'Insurance', 'Subscriptions', 'Shopping', 'Travel', 'Leisure', 'Gifts', 'Fees and taxes', 'Other'].concat(st.newCats);
+      var citem = function (c) {
+        return { label: c, sub: '', on: st.cat === c, pick: function () {
+          if (c === self.state.cat) { close({}); return; }
+          close({ cat: c, rulePrompt: true, ruleSaved: false, history: log('Category changed to ' + c) });
+        } };
+      };
+      if (!q) {
+        groups.push({ title: 'Recent', aria: 'Recent', items: ['Groceries', 'Eating out', 'Transport'].map(citem) });
+        groups.push({ title: 'All categories', aria: 'All categories', items: ALL.slice().sort().map(citem) });
+      } else {
+        var hits = ALL.filter(match).sort().map(citem);
+        if (hits.length) groups.push({ title: hits.length + (hits.length === 1 ? ' match' : ' matches'), aria: 'Matches', items: hits });
+        if (!ALL.some(function (c) { return c.toLowerCase() === q; })) {
+          var nm = st.query.trim(); nm = nm.charAt(0).toUpperCase() + nm.slice(1);
+          createLabel = 'Add category “' + nm + '”';
+          create = function () { close({ newCats: self.state.newCats.concat([nm]), cat: nm, rulePrompt: true, ruleSaved: false, history: log('Category changed to ' + nm) }); };
+        }
+      }
+    } else if (sheet === 'envelope') {
+      title = 'Envelope';
+      hint = 'Changing it never changes the category.';
+      top = fx ? '72px' : 'auto';
+      var ENV = [['Groceries', 'Resets monthly · €187.60 left'], ['Eating out', 'Resets monthly · −€14.50 overspent'], ['Unexpected', 'Carries over · €375.00 left'], ['None', 'Counts in no envelope']];
+      groups.push({ title: '', aria: 'Envelope', items: ENV.map(function (e) {
+        return { label: e[0], sub: e[1], on: st.env === e[0], pick: function () {
+          if (e[0] === self.state.env) { if (!fx) close({}); return; }
+          // another envelope recomputes the amount at the date's rate and clears a hand-typed one
+          var patch = { env: e[0], count: fx ? 21.4 : self.state.count, manual: false, expr: '', history: log('Envelope changed to ' + e[0]) };
+          if (fx && e[0] !== 'None') self.setState(patch); else close(patch);
+        } };
+      }) });
+    } else if (sheet === 'payer') {
+      title = 'Paid by'; hint = 'Who paid. The account stays as picked.'; top = 'auto';
+      groups.push({ title: '', aria: 'Paid by', items: ['Alena', 'Max', 'Sofia'].map(function (m) {
+        return { label: m === 'Alena' ? 'Alena (you)' : m, initial: m.charAt(0), sub: '', on: st.payer === m, pick: function () {
+          close(m === self.state.payer ? {} : { payer: m, history: log('Paid by changed to ' + m) });
+        } };
+      }) });
+    } else if (sheet === 'merchant') {
+      title = 'Merchant'; searchPh = 'Search or type a merchant';
+      var MER = [['REWE', 'Rule: Groceries'], ['Lidl', 'Rule: Groceries'], ['Edeka', 'Rule: Groceries'], ['Aldi', 'Rule: Groceries'], ['Wochenmarkt', 'Used before'], ['Bäckerei Müller', 'Rule: Groceries'], ['Whole Foods', 'Used before']];
+      var mitem = function (m) {
+        return { label: m[0], sub: m[1], on: st.merchant === m[0], pick: function () {
+          close(m[0] === self.state.merchant ? {} : { merchant: m[0], history: log('Merchant changed to ' + m[0]) });
+        } };
+      };
+      if (!q) {
+        groups.push({ title: 'Recent', aria: 'Recent', items: MER.map(mitem) });
+        if (st.merchant) groups.push({ title: '', aria: 'Remove', items: [{ label: 'No merchant', sub: 'Remove it from this expense', on: false, pick: function () { close({ merchant: null, history: log('Merchant removed') }); } }] });
+      } else {
+        var mh = MER.filter(function (m) { return match(m[0]); }).map(mitem);
+        if (mh.length) groups.push({ title: mh.length + (mh.length === 1 ? ' match' : ' matches'), aria: 'Matches', items: mh });
+        if (!MER.some(function (m) { return m[0].toLowerCase() === q; })) {
+          var typedM = st.query.trim();
+          createLabel = 'Use “' + typedM + '”';
+          create = function () { close({ merchant: typedM, history: log('Merchant changed to ' + typedM) }); };
+        }
+      }
+    } else if (sheet === 'date') {
+      title = 'Date'; top = 'auto';
+    } else if (sheet === 'note') {
+      title = 'Note'; top = 'auto';
+    }
+
+    var calDays = [];
+    for (var b = 0; b < 3; b++) calDays.push({ label: '', cls: 'day', off: true, aria: '', on: false, pick: function () {} });
+    for (var dd = 1; dd <= 31; dd++) (function (d) {
+      var future = d > 5, on = st.day === d;
+      calDays.push({ label: String(d), off: future, on: on, aria: d + ' October' + (future ? ', in the future' : ''), cls: on ? 'day day-on' : (future ? 'day day-off' : 'day'),
+        pick: function () { if (!future) close(d === self.state.day ? {} : { day: d, history: log('Date changed to ' + dayShort(d)) }); } });
+    })(dd);
+
+    var typed = this.tryEval(st.expr);
+    var canCount = !!st.expr && typed !== null && typed > 0;
+    var showCount = fx && sheet === 'envelope' && st.env !== 'None';
+    var history = st.history.map(function (h, i) { return { text: h.text, time: h.time, border: i < st.history.length - 1 ? '1px solid var(--line)' : '0' }; });
+    var listSheet = sheet === 'category' || sheet === 'envelope' || sheet === 'payer' || sheet === 'merchant';
+    return Object.assign(this.nav(fx ? 'TransactionFx.dc.html' : 'TransactionDetail.dc.html'), {
       savedState: st.history.length ? 'Saved' : '',
-      catValue: st.cat,
-      envValue: st.env,
-      catOpen: st.catOpen,
-      envOpen: st.envOpen,
-      toggleCat: function () { self.setState({ catOpen: !self.state.catOpen, envOpen: false, open: null }); },
-      toggleEnv: function () { self.setState({ envOpen: !self.state.envOpen, catOpen: false, open: null }); },
+      amountText: fx ? '−$23.39' : '−€64.20',
+      accountValue: fx ? 'Wise $ · USD' : 'ING Visa · EUR',
+      typedBy: fx ? 'Typed in by Max' : 'Typed in by Alena',
+      typedAt: fx ? '2 Oct · 18:42' : '12:04',
+      showExtras: !fx, noExtras: fx,
       merchantValue: st.merchant || 'No merchant',
-      payerValue: st.payer,
-      dateValue: (st.day < 10 ? '0' : '') + st.day + '/10/2026',
+      payer: st.payer,
       dateLong: dayLong(st.day),
-      payerOpen: st.open === 'payer', dateOpen: st.open === 'date', merchantOpen: st.open === 'merchant',
-      togglePayer: function () { toggle('payer'); },
-      toggleDate: function () { toggle('date'); },
-      toggleMerchant: function () { toggle('merchant'); self.setState({ merchantDraft: self.state.merchant || '' }); },
-      payers: ['Alena', 'Max', 'Sofia'].map(function (m) {
-        var on = st.payer === m;
-        return { label: m, on: on, cls: on ? 'chip chip-on' : 'chip', pick: function () { change({ payer: m, open: null }, m === self.state.payer ? null : 'Paid by changed to ' + m); } };
-      }),
-      dates: [5, 4, 3, 2].map(function (d) {
-        var on = st.day === d;
-        return { label: dayShort(d), on: on, cls: on ? 'chip chip-on' : 'chip', pick: function () { change({ day: d, open: null }, d === self.state.day ? null : 'Date changed to ' + dayShort(d)); } };
-      }),
-      merchantDraft: st.merchantDraft,
-      onMerchant: function (e) { self.setState({ merchantDraft: e.target.value }); },
-      merchants: ['REWE', 'Lidl', 'Edeka', 'Aldi', 'Wochenmarkt'].filter(function (m) { var q = (st.merchantDraft || '').toLowerCase(); return !q || m.toLowerCase().indexOf(q) >= 0; }).map(function (m) {
-        return { label: m, cls: st.merchantDraft === m ? 'chip chip-on' : 'chip', pick: function () { self.setState({ merchantDraft: m }); } };
-      }),
-      saveMerchant: function () { var m = self.state.merchantDraft.trim(); change({ merchant: m || null, open: null }, m === self.state.merchant ? null : (m ? 'Merchant changed to ' + m : 'Merchant removed')); },
-      cats: cats,
-      envs: envs,
-      rulePrompt: st.rulePrompt,
+      dateValue: (st.day < 10 ? '0' : '') + st.day + '/10/2026',
+      catValue: st.cat || 'None',
+      envValue: st.env === 'None' ? 'None' : (fx ? st.env + ' · counts as ' + eur(st.count) : st.env),
+      noteValue: st.note || 'Add a note',
+      noteColor: st.note ? 'var(--ink)' : 'var(--muted)',
+      noteWeight: st.note ? '500' : '400',
+      openCategory: function () { self.setState({ sheet: 'category', query: '' }); },
+      openEnvelope: function () { self.setState({ sheet: 'envelope', expr: '' }); },
+      openPayer: function () { self.setState({ sheet: 'payer' }); },
+      openDate: function () { self.setState({ sheet: 'date' }); },
+      openMerchant: function () { self.setState({ sheet: 'merchant', query: '' }); },
+      openNote: function () { self.setState({ sheet: 'note', noteDraft: self.state.note }); },
+      closeSheet: function () { close({}); },
+      sheetOpen: !!sheet, sheetTitle: title, sheetHint: hint, sheetTop: top,
+      hasSearch: sheet === 'category' || sheet === 'merchant', searchPlaceholder: searchPh,
+      query: st.query, onQuery: function (e) { self.setState({ query: e.target.value }); },
+      isList: listSheet, listFlex: top === 'auto' || showCount ? '0 1 auto' : '1', listPad: showCount ? '0' : '34px',
+      groups: groups, createLabel: createLabel, create: create || function () {},
+      showCount: showCount,
+      countText: st.expr ? (typed === null ? '€0' : eur(typed)) : eur(st.count),
+      countHint: st.manual ? 'Typed by hand. It changes again if the amount, date, account or envelope changes.' : 'At the rate of 2 October: $1 = €0.9149. Type what the bank charged, if you know it.',
+      keys: this.keypad(function (k) { self.setState({ expr: self.typed(self.state.expr, k) }); }),
+      countDisabled: !canCount,
+      countBg: canCount ? 'var(--ink)' : 'var(--soft)',
+      countFg: canCount ? 'var(--on-ink)' : 'var(--muted)',
+      countLabel: canCount ? 'Count it as ' + eur(typed) : 'Type the amount in euros',
+      saveCount: function () { if (canCount) close({ count: typed, manual: true, history: log('Envelope amount changed to ' + eur(typed)) }); },
+      isDate: sheet === 'date', calDays: calDays,
+      pickToday: function () { close(self.state.day === 5 ? {} : { day: 5, history: log('Date changed to Today') }); },
+      isNote: sheet === 'note', noteDraft: st.noteDraft,
+      onNoteDraft: function (e) { self.setState({ noteDraft: e.target.value }); },
+      saveNote: function () { var n = self.state.noteDraft.trim(); close(n === self.state.note ? {} : { note: n, history: log(n ? 'Note changed' : 'Note removed') }); },
+      rulePrompt: st.rulePrompt && !!st.merchant,
       ruleText: 'Always label ' + st.merchant + ' as ' + st.cat + '?',
       saveRule: function () { self.setState({ rulePrompt: false, ruleSaved: true }); },
       dismissRule: function () { self.setState({ rulePrompt: false }); },
       ruleSaved: st.ruleSaved,
       ruleSavedText: 'Rule saved: ' + st.merchant + ' → ' + st.cat,
-      history: st.history,
+      firstBorder: st.history.length ? '1px solid var(--line)' : '0',
+      history: history,
+      deleteText: st.env === 'None' ? 'It’s in no envelope. This can’t be undone.' : eur(fx ? st.count : 64.2) + ' goes back into ' + st.env + '. This can’t be undone.',
       askDelete: function () { self.setState({ confirmDelete: true }); },
       cancelDelete: function () { self.setState({ confirmDelete: false }); },
       confirmDelete: st.confirmDelete
-    };
+    });
   }
 }
 </script>
