@@ -20,6 +20,7 @@ import { familyRoutes } from './modules/family/index.js';
 import { currenciesRoutes } from './modules/currencies/index.js';
 import { settingsRoutes } from './modules/settings/index.js';
 import { accountRoutes } from './modules/accounts/index.js';
+import { envelopeRoutes } from './modules/envelopes/index.js';
 import { snapshotRoutes } from './modules/snapshots/index.js';
 import { checkinRoutes } from './modules/checkins/index.js';
 import { ratesRoutes } from './modules/rates/index.js';
@@ -162,6 +163,10 @@ export async function createApp(options: AppOptions) {
     clock,
     rates,
     events,
+  });
+  await app.register(envelopeRoutes, {
+    database: options.database,
+    clock,
   });
   await app.register(snapshotRoutes, {
     database: options.database,
