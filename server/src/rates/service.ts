@@ -27,6 +27,11 @@ export interface RatesServiceOptions {
   /** Every feed the service may call; each serves the currencies it covers. */
   feeds: readonly RateFeed[];
   logger?: RatesLogger;
+  /**
+   * Called after new rates are stored, such as to fill envelope amounts that
+   * waited for a rate. A throw is logged and does not fail the fetch.
+   */
+  onRatesStored?: () => void;
 }
 
 /** A feed that could not be fetched, as `refreshToday` reports it. */
@@ -109,7 +114,7 @@ interface Gap {
  * Stored rates are only ever added (CUR-2): a date that has a rate keeps it.
  */
 export function createRatesService(options: RatesServiceOptions): RatesService {
-  const { database, clock, feeds, logger } = options;
+  const { database, clock, feeds, logger, onRatesStored } = options;
   const ledgers = new Map<string, Ledger>();
   /**
    * When a feed last reported a problem for a currency, by `kind|feed|code`.
@@ -354,6 +359,13 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
         }
         return added;
       })();
+      if (stored > 0 && onRatesStored) {
+        try {
+          onRatesStored();
+        } catch (error) {
+          logger?.error(error, 'Work after storing rates failed');
+        }
+      }
       const status =
         kind === 'backfill'
           ? 'backfilled'
