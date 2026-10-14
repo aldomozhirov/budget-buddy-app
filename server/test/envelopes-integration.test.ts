@@ -427,6 +427,30 @@ describe('envelopes API', () => {
     expect(same.statusCode).toBe(200);
   });
 
+  it('leaves every amount and the currency alone when a relabel overflows', async () => {
+    // JPY has no decimals and BHD three: 10^17 yen would be 10^20 fils.
+    const id = await create({
+      currency: 'JPY',
+      startingBalance: '100',
+      monthlyAmount: '100000000000000000',
+    });
+    const refused = await call('PATCH', `/api/envelopes/${id}`, {
+      currency: 'BHD',
+      confirm: true,
+    });
+    expect(refused.statusCode).toBe(400);
+    expect(refused.json().error.fields.currency).toBeDefined();
+    expect(
+      database
+        .prepare(
+          `SELECT e.currency, e.starting_balance AS balance,
+             p.monthly_amount AS plan
+           FROM envelope e JOIN envelope_plan p ON p.envelope_id = e.id`,
+        )
+        .get(),
+    ).toEqual({ currency: 'JPY', balance: 100n, plan: 100000000000000000n });
+  });
+
   it('relabels the top-ups made so far with the rest of an unused envelope', async () => {
     const id = await create();
     now = Date.parse('2026-11-02T10:00:00.000Z');

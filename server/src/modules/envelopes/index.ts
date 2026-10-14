@@ -625,7 +625,12 @@ function writeNextPlan(
   });
 }
 
-/** Relabels every stored amount of an unused envelope (O6, ACC-5). */
+/**
+ * Relabels every stored amount of an unused envelope (O6, ACC-5). Every new
+ * amount is computed before the first write, so a `RangeError` leaves the
+ * envelope untouched.
+ * @throws {RangeError} if an amount is too large in the new currency.
+ */
 function relabel(
   database: Database.Database,
   id: number,
@@ -637,22 +642,28 @@ function relabel(
   const envelope = database
     .prepare('SELECT starting_balance AS amount FROM envelope WHERE id = ?')
     .get(id) as { amount: bigint };
+  const startingBalance = rescale(envelope.amount);
+  const changes = (['envelope_plan', 'envelope_topup'] as const).map(
+    (table) => {
+      const column = table === 'envelope_plan' ? 'monthly_amount' : 'amount';
+      const rows = database
+        .prepare(
+          `SELECT id, ${column} AS amount FROM ${table} WHERE envelope_id = ?`,
+        )
+        .all(id) as Array<{ id: bigint; amount: bigint }>;
+      return {
+        update: database.prepare(
+          `UPDATE ${table} SET ${column} = ? WHERE id = ?`,
+        ),
+        rows: rows.map((row) => ({ id: row.id, amount: rescale(row.amount) })),
+      };
+    },
+  );
   database
     .prepare('UPDATE envelope SET starting_balance = ? WHERE id = ?')
-    .run(rescale(envelope.amount), id);
-  for (const [table, column] of [
-    ['envelope_plan', 'monthly_amount'],
-    ['envelope_topup', 'amount'],
-  ] as const) {
-    const rows = database
-      .prepare(
-        `SELECT id, ${column} AS amount FROM ${table} WHERE envelope_id = ?`,
-      )
-      .all(id) as Array<{ id: bigint; amount: bigint }>;
-    const update = database.prepare(
-      `UPDATE ${table} SET ${column} = ? WHERE id = ?`,
-    );
-    for (const row of rows) update.run(rescale(row.amount), row.id);
+    .run(startingBalance, id);
+  for (const { update, rows } of changes) {
+    for (const row of rows) update.run(row.amount, row.id);
   }
 }
 
