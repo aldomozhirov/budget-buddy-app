@@ -187,9 +187,12 @@ CREATE INDEX `txn_revision_txn_idx` ON `txn_revision` (`txn_id`);
 --> statement-breakpoint
 -- Starter categories (CAT-3, O1) for a family that already did first start.
 -- A fresh install has no family yet and gets them at first start.
+WITH `now` (`ms`) AS (
+  SELECT CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)
+)
 INSERT INTO `category` (`name`, `kind`, `position`, `created_at`, `updated_at`)
-SELECT `column1`, `column2`, `column3`, CAST(strftime('%s', 'now') AS INTEGER) * 1000, CAST(strftime('%s', 'now') AS INTEGER) * 1000
-FROM (VALUES
+SELECT `column1`, `column2`, `column3`, `now`.`ms`, `now`.`ms`
+FROM `now`, (VALUES
   ('Groceries', 'expense', 1),
   ('Eating out', 'expense', 2),
   ('Housing', 'expense', 3),

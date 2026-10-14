@@ -251,6 +251,15 @@ describe('migration 0005: spending schema', () => {
       })),
     );
     expect(categories).toHaveLength(16);
+    // Stamped in milliseconds, like every other instant of the database.
+    const stamps = database
+      .prepare('SELECT DISTINCT created_at, updated_at FROM category')
+      .all() as Array<{ created_at: bigint; updated_at: bigint }>;
+    expect(stamps).toHaveLength(1);
+    expect(Math.abs(Number(stamps[0]?.created_at) - Date.now())).toBeLessThan(
+      60_000,
+    );
+    expect(stamps[0]?.updated_at).toBe(stamps[0]?.created_at);
     expect(
       database
         .prepare("SELECT COUNT(*) AS n FROM category WHERE kind = 'income'")
@@ -356,7 +365,7 @@ describe('migration 0005: spending schema', () => {
           VALUES (1, 'Groceries', 'expense', 1, 1, 1);
         INSERT INTO txn (id, kind, date, account_id, amount, member_id,
           created_by, created_at, updated_by, updated_at)
-          VALUES (1, 'expense', '2026-10-01', 1, -100, 1, 1, 1, 1, 1);
+          VALUES (1, 'expense', '2026-10-01', 1, 100, 1, 1, 1, 1, 1);
       `);
     });
 
@@ -420,36 +429,36 @@ describe('migration 0005: spending schema', () => {
       ],
       [
         'an expense with a target account',
-        txn('amount, to_account_id, to_amount', '-5, 2, 5'),
+        txn('amount, to_account_id, to_amount', '5, 2, 5'),
         /CHECK constraint failed: txn_no_transfer_side_check/,
       ],
       [
         'an external id without a source reference',
-        txn('amount, external_id', "-5, 'x'"),
+        txn('amount, external_id', "5, 'x'"),
         /CHECK constraint failed: txn_external_source_check/,
       ],
       [
         'a duplicate client id',
-        txn('amount, client_id', "-5, 'c-1'") +
+        txn('amount, client_id', "5, 'c-1'") +
           ';' +
-          txn('amount, client_id', "-6, 'c-1'"),
+          txn('amount, client_id', "6, 'c-1'"),
         /UNIQUE constraint failed: txn.client_id/,
       ],
       [
         'a duplicate source reference and external id',
-        txn('amount, source_ref, external_id', "-5, 's', 'e'") +
+        txn('amount, source_ref, external_id', "5, 's', 'e'") +
           ';' +
-          txn('amount, source_ref, external_id', "-6, 's', 'e'"),
+          txn('amount, source_ref, external_id', "6, 's', 'e'"),
         /UNIQUE constraint failed: txn.source_ref, txn.external_id/,
       ],
       [
         'a transaction date that is not a date',
-        txn('amount', '-5').replace("'2026-10-02'", "'02/10/2026'"),
+        txn('amount', '5').replace("'2026-10-02'", "'02/10/2026'"),
         /CHECK constraint failed: txn_date_check/,
       ],
       [
         'a transaction of an unknown kind',
-        txn('amount', '-5').replace("'expense'", "'gift'"),
+        txn('amount', '5').replace("'expense'", "'gift'"),
         /CHECK constraint failed: txn_kind_check/,
       ],
       [
@@ -509,17 +518,17 @@ describe('migration 0005: spending schema', () => {
       ],
       [
         'an envelope amount without an envelope',
-        `INSERT INTO txn_part (txn_id, position, amount, envelope_amount) VALUES (1, 1, -100, -100)`,
+        `INSERT INTO txn_part (txn_id, position, amount, envelope_amount) VALUES (1, 1, 100, 100)`,
         /CHECK constraint failed: txn_part_envelope_amount_check/,
       ],
       [
         'two parts at one position',
-        `INSERT INTO txn_part (txn_id, position, amount) VALUES (1, 1, -100); INSERT INTO txn_part (txn_id, position, amount) VALUES (1, 1, -100)`,
+        `INSERT INTO txn_part (txn_id, position, amount) VALUES (1, 1, 100); INSERT INTO txn_part (txn_id, position, amount) VALUES (1, 1, 100)`,
         /UNIQUE constraint failed: txn_part.txn_id, txn_part.position/,
       ],
       [
         'a part of a missing transaction',
-        `INSERT INTO txn_part (txn_id, position, amount) VALUES (42, 1, -100)`,
+        `INSERT INTO txn_part (txn_id, position, amount) VALUES (42, 1, 100)`,
         /FOREIGN KEY constraint failed/,
       ],
       [
@@ -555,8 +564,8 @@ describe('migration 0005: spending schema', () => {
           VALUES ('transfer', '2026-10-02', 1, 100, 2, 100, 1, 1, 1, 1, 1);
         INSERT INTO txn (client_id, kind, date, account_id, amount, member_id,
           created_by, created_at, updated_by, updated_at) VALUES
-          (NULL, 'expense', '2026-10-02', 1, -1, 1, 1, 1, 1, 1),
-          (NULL, 'expense', '2026-10-02', 1, -1, 1, 1, 1, 1, 1);
+          (NULL, 'expense', '2026-10-02', 1, 1, 1, 1, 1, 1, 1),
+          (NULL, 'expense', '2026-10-02', 1, 1, 1, 1, 1, 1, 1);
         INSERT INTO category (name, kind, position, created_at, updated_at)
           VALUES ('Groceries', 'income', 50, 1, 1);
       `);
@@ -564,7 +573,7 @@ describe('migration 0005: spending schema', () => {
 
     it('deletes the parts of a deleted transaction, and never reuses its id', () => {
       database.exec(
-        'INSERT INTO txn_part (txn_id, position, amount) VALUES (1, 1, -100)',
+        'INSERT INTO txn_part (txn_id, position, amount) VALUES (1, 1, 100)',
       );
       database.exec('DELETE FROM txn WHERE id = 1');
       expect(dump(database, 'txn_part')).toEqual([]);
@@ -572,7 +581,7 @@ describe('migration 0005: spending schema', () => {
         .prepare(
           `INSERT INTO txn (kind, date, account_id, amount, member_id,
              created_by, created_at, updated_by, updated_at)
-           VALUES ('expense', '2026-10-02', 1, -1, 1, 1, 1, 1, 1)`,
+           VALUES ('expense', '2026-10-02', 1, 1, 1, 1, 1, 1, 1)`,
         )
         .run();
       expect(next.lastInsertRowid).toBe(2n);

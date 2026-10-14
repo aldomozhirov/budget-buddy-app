@@ -96,14 +96,14 @@ if (process.argv[2] === 'add') {
       SELECT id, '2026-10-20', -250, 'restore test', created_by, 3 FROM envelope;
     INSERT INTO txn (client_id, kind, date, account_id, amount, member_id,
       merchant, created_by, created_at, updated_by, updated_at)
-      SELECT 'restore-test-1', 'expense', '2026-10-21', a.id, -1999, m.id,
+      SELECT 'restore-test-1', 'expense', '2026-10-21', a.id, 1999, m.id,
         'REWE', m.id, 4, m.id, 4
       FROM account a, member m ORDER BY a.id, m.id LIMIT 1;
     INSERT INTO txn_part (txn_id, position, amount, category_id, envelope_id, envelope_amount)
-      SELECT t.id, 1, -1999, (SELECT id FROM category WHERE name = 'Groceries'),
-        (SELECT id FROM envelope), -1999 FROM txn t;
+      SELECT t.id, 1, 1999, (SELECT id FROM category WHERE name = 'Groceries'),
+        (SELECT id FROM envelope), 1999 FROM txn t;
     INSERT INTO txn_revision (txn_id, action, changes, changed_by, changed_at)
-      SELECT id, 'update', '{"amount":["-1000","-1999"]}', member_id, 5 FROM txn;
+      SELECT id, 'update', '{"amount":["1000","1999"]}', member_id, 5 FROM txn;
     INSERT INTO rule (position, pattern, category_id, created_by, created_at, updated_by, updated_at)
       SELECT 1, 'REWE, EDEKA', (SELECT id FROM category WHERE name = 'Groceries'),
         id, 6, id, 6 FROM member ORDER BY id LIMIT 1;

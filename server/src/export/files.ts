@@ -19,7 +19,7 @@ export type ColumnKind =
 export interface ExportColumn {
   /** Header in the CSV file. */
   header: string;
-  /** Column of the file's table; null for the account's currency. */
+  /** Column of the file's table; null for a `currency` column. */
   column: string | null;
   kind: ColumnKind;
   /** Key in the file's `currencies` that gives an amount's currency. */
@@ -447,7 +447,9 @@ export function headerOf(file: ExportFile): readonly string[] {
 
 /**
  * Reads every row of a file as cells. Amounts are exact decimal strings in
- * the account's currency, such as `-1986.30`; instants are ISO 8601 in UTC.
+ * the currency their column names in the file's `currencies` (an account's,
+ * a transfer target's or an envelope's), such as `-1986.30`; instants are
+ * ISO 8601 in UTC.
  * @throws {Error} if an amount belongs to a currency that is not known.
  */
 export function readRows(

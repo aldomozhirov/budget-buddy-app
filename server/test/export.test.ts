@@ -334,7 +334,7 @@ describe('export', () => {
         INSERT INTO txn (id, client_id, client_hash, kind, date, account_id,
           amount, member_id, merchant, merchant_key, created_by, created_at,
           updated_by, updated_at)
-        VALUES (1, 'c1', 'HASH-NOT-EXPORTED', 'expense', '2026-10-06', 2, -2500,
+        VALUES (1, 'c1', 'HASH-NOT-EXPORTED', 'expense', '2026-10-06', 2, 2500,
           1, 'Ramen', 'ramen', 1, 24, 1, 25);
         INSERT INTO txn (id, kind, date, account_id, amount, to_account_id,
           to_amount, member_id, created_by, created_at, updated_by, updated_at)
@@ -342,10 +342,10 @@ describe('export', () => {
           1, 27);
         INSERT INTO txn_part (txn_id, position, amount, envelope_id,
           envelope_amount, envelope_amount_manual)
-        VALUES (1, 1, -2500, 1, -2500, 1);
+        VALUES (1, 1, 2500, 1, 2500, 1);
         INSERT INTO txn_revision (txn_id, action, changes, changed_by,
           changed_at)
-        VALUES (1, 'update', '{"amount":["-2000","-2500"]}', 1, 28);
+        VALUES (1, 'update', '{"amount":["2000","2500"]}', 1, 28);
         INSERT INTO rule (position, pattern, category_id, account_id,
           created_by, created_at, updated_by, updated_at)
         VALUES (1, 'RAMEN, UDON', 2, 2, 1, 29, 1, 30);
@@ -549,20 +549,20 @@ describe('export', () => {
     ]);
     const transactions = rows('transactions.csv');
     expect(transactions.map((row) => row.slice(6, 11))).toEqual([
-      ['-2500', 'JPY', '', '', ''],
+      ['2500', 'JPY', '', '', ''],
       ['1000.00', 'EUR', '3', '0.01500000', 'XBT'],
     ]);
     expect(rows('transaction_parts.csv')[0]?.slice(3, 10)).toEqual([
-      '-2500',
+      '2500',
       'JPY',
       '',
       '1',
-      '-2500',
+      '2500',
       'JPY',
       'true',
     ]);
     expect(rows('transaction_revisions.csv')[0]?.[3]).toBe(
-      '{"amount":["-2000","-2500"]}',
+      '{"amount":["2000","2500"]}',
     );
     expect(rows('rules.csv')[0]?.slice(1, 3)).toEqual(['1', 'RAMEN, UDON']);
     expect(Object.values(written).join('\n')).not.toContain(
