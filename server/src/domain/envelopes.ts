@@ -3,6 +3,7 @@ import {
   addMonths,
   convert,
   getCurrency,
+  monthsBetween,
   type CoinCurrency,
   type Currency,
 } from '@budget-buddy/shared';
@@ -194,9 +195,7 @@ export function envelopeStatistics(
     months: chosen.length,
     withinBudget,
     averageSpent:
-      chosen.length === 0
-        ? null
-        : divideRounded(spent, BigInt(chosen.length)),
+      chosen.length === 0 ? null : divideRounded(spent, BigInt(chosen.length)),
     largestOverspend,
     leftOverNet,
     incomplete: chosen.some((month) => month.incomplete),
@@ -434,12 +433,17 @@ export function topUpEnvelopes(
     }>;
     for (const { id, topupFromMonth } of rows) {
       const plans = selectPlans.all(id) as EnvelopePlan[];
-      for (let at = topupFromMonth; at <= month; at = addMonths(at, 1)) {
+      for (const at of monthsBetween(topupFromMonth, month)) {
         // Creation writes a plan from the starting month, so one is found.
         const plan = planForMonth(plans, at);
         if (!plan) continue;
-        inserted += insert.run(id, at, plan.monthlyAmount, plan.mode, now)
-          .changes;
+        inserted += insert.run(
+          id,
+          at,
+          plan.monthlyAmount,
+          plan.mode,
+          now,
+        ).changes;
       }
     }
     return inserted;

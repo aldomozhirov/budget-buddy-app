@@ -35,6 +35,19 @@ The source is `docs/specs/01-foundation-and-wealth.md`, Design sections 3, 5 and
 - Instants are UTC epoch milliseconds. "Today", schedules and day ends are computed in the configured time zone.
 - Nothing calls `Date.now()` outside the `Clock`. Tests use a fake clock.
 
+## Envelopes
+
+The source is `docs/specs/02-spending.md`, Design sections 3.1 to 3.3, and `docs/requirements.md` section 4.4. Code: `server/src/domain/envelopes.ts`, `server/src/jobs/envelopeTopUp.ts`.
+
+- Months are `YYYY-MM` in the family time zone; use `addMonths`, `monthOfDate` and `monthsBetween` from `shared/src/spending/`.
+- A month's record is computed from stored rows by `envelopeMonths`, never stored: `available = opening + topUp + adjustments`, `closing = available − spent`, `result = topUp + adjustments − spent`. The current month's closing is the balance.
+- Carry-over: opening = previous closing, negative included. Reset (the top-up row's mode): opening = 0 and the previous closing is kept as `dropped`.
+- The starting month has the starting balance and no top-up. Expenses and adjustments dated before it count in it.
+- Spent sums `envelope_amount` (the envelope's currency) of confirmed expense parts; refunds subtract. A null amount (rate missing) adds nothing and makes the month `incomplete`; the closing stays `closingIncomplete` until a reset.
+- A closed month is within budget when its closing is ≥ 0. Statistics use closed months only.
+- Only the `envelope-topup` job writes `envelope_topup`, with the plan of that month (the latest `from_month ≤ month`); a change writes the plan from the next month (ENV-4). It fills every missing month up to the slot, so it is safe twice and after downtime.
+- An envelope amount in another currency is converted once with `convert` at the expense date's rate and stored; `fillPendingEnvelopeAmounts` fills the missing ones after rates are stored and at start.
+
 ## Tests that must exist (QUA-3)
 
 Rounding, negative balances, missing rates, month ends, leap years, both daylight-saving changes, carried-forward snapshots, values above 2^53, and jobs run twice or late.
