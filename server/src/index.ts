@@ -8,6 +8,8 @@ import { createCheckinScheduleJob } from './jobs/checkinSchedule.js';
 import { createFollowUpJob } from './jobs/followUp.js';
 import { createRatesJob } from './jobs/rates.js';
 import { createBackupJob } from './jobs/backup.js';
+import { createEnvelopeTopUpJob } from './jobs/envelopeTopUp.js';
+import { fillPendingEnvelopeAmounts } from './domain/envelopes.js';
 import { createNotifier } from './notify/notifier.js';
 import { createWebPushSender } from './modules/push/sender.js';
 import { loadOrCreateVapidKeys } from './modules/push/vapid.js';
@@ -45,6 +47,9 @@ try {
           )
         : [createFixtureFeed()],
     logger: { error: (error, message) => app?.log.error(error, message) },
+    onRatesStored: () => {
+      if (database) fillPendingEnvelopeAmounts(database);
+    },
   });
   // Shared with the schedule job, which opens check-ins outside any request.
   const events = createCheckinEventBus((error) =>
@@ -80,6 +85,7 @@ try {
       createRatesJob(rates),
       createCheckinScheduleJob({ database, clock: systemClock, events }),
       createFollowUpJob({ database, events }),
+      createEnvelopeTopUpJob({ database, clock: systemClock }),
       createBackupJob({
         database,
         clock: systemClock,
@@ -101,6 +107,12 @@ try {
     logger: server.log,
   });
   await app.listen({ host: config.host, port: config.port });
+  try {
+    // Rates stored while the server was off may complete envelope amounts.
+    fillPendingEnvelopeAmounts(database);
+  } catch (error) {
+    app.log.error(error, 'Filling envelope amounts failed');
+  }
   jobRunner.start();
 } catch (error) {
   if (app) {

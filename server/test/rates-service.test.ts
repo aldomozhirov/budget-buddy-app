@@ -205,6 +205,35 @@ describe('rates service and daily job', () => {
     expect(feed.fetch.mock.calls).toHaveLength(calls);
   });
 
+  it('calls onRatesStored after storing new rates only', async () => {
+    addAccount('USD');
+    const onRatesStored = vi.fn(() => {
+      throw new Error('fill failed');
+    });
+    const ratesService = createRatesService({
+      database,
+      clock,
+      feeds: [spiedFixtureFeed()],
+      logger: { error: (error) => errors.push(error) },
+      onRatesStored,
+    });
+
+    const first = await ratesService.refreshToday();
+    expect(rates().length).toBeGreaterThan(0);
+    // Once per store: the history backfill, then today's rates.
+    const calls = onRatesStored.mock.calls.length;
+    expect(calls).toBeGreaterThan(0);
+    // A throwing hook is logged and does not fail the fetch.
+    expect(first.failures).toEqual([]);
+    expect(errors).toEqual(
+      Array.from({ length: calls }, () => new Error('fill failed')),
+    );
+    errors.length = 0;
+
+    await ratesService.refreshToday();
+    expect(onRatesStored).toHaveBeenCalledTimes(calls);
+  });
+
   it('keeps the first rate of a date and never rewrites it', async () => {
     addAccount('USD');
     database
