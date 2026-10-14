@@ -10,7 +10,7 @@ export type ColumnKind =
   | 'flag'
   /** An epoch-millisecond instant as ISO 8601 in UTC; empty when null. */
   | 'instant'
-  /** Minor units as a decimal string in a currency of the file (money rules). */
+  /** Minor units as a decimal string in a currency of the file (money rule). */
   | 'amount'
   /** A currency of the file, written beside its amounts; not a column. */
   | 'currency';

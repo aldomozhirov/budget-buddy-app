@@ -76,7 +76,7 @@ wait_healthy() {
 spending() {
   docker exec -i -w /app/server "$1" node - "$2" <<'JS'
 (async () => {
-// The app's own function registration: the unique indexes call unicode_casefold.
+// The app's function registration: the unique indexes call unicode_casefold.
 const { registerDatabaseFunctions } = await import('/app/server/dist/db/migrate.js');
 const Database = require('better-sqlite3');
 const db = new Database('/data/budget-buddy.sqlite');
