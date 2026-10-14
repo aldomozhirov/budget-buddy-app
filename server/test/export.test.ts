@@ -70,6 +70,119 @@ const expectedHeaders: Record<string, string[]> = {
     'closed_by',
   ],
   'rates.csv': ['base', 'quote', 'date', 'rate', 'source', 'fetched_at'],
+  'categories.csv': [
+    'id',
+    'name',
+    'kind',
+    'default_envelope_id',
+    'position',
+    'archived_at',
+    'created_by',
+    'created_at',
+    'updated_by',
+    'updated_at',
+  ],
+  'envelopes.csv': [
+    'id',
+    'name',
+    'currency',
+    'starting_balance',
+    'starting_month',
+    'topup_from_month',
+    'default_category_id',
+    'position',
+    'archived_at',
+    'created_by',
+    'created_at',
+    'updated_by',
+    'updated_at',
+  ],
+  'envelope_plans.csv': [
+    'id',
+    'envelope_id',
+    'from_month',
+    'monthly_amount',
+    'currency',
+    'mode',
+    'created_by',
+    'created_at',
+  ],
+  'envelope_topups.csv': [
+    'id',
+    'envelope_id',
+    'month',
+    'amount',
+    'currency',
+    'mode',
+    'created_at',
+  ],
+  'envelope_adjustments.csv': [
+    'id',
+    'envelope_id',
+    'date',
+    'amount',
+    'currency',
+    'note',
+    'move_id',
+    'created_by',
+    'created_at',
+  ],
+  'transactions.csv': [
+    'id',
+    'client_id',
+    'kind',
+    'status',
+    'date',
+    'account_id',
+    'amount',
+    'currency',
+    'to_account_id',
+    'to_amount',
+    'to_currency',
+    'member_id',
+    'merchant',
+    'note',
+    'source',
+    'source_ref',
+    'external_id',
+    'entered_at',
+    'created_by',
+    'created_at',
+    'updated_by',
+    'updated_at',
+  ],
+  'transaction_parts.csv': [
+    'id',
+    'txn_id',
+    'position',
+    'amount',
+    'currency',
+    'category_id',
+    'envelope_id',
+    'envelope_amount',
+    'envelope_currency',
+    'envelope_amount_manual',
+  ],
+  'transaction_revisions.csv': [
+    'id',
+    'txn_id',
+    'action',
+    'changes',
+    'changed_by',
+    'changed_at',
+  ],
+  'rules.csv': [
+    'id',
+    'position',
+    'pattern',
+    'category_id',
+    'envelope_id',
+    'account_id',
+    'created_by',
+    'created_at',
+    'updated_by',
+    'updated_at',
+  ],
   'coins.csv': ['code', 'name', 'decimals', 'feed_id', 'created_at'],
   'settings.csv': ['setting', 'value'],
 };
@@ -202,6 +315,41 @@ describe('export', () => {
         "INSERT INTO rate (base, quote, date, rate, source, fetched_at) VALUES ('EUR', 'USD', '2026-10-09', '1.0876543210987654321', 'ECB', 99)",
       )
       .run();
+    // Spending tables: each amount is in its own currency (Tokyo is JPY).
+    database.exec(`
+        INSERT INTO envelope (id, name, currency, starting_balance,
+          starting_month, topup_from_month, position, created_by, created_at,
+          updated_by, updated_at)
+        VALUES (1, 'Trips', 'JPY', 9007199254740993, '2026-09', '2026-10', 1,
+          1, 20, 1, 21);
+        INSERT INTO envelope_plan (envelope_id, from_month, monthly_amount,
+          mode, created_by, created_at)
+        VALUES (1, '2026-09', 50000, 'reset', 1, 20);
+        INSERT INTO envelope_topup (envelope_id, month, amount, mode,
+          created_at)
+        VALUES (1, '2026-10', 50000, 'reset', 22);
+        INSERT INTO envelope_adjustment (envelope_id, date, amount, note,
+          move_id, created_by, created_at)
+        VALUES (1, '2026-10-05', -1234, 'Ticket', 'm1', 1, 23);
+        INSERT INTO txn (id, client_id, client_hash, kind, date, account_id,
+          amount, member_id, merchant, merchant_key, created_by, created_at,
+          updated_by, updated_at)
+        VALUES (1, 'c1', 'HASH-NOT-EXPORTED', 'expense', '2026-10-06', 2, -2500,
+          1, 'Ramen', 'ramen', 1, 24, 1, 25);
+        INSERT INTO txn (id, kind, date, account_id, amount, to_account_id,
+          to_amount, member_id, created_by, created_at, updated_by, updated_at)
+        VALUES (2, 'transfer', '2026-10-07', 1, 100000, 3, 1500000, 1, 1, 26,
+          1, 27);
+        INSERT INTO txn_part (txn_id, position, amount, envelope_id,
+          envelope_amount, envelope_amount_manual)
+        VALUES (1, 1, -2500, 1, -2500, 1);
+        INSERT INTO txn_revision (txn_id, action, changes, changed_by,
+          changed_at)
+        VALUES (1, 'update', '{"amount":["-2000","-2500"]}', 1, 28);
+        INSERT INTO rule (position, pattern, category_id, account_id,
+          created_by, created_at, updated_by, updated_at)
+        VALUES (1, 'RAMEN, UDON', 2, 2, 1, 29, 1, 30);
+      `);
     // Secrets that must never reach the export.
     database
       .prepare(
@@ -376,6 +524,50 @@ describe('export', () => {
       1,
     );
     expect(revisions[0]?.slice(3, 6)).toEqual(['update', '-0.07', 'EUR']);
+  });
+
+  it('writes the spending tables with each amount in its own currency', async () => {
+    const written = await files();
+    const rows = (name: string) => parseCsv(written[name] ?? '').slice(1);
+    expect(rows('categories.csv')).toHaveLength(16);
+    expect(rows('envelopes.csv')[0]?.slice(1, 4)).toEqual([
+      'Trips',
+      'JPY',
+      '9007199254740993',
+    ]);
+    expect(rows('envelope_plans.csv')[0]?.slice(3, 5)).toEqual([
+      '50000',
+      'JPY',
+    ]);
+    expect(rows('envelope_topups.csv')[0]?.slice(3, 5)).toEqual([
+      '50000',
+      'JPY',
+    ]);
+    expect(rows('envelope_adjustments.csv')[0]?.slice(3, 5)).toEqual([
+      '-1234',
+      'JPY',
+    ]);
+    const transactions = rows('transactions.csv');
+    expect(transactions.map((row) => row.slice(6, 11))).toEqual([
+      ['-2500', 'JPY', '', '', ''],
+      ['1000.00', 'EUR', '3', '0.01500000', 'XBT'],
+    ]);
+    expect(rows('transaction_parts.csv')[0]?.slice(3, 10)).toEqual([
+      '-2500',
+      'JPY',
+      '',
+      '1',
+      '-2500',
+      'JPY',
+      'true',
+    ]);
+    expect(rows('transaction_revisions.csv')[0]?.[3]).toBe(
+      '{"amount":["-2000","-2500"]}',
+    );
+    expect(rows('rules.csv')[0]?.slice(1, 3)).toEqual(['1', 'RAMEN, UDON']);
+    expect(Object.values(written).join('\n')).not.toContain(
+      'HASH-NOT-EXPORTED',
+    );
   });
 
   it('writes instants as ISO 8601 in UTC and keeps rates exact', async () => {

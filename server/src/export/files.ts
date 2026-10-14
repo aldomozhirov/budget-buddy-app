@@ -10,10 +10,10 @@ export type ColumnKind =
   | 'flag'
   /** An epoch-millisecond instant as ISO 8601 in UTC; empty when null. */
   | 'instant'
-  /** Minor units as a decimal string in the account's currency (money rules). */
+  /** Minor units as a decimal string in a currency of the file (money rules). */
   | 'amount'
-  /** The currency of the account the row belongs to; not a column of its own. */
-  | 'accountCurrency';
+  /** A currency of the file, written beside its amounts; not a column. */
+  | 'currency';
 
 /** One column of an export file: its header and the column it is read from. */
 export interface ExportColumn {
@@ -22,6 +22,8 @@ export interface ExportColumn {
   /** Column of the file's table; null for the account's currency. */
   column: string | null;
   kind: ColumnKind;
+  /** Key in the file's `currencies` that gives an amount's currency. */
+  currency?: string;
 }
 
 /**
@@ -41,10 +43,11 @@ export interface ExportFile {
    */
   layout: 'rows' | 'pairs';
   /**
-   * Set when `amount` columns are in the currency of the account named by
-   * this column of the table; the file then writes that currency too.
+   * The currencies of the file's amounts: a key, and a SQL expression of the
+   * row (alias `t`) that gives the currency code. An `amount` column names its
+   * key; a `currency` column writes the code beside it.
    */
-  currencyOfAccount?: string;
+  currencies?: Readonly<Record<string, string>>;
   columns: readonly ExportColumn[];
 }
 
@@ -63,16 +66,24 @@ const instant = (name: string): ExportColumn => ({
   column: name,
   kind: 'instant',
 });
-const amount = (name: string): ExportColumn => ({
+const amount = (name: string, currency: string): ExportColumn => ({
   header: name,
   column: name,
   kind: 'amount',
+  currency,
 });
-const accountCurrency: ExportColumn = {
-  header: 'currency',
+const currency = (source: string, header = 'currency'): ExportColumn => ({
+  header,
   column: null,
-  kind: 'accountCurrency',
-};
+  kind: 'currency',
+  currency: source,
+});
+/** The currency of the account that a column of the table points to. */
+const currencyOfAccount = (column: string) =>
+  `(SELECT a.currency FROM account a WHERE a.id = t.${column})`;
+/** The currency of the envelope that a column of the table points to. */
+const currencyOfEnvelope = (column: string) =>
+  `(SELECT e.currency FROM envelope e WHERE e.id = t.${column})`;
 
 /** Every file of the export zip, with the exact columns each one writes. */
 export const exportFiles: readonly ExportFile[] = [
@@ -113,13 +124,13 @@ export const exportFiles: readonly ExportFile[] = [
     table: 'snapshot',
     orderBy: 'id',
     layout: 'rows',
-    currencyOfAccount: 'account_id',
+    currencies: { account: currencyOfAccount('account_id') },
     columns: [
       text('id'),
       text('account_id'),
       instant('taken_at'),
-      amount('amount'),
-      accountCurrency,
+      amount('amount', 'account'),
+      currency('account'),
       text('source'),
       text('checkin_id'),
       text('source_ref'),
@@ -135,14 +146,14 @@ export const exportFiles: readonly ExportFile[] = [
     table: 'snapshot_revision',
     orderBy: 'id',
     layout: 'rows',
-    currencyOfAccount: 'account_id',
+    currencies: { account: currencyOfAccount('account_id') },
     columns: [
       text('id'),
       text('snapshot_id'),
       text('account_id'),
       text('action'),
-      amount('old_amount'),
-      accountCurrency,
+      amount('old_amount', 'account'),
+      currency('account'),
       instant('old_taken_at'),
       text('changed_by'),
       instant('changed_at'),
@@ -160,6 +171,186 @@ export const exportFiles: readonly ExportFile[] = [
       text('schedule_slot'),
       instant('closed_at'),
       text('closed_by'),
+    ],
+  },
+  {
+    name: 'categories.csv',
+    table: 'category',
+    orderBy: 'id',
+    layout: 'rows',
+    columns: [
+      text('id'),
+      text('name'),
+      text('kind'),
+      text('default_envelope_id'),
+      text('position'),
+      instant('archived_at'),
+      text('created_by'),
+      instant('created_at'),
+      text('updated_by'),
+      instant('updated_at'),
+    ],
+  },
+  {
+    name: 'envelopes.csv',
+    table: 'envelope',
+    orderBy: 'id',
+    layout: 'rows',
+    currencies: { envelope: 't.currency' },
+    columns: [
+      text('id'),
+      text('name'),
+      text('currency'),
+      amount('starting_balance', 'envelope'),
+      text('starting_month'),
+      text('topup_from_month'),
+      text('default_category_id'),
+      text('position'),
+      instant('archived_at'),
+      text('created_by'),
+      instant('created_at'),
+      text('updated_by'),
+      instant('updated_at'),
+    ],
+  },
+  {
+    name: 'envelope_plans.csv',
+    table: 'envelope_plan',
+    orderBy: 'id',
+    layout: 'rows',
+    currencies: { envelope: currencyOfEnvelope('envelope_id') },
+    columns: [
+      text('id'),
+      text('envelope_id'),
+      text('from_month'),
+      amount('monthly_amount', 'envelope'),
+      currency('envelope'),
+      text('mode'),
+      text('created_by'),
+      instant('created_at'),
+    ],
+  },
+  {
+    name: 'envelope_topups.csv',
+    table: 'envelope_topup',
+    orderBy: 'id',
+    layout: 'rows',
+    currencies: { envelope: currencyOfEnvelope('envelope_id') },
+    columns: [
+      text('id'),
+      text('envelope_id'),
+      text('month'),
+      amount('amount', 'envelope'),
+      currency('envelope'),
+      text('mode'),
+      instant('created_at'),
+    ],
+  },
+  {
+    name: 'envelope_adjustments.csv',
+    table: 'envelope_adjustment',
+    orderBy: 'id',
+    layout: 'rows',
+    currencies: { envelope: currencyOfEnvelope('envelope_id') },
+    columns: [
+      text('id'),
+      text('envelope_id'),
+      text('date'),
+      amount('amount', 'envelope'),
+      currency('envelope'),
+      text('note'),
+      text('move_id'),
+      text('created_by'),
+      instant('created_at'),
+    ],
+  },
+  {
+    name: 'transactions.csv',
+    table: 'txn',
+    orderBy: 'id',
+    layout: 'rows',
+    currencies: {
+      account: currencyOfAccount('account_id'),
+      toAccount: currencyOfAccount('to_account_id'),
+    },
+    columns: [
+      text('id'),
+      text('client_id'),
+      text('kind'),
+      text('status'),
+      text('date'),
+      text('account_id'),
+      amount('amount', 'account'),
+      currency('account'),
+      text('to_account_id'),
+      amount('to_amount', 'toAccount'),
+      currency('toAccount', 'to_currency'),
+      text('member_id'),
+      text('merchant'),
+      text('note'),
+      text('source'),
+      text('source_ref'),
+      text('external_id'),
+      instant('entered_at'),
+      text('created_by'),
+      instant('created_at'),
+      text('updated_by'),
+      instant('updated_at'),
+    ],
+  },
+  {
+    name: 'transaction_parts.csv',
+    table: 'txn_part',
+    orderBy: 'id',
+    layout: 'rows',
+    currencies: {
+      account:
+        '(SELECT a.currency FROM txn x JOIN account a ON a.id = x.account_id WHERE x.id = t.txn_id)',
+      envelope: currencyOfEnvelope('envelope_id'),
+    },
+    columns: [
+      text('id'),
+      text('txn_id'),
+      text('position'),
+      amount('amount', 'account'),
+      currency('account'),
+      text('category_id'),
+      text('envelope_id'),
+      amount('envelope_amount', 'envelope'),
+      currency('envelope', 'envelope_currency'),
+      flag('envelope_amount_manual'),
+    ],
+  },
+  {
+    name: 'transaction_revisions.csv',
+    table: 'txn_revision',
+    orderBy: 'id',
+    layout: 'rows',
+    columns: [
+      text('id'),
+      text('txn_id'),
+      text('action'),
+      text('changes'),
+      text('changed_by'),
+      instant('changed_at'),
+    ],
+  },
+  {
+    name: 'rules.csv',
+    table: 'rule',
+    orderBy: 'position',
+    layout: 'rows',
+    columns: [
+      text('id'),
+      text('position'),
+      text('pattern'),
+      text('category_id'),
+      text('envelope_id'),
+      text('account_id'),
+      text('created_by'),
+      instant('created_at'),
+      text('updated_by'),
+      instant('updated_at'),
     ],
   },
   {
@@ -232,6 +423,11 @@ export const exportExclusions: Readonly<
     columns: ['id'],
     reason: 'A row number; the base, quote and date identify a rate.',
   },
+  txn: {
+    columns: ['client_hash', 'merchant_key'],
+    reason:
+      'A retry fingerprint and a search key derived from the merchant; neither is data the family entered.',
+  },
   device: 'table',
   session: 'table',
   passkey: 'table',
@@ -260,11 +456,8 @@ export function readRows(
 ): CsvCell[][] {
   const reads = file.columns.filter(({ column }) => column !== null);
   const selected = reads.map(({ column }) => `t.${column}`);
-  if (file.currencyOfAccount) {
-    selected.push(
-      `(SELECT a.currency FROM account a WHERE a.id = t.${file.currencyOfAccount})`,
-    );
-  }
+  const sources = Object.entries(file.currencies ?? {});
+  for (const [, expression] of sources) selected.push(expression);
   const rows = database
     .prepare(
       `SELECT ${selected.join(', ')} FROM ${file.table} t ORDER BY ${file.orderBy}`,
@@ -283,13 +476,21 @@ export function readRows(
     ]);
   }
   return rows.map((row) => {
-    const code = file.currencyOfAccount
-      ? ((row[reads.length] as string | null) ?? null)
-      : null;
+    const codeOf = (column: ExportColumn): string | null => {
+      const at = sources.findIndex(([key]) => key === column.currency);
+      return at < 0
+        ? null
+        : ((row[reads.length + at] as string | null) ?? null);
+    };
     return file.columns.map((column) =>
-      column.kind === 'accountCurrency'
-        ? code
-        : cell(column, row[reads.indexOf(column)] ?? null, code, decimals),
+      column.kind === 'currency'
+        ? codeOf(column)
+        : cell(
+            column,
+            row[reads.indexOf(column)] ?? null,
+            codeOf(column),
+            decimals,
+          ),
     );
   });
 }
