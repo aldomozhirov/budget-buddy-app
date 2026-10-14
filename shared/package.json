@@ -13,6 +13,7 @@
     "@date-fns/tz": "^1.5.0",
     "date-fns": "^4.4.0",
     "decimal.js": "^10.6.0",
+    "unicode-case-folding": "1.1.2",
     "zod": "^4.6.5"
   },
   "scripts": {
