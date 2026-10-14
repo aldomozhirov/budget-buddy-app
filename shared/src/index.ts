@@ -2,6 +2,7 @@
 export * from './api/auth.js';
 export * from './api/backup.js';
 export * from './api/accounts.js';
+export * from './api/categories.js';
 export * from './api/checkins.js';
 export * from './api/currencies.js';
 export * from './api/envelopes.js';
@@ -13,6 +14,7 @@ export * from './api/passkey.js';
 export * from './api/presence.js';
 export * from './api/push.js';
 export * from './api/rates.js';
+export * from './api/rules.js';
 export * from './api/schedule.js';
 export * from './api/settings.js';
 export * from './api/summary.js';

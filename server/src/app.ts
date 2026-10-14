@@ -20,9 +20,11 @@ import { familyRoutes } from './modules/family/index.js';
 import { currenciesRoutes } from './modules/currencies/index.js';
 import { settingsRoutes } from './modules/settings/index.js';
 import { accountRoutes } from './modules/accounts/index.js';
+import { categoryRoutes } from './modules/categories/index.js';
 import { envelopeRoutes } from './modules/envelopes/index.js';
 import { snapshotRoutes } from './modules/snapshots/index.js';
 import { checkinRoutes } from './modules/checkins/index.js';
+import { ruleRoutes } from './modules/rules/index.js';
 import { ratesRoutes } from './modules/rates/index.js';
 import { summaryRoutes } from './modules/summary/index.js';
 import { homeRoutes } from './modules/home/index.js';
@@ -165,6 +167,14 @@ export async function createApp(options: AppOptions) {
     events,
   });
   await app.register(envelopeRoutes, {
+    database: options.database,
+    clock,
+  });
+  await app.register(categoryRoutes, {
+    database: options.database,
+    clock,
+  });
+  await app.register(ruleRoutes, {
     database: options.database,
     clock,
   });
