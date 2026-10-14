@@ -3,6 +3,7 @@ import type Database from 'better-sqlite3';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { systemClock, type Clock } from '../../clock.js';
+import { insertStarterCategories } from '../../db/starterCategories.js';
 import { hashFamilyPassword } from '../family/password.js';
 
 const setupBodySchema = z
@@ -100,6 +101,7 @@ export const setupRoutes: FastifyPluginAsync<{
               now,
             );
           }
+          insertStarterCategories(database, now);
           const insertMember = database.prepare(
             'INSERT INTO member (name, created_at) VALUES (?, ?)',
           );

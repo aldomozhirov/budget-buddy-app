@@ -69,6 +69,58 @@ wait_healthy() {
   fail "$url/api/health did not answer within 60 s"
 }
 
+# spending <container> <add|dump>: add (add) or print (dump) rows of the
+# spending tables inside a test container. There is no API for them yet, so a
+# small script reads the container's database directly. "add" gives the
+# restore something in every new table to carry; "dump" prints them as JSON.
+spending() {
+  docker exec -i -w /app/server "$1" node - "$2" <<'JS'
+(async () => {
+// The app's function registration: the unique indexes call unicode_casefold.
+const { registerDatabaseFunctions } = await import('/app/server/dist/db/migrate.js');
+const Database = require('better-sqlite3');
+const db = new Database('/data/budget-buddy.sqlite');
+registerDatabaseFunctions(db);
+db.pragma('foreign_keys = ON');
+if (process.argv[2] === 'add') {
+  db.exec(`
+    INSERT INTO envelope (name, currency, starting_balance, starting_month,
+      topup_from_month, position, created_by, created_at, updated_by, updated_at)
+      SELECT 'Trips', 'EUR', 12345, '2026-10', '2026-11', 1, id, 1, id, 1
+      FROM member ORDER BY id LIMIT 1;
+    INSERT INTO envelope_plan (envelope_id, from_month, monthly_amount, mode, created_by, created_at)
+      SELECT e.id, '2026-10', 5000, 'carry_over', e.created_by, 1 FROM envelope e;
+    INSERT INTO envelope_topup (envelope_id, month, amount, mode, created_at)
+      SELECT id, '2026-11', 5000, 'carry_over', 2 FROM envelope;
+    INSERT INTO envelope_adjustment (envelope_id, date, amount, note, created_by, created_at)
+      SELECT id, '2026-10-20', -250, 'restore test', created_by, 3 FROM envelope;
+    INSERT INTO txn (client_id, kind, date, account_id, amount, member_id,
+      merchant, created_by, created_at, updated_by, updated_at)
+      SELECT 'restore-test-1', 'expense', '2026-10-21', a.id, 1999, m.id,
+        'REWE', m.id, 4, m.id, 4
+      FROM account a, member m ORDER BY a.id, m.id LIMIT 1;
+    INSERT INTO txn_part (txn_id, position, amount, category_id, envelope_id, envelope_amount)
+      SELECT t.id, 1, 1999, (SELECT id FROM category WHERE name = 'Groceries'),
+        (SELECT id FROM envelope), 1999 FROM txn t;
+    INSERT INTO txn_revision (txn_id, action, changes, changed_by, changed_at)
+      SELECT id, 'update', '{"amount":["1000","1999"]}', member_id, 5 FROM txn;
+    INSERT INTO rule (position, pattern, category_id, created_by, created_at, updated_by, updated_at)
+      SELECT 1, 'REWE, EDEKA', (SELECT id FROM category WHERE name = 'Groceries'),
+        id, 6, id, 6 FROM member ORDER BY id LIMIT 1;
+  `);
+} else {
+  const tables = ['category', 'envelope', 'envelope_plan', 'envelope_topup',
+    'envelope_adjustment', 'txn', 'txn_part', 'txn_revision', 'rule'];
+  const out = {};
+  for (const table of tables) {
+    out[table] = db.prepare(`SELECT * FROM ${table} ORDER BY id`).all();
+  }
+  console.log(JSON.stringify(out, null, 1));
+}
+})();
+JS
+}
+
 # start_container <name> <folder> <port>
 start_container() {
   mkdir -p "$2/data" "$2/backups"
@@ -95,6 +147,9 @@ wait_healthy "$url_a"
 node scripts/restore-test-api.mjs seed "$url_a"
 node scripts/restore-test-api.mjs dump "$url_a" > "$tmp/before.json"
 echo "accounts and check-ins before: $(grep -c '"id"' "$tmp/before.json") records with an id"
+spending "$first" add
+spending "$first" dump > "$tmp/before-spending.json"
+echo "spending tables before: $(grep -c '"id"' "$tmp/before-spending.json") rows (starter categories included)"
 
 say "Running the backup job (a restart makes the runner claim the due slot)"
 docker restart "$first" >/dev/null
@@ -151,10 +206,14 @@ say "Restoring $(basename "$backup") into the second container"
 run_restore "$backup"
 wait_healthy "$url_b"
 
-say "Comparing accounts and check-ins"
+say "Comparing accounts, check-ins and the spending tables"
 node scripts/restore-test-api.mjs dump "$url_b" > "$tmp/after.json"
 diff "$tmp/before.json" "$tmp/after.json" || fail "accounts or check-ins differ after the restore"
 echo "identical ($(wc -l < "$tmp/after.json" | tr -d ' ') lines)"
+spending "$second" dump > "$tmp/after-spending.json"
+diff "$tmp/before-spending.json" "$tmp/after-spending.json" || fail "spending tables differ after the restore"
+[ "$(grep -c '"kind": "' "$tmp/after-spending.json")" -ge 17 ] || fail "the restored spending tables look empty"
+echo "spending tables identical ($(wc -l < "$tmp/after-spending.json" | tr -d ' ') lines)"
 aside="$(ls -d "$tmp"/b/data/before-restore-* | head -n 1)"
 [ -f "$aside/budget-buddy.sqlite" ] || fail "the replaced database was not kept aside"
 [ -f "$aside/budget-buddy.sqlite-wal" ] || fail "the stale -wal was not kept aside"

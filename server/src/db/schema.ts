@@ -657,3 +657,344 @@ export const backup = sqliteTable(
     ),
   ],
 );
+
+/** A `YYYY-MM` month, for the database CHECKs of the envelope tables. */
+const monthPattern = (column: AnySQLiteColumn) =>
+  sql`${column} GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]' AND substr(${column}, 6, 2) BETWEEN '01' AND '12'`;
+
+/** A `YYYY-MM-DD` date shape, for the database CHECK of `txn.date`. */
+const datePattern = (column: AnySQLiteColumn) =>
+  sql`${column} GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]' AND substr(${column}, 6, 2) BETWEEN '01' AND '12' AND substr(${column}, 9, 2) BETWEEN '01' AND '31'`;
+
+export const category = sqliteTable(
+  'category',
+  {
+    id: integer('id').primaryKey(),
+    name: text('name').notNull(),
+    kind: text('kind', { enum: ['expense', 'income'] }).notNull(),
+    defaultEnvelopeId: integer('default_envelope_id').references(
+      (): AnySQLiteColumn => envelope.id,
+    ),
+    position: integer('position').notNull(),
+    archivedAt: integer('archived_at'),
+    /** Null for the starter list (CAT-3). */
+    createdBy: integer('created_by').references(() => member.id),
+    createdAt: integer('created_at').notNull(),
+    updatedBy: integer('updated_by').references(() => member.id),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('category_kind_name_unique').on(
+      table.kind,
+      sql`unicode_casefold(${table.name})`,
+    ),
+    check('category_kind_check', sql`${table.kind} IN ('expense', 'income')`),
+    check(
+      'category_default_envelope_check',
+      sql`${table.defaultEnvelopeId} IS NULL OR ${table.kind} = 'expense'`,
+    ),
+  ],
+);
+
+export const envelope = sqliteTable(
+  'envelope',
+  {
+    id: integer('id').primaryKey(),
+    name: text('name').notNull(),
+    currency: text('currency').notNull(),
+    startingBalance: moneyInteger('starting_balance').notNull(),
+    startingMonth: text('starting_month').notNull(),
+    /** The first month that gets a top-up. */
+    topupFromMonth: text('topup_from_month').notNull(),
+    defaultCategoryId: integer('default_category_id').references(
+      (): AnySQLiteColumn => category.id,
+    ),
+    position: integer('position').notNull(),
+    archivedAt: integer('archived_at'),
+    createdBy: integer('created_by')
+      .notNull()
+      .references(() => member.id),
+    createdAt: integer('created_at').notNull(),
+    updatedBy: integer('updated_by')
+      .notNull()
+      .references(() => member.id),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('envelope_name_unique').on(
+      sql`unicode_casefold(${table.name})`,
+    ),
+    check('envelope_starting_month_check', monthPattern(table.startingMonth)),
+    check(
+      'envelope_topup_from_month_check',
+      monthPattern(table.topupFromMonth),
+    ),
+  ],
+);
+
+export const envelopePlan = sqliteTable(
+  'envelope_plan',
+  {
+    id: integer('id').primaryKey(),
+    envelopeId: integer('envelope_id')
+      .notNull()
+      .references(() => envelope.id),
+    fromMonth: text('from_month').notNull(),
+    monthlyAmount: moneyInteger('monthly_amount').notNull(),
+    mode: text('mode', { enum: ['carry_over', 'reset'] }).notNull(),
+    createdBy: integer('created_by')
+      .notNull()
+      .references(() => member.id),
+    createdAt: integer('created_at').notNull(),
+  },
+  (table) => [
+    unique('envelope_plan_envelope_month_unique').on(
+      table.envelopeId,
+      table.fromMonth,
+    ),
+    check('envelope_plan_amount_check', sql`${table.monthlyAmount} >= 0`),
+    check(
+      'envelope_plan_mode_check',
+      sql`${table.mode} IN ('carry_over', 'reset')`,
+    ),
+    check('envelope_plan_from_month_check', monthPattern(table.fromMonth)),
+  ],
+);
+
+export const envelopeTopup = sqliteTable(
+  'envelope_topup',
+  {
+    id: integer('id').primaryKey(),
+    envelopeId: integer('envelope_id')
+      .notNull()
+      .references(() => envelope.id),
+    month: text('month').notNull(),
+    amount: moneyInteger('amount').notNull(),
+    mode: text('mode', { enum: ['carry_over', 'reset'] }).notNull(),
+    createdAt: integer('created_at').notNull(),
+  },
+  (table) => [
+    unique('envelope_topup_envelope_month_unique').on(
+      table.envelopeId,
+      table.month,
+    ),
+    check(
+      'envelope_topup_mode_check',
+      sql`${table.mode} IN ('carry_over', 'reset')`,
+    ),
+    check('envelope_topup_month_check', monthPattern(table.month)),
+  ],
+);
+
+export const envelopeAdjustment = sqliteTable(
+  'envelope_adjustment',
+  {
+    id: integer('id').primaryKey(),
+    envelopeId: integer('envelope_id')
+      .notNull()
+      .references(() => envelope.id),
+    date: text('date').notNull(),
+    amount: moneyInteger('amount').notNull(),
+    note: text('note'),
+    /** Shared by the two rows of a move between envelopes. */
+    moveId: text('move_id'),
+    createdBy: integer('created_by')
+      .notNull()
+      .references(() => member.id),
+    createdAt: integer('created_at').notNull(),
+  },
+  (table) => [
+    index('envelope_adjustment_envelope_date_idx').on(
+      table.envelopeId,
+      table.date,
+    ),
+    index('envelope_adjustment_move_idx')
+      .on(table.moveId)
+      .where(sql`${table.moveId} IS NOT NULL`),
+    check('envelope_adjustment_amount_check', sql`${table.amount} != 0`),
+    check('envelope_adjustment_date_check', datePattern(table.date)),
+  ],
+);
+
+export const txn = sqliteTable(
+  'txn',
+  {
+    // AUTOINCREMENT: `txn_revision` keeps the id of a deleted transaction.
+    id: sqliteInteger('id').primaryKey({ autoIncrement: true }),
+    clientId: text('client_id'),
+    /** SHA-256 of the first create request's body, for the retry rule. */
+    clientHash: text('client_hash'),
+    kind: text('kind', { enum: ['expense', 'income', 'transfer'] }).notNull(),
+    status: text('status', { enum: ['draft', 'confirmed'] })
+      .notNull()
+      .default('confirmed'),
+    date: text('date').notNull(),
+    accountId: integer('account_id')
+      .notNull()
+      .references(() => account.id),
+    amount: moneyInteger('amount').notNull(),
+    toAccountId: integer('to_account_id').references(() => account.id),
+    toAmount: moneyInteger('to_amount'),
+    memberId: integer('member_id')
+      .notNull()
+      .references(() => member.id),
+    merchant: text('merchant'),
+    merchantKey: text('merchant_key'),
+    note: text('note'),
+    source: text('source', {
+      enum: ['typed', 'photo', 'apple_pay', 'statement', 'connector'],
+    })
+      .notNull()
+      .default('typed'),
+    sourceRef: text('source_ref'),
+    externalId: text('external_id'),
+    /** The moment it was typed on the device (UTC epoch milliseconds). */
+    enteredAt: integer('entered_at'),
+    createdBy: integer('created_by')
+      .notNull()
+      .references(() => member.id),
+    createdAt: integer('created_at').notNull(),
+    updatedBy: integer('updated_by')
+      .notNull()
+      .references(() => member.id),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('txn_client_id_unique')
+      .on(table.clientId)
+      .where(sql`${table.clientId} IS NOT NULL`),
+    uniqueIndex('txn_source_external_unique')
+      .on(table.sourceRef, table.externalId)
+      .where(
+        sql`${table.sourceRef} IS NOT NULL AND ${table.externalId} IS NOT NULL`,
+      ),
+    index('txn_date_idx').on(sql`${table.date} DESC`, sql`${table.id} DESC`),
+    index('txn_account_date_idx').on(table.accountId, table.date),
+    index('txn_to_account_date_idx')
+      .on(table.toAccountId, table.date)
+      .where(sql`${table.toAccountId} IS NOT NULL`),
+    index('txn_member_date_idx').on(table.memberId, table.date),
+    index('txn_merchant_key_idx')
+      .on(table.merchantKey)
+      .where(sql`${table.merchantKey} IS NOT NULL`),
+    check(
+      'txn_kind_check',
+      sql`${table.kind} IN ('expense', 'income', 'transfer')`,
+    ),
+    check('txn_status_check', sql`${table.status} IN ('draft', 'confirmed')`),
+    check(
+      'txn_source_check',
+      sql`${table.source} IN ('typed', 'photo', 'apple_pay', 'statement', 'connector')`,
+    ),
+    check('txn_date_check', datePattern(table.date)),
+    check(
+      'txn_expense_amount_check',
+      sql`${table.kind} != 'expense' OR ${table.amount} != 0`,
+    ),
+    check(
+      'txn_income_amount_check',
+      sql`${table.kind} != 'income' OR ${table.amount} > 0`,
+    ),
+    check(
+      'txn_transfer_check',
+      sql`${table.kind} != 'transfer' OR (${table.amount} > 0 AND ${table.toAmount} IS NOT NULL AND ${table.toAmount} > 0 AND ${table.toAccountId} IS NOT NULL AND ${table.toAccountId} != ${table.accountId} AND ${table.merchant} IS NULL)`,
+    ),
+    check(
+      'txn_no_transfer_side_check',
+      sql`${table.kind} = 'transfer' OR (${table.toAccountId} IS NULL AND ${table.toAmount} IS NULL)`,
+    ),
+    check(
+      'txn_external_source_check',
+      sql`${table.externalId} IS NULL OR ${table.sourceRef} IS NOT NULL`,
+    ),
+  ],
+);
+
+export const txnPart = sqliteTable(
+  'txn_part',
+  {
+    id: integer('id').primaryKey(),
+    txnId: integer('txn_id')
+      .notNull()
+      .references(() => txn.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+    amount: moneyInteger('amount').notNull(),
+    categoryId: integer('category_id').references(() => category.id),
+    envelopeId: integer('envelope_id').references(() => envelope.id),
+    /** In the envelope's currency; null with an envelope: rate missing. */
+    envelopeAmount: moneyInteger('envelope_amount'),
+    envelopeAmountManual: booleanInteger('envelope_amount_manual', {
+      mode: 'boolean',
+    })
+      .notNull()
+      .default(false),
+  },
+  (table) => [
+    unique('txn_part_txn_position_unique').on(table.txnId, table.position),
+    index('txn_part_envelope_idx')
+      .on(table.envelopeId)
+      .where(sql`${table.envelopeId} IS NOT NULL`),
+    index('txn_part_category_idx').on(table.categoryId),
+    index('txn_part_uncategorised_idx')
+      .on(table.txnId)
+      .where(sql`${table.categoryId} IS NULL`),
+    check(
+      'txn_part_manual_boolean_check',
+      sql`${table.envelopeAmountManual} IN (0, 1)`,
+    ),
+    check(
+      'txn_part_envelope_amount_check',
+      sql`${table.envelopeAmount} IS NULL OR ${table.envelopeId} IS NOT NULL`,
+    ),
+  ],
+);
+
+export const txnRevision = sqliteTable(
+  'txn_revision',
+  {
+    id: integer('id').primaryKey(),
+    // No foreign key: the history outlives a deleted transaction.
+    txnId: integer('txn_id').notNull(),
+    action: text('action', { enum: ['update', 'delete'] }).notNull(),
+    /** `{field: [old, new]}`; its shape is a zod schema in shared. */
+    changes: text('changes').notNull(),
+    changedBy: integer('changed_by')
+      .notNull()
+      .references(() => member.id),
+    changedAt: integer('changed_at').notNull(),
+  },
+  (table) => [
+    index('txn_revision_txn_idx').on(table.txnId),
+    check(
+      'txn_revision_action_check',
+      sql`${table.action} IN ('update', 'delete')`,
+    ),
+    check('txn_revision_changes_check', sql`json_valid(${table.changes})`),
+  ],
+);
+
+export const rule = sqliteTable(
+  'rule',
+  {
+    id: integer('id').primaryKey(),
+    position: integer('position').notNull(),
+    pattern: text('pattern').notNull(),
+    categoryId: integer('category_id')
+      .notNull()
+      .references(() => category.id),
+    envelopeId: integer('envelope_id').references(() => envelope.id),
+    accountId: integer('account_id').references(() => account.id),
+    createdBy: integer('created_by')
+      .notNull()
+      .references(() => member.id),
+    createdAt: integer('created_at').notNull(),
+    updatedBy: integer('updated_by')
+      .notNull()
+      .references(() => member.id),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => [
+    unique('rule_position_unique').on(table.position),
+    check('rule_pattern_check', sql`length(trim(${table.pattern})) > 0`),
+  ],
+);
