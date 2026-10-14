@@ -152,7 +152,10 @@ export interface EnvelopeStatistics {
   largestOverspend: { month: string; amount: bigint } | null;
   /** Σ result, signed: left over when positive, overspent when negative. */
   leftOverNet: bigint;
-  /** A month of the period is incomplete, so the figures are too. */
+  /**
+   * A closing in the period depends on a missing envelope amount, in the
+   * period or carried in from before it, so the figures are not exact.
+   */
   incomplete: boolean;
 }
 
@@ -198,7 +201,7 @@ export function envelopeStatistics(
       chosen.length === 0 ? null : divideRounded(spent, BigInt(chosen.length)),
     largestOverspend,
     leftOverNet,
-    incomplete: chosen.some((month) => month.incomplete),
+    incomplete: chosen.some((month) => month.closingIncomplete),
   };
 }
 

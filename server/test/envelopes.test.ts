@@ -514,6 +514,14 @@ describe('envelope months', () => {
       record(eatingOut, '2026-10').map((month) => month.closingIncomplete),
     ).toEqual([true, false, false]);
     expect(envelopeStatistics(carried, 'all', '2026-10').incomplete).toBe(true);
+    // "This year" in February 2027 covers January only, whose carried
+    // closing still lacks August's amount; the reset envelope's does not.
+    expect(
+      envelopeStatistics(record(groceries, '2027-02'), 'thisYear', '2027-02'),
+    ).toMatchObject({ months: 1, incomplete: true });
+    expect(
+      envelopeStatistics(record(eatingOut, '2027-02'), 'thisYear', '2027-02'),
+    ).toMatchObject({ months: 1, incomplete: false });
   });
 });
 
