@@ -19,6 +19,9 @@ import {
   type ManagedMember,
   type RatesStatusResponse,
   type SettingsResponse,
+  categoriesResponseSchema,
+  envelopesResponseSchema,
+  rulesResponseSchema,
 } from '@budget-buddy/shared';
 import { forgetLastScreen, goToSignIn } from '../../session/lock.js';
 import BbBackButton from '../../components/BbBackButton.vue';
@@ -146,11 +149,15 @@ const ratesSummary = computed(() => {
     ? 'Not updated yet'
     : formatUpdated(status.lastUpdatedAt, status.today, status.timeZone);
 });
+const envelopeCount = ref<number | null>(null);
+const categoryCount = ref<number | null>(null);
+const ruleCount = ref<number | null>(null);
 const editorTitle = computed(() =>
   editorMode.value === 'add' ? 'Add profile' : 'Edit profile',
 );
 
 onMounted(() => {
+  void loadSpending();
   void loadMembers();
   void loadMoneySettings();
   void loadRatesStatus();
@@ -254,6 +261,33 @@ async function loadBackupStatus(): Promise<void> {
 async function handleSignedOut(): Promise<void> {
   setAuthState(null);
   await goToSignIn();
+}
+
+/** Reads the counts the Spending rows show; a failed read leaves a dash. */
+async function loadSpending(): Promise<void> {
+  const read = async (path: string) => {
+    const response = await fetch(path);
+    if (!response.ok) throw new Error('Could not read it.');
+    return response.json();
+  };
+  const [envelopes, categories, rules] = await Promise.allSettled([
+    read('/api/envelopes'),
+    read('/api/categories'),
+    read('/api/rules'),
+  ]);
+  if (envelopes.status === 'fulfilled') {
+    envelopeCount.value = envelopesResponseSchema.parse(
+      envelopes.value,
+    ).envelopes.length;
+  }
+  if (categories.status === 'fulfilled') {
+    categoryCount.value = categoriesResponseSchema
+      .parse(categories.value)
+      .categories.filter((category) => !category.archived).length;
+  }
+  if (rules.status === 'fulfilled') {
+    ruleCount.value = rulesResponseSchema.parse(rules.value).rules.length;
+  }
 }
 
 async function loadMoneySettings(): Promise<void> {
@@ -764,6 +798,37 @@ async function readApiError(response: Response): Promise<{
             Try again
           </button>
         </p>
+      </section>
+
+      <section
+        class="settings-section"
+        aria-labelledby="settings-spending-heading"
+      >
+        <h2 id="settings-spending-heading" class="h">Spending</h2>
+        <BbListCard>
+          <BbRow
+            title="Envelopes"
+            :value="
+              envelopeCount === null
+                ? '—'
+                : `${envelopeCount} · top up on the 1st`
+            "
+            href="/envelopes"
+            @click.prevent="router.push('/envelopes')"
+          />
+          <BbRow
+            title="Categories"
+            :value="categoryCount === null ? '—' : String(categoryCount)"
+            href="/categories"
+            @click.prevent="router.push('/categories')"
+          />
+          <BbRow
+            title="Rules"
+            :value="ruleCount === null ? '—' : String(ruleCount)"
+            href="/categories?tab=rules"
+            @click.prevent="router.push('/categories?tab=rules')"
+          />
+        </BbListCard>
       </section>
 
       <section

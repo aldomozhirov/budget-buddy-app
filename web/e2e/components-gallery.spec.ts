@@ -153,7 +153,9 @@ test('a sheet has no transition when reduced motion is requested', async ({
     )
     .toBe('0s');
   await expect
-    .poll(() => sheet.evaluate((element) => getComputedStyle(element).animationName))
+    .poll(() =>
+      sheet.evaluate((element) => getComputedStyle(element).animationName),
+    )
     .toBe('none');
   const pseudoTransitionDuration = await page.evaluate(() => {
     const field = document.createElement('div');

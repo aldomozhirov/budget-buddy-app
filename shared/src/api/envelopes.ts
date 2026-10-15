@@ -109,6 +109,10 @@ export const envelopeSchema = z.object({
   overspent: z.boolean(),
   /** An expense or an adjustment exists: the currency is fixed (ENV-7). */
   used: z.boolean(),
+  /** Confirmed expenses ever charged to the envelope. */
+  expenseCount: z.number().int().nonnegative(),
+  /** Confirmed expenses charged in the month of `current` (O3 included). */
+  monthExpenseCount: z.number().int().nonnegative(),
   createdBy: idSchema,
   createdAt: z.number().int(),
   updatedBy: idSchema,
