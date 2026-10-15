@@ -391,22 +391,42 @@ test('Delete and Archive on the edit page leave the envelope out of Back', async
 
     // Settings → Envelopes → envelope → cog → Archive / Delete: Back on
     // Envelopes leads to Settings, not to the removed envelope.
-    for (const [name, action] of [
-      ['Groceries', 'Archive'],
-      ['Spare', 'Delete'],
+    await createEnvelope(family, {
+      name: 'Holiday',
+      currency: 'EUR',
+      monthlyAmount: '1000',
+      mode: 'reset',
+      startingBalance: '0',
+    });
+
+    // The third run opens the envelope from the History picker, so its page
+    // is `?tab=history` in the Back stack.
+    for (const [name, action, via] of [
+      ['Groceries', 'Archive', 'card'],
+      ['Spare', 'Delete', 'card'],
+      ['Holiday', 'Delete', 'history'],
     ] as const) {
       await page.goto(`${family.origin}/settings`);
       await page
         .getByRole('region', { name: 'Spending' })
         .getByRole('link', { name: /Envelopes/ })
         .click();
-      await page.getByRole('link', { name: new RegExp(name) }).click();
+      if (via === 'history') {
+        await page.getByRole('button', { name: 'History' }).click();
+        await page
+          .getByRole('dialog', { name: 'History' })
+          .getByRole('link', { name: new RegExp(name) })
+          .click();
+        await expect(page).toHaveURL(/\/envelopes\/\d+\?tab=history$/);
+      } else {
+        await page.getByRole('link', { name: new RegExp(name) }).click();
+      }
       await page.getByRole('link', { name: 'Edit envelope' }).click();
       await expect(page).toHaveURL(/\/envelopes\/\d+\/edit$/);
       await page.getByRole('button', { name: action, exact: true }).click();
       if (action === 'Delete') {
         await page
-          .getByRole('dialog', { name: 'Delete Spare?' })
+          .getByRole('dialog', { name: `Delete ${name}?` })
           .getByRole('button', { name: 'Delete' })
           .click();
       }
