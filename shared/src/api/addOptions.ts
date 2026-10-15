@@ -1,18 +1,9 @@
 import { z } from 'zod';
+import { accountType } from './accounts.js';
 import { categoryKindSchema } from './categories.js';
 import { ruleSchema } from './rules.js';
 
 const idSchema = z.number().int().positive();
-
-/** Account types, as `accountSchema` has them. */
-const accountTypeSchema = z.enum([
-  'bank',
-  'cash',
-  'investment',
-  'crypto',
-  'we_owe',
-  'owed_to_us',
-]);
 
 /** One active account as the Add form offers it: names, never a balance. */
 export const addOptionsAccountSchema = z.object({
@@ -20,7 +11,7 @@ export const addOptionsAccountSchema = z.object({
   name: z.string(),
   ownerMemberId: idSchema.nullable(),
   ownerName: z.string().nullable(),
-  type: accountTypeSchema,
+  type: accountType,
   currency: z.string(),
   /** Decimals of the currency, to read and format a typed amount. */
   decimals: z.number().int().min(0).max(8),
