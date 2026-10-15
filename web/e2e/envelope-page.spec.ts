@@ -376,6 +376,51 @@ test('the month tab adjusts the balance and the cog opens the edit page', async 
   });
 });
 
+test('Delete and Archive on the edit page leave the envelope out of Back', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    await seedGroceries(family);
+    await createEnvelope(family, {
+      name: 'Spare',
+      currency: 'EUR',
+      monthlyAmount: '1000',
+      mode: 'reset',
+      startingBalance: '0',
+    });
+
+    // Settings → Envelopes → envelope → cog → Archive / Delete: Back on
+    // Envelopes leads to Settings, not to the removed envelope.
+    for (const [name, action] of [
+      ['Groceries', 'Archive'],
+      ['Spare', 'Delete'],
+    ] as const) {
+      await page.goto(`${family.origin}/settings`);
+      await page
+        .getByRole('region', { name: 'Spending' })
+        .getByRole('link', { name: /Envelopes/ })
+        .click();
+      await page.getByRole('link', { name: new RegExp(name) }).click();
+      await page.getByRole('link', { name: 'Edit envelope' }).click();
+      await expect(page).toHaveURL(/\/envelopes\/\d+\/edit$/);
+      await page.getByRole('button', { name: action, exact: true }).click();
+      if (action === 'Delete') {
+        await page
+          .getByRole('dialog', { name: 'Delete Spare?' })
+          .getByRole('button', { name: 'Delete' })
+          .click();
+      }
+      await expect(page).toHaveURL(/\/envelopes$/);
+      await expect(
+        page.getByRole('button', { name: 'Back to settings' }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: 'Back to envelope', exact: true }),
+      ).toHaveCount(0);
+    }
+  });
+});
+
 test('a carry-over envelope shows its carried amount, a pending plan and moves', async ({
   page,
 }, testInfo) => {

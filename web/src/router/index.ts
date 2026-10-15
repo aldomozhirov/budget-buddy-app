@@ -241,3 +241,18 @@ export async function replaceScreen(path: string): Promise<void> {
   pendingNavigation = 'replace';
   await router.replace(path);
 }
+
+/**
+ * Leaves a screen whose parent page is gone (an archived or deleted
+ * envelope) for `path`. When the Back stack ends `path`, `parent`, the
+ * history goes back two entries, so Back on `path` leads to the screen
+ * before it; otherwise the screen is replaced and the stack is unchanged.
+ */
+export async function leaveToPast(path: string, parent: string): Promise<void> {
+  const stack = navigationStack.value;
+  if (stack.at(-1) === parent && stack.at(-2) === path) {
+    router.go(-2);
+    return;
+  }
+  await replaceScreen(path);
+}

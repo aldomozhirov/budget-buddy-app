@@ -32,7 +32,7 @@ import CategoryPickerSheet from '../../components/CategoryPickerSheet.vue';
 import CurrencyPickerSheet from '../../components/CurrencyPickerSheet.vue';
 import { callApi, ApiError } from '../../api/callApi.js';
 import { useBack } from '../../composables/useBack.js';
-import { replaceScreen } from '../../router/index.js';
+import { leaveToPast, replaceScreen } from '../../router/index.js';
 import {
   envelopeCurrency,
   expenseCountText,
@@ -46,7 +46,7 @@ import {
  * `/envelopes/new` and `/envelopes/:id/edit` both open it; it reads what it
  * needs (the envelope, currencies, accounts, categories) itself. Save on a
  * new envelope opens its page, Save on an edit goes Back, Delete and Archive
- * go to Envelopes.
+ * go to Envelopes, leaving the envelope's page out of the Back stack.
  */
 defineOptions({ name: 'EnvelopeFormScreen' });
 
@@ -343,7 +343,7 @@ async function archive(): Promise<void> {
       envelopeResponseSchema,
       { archived: true },
     );
-    await replaceScreen('/envelopes');
+    await leaveToPast('/envelopes', `/envelopes/${envelope.value.id}`);
   } catch (cause) {
     error.value = messageFor(cause);
   } finally {
@@ -362,7 +362,7 @@ async function remove(): Promise<void> {
       `/api/envelopes/${envelope.value.id}`,
       deleteEnvelopeResponseSchema,
     );
-    await replaceScreen('/envelopes');
+    await leaveToPast('/envelopes', `/envelopes/${envelope.value.id}`);
   } catch (cause) {
     error.value = messageFor(cause);
   } finally {
