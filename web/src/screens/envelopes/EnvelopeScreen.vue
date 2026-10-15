@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { useRoute } from 'vue-router';
+import { RouterLink, useRoute } from 'vue-router';
 import {
   addMonths,
   currenciesResponseSchema,
@@ -22,10 +22,8 @@ import BbIcon from '../../components/BbIcon.vue';
 import BbProgress from '../../components/BbProgress.vue';
 import { ApiError, callApi } from '../../api/callApi.js';
 import { useBack } from '../../composables/useBack.js';
-import { replaceScreen } from '../../router';
 import AdjustSheet from './AdjustSheet.vue';
 import EnvelopeHistoryTab from './EnvelopeHistoryTab.vue';
-import EnvelopeSheet from './EnvelopeSheet.vue';
 import MoveMoneySheet from './MoveMoneySheet.vue';
 import {
   cardFigures,
@@ -46,7 +44,7 @@ import {
  */
 defineOptions({ name: 'EnvelopeScreen' });
 
-type OpenSheet = 'move' | 'adjust' | 'edit' | null;
+type OpenSheet = 'move' | 'adjust' | null;
 
 const route = useRoute();
 const { label: backLabel, goBack } = useBack();
@@ -72,9 +70,7 @@ const historyKey = ref(0);
 
 function initialSheet(): OpenSheet {
   const wanted = route.query.sheet;
-  return wanted === 'move' || wanted === 'adjust' || wanted === 'edit'
-    ? wanted
-    : null;
+  return wanted === 'move' || wanted === 'adjust' ? wanted : null;
 }
 
 const envelope = computed(() => detail.value?.envelope ?? null);
@@ -264,11 +260,6 @@ function closeSheet(): void {
   sheet.value = null;
 }
 
-function leave(): void {
-  sheet.value = null;
-  void replaceScreen('/envelopes');
-}
-
 async function removeAdjustment(): Promise<void> {
   const target = pendingDelete.value;
   pendingDelete.value = null;
@@ -309,13 +300,20 @@ async function removeAdjustment(): Promise<void> {
           >
         </template>
       </div>
+      <RouterLink
+        v-if="envelope"
+        class="icon-btn"
+        :to="`/envelopes/${envelope.id}/edit`"
+        aria-label="Edit envelope"
+      >
+        <BbIcon name="settings" />
+      </RouterLink>
       <button
+        v-else
         class="icon-btn"
         type="button"
         aria-label="Edit envelope"
-        aria-haspopup="dialog"
-        :disabled="!envelope"
-        @click="openSheet('edit')"
+        disabled
       >
         <BbIcon name="settings" />
       </button>
@@ -438,15 +436,6 @@ async function removeAdjustment(): Promise<void> {
       </template>
     </div>
 
-    <EnvelopeSheet
-      v-if="sheet === 'edit' && envelope"
-      :envelope="envelope"
-      :month="month"
-      @saved="refresh"
-      @deleted="leave"
-      @archived="leave"
-      @close="closeSheet"
-    />
     <MoveMoneySheet
       v-if="sheet === 'move' && envelope"
       :envelopes="active"

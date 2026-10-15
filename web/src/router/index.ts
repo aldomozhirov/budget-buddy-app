@@ -82,6 +82,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'Envelopes' },
   },
   {
+    path: '/envelopes/new',
+    name: 'NewEnvelope',
+    component: () => import('../screens/envelopes/EnvelopeFormScreen.vue'),
+    meta: { title: 'New envelope' },
+  },
+  {
     path: '/envelopes/archived',
     name: 'ArchivedEnvelopes',
     component: () => import('../screens/envelopes/ArchivedEnvelopesScreen.vue'),
@@ -92,6 +98,12 @@ const routes: RouteRecordRaw[] = [
     name: 'Envelope',
     component: () => import('../screens/envelopes/EnvelopeScreen.vue'),
     meta: { title: 'Envelope' },
+  },
+  {
+    path: '/envelopes/:id/edit',
+    name: 'EditEnvelope',
+    component: () => import('../screens/envelopes/EnvelopeFormScreen.vue'),
+    meta: { title: 'Edit envelope' },
   },
   {
     path: '/categories',
@@ -196,6 +208,8 @@ router.afterEach((to, from, failure) => {
 function naturalParent(path: string): string {
   if (path.startsWith('/accounts/')) return '/accounts';
   if (path.startsWith('/check-ins/')) return '/check-ins';
+  const edited = /^\/envelopes\/(\d+)\/edit$/.exec(path);
+  if (edited) return `/envelopes/${edited[1]}`;
   if (path.startsWith('/envelopes/')) return '/envelopes';
   return '/';
 }
