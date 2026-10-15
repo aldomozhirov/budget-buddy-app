@@ -792,6 +792,28 @@ body,
   color: var(--warn);
 }
 
+/* A chip group that wraps (BbChipGroup `wrap`) instead of swiping like
+   .hrow; it keeps to its container, so it has no gutter bleed. */
+.bb .chip-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+/* A label longer than the line is cut short instead of widening the row. */
+.bb .chip-wrap .chip-target {
+  min-width: 44px;
+  max-width: 100%;
+}
+.bb .chip-wrap .chip {
+  display: block;
+  box-sizing: border-box;
+  max-width: 100%;
+  line-height: 42px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* A tall sheet (new envelope): fills the screen below the status bar so a
    docked keypad stays on screen while the form above it scrolls. */
 .bb .sheet-tall {

@@ -262,6 +262,7 @@ async function remove(): Promise<void> {
         <BbChipGroup
           v-model="categoryId"
           label="Category"
+          wrap
           :options="categoryChips"
         >
           <template #trailing>
@@ -281,6 +282,7 @@ async function remove(): Promise<void> {
         <BbChipGroup
           v-model="envelopeId"
           label="Envelope"
+          wrap
           :options="envelopeChips"
         >
           <template v-if="activeEnvelopes.length > 3" #trailing>
@@ -300,6 +302,7 @@ async function remove(): Promise<void> {
         <BbChipGroup
           v-model="accountId"
           label="Only for account"
+          wrap
           :options="accountChips"
         >
           <template v-if="activeAccounts.length > 3" #trailing>
@@ -380,13 +383,6 @@ async function remove(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-/* The prototype's sheets wrap their chips instead of scrolling a row. */
-.rule-field :deep(.hrow) {
-  flex-wrap: wrap;
-  overflow-x: visible;
-  margin: 0;
-  padding: 0;
 }
 .rule-hint {
   font-size: 12px;

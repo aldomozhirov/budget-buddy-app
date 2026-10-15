@@ -240,6 +240,7 @@ async function remove(): Promise<void> {
         <BbChipGroup
           v-model="envelopeId"
           label="Default envelope"
+          wrap
           :options="envelopeChips"
         >
           <template v-if="activeEnvelopes.length > 3" #trailing>
@@ -305,13 +306,6 @@ async function remove(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-/* The prototype's sheets wrap their chips instead of scrolling a row. */
-.sheet-field :deep(.hrow) {
-  flex-wrap: wrap;
-  overflow-x: visible;
-  margin: 0;
-  padding: 0;
 }
 .sheet-actions {
   display: grid;
