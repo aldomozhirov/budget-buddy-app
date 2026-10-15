@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createSSRApp, h, type Component } from 'vue';
 import { renderToString } from 'vue/server-renderer';
+import { historySummary } from '../src/screens/envelopes/envelopeFormat';
+import BarChart from '../src/components/charts/BarChart.vue';
 import BbAmount from '../src/components/BbAmount.vue';
 import BbChip from '../src/components/BbChip.vue';
 import BbChipGroup from '../src/components/BbChipGroup.vue';
@@ -140,5 +142,74 @@ describe('BbSwitch', () => {
     });
     expect(html.match(/aria-checked/g)).toHaveLength(1);
     expect(html).toMatch(/role="switch"[^>]*aria-checked="true"/);
+  });
+});
+
+describe('BarChart', () => {
+  const bars = [
+    { label: 'Aug', value: 49700n, title: 'August: €497.00' },
+    { label: 'Sep', value: 54100n, title: 'September: €541.00' },
+    { label: 'Oct', value: 31240n, title: 'October: €312.40', current: true },
+  ];
+
+  it('draws a bar per month, marks the ones over the limit and the open one', async () => {
+    const html = await render(BarChart, {
+      bars,
+      limit: 50000n,
+      limitLabel: '€500.00 limit',
+      summary: 'Spent per month',
+    });
+    expect(html.match(/<rect/g)).toHaveLength(3);
+    expect(html.match(/bar-chart-over/g)).toHaveLength(1);
+    expect(html.match(/bar-chart-current/g)).toHaveLength(1);
+    expect(html).toContain('role="img"');
+    expect(html).toContain('aria-label="Spent per month"');
+    expect(html).toContain('€500.00 limit');
+    expect(html).toMatch(/<title[^>]*>September: €541.00<\/title>/);
+  });
+
+  it('draws no bar for a month with nothing spent', async () => {
+    const html = await render(BarChart, {
+      bars: [{ label: 'Jan', value: 0n, title: 'January: €0.00' }],
+      limit: 50000n,
+      limitLabel: '€500.00 limit',
+      summary: 'Spent per month',
+    });
+    expect(html).toContain('height="6"');
+  });
+
+  it('has a summary that calls the same months over as the bars', async () => {
+    // A €500.00 plan with a +€50.00 adjustment: €541.00 spent leaves €9.00,
+    // yet the bar is over the limit, so the summary must say so too.
+    const month = (name: string, spent: string, closed: boolean) => ({
+      month: name,
+      spent,
+      closed,
+      closing: closed ? '900' : '0',
+    });
+    const months = [
+      month('2026-08', '49700', true),
+      month('2026-09', '54100', true),
+      month('2026-10', '60000', false),
+    ];
+    const money = (value: string | bigint) => `€${value}`;
+    const summary = historySummary(months as never, 50000n, money);
+    expect(summary).toContain('September €54100, over the limit');
+    expect(summary).not.toContain('August €49700, over');
+    expect(summary).toContain('October €60000, this month');
+    expect(summary.match(/over the limit/g)).toHaveLength(1);
+
+    const html = await render(BarChart, {
+      bars: months.map((item) => ({
+        label: item.month,
+        value: BigInt(item.spent),
+        title: item.month,
+        current: !item.closed,
+      })),
+      limit: 50000n,
+      limitLabel: 'limit',
+      summary,
+    });
+    expect(html.match(/bar-chart-over/g)).toHaveLength(1);
   });
 });

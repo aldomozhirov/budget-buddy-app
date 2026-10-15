@@ -11,6 +11,15 @@ test('Settings shows every section in order and matches the screen copy', async 
   page,
 }, testInfo) => {
   const { externalRequests } = await installSettingsApi(page, testInfo);
+  await page.route('**/api/envelopes', (route) =>
+    route.fulfill({ json: { envelopes: [] } }),
+  );
+  await page.route('**/api/categories', (route) =>
+    route.fulfill({ json: { categories: [] } }),
+  );
+  await page.route('**/api/rules', (route) =>
+    route.fulfill({ json: { rules: [] } }),
+  );
   await page.goto('/settings');
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Alena' })).toBeVisible();
@@ -32,6 +41,7 @@ test('Settings shows every section in order and matches the screen copy', async 
     'Sign-in',
     'Check-in',
     'Money',
+    'Spending',
     'This device',
     'Data',
   ]);
@@ -81,7 +91,16 @@ test('Settings shows every section in order and matches the screen copy', async 
     page.getByRole('button', { name: /^Follow-up reminders/u }),
   ).toContainText('Every 2 days');
   await expect(page.getByText('—', { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Spending' })).toHaveCount(0);
+  const spending = page.getByRole('region', { name: 'Spending' });
+  await expect(
+    spending.getByRole('link', { name: /^Envelopes/u }),
+  ).toContainText('0 · top up on the 1st');
+  await expect(
+    spending.getByRole('link', { name: /^Categories/u }),
+  ).toContainText('0');
+  await expect(spending.getByRole('link', { name: /^Rules/u })).toContainText(
+    '0',
+  );
 
   const screenshotPath =
     testInfo.project.name === 'iphone'

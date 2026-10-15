@@ -1,11 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, useId } from 'vue';
 import BbIcon from './BbIcon.vue';
-import {
-  isTopSheet,
-  registerSheet,
-  unregisterSheet,
-} from './sheetStack.js';
+import { isTopSheet, registerSheet, unregisterSheet } from './sheetStack.js';
 
 /**
  * Modal bottom sheet with a title, close button and focus trap; the parent
@@ -19,8 +15,10 @@ const props = withDefaults(
     closeLabel?: string;
     /** When false, hides the close button and ignores every close gesture. */
     closable?: boolean;
+    /** Fills the screen below the status bar; the body must scroll itself. */
+    tall?: boolean;
   }>(),
-  { closeLabel: 'Close', closable: true },
+  { closeLabel: 'Close', closable: true, tall: false },
 );
 
 const emit = defineEmits<{
@@ -91,7 +89,10 @@ function onTouchStart(event: TouchEvent) {
     return;
   }
   const target = event.target;
-  if (!(target instanceof Element) || target.closest('.sheet') !== dialog.value) {
+  if (
+    !(target instanceof Element) ||
+    target.closest('.sheet') !== dialog.value
+  ) {
     return;
   }
   const chrome = target.closest('.sheet-handle, .sheet-head');
@@ -166,8 +167,7 @@ function onTouchEnd(event: TouchEvent) {
   const lastVelocityIsFresh = event.timeStamp - lastDownwardAt <= 100;
   const flickedDown =
     offset > 20 && lastVelocityIsFresh && lastDownwardVelocity > 0.65;
-  const shouldClose =
-    dragging.value && (offset > height * 0.25 || flickedDown);
+  const shouldClose = dragging.value && (offset > height * 0.25 || flickedDown);
 
   resetTouchDrag();
   if (shouldClose) close();
@@ -278,6 +278,7 @@ onUnmounted(() => {
         :class="{
           'sheet-interacted': hasDragged,
           'sheet-dragging': dragging,
+          'sheet-tall': tall,
         }"
         :style="sheetStyle"
         role="dialog"

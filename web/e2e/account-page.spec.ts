@@ -258,9 +258,10 @@ test('shows opening balances and supports balance entry, settings and history', 
   await expect(historyHeading).toHaveCSS('font-size', '13px');
   await expect(historyHeading).toHaveCSS('font-weight', '500');
   await expect(historyRows.first()).toHaveJSProperty('offsetHeight', 58);
-  await expect(
-    historyRows.first().locator('.history-left > .num'),
-  ).toHaveCSS('font-weight', '500');
+  await expect(historyRows.first().locator('.history-left > .num')).toHaveCSS(
+    'font-weight',
+    '500',
+  );
   await expect(
     page
       .getByRole('region', { name: 'Current balance' })
@@ -508,15 +509,14 @@ test('keeps month tick labels from overlapping for irregular histories', async (
   ).toBeVisible();
   const monthTicks = page.locator('.chart-month-ticks span');
   await expect(monthTicks).toHaveCount(10);
-  const visibleTickBounds = await monthTicks
-    .evaluateAll((labels) =>
-      labels
-        .filter((label) => getComputedStyle(label).visibility !== 'hidden')
-        .map((label) => {
-          const rect = label.getBoundingClientRect();
-          return { left: rect.left, right: rect.right };
-        }),
-    );
+  const visibleTickBounds = await monthTicks.evaluateAll((labels) =>
+    labels
+      .filter((label) => getComputedStyle(label).visibility !== 'hidden')
+      .map((label) => {
+        const rect = label.getBoundingClientRect();
+        return { left: rect.left, right: rect.right };
+      }),
+  );
   expect(visibleTickBounds.length).toBeGreaterThan(1);
   for (let index = 1; index < visibleTickBounds.length; index += 1) {
     expect(visibleTickBounds[index]!.left).toBeGreaterThanOrEqual(

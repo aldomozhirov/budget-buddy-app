@@ -76,7 +76,9 @@ test('leading operators are ignored without an error or saving', async ({
   }
 
   await expect(
-    page.getByRole('group', { name: 'Amount', exact: true }).getByText(/[×÷+%]/),
+    page
+      .getByRole('group', { name: 'Amount', exact: true })
+      .getByText(/[×÷+%]/),
   ).toHaveCount(0);
   await expect(page.locator('[aria-live="polite"]').first()).toHaveText(
     '€0.00',
@@ -373,7 +375,10 @@ test('tapping the amount display does not open a native keyboard', async ({
 test('captures the amount input at the iPhone viewport', async ({
   page,
 }, testInfo) => {
-  test.skip(testInfo.project.name !== 'iphone', 'iPhone screenshot requirement');
+  test.skip(
+    testInfo.project.name !== 'iphone',
+    'iPhone screenshot requirement',
+  );
 
   const keypad = page.getByRole('group', { name: 'Amount keypad' });
   await keypad.getByRole('button', { name: '1', exact: true }).click();

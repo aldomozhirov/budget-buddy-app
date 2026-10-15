@@ -76,6 +76,30 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'Account' },
   },
   {
+    path: '/envelopes',
+    name: 'Envelopes',
+    component: () => import('../screens/envelopes/EnvelopesScreen.vue'),
+    meta: { title: 'Envelopes' },
+  },
+  {
+    path: '/envelopes/archived',
+    name: 'ArchivedEnvelopes',
+    component: () => import('../screens/envelopes/ArchivedEnvelopesScreen.vue'),
+    meta: { title: 'Archived envelopes' },
+  },
+  {
+    path: '/envelopes/:id',
+    name: 'Envelope',
+    component: () => import('../screens/envelopes/EnvelopeScreen.vue'),
+    meta: { title: 'Envelope' },
+  },
+  {
+    path: '/categories',
+    name: 'Categories',
+    component: () => import('../screens/categories/CategoriesScreen.vue'),
+    meta: { title: 'Categories' },
+  },
+  {
     path: '/settings',
     name: 'Settings',
     component: () => import('../screens/settings/SettingsScreen.vue'),
@@ -172,6 +196,7 @@ router.afterEach((to, from, failure) => {
 function naturalParent(path: string): string {
   if (path.startsWith('/accounts/')) return '/accounts';
   if (path.startsWith('/check-ins/')) return '/check-ins';
+  if (path.startsWith('/envelopes/')) return '/envelopes';
   return '/';
 }
 

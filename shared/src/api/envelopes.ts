@@ -70,6 +70,9 @@ export const envelopePlanSchema = z.object({
   mode: envelopeModeSchema,
 });
 
+/** A plan as returned to web clients. */
+export type EnvelopePlan = z.infer<typeof envelopePlanSchema>;
+
 /** The record of one month of an envelope (all amounts in minor units). */
 export const envelopeMonthSchema = z.object({
   month: monthSchema,
@@ -87,6 +90,9 @@ export const envelopeMonthSchema = z.object({
   incomplete: z.boolean(),
   closingIncomplete: z.boolean(),
 });
+
+/** One month's record as returned to web clients. */
+export type EnvelopeMonth = z.infer<typeof envelopeMonthSchema>;
 
 /** One envelope with its state this month. */
 export const envelopeSchema = z.object({
@@ -109,6 +115,10 @@ export const envelopeSchema = z.object({
   overspent: z.boolean(),
   /** An expense or an adjustment exists: the currency is fixed (ENV-7). */
   used: z.boolean(),
+  /** Confirmed expenses ever charged to the envelope. */
+  expenseCount: z.number().int().nonnegative(),
+  /** Confirmed expenses charged in the month of `current` (O3 included). */
+  monthExpenseCount: z.number().int().nonnegative(),
   createdBy: idSchema,
   createdAt: z.number().int(),
   updatedBy: idSchema,
@@ -194,10 +204,15 @@ export const envelopeExpenseSchema = z.object({
   /** The part's amount in the account's currency. */
   amount: minorStringSchema,
   accountCurrency: z.string(),
+  /** The account the expense was paid from. */
+  accountName: z.string(),
   /** In the envelope's currency; null while its rate is missing. */
   envelopeAmount: minorStringSchema.nullable(),
   memberId: idSchema,
 });
+
+/** An expense of an envelope's month as returned to web clients. */
+export type EnvelopeExpense = z.infer<typeof envelopeExpenseSchema>;
 
 /** An adjustment or one side of a move. */
 export const envelopeAdjustmentSchema = z.object({
@@ -224,6 +239,11 @@ export const envelopeDetailResponseSchema = z.object({
   adjustments: z.array(envelopeAdjustmentSchema),
 });
 
+/** One envelope with a month's record as returned to web clients. */
+export type EnvelopeDetailResponse = z.infer<
+  typeof envelopeDetailResponseSchema
+>;
+
 /** `GET /api/envelopes/:id/history?period=`: last 6 months by default. */
 export const envelopeHistoryQuerySchema = z
   .object({ period: envelopePeriodSchema.optional() })
@@ -241,6 +261,9 @@ export const envelopeStatisticsSchema = z.object({
   incomplete: z.boolean(),
 });
 
+/** Statistics of a period as returned to web clients. */
+export type EnvelopeStatistics = z.infer<typeof envelopeStatisticsSchema>;
+
 /** Monthly records of a period (and this month) with their statistics. */
 export const envelopeHistoryResponseSchema = z.object({
   envelopeId: idSchema,
@@ -249,6 +272,11 @@ export const envelopeHistoryResponseSchema = z.object({
   months: z.array(envelopeMonthSchema),
   statistics: envelopeStatisticsSchema,
 });
+
+/** History as returned to web clients. */
+export type EnvelopeHistoryResponse = z.infer<
+  typeof envelopeHistoryResponseSchema
+>;
 
 /** Validates a hand adjustment: signed, not zero; dated today by default. */
 export const createAdjustmentRequestSchema = z

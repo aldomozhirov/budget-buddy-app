@@ -13,6 +13,7 @@ export interface BbChipOption {
 /**
  * Single-select row of chips that works as a radio group; use with `v-model`.
  * Only the selected chip, or the first if none matches, is in the tab order.
+ * Slot `trailing`: extra chips after the options, such as "All…".
  */
 const props = withDefaults(
   defineProps<{
@@ -23,8 +24,10 @@ const props = withDefaults(
     label: string;
     /** Chip style for every option; see BbChip. */
     variant?: 'choice' | 'small' | 'pill';
+    /** Disables every chip, e.g. a currency that can no longer change. */
+    disabled?: boolean;
   }>(),
-  { variant: 'choice' },
+  { variant: 'choice', disabled: false },
 );
 
 const emit = defineEmits<{
@@ -97,9 +100,10 @@ function onKeydown(event: KeyboardEvent) {
       :key="option.value"
       :variant="variant"
       :selected="option.value === modelValue"
+      :disabled="disabled"
       :tabindex="
         option.value === modelValue ||
-          (!options.some((item) => item.value === modelValue) && index === 0)
+        (!options.some((item) => item.value === modelValue) && index === 0)
           ? 0
           : -1
       "
@@ -107,5 +111,6 @@ function onKeydown(event: KeyboardEvent) {
     >
       {{ option.label }}
     </BbChip>
+    <slot name="trailing" />
   </div>
 </template>
