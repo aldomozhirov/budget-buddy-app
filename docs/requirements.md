@@ -1,6 +1,6 @@
 # Budget Buddy: product requirements
 
-Status: approved by the owner on 2026-10-05. Amended on 2026-10-06 after the prototype review: sign-in with a family password and profiles, the private home screen, and how category and envelope are filled in (section 3, MEM, DSH-1, DSH-4, CAT-1, CAT-5, SET-1, section 11). This document is the input for the `plan` agent. It is not a spec and contains no task list.
+Status: approved by the owner on 2026-10-05. Amended on 2026-10-06 after the prototype review: sign-in with a family password and profiles, the private home screen, and how category and envelope are filled in (section 3, MEM, DSH-1, DSH-4, CAT-1, CAT-5, SET-1, section 11). Amended on 2026-10-15 at the owner's request: the budget plan and the month review, which replace the family's planning spreadsheet and shared note (sections 1, 3, 4.1, 4.5, 4.7, 4.8, TXN-10, DSH-5, NTF-5, PLN, REV, COR-3, QUA-3, sections 8 to 11, appendix C). Specs 1 and 2 are unchanged by it. This document is the input for the `plan` agent. It is not a spec and contains no task list.
 
 ## How to use this document
 
@@ -15,26 +15,29 @@ Status: approved by the owner on 2026-10-05. Amended on 2026-10-06 after the pro
 
 ## 1. Purpose and background
 
-A family of two or three adults in Germany holds money in about 20 accounts (7 to 10 per person) in euros, US dollars, Russian rubles and crypto. They use two tools today:
+A family of two or three adults in Germany holds money in about 20 accounts (7 to 10 per person) in euros, US dollars, Russian rubles and crypto. They use three tools today:
 
 - **budget-buddy-bot** is a self-made Telegram bot (`~/budget-buddy-bot`; TypeScript, Prisma, SQLite). About once a month it asks every member for the balance of each of their accounts. It then reports the family total per currency and the equivalent in euros, with history charts. Cash and debts are logged as accounts.
 - **Goodbudget** is an iPhone app. The family logs every expense in it against three envelopes that are topped up monthly: Groceries, Eating out and Unexpected.
+- **A planning spreadsheet and a shared note.** A Google spreadsheet lists the family's expected monthly income and its recurring costs: rent, utilities, subscriptions, groceries, transport, savings and others, plus yearly bills spread over twelve months. Income minus costs is the month's free money: what the family can spend on something this month or put aside for something bigger. At the start of each month the family writes in a shared Apple Note what they want to do with it. Appendix C maps the spreadsheet to this document.
 
 What is wrong with this setup:
 
 - The bot is limited: weak statistics and clumsy account management.
 - Typing about 20 balances every month is tedious.
 - Typing every expense is tedious, and many expenses are paid in cash.
-- Nothing connects the two tools, so the family cannot check that what they spend matches what their balances show.
+- Nothing connects the tools, so the family cannot check that what they spend matches what their balances show.
+- Nothing compares the plan and the note with what was actually spent and with what the balances show, so the family cannot see which parts of their budgeting work and where to improve.
 
-The goal is one self-hosted web app, used mainly on iPhone and iPad, that replaces both tools, reduces typing, and shows each month how much of the change in balances is explained by recorded income and spending.
+The goal is one self-hosted web app, used mainly on iPhone and iPad, that replaces all of these tools, reduces typing, shows each month how much of the change in balances is explained by recorded income and spending, and shows how the month went against the family's plan.
 
 The product is successful when:
 
-- the family stops using the bot after spec 1 and Goodbudget after spec 2;
+- the family stops using the bot after spec 1, Goodbudget after spec 2, and the spreadsheet and the shared note after spec 3;
 - a check-in needs no typing for an account whose balance did not change;
 - an expense can be saved after entering only an amount;
 - each month the app shows one unexplained amount per account and one for the family;
+- each month the app shows the plan against what happened, and what worked, what did not and what to improve;
 - no paid service is needed, and no third party sees account data.
 
 ## 2. Users, devices and host
@@ -56,7 +59,10 @@ The product is successful when:
 | Data approach | Snapshot-first hybrid. Balance snapshots are the truth for wealth, transactions are the truth for flows, and reconciliation compares the two. A balance is never derived from transactions. | It tolerates missing data, and every import added later only improves accuracy. |
 | Transaction detail | Bank transactions are imported only where that is cheap: ING, Revolut, Wise and Trade Republic. Other accounts stay snapshot-only. | A full ledger for about 20 accounts is too much work. |
 | Categories and envelopes | Two independent labels on an expense, both optional. A category never turns into an envelope. | One envelope, such as Unexpected, pays for expenses of many categories. |
-| Budgeting | Only envelopes have limits. Categories have none, and income is not assigned to envelopes. | Planning every category each month is unwanted. |
+| Budgeting | Only envelopes have limits. Categories and plan lines have none, and income is not assigned to envelopes. The budget plan (PLN) holds expectations, not limits: nothing is blocked or warned about when an expense is entered, and each month's plan is a copy of the previous one, so nobody plans every category each month. | Planning every category each month is unwanted. The family's spreadsheet already works this way: one list, changed only when something changes (owner, 2026-10-15). |
+| Budget plan and review | The app replaces the planning spreadsheet and the shared note (section 1). A month review compares the month's plan with its transactions and with the check-ins, and says what worked, what did not and what to improve. The rules of sections 4.7 and 4.8 are the author's defaults (section 11). | Owner's request, 2026-10-15. |
+| Spreadsheet sections not taken over | The spreadsheet's emergency fund, savings goals and moving budget stay out (section 9). | Owner's decision, 2026-10-15. |
+| Review rules | The month review's verdicts come from fixed rules over the figures, not from the local model. | The same figures must always give the same verdict, and the model is optional. |
 | Envelope modes | Each envelope either carries its balance over or resets to its monthly amount. | Owner's decision. |
 | Stack | TypeScript everywhere: a Vue 3 web app, a Node API, SQLite and Docker. Python is allowed only inside optional connector containers. | It is the language of the bot, so the owner can review the code. |
 | Left to spec 1 | The API framework, database library and migration tool, test tools, chart library, UI component approach and package manager. | `AGENTS.md` assigns this to the first spec. The bot uses Prisma and Chart.js, which the owner knows; that is a hint, not a rule. |
@@ -112,6 +118,13 @@ Outbound only: public price feeds, Apple push service
 | Rule | A mapping from a merchant text pattern to a category and an envelope. |
 | Unexplained amount | The part of a balance change that no confirmed transaction accounts for. |
 | Connector | An optional program that fetches balances or transactions from a bank or a blockchain automatically. |
+| Budget plan | The family's expected monthly income and costs, as a list of plan lines. It replaces the planning spreadsheet. |
+| Plan line | One expected amount in the plan: an income, an expense, an envelope or a saving. It is an expectation, not a limit. |
+| Month plan | One calendar month's copy of the plan, with the month's wishes. |
+| Free money | A month's planned income minus its planned costs: what is left to spend on something or to put aside. |
+| Wish | Something the family means to do with a month's free money: spend it on something, or put it aside. Wishes replace the shared note. |
+| Unplanned spending | Confirmed spending in a month that counts for no plan line and no wish. |
+| Month review | The page that compares a month's plan with its transactions and with the check-ins around it. |
 
 ### 4.2 Money rules
 
@@ -162,7 +175,7 @@ Outbound only: public price feeds, Apple push service
 - **Accounts added or deactivated** is the first balance of every account that had none at the previous check-in, minus the last balance of every account deactivated since.
 - An account whose closing balance was carried forward contributes only its currency effect. Its transactions count in the period that ends with its next fresh snapshot.
 
-Reports (RPT) use calendar months and convert each transaction at the rate of its own date. The reconciliation uses check-in periods and the closing rate. Their figures differ slightly by design.
+Reports (RPT) use calendar months and convert each transaction at the rate of its own date. The reconciliation uses check-in periods and the closing rate. Their figures differ slightly by design. The month review (section 4.8) uses the calendar month for the plan and the transactions, and the check-in period nearest to the month for the balances.
 
 ### 4.6 Drafts, evidence and matching
 
@@ -179,6 +192,72 @@ How a record arrives depends on its source:
 - Every incoming record names its source and carries an external ID. The same pair is never stored twice.
 - An incoming record matches an existing transaction when the account, the amount and the currency are equal and the dates are within a few days of each other (section 11). With exactly one candidate the two are merged into one transaction with several pieces of evidence. With several candidates the app asks.
 - In a merged transaction the member's labels (category, envelope, merchant, note) are kept, and the bank's amount and booking date replace the typed ones.
+
+### 4.7 Budget plan
+
+**Lines.**
+
+| Kind | What it expects | It may name | What counts for it |
+|---|---|---|---|
+| Income | Money coming in, such as a salary | A member, an income category, an account | Confirmed income |
+| Expense | A cost, fixed or variable: rent, a subscription, fuel | A category, merchant words (as in a rule, CAT-6), an account, a day of the month | Confirmed expenses |
+| Envelope | One per active envelope, with its monthly amount (ENV-1, ENV-4) | Nothing: it is the envelope | The envelope's spending (ENV-6) |
+| Saving | Money to keep each month | An account, for information | Nothing: judged by what was kept (section 4.8) |
+
+- An expense line is monthly, or repeats every 2, 3, 6 or 12 months with the date of its next payment.
+- Each line has an amount in its own currency, the common currency by default. An envelope line has its envelope's currency and monthly amount.
+
+**Month plans.**
+
+- A month plan belongs to one calendar month in the family time zone. It is made on the 1st as a copy of the previous month's lines, without its wishes. It is made once per month, and a month missed while the server was off is made up at the next start (COR-3).
+- A change "from this month on" changes this month and every later copy; a change "this month only" is not copied. Removing a line works the same way. Earlier months keep their lines (COR-5).
+- Planned amounts are converted to the common currency at the rate of the month's first day (section 4.2, rule 4). Actual amounts are converted at each transaction's own date, as in reports. The gap between the two is shown as rate differences, so the parts still add up.
+
+**Free money.**
+
+`free money = income lines - monthly expense lines - envelope lines - saving lines - repeating shares`
+
+`unassigned = free money - wishes`
+
+- A repeating expense is set aside in monthly shares. For each repeat length and currency, the share is the total of those lines divided by the length, rounded once (section 4.2, rule 5). The plan lists the repeating lines at their full amounts and shows one share per length ("€1,200.00 a year · €100.00 a month"), as the spreadsheet does, so the figures on screen add up (COR-4).
+- In its due month a repeating line expects its full amount. After that month its next date moves on by its length.
+- Free money and the unassigned amount can be negative, and are then shown as a shortfall.
+
+**What counts where.** Every confirmed expense part and every confirmed income dated in the month counts in exactly one place, tried in this order:
+
+1. An expense part charged to an envelope counts for that envelope's line, at its envelope amount (section 4.4). It cannot be linked to a wish.
+2. A transaction linked to a line or a wish of its month counts there. A link is made when a line records its payment (PLN-12) or by a member (PLN-10, PLN-14).
+3. Otherwise it counts for the first line it fits: the same kind, the line's account if it names one, the line's member if it names one, and the line's category and merchant words if it names them. Lines with merchant words are tried first, then lines with a category, then lines with only an account, each group in plan order. A line that names nothing fits nothing.
+4. Otherwise it is unplanned spending, or unplanned income.
+
+- Transfers count nowhere. A refund counts where its expense would, as a negative amount. Drafts count nowhere (section 4.6).
+- Only the links are stored. Everything else is computed when shown, so a correction or a new label shows up at once.
+
+**Free money left.** While the month runs, `free money left = free money - spent on wishes - unplanned spending - the amount by which expense lines are over plan`. Nothing raises it before the month ends: a line under plan, more income than planned, and money left in an envelope count only in the review. Envelopes keep their own balance (ENV-3).
+
+### 4.8 Month review
+
+**Three figures.**
+
+- **Planned to keep** is planned income minus planned spending. Planned spending is the monthly expense lines, the envelope lines, the repeating lines due in the month at their full amount, and the spend wishes. So the plan keeps the savings, the put-aside wishes, the unassigned free money and the repeating shares, less the repeating bills due that month.
+- **Kept** is income minus spending over the month's confirmed transactions: RPT-1's amount saved.
+- **Change in wealth** comes from the check-ins: the closed check-in nearest to the month's first day and the one nearest to the next month's first day, with the change between them split into the parts of section 4.5, summed over the check-in periods between them. It covers a slightly different period from the other two figures and includes market movement, currency effects and unexplained amounts, so it differs from "kept" by design. The review shows the two dates. With check-ins monthly on the 1st (CHK-2) the periods line up.
+
+**Bridge.** Planned to keep turns into kept through parts that add up exactly (COR-4): income above or below plan, each line above or below plan, wishes above or below their amounts, unplanned spending, unplanned income, and rate differences.
+
+**Judging.**
+
+- An income or expense line is over or under plan when its actual amount differs from the planned one by more than the thresholds of section 11; otherwise it is as planned. A repeating line is judged only in its due month; in other months it shows its share as set aside.
+- An expense line with a day of the month that has nothing counted by three days after that day is "not paid yet" while the month runs, and "not paid" after it. A line that names nothing and has nothing linked is "not tracked".
+- An envelope line is judged as ENV-6 does: within budget or overspent.
+- A spend wish is done within its amount, done over it, still open, or dropped. Put-aside wishes and saving lines are met together, when kept is at least planned to keep.
+- A review is provisional while its month runs. It is final once the month has ended and a check-in has closed after the next month's first day: no later check-in can be nearer.
+
+**At a glance.** Three lists, at most five items each, largest amount first, with the thresholds of section 11:
+
+- **Worked:** income as planned or above; lines as planned or under; envelopes within budget; wishes done within their amounts; kept at least planned to keep; a small unexplained amount.
+- **Didn't work:** lines over plan; envelopes overspent; wishes over their amounts; unplanned spending above the unassigned free money; kept below planned to keep; a large share of spending without a category; a large unexplained amount, naming the accounts with the largest ones.
+- **To improve**, from the last six closed months that have a plan: a line over plan in three or more of them (raise it to its average, or cut down); a line under plan in three or more (lower it, which frees money); a category with unplanned spending in three or more (add a line at its average); kept below plan in three or more (the plan is too optimistic); a large unexplained amount in two of the last three check-ins (record cash spending, or import statements for the accounts named).
 
 ## 5. Functional requirements
 
@@ -236,6 +315,7 @@ How a record arrives depends on its source:
 - **DSH-2 (Must).** A wealth history view charts wealth over time for a chosen period, broken down by currency, by account type or by member.
 - **DSH-3 (Should).** A balance older than the check-in cadence is marked as stale wherever it is shown.
 - **DSH-4 (Must, from spec 2).** The home screen offers "add expense" in one tap and shows the envelopes of the current month. While amounts are hidden (DSH-1) it shows each envelope's share used and whether it is overspent instead of its balance.
+- **DSH-5 (Should, from spec 3).** The home screen shows this month's free money left (section 4.7) and opens the month plan. While amounts are hidden (DSH-1) it shows the share of the free money used instead, as the envelopes do.
 
 ### CUR: currencies and rates (spec 1)
 
@@ -253,7 +333,7 @@ How a record arrives depends on its source:
 - **NTF-2 (Must).** The installed app receives push notifications on iOS through Web Push (iOS 16.4 or later). Each device opts in from settings, following a tap, as iOS requires. The events are: scheduled check-in, check-in started by a member, follow-up reminder, and check-in closed. A device that a family password change signed out receives no push until it signs in and opts in again (MEM-3): its notifications switch shows Off, since the server holds no subscription for it, until the member turns it on.
 - **NTF-3 (Must).** The app works fully without push permission.
 - **NTF-4 (Must).** Notification texts contain no amounts.
-- **NTF-5 (Should, later specs).** Further events: drafts waiting, a connector failing, an envelope overspent.
+- **NTF-5 (Should, later specs).** Further events: drafts waiting, a connector failing, an envelope overspent, a new month plan ready for wishes (PLN-6), and a month review becoming final (REV-11).
 
 ### SET: settings (spec 1)
 
@@ -278,7 +358,7 @@ How a record arrives depends on its source:
 - **TXN-7 (Must).** An expense entered without a connection is kept on the device, shown as waiting, and sent when the server is reachable again. A retry never creates a duplicate.
 - **TXN-8 (Must).** A refund is recorded as an expense with a negative amount, so it restores the envelope and reduces the category total.
 - **TXN-9 (Should).** One expense can be split into parts, each with its own category and envelope.
-- **TXN-10 (Should).** A recurring transaction, such as rent, a subscription or a salary, is defined once with a schedule and creates a transaction each period.
+- **TXN-10 (Should).** A recurring transaction, such as rent, a subscription or a salary, is defined once with a schedule and creates a transaction each period. Spec 2 deferred it (D5). From spec 3 the definition is a plan line with an account and a day of the month: PLN-12 records it in one tap and PLN-13 records it by itself.
 - **TXN-11 (Should; Must from spec 4).** An image can be attached to a transaction.
 
 ### CAT: categories (spec 2)
@@ -324,6 +404,41 @@ How a record arrives depends on its source:
 - **RPT-5 (Must).** Every report can be filtered by period and member, and every figure opens the list of transactions behind it.
 - **RPT-6 (Should).** The rows of every report can be exported as CSV.
 - **RPT-7 (Could).** Spending by merchant, and one year against another.
+
+### PLN: budget plan and wishes (spec 3)
+
+- **PLN-1 (Must).** The family keeps one budget plan: a list of lines, each with a name, a kind (income, expense, envelope or saving), an amount, a currency (the common currency by default) and an optional note. Any member can add, rename, reorder and remove lines. Amount fields accept arithmetic (ACC-9). An amount of zero is allowed, for a line that is paused.
+- **PLN-2 (Must).** An income line may name a member, an income category and an account. An expense line may name a category, merchant words, an account and the day of the month it is usually paid. What a line names decides which transactions count for it (section 4.7).
+- **PLN-3 (Must).** An expense line is monthly, or repeats every 2, 3, 6 or 12 months with the date of its next payment. The plan sets aside a monthly share for repeating lines and expects the full amount in the due month (section 4.7).
+- **PLN-4 (Must).** Every active envelope appears in the plan as an envelope line with its monthly amount for that month. The amount and the mode are changed on the envelope (ENV-4), and the line links to it. An envelope archived during a month leaves the plan from the next month.
+- **PLN-5 (Must).** A saving line is money the family means to keep each month. It reduces the free money like a cost and is judged by what the family kept (section 4.8). It may name the account the money goes to; the month plan then shows the transfers into that account, for information.
+- **PLN-6 (Must).** Each month has its own month plan, made on the 1st as a copy of the previous month's lines (section 4.7). The first month plan starts empty. A member can open next month's plan before it starts, to change lines or add wishes ahead. A new month plan can remind the members to add their wishes (NTF-5).
+- **PLN-7 (Must).** A member changes or removes a line "from this month on" (the default) or "this month only", for example a smaller salary in one month or an extra bill. A past month's plan can be corrected, and its review is recomputed (as SUM-1). Every change stores who made it and when (MEM-5).
+- **PLN-8 (Must).** The month plan shows the planned income, the planned costs by kind, the monthly shares of repeating lines, and the free money. Negative free money is shown as a shortfall. The figures shown add up (COR-4).
+- **PLN-9 (Must).** Any member adds wishes to a month plan: a name, an amount, whether the money is to spend or to put aside, an optional category and an optional note. The month plan shows the free money, the total of the wishes and what is still unassigned, negative when the wishes exceed the free money. Any member can change, tick off, drop or delete any wish (MEM-4). This replaces the shared note.
+- **PLN-10 (Must).** A spend wish collects the expenses linked to it. A member links an expense to a wish from the transaction page, or from the wish by picking among the month's unplanned expenses, those whose category or merchant fits the wish first. An expense charged to an envelope stays with its envelope and cannot be linked (section 4.7). A wish shows its amount, what was spent on it, and its state: open, done or dropped.
+- **PLN-11 (Should).** An open wish can be moved to the next month in one tap. Wishes are not copied to the next month otherwise.
+- **PLN-12 (Must).** From the month plan a member records an income line as received or an expense line as paid in one tap. This creates a confirmed transaction with the line's amount, account, category and merchant, dated on the line's day or today, whichever is earlier, and linked to the line. The amount and the date can be changed first, and a line without an account asks for one. Several due lines can be recorded together. A line shows whether it is paid this month.
+- **PLN-13 (Should).** A line with an account and a day of the month can record itself on that day, as PLN-12 does without the tap (TXN-10). It is off by default and switched on per line. A transaction recorded this way says so on its page.
+- **PLN-14 (Must).** The transaction page shows what a transaction counts for in the plan: an envelope, a line, a wish, or unplanned. A member can move it to another line or wish of its month, or mark it as unplanned. An expense charged to an envelope shows its envelope and cannot be moved.
+- **PLN-15 (Should).** While the month runs, the month plan shows each line's progress (spent so far against plan, paid or not yet for a line with a day) and the free money left (section 4.7).
+- **PLN-16 (Could).** A line keeps the expression its amount was typed with ("282 + 75") and shows it under the amount, as the spreadsheet's formulas do.
+- **PLN-17 (Must).** Plans, lines, wishes and links are in the export (BKP-3).
+
+### REV: month review (spec 3)
+
+- **REV-1 (Must).** Every month that has a month plan has a review page, reached from the month plan and from a list of months. It is provisional while the month runs and final once a check-in has closed after the month (section 4.8). It is computed from the stored data, so a later correction shows up in it (as SUM-1). The review is for the family as a whole: unlike RPT-5, it has no member filter.
+- **REV-2 (Must).** The top of the review shows three figures in the common currency: planned to keep, kept, and the change in wealth according to the check-ins (section 4.8). Each opens its part of the page.
+- **REV-3 (Must).** Plan against actual, line by line, in the line's currency and in the common currency: income lines (planned, received); expense lines (planned, spent, difference, and as planned, over, under, not paid yet, not paid or not tracked); envelope lines (monthly amount, spent, within budget, from ENV-6); repeating lines (set aside this month, due this month, paid); saving lines.
+- **REV-4 (Must).** The bridge from planned to keep to kept, in parts that add up exactly (section 4.8).
+- **REV-5 (Must).** The free money: what was planned, each wish with its amount, what was spent on it and its state, the unplanned spending by category with "Uncategorised" as its own row (CAT-2), and the unplanned income.
+- **REV-6 (Must).** The balances: the dates of the two check-ins used, the change in wealth between them split as REC-4, the unexplained amount, and a link to the reconciliation page (REC-3). When a check-in used is more than 7 days from the month's boundary, the section says so. Until a check-in has closed after the month, it says that it waits for one, and the rest of the review works.
+- **REV-7 (Must).** "At a glance" shows three lists, "Worked", "Didn't work" and "To improve", made by the fixed rules of section 4.8. Each item names its line, wish, category or account and the figure, and opens its detail.
+- **REV-8 (Should).** A "To improve" item that changes the plan (raise or lower a line to its average, add a line for a category, change an envelope's monthly amount) can be applied to next month's plan in one tap. An envelope's amount changes through ENV-4.
+- **REV-9 (Must).** Every figure opens the transactions behind it (as RPT-5). The balances open the reconciliation page.
+- **REV-10 (Should).** A year view shows, for twelve months, each line's plan and actual per month, the repeating lines in their due months, and kept against planned to keep per month.
+- **REV-11 (Should).** When a review becomes final, every member is notified (NTF-5). The text has no amounts (NTF-4), and opening the notification opens the review.
+- **REV-12 (Should).** The rows of the review can be exported as CSV (as RPT-6).
 
 ### DRF: drafts inbox and rules (spec 4)
 
@@ -441,7 +556,7 @@ LM Studio runs on the host, so calls to it do not leave the machine.
 
 - **COR-1 (Must).** The money rules of section 4.2 hold everywhere, including imports and tests.
 - **COR-2 (Must).** A transaction carries a calendar date without a time zone. A snapshot carries a moment in time.
-- **COR-3 (Must).** Every scheduled job (top-ups, rates, backups, reminders, connectors) can run twice without doing its work twice, and makes up for a run it missed while the server was off.
+- **COR-3 (Must).** Every scheduled job (top-ups, month plans, rates, backups, reminders, connectors) can run twice without doing its work twice, and makes up for a run it missed while the server was off.
 - **COR-4 (Must).** A total shown on a screen equals the sum of the parts shown with it.
 - **COR-5 (Must).** Accounts, categories, envelopes and members that have history are archived, never deleted.
 
@@ -454,7 +569,7 @@ LM Studio runs on the host, so calls to it do not leave the machine.
 
 - **QUA-1 (Must).** The definition of done in `AGENTS.md` applies to every task.
 - **QUA-2 (Must).** End-to-end tests run in the WebKit engine at iPhone and iPad sizes, because Safari is the target.
-- **QUA-3 (Must).** Unit tests cover the money logic with these edge cases: rounding, negative balances, missing rates, month ends, leap years, daylight-saving changes, cross-currency transfers, carried-forward snapshots, and jobs run twice or late.
+- **QUA-3 (Must).** Unit tests cover the money logic with these edge cases: rounding, negative balances, missing rates, month ends, leap years, daylight-saving changes, cross-currency transfers, carried-forward snapshots, jobs run twice or late, the shares of repeating plan lines, and the month review's bridge adding up exactly.
 
 ## 7. Integration feasibility
 
@@ -492,12 +607,15 @@ Each entry leaves the app usable on its own. Cross-cutting requirements (section
 - **Depends on:** spec 1.
 - **Done when:** the three envelopes exist with the balances taken over from Goodbudget; an expense typed without a connection arrives exactly once after reconnecting; a month change tops up one carry-over envelope and one reset envelope correctly, also when the server was off on the 1st; after that change both envelopes show the closed month's closing balance and whether it stayed within budget; an expense saved with only an amount is listed for labelling with a suggested category.
 
-### Spec 3: reconciliation and reports
+### Spec 3: plan, reconciliation and reports
 
-- **Goal:** show where the money went and whether any is unaccounted for.
-- **Scope:** REC, RPT, SUM-7.
+- **Goal:** replace the planning spreadsheet and the shared note, and show where the money went, against the plan, and whether any is unaccounted for.
+- **Scope:** PLN, REC, RPT, REV, SUM-7, DSH-5, and TXN-10 as PLN-13.
 - **Depends on:** specs 1 and 2.
-- **Done when:** on a test data set with known gaps the reconciliation shows the expected unexplained amount for every account, including a cross-currency transfer, a carried-forward balance and an investment account; the parts of REC-4 add up exactly; every report figure opens its transactions.
+- **Owner's answers first:** open questions 13 (calendar month or check-in period for the review) and 14 (self-recording plan lines) in section 10.1. Until the owner answers, the defaults of section 11 hold.
+- **Design first:** the plan, the month plan with its wishes, the month review, the reports and the reconciliation page are designed in the prototype and approved by the owner before their tasks are built (`docs/design-spec.md`, section 2).
+- **Order:** the plan and the wishes first, so the family can stop using the spreadsheet and the note before the rest is built; then reconciliation and reports; the month review last, because it uses both. The entry is large: `plan` may split it into several spec files in this order.
+- **Done when:** the family's current plan is in the app, and with the same lines its free money for the switch-over month equals the spreadsheet's remainder (checked by the owner on screen; the real figures stay out of the repository, which is public); that month's wishes are in the app and the shared note is no longer used; on a test data set with known gaps the reconciliation shows the expected unexplained amount for every account, including a cross-currency transfer, a carried-forward balance and an investment account; the parts of REC-4 add up exactly; every report figure opens its transactions; on a test data set with a plan, the month review shows each line planned against actual, the wishes, the unplanned spending, the three figures and the balances of two check-ins; its bridge adds up exactly; a yearly bill paid in its due month is not shown as overspending; and "To improve" names a line that was over plan in three of the last six months.
 
 ### Spec 4: photo reading
 
@@ -545,7 +663,10 @@ Each entry leaves the app usable on its own. Cross-cutting requirements (section
 - Payments or transfers started from the app.
 - A full ledger in which balances are derived from transactions.
 - Tracking individual holdings, investment performance, or tax reports.
-- Assigning income to envelopes, savings goals, forecasts and bill reminders.
+- Assigning income to envelopes, and limits on categories or plan lines.
+- Savings goals with targets, an emergency-fund target, and budgets for one-off projects such as a move: the spreadsheet sections the owner left out on 2026-10-15 (appendix C).
+- More than one budget plan, or what-if versions of it.
+- Forecasts beyond the month plans, and bill reminders.
 - Importing Goodbudget history.
 - Telegram.
 - Languages other than English.
@@ -571,12 +692,15 @@ Each entry leaves the app usable on its own. Cross-cutting requirements (section
 | 10 | Does a Wise personal token return balances for an EU account without extra authentication? | Spec 7 | CON-1. |
 | 11 | Which chains and coins does the family hold in Trust Wallet? | Spec 1 for the coin list, spec 7 for the connector | Ask the owner. |
 | 12 | How are debts entered in the bot today: as negative amounts? | MIG | Ask the owner, and look at the live database. |
+| 13 | Should the month review use the calendar month (the default, section 11) or the period between two check-ins? The calendar month is the default because envelopes, salaries and bills run by it. If the check-in cadence moves to monthly on the 1st (a setting, CHK-2), the two line up anyway. | Spec 3 | Ask the owner. |
+| 14 | Should a plan line be able to record its transaction by itself (PLN-13)? Before statement import (spec 6), nothing checks that the payment really happened; a missed one would show up only as an unexplained amount in the reconciliation. | Spec 3 | Ask the owner. The default is off per line. |
 
 ### 10.2 What the owner provides
 
 | Input | Needed by |
 |---|---|
 | The envelope amounts and current balances from Goodbudget, and a category list | Spec 2 |
+| The planning spreadsheet, whose "Мюнхен" tab is the current plan (supplied on 2026-10-15), and the current month's wishes from the shared note. The family types both into the app at the switch-over. Neither file goes into the repository. | Spec 3 |
 | At least 20 receipt photos and 5 bank app screenshots | Spec 4 |
 | One sample statement export each from ING, Revolut, Wise and Trade Republic | Spec 6 |
 | A FinTS product ID from Deutsche Kreditwirtschaft. Apply while spec 5 or 6 is being built, because it takes up to two weeks. | Spec 7 |
@@ -620,7 +744,19 @@ The owner has not confirmed these. Use them as defaults, and change them if the 
 | Category suggestions from the model (CAT-8) | Shown as suggestions and never applied without a tap. |
 | Supported Safari versions (IOS-3) | The current and the previous major version. |
 | Sizing (PRF-1) | 3 members, 40 accounts, 10 years, 100,000 transactions, one second per screen. |
-| Notable additions by the author | TXN-9 (split), TXN-10 (recurring), ENV-5 (adjust and move), STM-8 (generic CSV), APL-5 (automatic confirmation), SUM-5 and SUM-6 (extra summary content), CHK-3 (follow-up reminders), DSH-3 (stale balances). |
+| Review month (section 4.8) | The calendar month in the family time zone. Its balances come from the closed check-ins nearest to its first day and to the next month's first day, with a note when either is more than 7 days away. Open question 13. |
+| Month plans (PLN-6) | Made on the 1st at 00:00, with the envelope top-up, as a copy of the previous month's lines. Wishes are not copied. |
+| Changing a line (PLN-7) | "From this month on" unless the member picks "this month only". |
+| Repeating lines (PLN-3) | Every 2, 3, 6 or 12 months. The monthly share is the total per length and currency divided by the length, rounded once. |
+| What counts where (section 4.7) | Envelope first, then a link, then lines with merchant words, then with a category, then with only an account, then unplanned. |
+| Over or under plan (section 4.8) | More than 10% and more than 10 units of the common currency away from the planned amount. |
+| Trends (section 4.8) | The last six closed months that have a plan; a line over or under plan in three or more of them; averages rounded to the smallest unit. |
+| Small and large unexplained amounts (section 4.8) | Large when above 2% of the month's spending, small otherwise. |
+| Spending without a category (section 4.8) | A large share when above 10% of the month's spending. |
+| Not paid yet (section 4.8) | Nothing counted by three days after the line's day of the month. |
+| Self-recording lines (PLN-13) | Off for every line until a member turns it on. Open question 14. |
+| Word for an item of the free-money list | "Wish" in this document. The design chooses the words on screen. |
+| Notable additions by the author | TXN-9 (split), TXN-10 (recurring), ENV-5 (adjust and move), STM-8 (generic CSV), APL-5 (automatic confirmation), SUM-5 and SUM-6 (extra summary content), CHK-3 (follow-up reminders), DSH-3 (stale balances). On 2026-10-15: PLN-11 (move a wish), PLN-12 and PLN-13 (record a line), PLN-14 (what a transaction counts for), PLN-15 (progress during the month), PLN-16 (keep the expression), DSH-5 (free money on Home), REV-7's "To improve", REV-8 (apply a suggestion), REV-10 (year view), REV-11 (notification) and REV-12 (CSV). |
 
 ## Appendix A: what the bot does and where it went
 
@@ -673,3 +809,27 @@ Deliberate differences from the bot:
 - [Apple Developer Forums: Transaction trigger timeouts](https://developer.apple.com/forums/thread/765516)
 - [Actual Budget docs: GoCardless accepts no new accounts](https://actualbudget.org/docs/advanced/bank-sync/gocardless/)
 - [ECB: euro foreign exchange reference rates](https://www.ecb.europa.eu/stats/eurofxref)
+
+## Appendix C: the planning spreadsheet and the note, and where they went
+
+Read from the "Мюнхен" tab of the family's spreadsheet on 2026-10-15. The figures are left out on purpose, because this repository is public.
+
+| Spreadsheet part | In the app | Requirement |
+|---|---|---|
+| "Доходы" (income): one line per adult. One salary is typed as a sum of two parts; the other line is at zero. | Income lines naming the member and the Salary category. | PLN-1, PLN-2, PLN-16 |
+| "Ежемесячные расходы" (monthly costs): rent, utilities (two parts), a parking space, internet, mobile for two, two streaming subscriptions, fitness for two (two memberships), a haircut, public transport for two, the broadcasting fee, diesel, and work software at zero. | Monthly expense lines with a category. Where one category holds several lines, such as subscriptions or transport, merchant words tell them apart. | PLN-1 to PLN-3, section 4.7 |
+| Groceries, café and unexpected costs, among the monthly costs. | The envelopes Groceries, Eating out and Unexpected. The plan takes their monthly amounts from the envelopes, so the two must agree at the switch-over. | PLN-4 |
+| "Накопления" (savings), among the monthly costs. | A saving line. | PLN-5 |
+| "Ежегодные расходы" (yearly costs): two insurances, car tax, car insurance and cloud storage, some with a payment date. | Expense lines repeating every 12 months, with the date of their next payment. | PLN-3 |
+| "Помесячно": the yearly total divided by 12 and added to the monthly costs. | The yearly share, computed from the total and rounded once, so it equals the spreadsheet's figure. | Section 4.7 |
+| "Итого" (total) and "Остаток" (remainder). | Planned costs and free money. | PLN-8 |
+| The shared Apple Note of what to do with the remainder. | Wishes. | PLN-9 to PLN-11 |
+| Nothing: the spreadsheet does not compare the plan with what happened. | The month review. | REV |
+
+Not taken over, by the owner's decision of 2026-10-15 (section 9): "Финансовая подушка" (an emergency-fund target), "Цели" (savings goals with targets) and "Переезд" (a one-off budget for the move).
+
+Notes for the switch-over:
+
+- The broadcasting fee is in the spreadsheet as a monthly amount. If the family pays it every three months, a line repeating every 3 months matches the bank better. As a monthly line, the review would show it unpaid in two months out of three.
+- The starter categories (section 11) have no obvious home for the haircut or the parking space. The family picks one or adds a category (CAT-1).
+- Expressions such as "282 + 75" can be typed into the amount fields as they are (ACC-9).
