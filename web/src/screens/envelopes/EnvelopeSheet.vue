@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import {
   accountsResponseSchema,
   addMonths,
@@ -156,6 +156,12 @@ const archiveHint = computed(() => {
   return `It has ${expenseCountText(count)}, so it can only be archived. ${
     count === 1 ? 'It keeps' : 'They keep'
   } this envelope.`;
+});
+
+// An unfinished expression must not block Save once the keypad is away: the
+// field then shows its last valid value.
+watch(activeField, (field) => {
+  if (field === null) typed.value = null;
 });
 
 onMounted(() => void load());
@@ -498,7 +504,7 @@ async function remove(): Promise<void> {
       :key="activeField"
       class="env-keys"
       bare
-      allow-negative
+      :allow-negative="activeField === 'starting'"
       :currency="currency"
       label="Amount"
       @change="onAmountChange"

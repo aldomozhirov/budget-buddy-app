@@ -300,3 +300,33 @@ test('the default category row has None, three chips and All…, and a pick goes
   ]);
   await expect(row.getByRole('radio', { name: 'Travel' })).toBeChecked();
 });
+
+test('only the starting balance accepts a minus; an unfinished sum does not block Save', async ({
+  page,
+}) => {
+  const writes: Array<{ method: string; url: string; body: unknown }> = [];
+  await mockApi(page, writes);
+  await openSheet(page);
+  const sheet = page.getByRole('dialog', { name: 'New envelope' });
+  await sheet.getByLabel('Name', { exact: true }).fill('Groceries');
+  await sheet.getByRole('button', { name: 'Monthly amount' }).click();
+  await expect(sheet.getByRole('button', { name: 'Minus' })).toBeDisabled();
+  await sheet
+    .getByRole('button', { name: 'Starting balance · what’s in it now' })
+    .click();
+  await expect(sheet.getByRole('button', { name: 'Minus' })).toBeEnabled();
+
+  // An unfinished sum on Monthly amount, then the keypad goes away.
+  await sheet.getByRole('button', { name: 'Monthly amount' }).click();
+  for (const key of ['5', '0', 'Plus']) {
+    await sheet.getByRole('button', { name: key, exact: true }).click();
+  }
+  await expect(
+    sheet.getByRole('button', { name: 'Add envelope' }),
+  ).toBeDisabled();
+  await sheet.getByLabel('Name', { exact: true }).focus();
+  await expect(sheet.getByRole('button', { name: 'Minus' })).toHaveCount(0);
+  await expect(
+    sheet.getByRole('button', { name: 'Add envelope' }),
+  ).toBeEnabled();
+});
