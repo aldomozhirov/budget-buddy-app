@@ -600,7 +600,7 @@ async function remove(): Promise<void> {
   box-sizing: border-box;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: var(--bg);
+  background: var(--surface);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -642,7 +642,7 @@ async function remove(): Promise<void> {
   height: 44px;
   padding: 0 16px;
   border-radius: 22px;
-  background: var(--bg);
+  background: var(--surface);
   font-size: 14px;
 }
 .env-keys :deep(.key) {

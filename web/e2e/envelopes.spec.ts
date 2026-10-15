@@ -207,8 +207,7 @@ test('creates two envelopes, shows their cards and moves money between them', as
     await expect(
       page.getByRole('heading', { name: 'Groceries', level: 1 }),
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Back to envelopes' }).click();
-    await expect(page).toHaveURL(/\/envelopes$/);
+    await backToEnvelopes(page);
 
     // Unexpected: €300.00, carries over; the starting balance is proposed.
     await page.getByRole('link', { name: 'New envelope' }).click();
@@ -224,8 +223,7 @@ test('creates two envelopes, shows their cards and moves money between them', as
     await expect(sheet.getByText('Proposed: the monthly amount')).toBeVisible();
     await sheet.getByRole('button', { name: 'Add envelope' }).click();
     await expect(page).toHaveURL(/\/envelopes\/\d+$/);
-    await page.getByRole('button', { name: 'Back to envelopes' }).click();
-    await expect(page).toHaveURL(/\/envelopes$/);
+    await backToEnvelopes(page);
 
     const groceries = page.getByRole('link', { name: /Groceries/ });
     await expect(groceries).toContainText('Resets monthly');
@@ -260,8 +258,7 @@ test('creates two envelopes, shows their cards and moves money between them', as
     await expect(sheet.getByRole('radio', { name: 'USD' })).toBeChecked();
     await sheet.getByRole('button', { name: 'Add envelope' }).click();
     await expect(page).toHaveURL(/\/envelopes\/\d+$/);
-    await page.getByRole('button', { name: 'Back to envelopes' }).click();
-    await expect(page).toHaveURL(/\/envelopes$/);
+    await backToEnvelopes(page);
     await expect(page.getByRole('link', { name: /Holiday/ })).toContainText(
       '$0.00',
     );
@@ -402,8 +399,7 @@ test('shows an overspent envelope, the History picker and Archived envelopes', a
       page.getByRole('button', { name: 'Restore Holiday' }),
     ).toBeVisible();
     await page.getByRole('button', { name: 'Restore Holiday' }).click();
-    await page.getByRole('button', { name: 'Back to envelopes' }).click();
-    await expect(page).toHaveURL(/\/envelopes$/);
+    await backToEnvelopes(page);
     await expect(
       page.getByRole('link', { name: /Archived envelopes · 0/ }),
     ).toBeVisible();
@@ -435,6 +431,16 @@ test('the move sheet offers only envelopes of the same currency', async ({
     await expect(move.getByText('No other envelope in USD.')).toBeVisible();
   });
 });
+
+/** Taps Back on an envelope or form page and waits for Envelopes to settle. */
+async function backToEnvelopes(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Back to envelopes' }).click();
+  await expect(page).toHaveURL(/\/envelopes$/);
+  // The leaving screen stays in the page until its transition ends.
+  await expect(
+    page.getByRole('button', { name: 'Back to envelopes' }),
+  ).toHaveCount(0);
+}
 
 async function saveScreenshot(page: Page, name: string): Promise<void> {
   mkdirSync('test-results/screens', { recursive: true });

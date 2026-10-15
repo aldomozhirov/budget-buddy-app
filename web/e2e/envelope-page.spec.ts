@@ -366,7 +366,9 @@ test('the month tab adjusts the balance and the cog opens the edit page', async 
       await saveScreenshot(page, 'EnvelopeEdit.png');
     }
     // Back returns to the envelope page.
-    await edit.getByRole('button', { name: 'Back to envelope' }).click();
+    await edit
+      .getByRole('button', { name: 'Back to envelope', exact: true })
+      .click();
     await expect(page).toHaveURL(new RegExp(`/envelopes/${id}$`));
     await expect(
       page.getByRole('heading', { name: 'Groceries', level: 1 }),
