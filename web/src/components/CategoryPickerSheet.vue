@@ -4,7 +4,7 @@ import { categoryResponseSchema, type Category } from '@budget-buddy/shared';
 import BbIcon from './BbIcon.vue';
 import BbSheet from './BbSheet.vue';
 import { isOnline } from '../composables/useOnline.js';
-import { callApi, EnvelopeApiError } from '../screens/envelopes/envelopeApi.js';
+import { callApi, ApiError } from '../api/callApi.js';
 
 /**
  * Searchable sheet behind a category chip row's "All…" (UI-NAV-7): the most
@@ -66,7 +66,7 @@ async function addCategory(): Promise<void> {
     emit('pick', category);
   } catch (cause) {
     error.value =
-      cause instanceof EnvelopeApiError
+      cause instanceof ApiError
         ? (cause.fields.name ?? cause.message)
         : 'Could not add the category. Try again.';
   } finally {

@@ -1,8 +1,8 @@
-import { goToSignIn } from '../../session/lock.js';
-import { setAuthState } from '../../stores/auth.js';
+import { goToSignIn } from '../session/lock.js';
+import { setAuthState } from '../stores/auth.js';
 
 /** A refused request, with the server's message and per-field messages. */
-export class EnvelopeApiError extends Error {
+export class ApiError extends Error {
   /**
    * @param message What to tell the member.
    * @param status HTTP status, or 0 when the server could not be reached.
@@ -25,7 +25,7 @@ interface Parser<T> {
 /**
  * Calls an API route, checks the answer against `schema` and sends the
  * member to sign-in when the session has ended.
- * @throws {EnvelopeApiError} when the request fails or is refused.
+ * @throws {ApiError} when the request fails or is refused.
  */
 export async function callApi<T>(
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
@@ -37,15 +37,17 @@ export async function callApi<T>(
   try {
     response = await fetch(path, {
       method,
-      ...(body === undefined
+      // The server refuses a write without a JSON content type, so a
+      // write with nothing to say (DELETE) still sends an empty object.
+      ...(body === undefined && method === 'GET'
         ? {}
         : {
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
+            body: JSON.stringify(body ?? {}),
           }),
     });
   } catch {
-    throw new EnvelopeApiError(
+    throw new ApiError(
       'Could not reach the server. Check your connection and try again.',
       0,
     );
@@ -53,7 +55,7 @@ export async function callApi<T>(
   if (response.status === 401) {
     setAuthState(null);
     await goToSignIn();
-    throw new EnvelopeApiError('Sign in again to continue.', 401);
+    throw new ApiError('Sign in again to continue.', 401);
   }
   const payload: unknown = await response.json().catch(() => null);
   if (!response.ok) {
@@ -62,7 +64,7 @@ export async function callApi<T>(
         error?: { message?: string; fields?: Record<string, string> };
       } | null
     )?.error;
-    throw new EnvelopeApiError(
+    throw new ApiError(
       error?.message ?? 'Something went wrong. Try again.',
       response.status,
       error?.fields,

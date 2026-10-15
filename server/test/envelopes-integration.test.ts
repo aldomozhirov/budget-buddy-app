@@ -269,6 +269,7 @@ describe('envelopes API', () => {
     expect(detail.expenses[0]).toMatchObject({
       merchant: 'REWE',
       accountCurrency: 'EUR',
+      accountName: 'Joint',
       amount: '500',
       memberId: 1,
     });

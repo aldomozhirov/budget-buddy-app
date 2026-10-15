@@ -197,7 +197,7 @@ test('an unused envelope can be deleted after a confirmation', async ({
     'deleted, closed',
   );
   expect(writes).toEqual([
-    { method: 'DELETE', url: '/api/envelopes/7', body: null },
+    { method: 'DELETE', url: '/api/envelopes/7', body: {} },
   ]);
 });
 

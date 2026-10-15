@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createSSRApp, h, type Component } from 'vue';
 import { renderToString } from 'vue/server-renderer';
+import BarChart from '../src/components/charts/BarChart.vue';
 import BbAmount from '../src/components/BbAmount.vue';
 import BbChip from '../src/components/BbChip.vue';
 import BbChipGroup from '../src/components/BbChipGroup.vue';
@@ -140,5 +141,39 @@ describe('BbSwitch', () => {
     });
     expect(html.match(/aria-checked/g)).toHaveLength(1);
     expect(html).toMatch(/role="switch"[^>]*aria-checked="true"/);
+  });
+});
+
+describe('BarChart', () => {
+  const bars = [
+    { label: 'Aug', value: 49700n, title: 'August: €497.00' },
+    { label: 'Sep', value: 54100n, title: 'September: €541.00' },
+    { label: 'Oct', value: 31240n, title: 'October: €312.40', current: true },
+  ];
+
+  it('draws a bar per month, marks the ones over the limit and the open one', async () => {
+    const html = await render(BarChart, {
+      bars,
+      limit: 50000n,
+      limitLabel: '€500.00 limit',
+      summary: 'Spent per month',
+    });
+    expect(html.match(/<rect/g)).toHaveLength(3);
+    expect(html.match(/bar-chart-over/g)).toHaveLength(1);
+    expect(html.match(/bar-chart-current/g)).toHaveLength(1);
+    expect(html).toContain('role="img"');
+    expect(html).toContain('aria-label="Spent per month"');
+    expect(html).toContain('€500.00 limit');
+    expect(html).toMatch(/<title[^>]*>September: €541.00<\/title>/);
+  });
+
+  it('draws no bar for a month with nothing spent', async () => {
+    const html = await render(BarChart, {
+      bars: [{ label: 'Jan', value: 0n, title: 'January: €0.00' }],
+      limit: 50000n,
+      limitLabel: '€500.00 limit',
+      summary: 'Spent per month',
+    });
+    expect(html).toContain('height="6"');
   });
 });
