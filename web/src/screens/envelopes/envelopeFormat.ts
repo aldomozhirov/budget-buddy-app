@@ -6,6 +6,7 @@ import {
   type CoinSetting,
   type Currency,
   type Envelope,
+  type EnvelopeMonth,
   type EnvelopePlan,
 } from '@budget-buddy/shared';
 
@@ -149,4 +150,23 @@ export function pendingPlanLine(
   return current && current.mode !== pending.mode
     ? `${base} · ${modePhrase(pending.mode)}`
     : base;
+}
+
+/**
+ * The History chart's accessible summary. A closed month is "over the
+ * limit" when it spent more than `limit`, the rule `BarChart` colours its
+ * bars by, so a screen reader hears what the chart shows.
+ */
+export function historySummary(
+  months: readonly EnvelopeMonth[],
+  limit: bigint,
+  money: (value: string | bigint) => string,
+): string {
+  const parts = months.map((month) => {
+    const over = month.closed && BigInt(month.spent) > limit;
+    return `${monthName(month.month)} ${money(month.spent)}${
+      over ? ', over the limit' : ''
+    }${month.closed ? '' : ', this month'}`;
+  });
+  return `Spent per month against a limit of ${money(limit)}: ${parts.join('; ')}`;
 }

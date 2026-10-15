@@ -134,13 +134,13 @@ interface MonthRow {
 const rows = computed<MonthRow[]>(() => {
   const data = detail.value;
   if (!data) return [];
-  const expenses = data.expenses.map((expense): MonthRow => {
+  const expenses = data.expenses.map((expense, index): MonthRow => {
     const shown = expense.envelopeAmount ?? expense.amount;
     const code = expense.envelopeAmount
       ? data.envelope.currency
       : expense.accountCurrency;
     return {
-      key: `x${expense.transactionId}`,
+      key: `x${expense.transactionId}-${index}`,
       date: expense.date,
       title: expense.merchant ?? expense.note ?? 'Expense',
       meta: [
@@ -233,6 +233,13 @@ async function load(): Promise<void> {
     );
     coins.value = currencyData.coins;
     today.value = todayInTimeZone(new Date(), settings.timeZone);
+    // A link may ask for a sheet whose button is disabled.
+    if (
+      (sheet.value === 'move' && !canMove.value) ||
+      (sheet.value === 'adjust' && data.envelope.archived)
+    ) {
+      sheet.value = null;
+    }
   } catch (cause) {
     error.value =
       cause instanceof ApiError && cause.status !== 0

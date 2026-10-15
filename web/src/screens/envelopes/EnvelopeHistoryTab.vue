@@ -15,6 +15,7 @@ import BbSheet from '../../components/BbSheet.vue';
 import { ApiError, callApi } from '../../api/callApi.js';
 import {
   envelopeCurrency,
+  historySummary,
   monthName,
   monthWithYear,
 } from './envelopeFormat.js';
@@ -62,17 +63,8 @@ const bars = computed<BarChartBar[]>(() =>
     title: `${monthName(month.month)}: ${money(month.spent)}`,
   })),
 );
-const summary = computed(
-  () =>
-    `Spent per month against a limit of ${money(limit.value)}: ` +
-    (history.value?.months ?? [])
-      .map((month) => {
-        const over = month.closed && BigInt(month.closing) < 0n;
-        return `${monthName(month.month)} ${money(month.spent)}${
-          over ? ', over' : ''
-        }${month.closed ? '' : ', this month'}`;
-      })
-      .join('; '),
+const summary = computed(() =>
+  historySummary(history.value?.months ?? [], limit.value, money),
 );
 
 const tiles = computed(() => {
@@ -151,8 +143,6 @@ function pick(value: Period): void {
   period.value = value;
   periodSheet.value = false;
 }
-
-defineExpose({ reload: load });
 </script>
 
 <template>
