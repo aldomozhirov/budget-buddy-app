@@ -50,6 +50,7 @@ Not prototyped yet. Design them in the same system before building them:
 
 - **Wealth history** (DSH-2, RPT-4). Until it exists, Home's "Wealth history" link opens the latest check-in summary, whose chart covers the need.
 - **Reports** (RPT), **Reconciliation** (REC), **Inbox** (DRF), photo capture and confirmation (PHO), import and connector settings (IMP, APL, STM, CON).
+- **Budget plan**, **month plan and wishes**, and **month review** (PLN, REV, added to the requirements on 2026-10-15), with Home's free-money card (DSH-5) and the "Counts for" row on the transaction page (PLN-14).
 - **Add profile**, the currency, coin, rate and time zone editors in Settings, **Split** (TXN-9) and **Attach receipt** (TXN-11). The prototype shows their entry points only.
 
 ## 3. Navigation
