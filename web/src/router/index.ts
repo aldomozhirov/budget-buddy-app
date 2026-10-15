@@ -94,10 +94,9 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'Envelope' },
   },
   {
-    // The screen is task 7 of spec 2; Settings links here until then.
     path: '/categories',
     name: 'Categories',
-    component: () => import('../screens/PlaceholderScreen.vue'),
+    component: () => import('../screens/categories/CategoriesScreen.vue'),
     meta: { title: 'Categories' },
   },
   {

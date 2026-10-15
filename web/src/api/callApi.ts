@@ -28,7 +28,7 @@ interface Parser<T> {
  * @throws {ApiError} when the request fails or is refused.
  */
 export async function callApi<T>(
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   schema: Parser<T>,
   body?: unknown,
