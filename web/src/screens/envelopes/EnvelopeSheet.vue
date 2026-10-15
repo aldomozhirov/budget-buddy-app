@@ -390,6 +390,7 @@ async function remove(): Promise<void> {
             v-model="currencyCode"
             :options="currencyChips"
             label="Currency or coin"
+            wrap
             :disabled="currencyLocked"
           >
             <template #trailing>
@@ -431,6 +432,7 @@ async function remove(): Promise<void> {
             v-model="mode"
             class="env-mode"
             label="Each month"
+            wrap
             :options="[
               { label: 'Resets monthly', value: 'reset' },
               { label: 'Carries over', value: 'carry_over' },
@@ -551,7 +553,10 @@ async function remove(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding-bottom: 4px;
+  /* The swipeable chip row bleeds one gutter to each side; the body takes
+     the gutter back as padding so that bleed is not scrollable overflow. */
+  margin: 0 calc(-1 * var(--gutter));
+  padding: 0 var(--gutter) 4px;
 }
 .env-field {
   display: flex;

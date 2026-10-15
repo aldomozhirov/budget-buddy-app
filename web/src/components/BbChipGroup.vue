@@ -26,8 +26,10 @@ const props = withDefaults(
     variant?: 'choice' | 'small' | 'pill';
     /** Disables every chip, e.g. a currency that can no longer change. */
     disabled?: boolean;
+    /** Wraps the chips onto more lines instead of a row that swipes. */
+    wrap?: boolean;
   }>(),
-  { variant: 'choice', disabled: false },
+  { variant: 'choice', disabled: false, wrap: false },
 );
 
 const emit = defineEmits<{
@@ -90,7 +92,7 @@ function onKeydown(event: KeyboardEvent) {
 <template>
   <div
     ref="radioGroup"
-    class="hrow"
+    :class="wrap ? 'chip-wrap' : 'hrow'"
     role="radiogroup"
     :aria-label="label"
     @keydown="onKeydown"
