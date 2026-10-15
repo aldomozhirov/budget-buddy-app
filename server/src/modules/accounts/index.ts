@@ -21,6 +21,11 @@ import type { BackfillRequester } from '../../rates/service.js';
 import { balanceAt, type AccountBalance } from '../../domain/balance.js';
 import { notifyOpenCheckinChanged } from '../../domain/checkin.js';
 import { lookupCurrency, rescaleMinor } from '../../domain/currencies.js';
+import {
+  prepareTransactionRelabel,
+  type RelabelProblem,
+} from '../../domain/transactions.js';
+import { createRateLookup } from '../../rates/lookup.js';
 import type { CheckinEventBus } from '../../events.js';
 
 /** Registers account listing, maintenance, balance and currency routes. */
@@ -252,6 +257,20 @@ export const accountRoutes: FastifyPluginAsync<{
         .prepare('SELECT 1 AS found FROM snapshot WHERE account_id = ? LIMIT 1')
         .get(parsed.data.id);
       if (snapshots) return 'has_history' as const;
+      // ACC-8: a transaction on either side keeps the account too.
+      const transactions = database
+        .prepare(
+          `SELECT 1 AS found FROM txn
+           WHERE account_id = @id OR to_account_id = @id LIMIT 1`,
+        )
+        .get({ id: parsed.data.id });
+      if (transactions) return 'has_history' as const;
+      const rule = database
+        .prepare(
+          'SELECT position FROM rule WHERE account_id = ? ORDER BY position',
+        )
+        .get(parsed.data.id) as { position: bigint } | undefined;
+      if (rule) return { rule: Number(rule.position) };
       database
         .prepare('DELETE FROM snapshot_revision WHERE account_id = ?')
         .run(parsed.data.id);
@@ -264,7 +283,19 @@ export const accountRoutes: FastifyPluginAsync<{
       return reply.code(409).send({
         error: {
           code: 'conflict',
-          message: 'An account with balance history cannot be deleted.',
+          message:
+            'An account with balance history or transactions cannot be ' +
+            'deleted.',
+        },
+      });
+    }
+    if (typeof result === 'object') {
+      return reply.code(409).send({
+        error: {
+          code: 'conflict',
+          message:
+            `Rule ${result.rule} is limited to this account. ` +
+            'Change or delete the rule first.',
         },
       });
     }
@@ -306,24 +337,25 @@ export const accountRoutes: FastifyPluginAsync<{
       throw new Error(`Unknown stored currency ${existing.currency}.`);
     const now = clock.now().getTime();
     let preview: CurrencyRelabelPreview;
+    const transactions = prepareTransactionRelabel(
+      database,
+      parsedParams.data.id,
+      source,
+      target,
+    );
+    if (typeof transactions === 'string') {
+      return sendRelabelProblem(reply, transactions);
+    }
     try {
       preview = makeCurrencyRelabelPreview(
         database,
         parsedParams.data.id,
         source,
         target,
+        transactions.count,
       );
     } catch {
-      return sendValidation(
-        reply,
-        'The new currency would make a stored amount too large.',
-        [
-          {
-            path: ['currency'],
-            message: 'The amount would be too large in that currency.',
-          },
-        ],
-      );
+      return sendRelabelProblem(reply, 'too_large');
     }
     if (source.code === target.code) {
       return currencyRelabelResponseSchema.parse({
@@ -337,12 +369,20 @@ export const accountRoutes: FastifyPluginAsync<{
         requiresConfirmation: true,
       });
     }
-    const updated = database.transaction(() => {
+    const updated = database.transaction((): boolean | RelabelProblem => {
       const current = database
         .prepare('SELECT currency FROM account WHERE id = ?')
         .get(parsedParams.data.id) as { currency: string } | undefined;
       if (!current) return false;
       if (current.currency !== source.code) return false;
+      // Read again: a transaction may have been added since the preview.
+      const relabel = prepareTransactionRelabel(
+        database,
+        parsedParams.data.id,
+        source,
+        target,
+      );
+      if (typeof relabel === 'string') return relabel;
       const snapshots = database
         .prepare(
           'SELECT id, amount FROM snapshot WHERE account_id = ? ORDER BY id',
@@ -378,8 +418,10 @@ export const accountRoutes: FastifyPluginAsync<{
           'UPDATE account SET currency = ?, updated_by = ?, updated_at = ? WHERE id = ?',
         )
         .run(target.code, memberId, now, parsedParams.data.id);
+      relabel.apply(createRateLookup(database));
       return true;
     })();
+    if (typeof updated === 'string') return sendRelabelProblem(reply, updated);
     if (!updated)
       return sendNotFound(
         reply,
@@ -448,6 +490,7 @@ interface CurrencyRelabelPreview {
       beforeAmount: string;
       afterAmount: string;
     } | null;
+    transactionCount: number;
     precisionLosses: Array<{
       recordType: 'snapshot' | 'revision';
       recordId: number;
@@ -527,6 +570,7 @@ function makeCurrencyRelabelPreview(
   accountId: number,
   source: Currency,
   target: Currency,
+  transactionCount: number,
 ): CurrencyRelabelPreview {
   const snapshots = database
     .prepare(
@@ -621,6 +665,7 @@ function makeCurrencyRelabelPreview(
       requiresConfirmation: true,
       example,
       precisionLosses,
+      transactionCount,
     },
   };
 }
@@ -655,6 +700,31 @@ function sendValidation(
   return reply
     .code(400)
     .send({ error: { code: 'validation', message, fields } });
+}
+
+/** Refuses a relabel whose amounts would not fit the new currency. */
+function sendRelabelProblem(reply: FastifyReply, problem: RelabelProblem) {
+  return problem === 'zero'
+    ? sendValidation(
+        reply,
+        'The new currency would round a transaction amount to zero.',
+        [
+          {
+            path: ['currency'],
+            message: 'An amount would round to zero in that currency.',
+          },
+        ],
+      )
+    : sendValidation(
+        reply,
+        'The new currency would make a stored amount too large.',
+        [
+          {
+            path: ['currency'],
+            message: 'The amount would be too large in that currency.',
+          },
+        ],
+      );
 }
 
 function sendNotFound(reply: FastifyReply, message: string) {

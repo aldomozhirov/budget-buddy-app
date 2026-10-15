@@ -1,3 +1,4 @@
+import Decimal from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 import {
   classifyExpressionError,
@@ -15,8 +16,10 @@ import {
   type Currency,
   type RateLookup,
   convert,
+  exchangeRate,
 } from '../src/money/index.js';
 
+const Rate34 = Decimal.clone({ precision: 34, rounding: Decimal.ROUND_HALF_UP });
 const eur = getCurrency('EUR');
 const jpy = getCurrency('JPY');
 const btc = getCurrency('BTC', [{ code: 'BTC', name: 'Bitcoin', decimals: 8 }]);
@@ -220,6 +223,25 @@ describe('rate conversion', () => {
     expect(convert(100n, currency('AAA'), currency('BBB'), '2026-01-04', lookup, ['EUR'])).toEqual({
       value: 290n, rateDate: '2026-01-02',
     });
+  });
+
+  it('gives the rate convert uses: direct, inverted or through a pivot', () => {
+    const rates = new Map([
+      ['USD:EUR', { rate: '0.9149', date: '2026-10-02' }],
+      ['EUR:JPY', { rate: '160', date: '2026-10-01' }],
+      ['AAA:EUR', { rate: '1.2345', date: '2026-01-03' }],
+    ]);
+    const lookup: RateLookup = (base, quote) => rates.get(`${base}:${quote}`);
+    expect(exchangeRate('USD', 'EUR', '2026-10-03', lookup)).toEqual({ rate: '0.9149', date: '2026-10-02' });
+    // Per whole yen, however many decimals each side has.
+    expect(exchangeRate('JPY', 'EUR', '2026-10-03', lookup)).toEqual({ rate: '0.00625', date: '2026-10-01' });
+    expect(exchangeRate('AAA', 'USD', '2026-10-03', lookup)).toEqual({
+      // AAA→EUR, then EUR→USD inverted, at 34 significant digits.
+      rate: new Rate34(1).mul('1.2345').mul(new Rate34(1).div('0.9149')).toFixed(),
+      date: '2026-01-03',
+    });
+    expect(convert(100000n, jpy, eur, '2026-10-03', lookup)).toEqual({ value: 62500n, rateDate: '2026-10-01' });
+    expect(exchangeRate('USD', 'GBP', '2026-10-03', lookup)).toBeUndefined();
   });
 
   it('supports inverse quotes and same-currency decimal rescaling', () => {

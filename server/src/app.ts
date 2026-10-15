@@ -27,6 +27,7 @@ import { checkinRoutes } from './modules/checkins/index.js';
 import { ruleRoutes } from './modules/rules/index.js';
 import { ratesRoutes } from './modules/rates/index.js';
 import { summaryRoutes } from './modules/summary/index.js';
+import { transactionRoutes } from './modules/transactions/index.js';
 import { homeRoutes } from './modules/home/index.js';
 import { backupRoutes } from './modules/backup/index.js';
 import { exportRoutes } from './modules/export/index.js';
@@ -177,6 +178,11 @@ export async function createApp(options: AppOptions) {
   await app.register(ruleRoutes, {
     database: options.database,
     clock,
+  });
+  await app.register(transactionRoutes, {
+    database: options.database,
+    clock,
+    rates,
   });
   await app.register(snapshotRoutes, {
     database: options.database,

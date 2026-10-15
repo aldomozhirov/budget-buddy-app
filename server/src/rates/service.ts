@@ -54,8 +54,9 @@ export interface RefreshResult {
 export interface BackfillRequester {
   /**
    * Fetches, in the background, the rates missing for every currency in use
-   * back to its earliest snapshot (CUR-3). Returns at once and never throws;
-   * call it after a write that adds a currency or an earlier date.
+   * (on accounts and envelopes) back to its earliest snapshot or
+   * transaction (CUR-3). Returns at once and never throws; call it after a
+   * write that adds a currency or an earlier date.
    */
   requestBackfill(): void;
 }
@@ -136,8 +137,10 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
         'SELECT common_currency, time_zone FROM family WHERE id = 1',
       ),
       selectUsed: database.prepare(
-        `SELECT DISTINCT a.currency AS code, c.feed_id AS coinFeedId
-    FROM account a LEFT JOIN coin c ON c.code = a.currency`,
+        `SELECT DISTINCT u.code, c.feed_id AS coinFeedId
+    FROM (SELECT currency AS code FROM account
+      UNION ALL SELECT currency FROM envelope) u
+    LEFT JOIN coin c ON c.code = u.code`,
       ),
       selectCoin: database.prepare(
         'SELECT feed_id AS coinFeedId FROM coin WHERE code = ?',
@@ -146,6 +149,19 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
         `SELECT a.currency AS code, MIN(s.taken_at) AS takenAt
     FROM account a JOIN snapshot s ON s.account_id = a.id
     GROUP BY a.currency`,
+      ),
+      // Each side of a transaction in its account's currency, and an
+      // expense in its envelope's (Design 3.11).
+      selectEarliestTransactions: database.prepare(
+        `SELECT code, MIN(date) AS date FROM (
+      SELECT a.currency AS code, t.date FROM txn t
+        JOIN account a ON a.id = t.account_id
+      UNION ALL SELECT a.currency, t.date FROM txn t
+        JOIN account a ON a.id = t.to_account_id
+      UNION ALL SELECT e.currency, t.date FROM txn_part p
+        JOIN txn t ON t.id = p.txn_id
+        JOIN envelope e ON e.id = p.envelope_id)
+    GROUP BY code`,
       ),
       selectSpan: database.prepare(
         `SELECT MIN(date) AS first, MAX(date) AS last FROM rate
@@ -225,6 +241,16 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
       const date = todayInTimeZone(new Date(Number(row.takenAt)), timeZone);
       earliest.set(row.code, date);
       if (overall === undefined || date < overall) overall = date;
+    }
+    for (const row of sql().selectEarliestTransactions.all() as {
+      code: string;
+      date: string;
+    }[]) {
+      const known = earliest.get(row.code);
+      if (known === undefined || row.date < known) {
+        earliest.set(row.code, row.date);
+      }
+      if (overall === undefined || row.date < overall) overall = row.date;
     }
     const fallback = shiftDate(today, -defaultLookbackDays);
     const wanted = new Map<string, string>();
