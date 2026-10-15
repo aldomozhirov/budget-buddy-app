@@ -140,6 +140,11 @@ describe('sign in again when the app is re-opened', () => {
       ['PATCH', '/api/rules/1'],
       ['PUT', '/api/rules/order'],
       ['DELETE', '/api/rules/1'],
+      // The locked exception of spec 2 Design 4 waits for task 17.
+      ['POST', '/api/transactions'],
+      ['GET', '/api/transactions/1'],
+      ['PATCH', '/api/transactions/1'],
+      ['DELETE', '/api/transactions/1'],
       ['POST', '/api/auth/sign-out'],
     ] as const) {
       const response = await call(alex, method, url, {});

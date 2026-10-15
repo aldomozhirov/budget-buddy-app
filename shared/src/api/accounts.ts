@@ -156,6 +156,8 @@ export const currencyRelabelResponseSchema = z.object({
   requiresConfirmation: z.boolean(),
   example: currencyRelabelExampleSchema.nullable(),
   precisionLosses: z.array(currencyPrecisionLossSchema),
+  /** Transactions with an amount on the account, relabelled too (3.3). */
+  transactionCount: z.number().int().nonnegative(),
 });
 
 /** Snapshot history row, including its attribution. */
