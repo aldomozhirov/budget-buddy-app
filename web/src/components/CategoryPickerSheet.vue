@@ -1,16 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import {
-  categoryResponseSchema,
-  type Category,
-} from '@budget-buddy/shared';
+import { categoryResponseSchema, type Category } from '@budget-buddy/shared';
 import BbIcon from './BbIcon.vue';
 import BbSheet from './BbSheet.vue';
 import { isOnline } from '../composables/useOnline.js';
-import {
-  callApi,
-  EnvelopeApiError,
-} from '../screens/envelopes/envelopeApi.js';
+import { callApi, EnvelopeApiError } from '../screens/envelopes/envelopeApi.js';
 
 /**
  * Searchable sheet behind a category chip row's "All…" (UI-NAV-7): the most
@@ -38,7 +32,9 @@ const adding = ref(false);
 const needle = computed(() => search.value.trim());
 const matches = computed(() =>
   props.categories.filter((category) =>
-    category.name.toLocaleLowerCase().includes(needle.value.toLocaleLowerCase()),
+    category.name
+      .toLocaleLowerCase()
+      .includes(needle.value.toLocaleLowerCase()),
   ),
 );
 const mostUsed = computed(() =>
@@ -133,9 +129,7 @@ async function addCategory(): Promise<void> {
           <BbIcon v-if="category.id === selectedId" name="check" :size="18" />
         </button>
       </div>
-      <p v-else-if="!canAdd" class="t-sub" role="status">
-        No categories yet.
-      </p>
+      <p v-else-if="!canAdd" class="t-sub" role="status">No categories yet.</p>
     </div>
   </BbSheet>
 </template>

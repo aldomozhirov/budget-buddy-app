@@ -795,6 +795,7 @@ body,
 /* A tall sheet (new envelope): fills the screen below the status bar so a
    docked keypad stays on screen while the form above it scrolls. */
 .bb .sheet-tall {
+  box-sizing: border-box;
   height: calc(100dvh - 44px);
   max-height: none;
   overflow-y: hidden;

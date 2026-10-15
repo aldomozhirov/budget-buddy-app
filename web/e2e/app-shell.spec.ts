@@ -480,9 +480,7 @@ test('the Home sheet closes with Close and remains open when its content is tapp
     .click();
   const dialog = page.getByRole('dialog', { name: 'Who’s using the app?' });
   await expect(dialog).toBeVisible();
-  await dialog
-    .getByRole('heading', { name: 'Who’s using the app?' })
-    .click();
+  await dialog.getByRole('heading', { name: 'Who’s using the app?' }).click();
   await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: 'Close' }).click();
   await expect(dialog).toBeHidden();

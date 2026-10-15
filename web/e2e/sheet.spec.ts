@@ -296,12 +296,8 @@ test('a second touch cancels sheet dragging and leaves pinch zoom available', as
   expect(await dispatchTouch(sheet, 'move', startY + 12)).toBe(true);
   await expect(sheet).toHaveClass(/sheet-dragging/);
 
-  expect(
-    await dispatchTouch(sheet, 'start', startY + 12, 100, 2),
-  ).toBe(false);
-  expect(
-    await dispatchTouch(sheet, 'move', startY + 350, 100, 2),
-  ).toBe(false);
+  expect(await dispatchTouch(sheet, 'start', startY + 12, 100, 2)).toBe(false);
+  expect(await dispatchTouch(sheet, 'move', startY + 350, 100, 2)).toBe(false);
   await dispatchTouch(sheet, 'end', startY + 350);
 
   await expect(sheet).toBeVisible();

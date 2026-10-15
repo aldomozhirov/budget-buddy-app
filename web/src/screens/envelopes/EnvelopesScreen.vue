@@ -141,10 +141,7 @@ async function load(): Promise<void> {
             <span class="envelope-card-name">{{ card.envelope.name }}</span>
             <BbTag mode>{{ card.mode }}</BbTag>
           </span>
-          <span
-            class="num envelope-card-left"
-            :class="{ warn: card.over }"
-          >
+          <span class="num envelope-card-left" :class="{ warn: card.over }">
             {{ card.over ? '−' : '' }}{{ card.left }}
             <span class="envelope-card-unit">{{
               card.over ? 'overspent' : 'left'

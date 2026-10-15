@@ -285,11 +285,7 @@ function onKeydown(event: KeyboardEvent): void {
       >
         {{ resultText }}
       </div>
-      <div
-        v-if="hint"
-        class="amount-entry-hint"
-        :class="{ warn: hintWarn }"
-      >
+      <div v-if="hint" class="amount-entry-hint" :class="{ warn: hintWarn }">
         {{ hint }}
       </div>
       <div v-if="error" class="error" role="alert">

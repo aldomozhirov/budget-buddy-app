@@ -63,7 +63,7 @@ export interface EnvelopeCardFigures {
   spent: bigint;
   /** Opening, top-up and adjustments of the month. */
   available: bigint;
-  /** "€312.40 spent of €500.00 · 6 expenses", or the variant of UI-ENV-7. */
+  /** The line under the bar: "… spent of … · 6 expenses" or UI-ENV-7. */
   detail: string;
 }
 

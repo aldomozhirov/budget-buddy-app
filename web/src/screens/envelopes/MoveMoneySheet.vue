@@ -103,7 +103,9 @@ async function move(value: bigint): Promise<void> {
       <BbChipGroup
         v-model="from"
         label="From"
-        :options="envelopes.map((item) => ({ label: item.name, value: item.id }))"
+        :options="
+          envelopes.map((item) => ({ label: item.name, value: item.id }))
+        "
       />
     </div>
     <div class="move-field">

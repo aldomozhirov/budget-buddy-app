@@ -103,7 +103,7 @@ function onKeydown(event: KeyboardEvent) {
       :disabled="disabled"
       :tabindex="
         option.value === modelValue ||
-          (!options.some((item) => item.value === modelValue) && index === 0)
+        (!options.some((item) => item.value === modelValue) && index === 0)
           ? 0
           : -1
       "

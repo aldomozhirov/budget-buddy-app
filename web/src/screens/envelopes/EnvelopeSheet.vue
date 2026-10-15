@@ -80,8 +80,6 @@ const starting = ref<bigint | null>(null);
 const categoryId = ref(props.envelope?.defaultCategoryId ?? 0);
 
 const activeField = ref<AmountField | null>(editing ? null : 'monthly');
-/** What the keypad starts from when a field becomes active. */
-const keypadStart = ref<bigint | null>(null);
 const typed = ref<AmountChange | null>(null);
 
 const currencySheet = ref(false);
@@ -100,7 +98,9 @@ const nextTopUp = computed(() => monthName(addMonths(props.month, 1)));
 const showApplies = computed(() => {
   const plan = props.envelope?.plan;
   if (!editing || !plan) return false;
-  return monthly.value !== BigInt(plan.monthlyAmount) || mode.value !== plan.mode;
+  return (
+    monthly.value !== BigInt(plan.monthlyAmount) || mode.value !== plan.mode
+  );
 });
 const keypadInvalid = computed(() => typed.value?.valid === false);
 const canSave = computed(
@@ -197,14 +197,16 @@ async function load(): Promise<void> {
   }
 }
 
-/** Puts the keypad on a field; tapping the active one again puts it away. */
+/**
+ * Puts the keypad on a field, empty so that typing replaces the amount;
+ * tapping the active field again puts it away.
+ */
 function activate(field: AmountField): void {
   if (activeField.value === field) {
     activeField.value = null;
     return;
   }
   activeField.value = field;
-  keypadStart.value = field === 'monthly' ? monthly.value : starting.value;
   typed.value = null;
 }
 
@@ -498,7 +500,6 @@ async function remove(): Promise<void> {
       bare
       allow-negative
       :currency="currency"
-      :initial-amount="keypadStart"
       label="Amount"
       @change="onAmountChange"
     />
@@ -559,7 +560,8 @@ async function remove(): Promise<void> {
   flex: 1;
 }
 .env-mode :deep(.chip) {
-  width: 100%;
+  flex: 1;
+  justify-content: center;
 }
 .amt {
   width: 100%;
