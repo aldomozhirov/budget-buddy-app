@@ -58,11 +58,59 @@ function parseRate(value: string): Decimal {
 }
 
 /**
+ * Finds the rate path from `from` to `to`: a direct (or inverted) rate if one
+ * exists, even when older than a pivot route; otherwise the first pivot with
+ * rates for both legs. Undefined when there is none.
+ * @throws {RangeError} if a stored rate is not a finite positive decimal.
+ */
+function findLegs(from: string, to: string, date: string, lookup: RateLookup, pivots: readonly string[]): Leg[] | undefined {
+  const direct = getLeg(from, to, date, lookup);
+  if (direct) return [direct];
+  for (const pivot of pivots) {
+    if (pivot === from || pivot === to) continue;
+    const first = getLeg(from, pivot, date, lookup);
+    const second = getLeg(pivot, to, date, lookup);
+    if (first && second) return [first, second];
+  }
+  return undefined;
+}
+
+/** The oldest date among the legs: the date a conversion is "at". */
+function oldestDate(legs: readonly Leg[], fallback: string): string {
+  return legs.map((leg) => leg.date).sort()[0] ?? fallback;
+}
+
+/**
+ * The rate `convert` uses between two different currencies on `date`: units
+ * of `to` per one whole unit of `from`, through the same path, as an exact
+ * decimal string in plain notation (34 significant digits).
+ * @param date YYYY-MM-DD date the rates must not be later than.
+ * @returns The rate with `date`, the oldest rate date used, or undefined
+ * when no rate path exists.
+ * @throws {RangeError} if a stored rate is not a finite positive decimal.
+ * @example
+ * // With one stored rate: USD→EUR 0.9149 dated 2026-10-02.
+ * exchangeRate('USD', 'EUR', '2026-10-03', lookup);
+ * // { rate: '0.9149', date: '2026-10-02' }
+ */
+export function exchangeRate(
+  from: string,
+  to: string,
+  date: string,
+  lookup: RateLookup,
+  pivots: readonly string[] = ['EUR', 'USD'],
+): DatedRate | undefined {
+  const legs = findLegs(from, to, date, lookup, pivots);
+  if (!legs) return undefined;
+  const rate = legs.reduce((value, leg) => value.mul(leg.value), new RateDecimal(1));
+  return { rate: rate.toFixed(), date: oldestDate(legs, date) };
+}
+
+/**
  * Converts minor units between currencies at the latest rates on or before
- * `date`. A direct (or inverted) rate is used if one exists, even when older
- * than a pivot route; otherwise the first pivot with rates for both legs.
- * Works to 34 significant digits and rounds once, half away from zero, to
- * the target's minor units. Same-code amounts are only rescaled.
+ * `date`, through the rate path of `exchangeRate`. Works to 34 significant
+ * digits and rounds once, half away from zero, to the target's minor units.
+ * Same-code amounts are only rescaled.
  * @param date YYYY-MM-DD date the rates must not be later than.
  * @param pivots Currency codes tried in order as a single intermediate.
  * @returns The value with `rateDate`, the oldest rate date used (`date` for
@@ -78,21 +126,12 @@ export function convert(
   pivots: readonly string[] = ['EUR', 'USD'],
 ): ConversionResult {
   if (from.code === to.code) return { value: rescale(amount, from.decimals, to.decimals), rateDate: date };
-  const direct = getLeg(from.code, to.code, date, lookup);
-  let legs: Leg[] | undefined = direct ? [direct] : undefined;
-  if (!legs) {
-    for (const pivot of pivots) {
-      if (pivot === from.code || pivot === to.code) continue;
-      const first = getLeg(from.code, pivot, date, lookup);
-      const second = getLeg(pivot, to.code, date, lookup);
-      if (first && second) { legs = [first, second]; break; }
-    }
-  }
+  const legs = findLegs(from.code, to.code, date, lookup, pivots);
   if (!legs) return { missing: true };
   const sourceMajor = new RateDecimal(amount.toString()).div(new RateDecimal(10).pow(from.decimals));
   const targetMajor = legs.reduce((value, leg) => value.mul(leg.value), sourceMajor);
   const targetMinor = targetMajor.mul(new RateDecimal(10).pow(to.decimals));
-  return { value: roundHalfAwayFromZero(targetMinor, 0), rateDate: legs.map((leg) => leg.date).sort()[0] ?? date };
+  return { value: roundHalfAwayFromZero(targetMinor, 0), rateDate: oldestDate(legs, date) };
 }
 
 /** Changes the decimal places of minor units, rounding half away from zero. */

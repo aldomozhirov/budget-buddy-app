@@ -18,6 +18,7 @@ export * from './api/rules.js';
 export * from './api/schedule.js';
 export * from './api/settings.js';
 export * from './api/summary.js';
+export * from './api/transactions.js';
 export * from './money/index.js';
 export * from './spending/index.js';
 export * from './time/index.js';
