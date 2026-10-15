@@ -44,6 +44,7 @@ import TimeZoneSheet from './TimeZoneSheet.vue';
 import { describeBackupRow } from './backupFormat.js';
 import { formatUpdated } from './ratesFormat.js';
 import { deviceName } from '../../device.js';
+import { callApi } from '../../api/callApi.js';
 import { useBack } from '../../composables/useBack.js';
 import { isOnline } from '../../composables/useOnline.js';
 import {
@@ -265,28 +266,21 @@ async function handleSignedOut(): Promise<void> {
 
 /** Reads the counts the Spending rows show; a failed read leaves a dash. */
 async function loadSpending(): Promise<void> {
-  const read = async (path: string) => {
-    const response = await fetch(path);
-    if (!response.ok) throw new Error('Could not read it.');
-    return response.json();
-  };
   const [envelopes, categories, rules] = await Promise.allSettled([
-    read('/api/envelopes'),
-    read('/api/categories'),
-    read('/api/rules'),
+    callApi('GET', '/api/envelopes', envelopesResponseSchema),
+    callApi('GET', '/api/categories', categoriesResponseSchema),
+    callApi('GET', '/api/rules', rulesResponseSchema),
   ]);
   if (envelopes.status === 'fulfilled') {
-    envelopeCount.value = envelopesResponseSchema.parse(
-      envelopes.value,
-    ).envelopes.length;
+    envelopeCount.value = envelopes.value.envelopes.length;
   }
   if (categories.status === 'fulfilled') {
-    categoryCount.value = categoriesResponseSchema
-      .parse(categories.value)
-      .categories.filter((category) => !category.archived).length;
+    categoryCount.value = categories.value.categories.filter(
+      (category) => !category.archived,
+    ).length;
   }
   if (rules.status === 'fulfilled') {
-    ruleCount.value = rulesResponseSchema.parse(rules.value).rules.length;
+    ruleCount.value = rules.value.rules.length;
   }
 }
 
