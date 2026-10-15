@@ -2,6 +2,7 @@
 export * from './api/auth.js';
 export * from './api/backup.js';
 export * from './api/accounts.js';
+export * from './api/addOptions.js';
 export * from './api/categories.js';
 export * from './api/checkins.js';
 export * from './api/currencies.js';

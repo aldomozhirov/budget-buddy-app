@@ -19,6 +19,7 @@ import { memberRoutes } from './modules/members/index.js';
 import { familyRoutes } from './modules/family/index.js';
 import { currenciesRoutes } from './modules/currencies/index.js';
 import { settingsRoutes } from './modules/settings/index.js';
+import { addOptionsRoutes } from './modules/addOptions/index.js';
 import { accountRoutes } from './modules/accounts/index.js';
 import { categoryRoutes } from './modules/categories/index.js';
 import { envelopeRoutes } from './modules/envelopes/index.js';
@@ -28,6 +29,7 @@ import { ruleRoutes } from './modules/rules/index.js';
 import { ratesRoutes } from './modules/rates/index.js';
 import { summaryRoutes } from './modules/summary/index.js';
 import { transactionRoutes } from './modules/transactions/index.js';
+import { suggestionRoutes } from './modules/transactions/suggestions.js';
 import { homeRoutes } from './modules/home/index.js';
 import { backupRoutes } from './modules/backup/index.js';
 import { exportRoutes } from './modules/export/index.js';
@@ -183,6 +185,14 @@ export async function createApp(options: AppOptions) {
     database: options.database,
     clock,
     rates,
+  });
+  await app.register(addOptionsRoutes, {
+    database: options.database,
+    clock,
+  });
+  await app.register(suggestionRoutes, {
+    database: options.database,
+    clock,
   });
   await app.register(snapshotRoutes, {
     database: options.database,
