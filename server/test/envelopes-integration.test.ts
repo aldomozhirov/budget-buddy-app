@@ -188,6 +188,8 @@ describe('envelopes API', () => {
       pendingPlan: null,
       overspent: false,
       used: false,
+      expenseCount: 0,
+      monthExpenseCount: 0,
       createdBy: 1,
       updatedBy: 1,
     });
@@ -240,7 +242,12 @@ describe('envelopes API', () => {
       note: 'Cash in the jar',
     });
     const detail = (await call('GET', `/api/envelopes/${id}`)).json();
-    expect(detail.envelope).toMatchObject({ overspent: true, used: true });
+    expect(detail.envelope).toMatchObject({
+      overspent: true,
+      used: true,
+      expenseCount: 3,
+      monthExpenseCount: 3,
+    });
     expect(detail.month).toMatchObject({
       spent: '12100',
       adjustments: '-300',

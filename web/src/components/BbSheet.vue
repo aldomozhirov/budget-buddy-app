@@ -19,8 +19,10 @@ const props = withDefaults(
     closeLabel?: string;
     /** When false, hides the close button and ignores every close gesture. */
     closable?: boolean;
+    /** Fills the screen below the status bar; the body must scroll itself. */
+    tall?: boolean;
   }>(),
-  { closeLabel: 'Close', closable: true },
+  { closeLabel: 'Close', closable: true, tall: false },
 );
 
 const emit = defineEmits<{
@@ -278,6 +280,7 @@ onUnmounted(() => {
         :class="{
           'sheet-interacted': hasDragged,
           'sheet-dragging': dragging,
+          'sheet-tall': tall,
         }"
         :style="sheetStyle"
         role="dialog"

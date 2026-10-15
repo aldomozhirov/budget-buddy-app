@@ -781,6 +781,8 @@ type EnvelopeRow = {
   position: bigint;
   archivedAt: bigint | null;
   used: bigint;
+  expenseCount: bigint;
+  monthExpenseCount: bigint;
   createdBy: bigint;
   createdAt: bigint;
   updatedBy: bigint;
@@ -804,10 +806,20 @@ function loadEnvelopes(
              updated_at AS updatedAt,
              EXISTS (SELECT 1 FROM txn_part WHERE envelope_id = envelope.id)
                OR EXISTS (SELECT 1 FROM envelope_adjustment
-                          WHERE envelope_id = envelope.id) AS used
+                          WHERE envelope_id = envelope.id) AS used,
+             (SELECT COUNT(*) FROM txn_part p
+                JOIN txn t ON t.id = p.txn_id
+              WHERE p.envelope_id = envelope.id AND t.kind = 'expense'
+                AND t.status = 'confirmed') AS expenseCount,
+             (SELECT COUNT(*) FROM txn_part p
+                JOIN txn t ON t.id = p.txn_id
+              WHERE p.envelope_id = envelope.id AND t.kind = 'expense'
+                AND t.status = 'confirmed'
+                AND MAX(substr(t.date, 1, 7), envelope.starting_month)
+                  = @month) AS monthExpenseCount
            FROM envelope WHERE @id IS NULL OR id = @id`,
         )
-        .all({ id: id ?? null }) as EnvelopeRow[]
+        .all({ id: id ?? null, month }) as EnvelopeRow[]
     ).map((row) => [Number(row.id), row]),
   );
   return states.flatMap((state) => {
@@ -834,6 +846,8 @@ function toEnvelopeResponse(state: EnvelopeState, row: EnvelopeRow): Envelope {
     current: current ? toMonthResponse(current) : null,
     overspent: current !== undefined && current.closing < 0n,
     used: row.used === 1n,
+    expenseCount: Number(row.expenseCount),
+    monthExpenseCount: Number(row.monthExpenseCount),
     createdBy: Number(row.createdBy),
     createdAt: Number(row.createdAt),
     updatedBy: Number(row.updatedBy),

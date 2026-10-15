@@ -781,3 +781,21 @@ body,
     padding-inline: 0;
   }
 }
+
+/* The line under the amount in a sheet, e.g. what an envelope has left. */
+.bb .amount-entry-hint {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.bb .amount-entry-hint.warn {
+  color: var(--warn);
+}
+
+/* A tall sheet (new envelope): fills the screen below the status bar so a
+   docked keypad stays on screen while the form above it scrolls. */
+.bb .sheet-tall {
+  height: calc(100dvh - 44px);
+  max-height: none;
+  overflow-y: hidden;
+}

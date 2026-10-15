@@ -32,6 +32,15 @@ const props = withDefaults(
     saving?: boolean;
     /** Saving calls the server, so it is disabled while offline (IOS-6). */
     needsServer?: boolean;
+    /**
+     * Keypad only: no display, "Start from last" or save button. The caller
+     * shows the value from `change` and saves it itself.
+     */
+    bare?: boolean;
+    /** A line under the amount, e.g. what is left in an envelope. */
+    hint?: string;
+    /** Shows `hint` in the warning colour. */
+    hintWarn?: boolean;
   }>(),
   {
     allowNegative: false,
@@ -41,15 +50,37 @@ const props = withDefaults(
     saveLabel: 'Save',
     saving: false,
     needsServer: false,
+    bare: false,
+    hint: '',
+    hintWarn: false,
   },
 );
 
+/** What `change` reports after each edit of a bare keypad. */
+export interface AmountChange {
+  /** The calculated amount; null while empty or incomplete. */
+  amount: bigint | null;
+  /** Nothing is typed. */
+  empty: boolean;
+  /** The expression is empty or complete, so its value can be used. */
+  valid: boolean;
+  /** The result formatted, or the typed expression once it has an operator. */
+  text: string;
+  /** Why the expression cannot be calculated; empty while it is fine. */
+  error: string;
+}
+
 const offline = computed(() => props.needsServer && !isOnline.value);
 
-/** Emits the valid amount as it changes, or when the caller saves it. */
+/**
+ * Emits the valid amount as it changes, or when the caller saves it. `change`
+ * reports every edit with what to show: the typed expression (when it has an
+ * operator) or the result, and whether the expression is empty or complete.
+ */
 const emit = defineEmits<{
   'update:amount': [amount: bigint | null];
   save: [amount: bigint];
+  change: [state: AmountChange];
 }>();
 
 const expression = ref('');
@@ -132,6 +163,20 @@ function setExpression(next: string): void {
     ? evaluateExpression(next, props.currency)
     : undefined;
   emit('update:amount', result?.ok ? result.value : null);
+  const shown = result?.ok
+    ? result.value
+    : next.trim()
+      ? lastCompleteValue(next, props.currency)
+      : undefined;
+  emit('change', {
+    amount: result?.ok ? result.value : null,
+    empty: !next.trim(),
+    valid: !next.trim() || result?.ok === true,
+    text: /[+−\-×÷*/%]/.test(next)
+      ? next
+      : formatMoney(shown ?? 0n, props.currency),
+    error: error.value,
+  });
 }
 
 /** Applies a keypad or hardware-keyboard token to the expression. */
@@ -223,6 +268,7 @@ function onKeydown(event: KeyboardEvent): void {
 <template>
   <div class="amount-entry" @keydown="onKeydown">
     <div
+      v-if="!bare"
       class="amount-entry-display"
       role="group"
       :aria-label="label"
@@ -239,13 +285,20 @@ function onKeydown(event: KeyboardEvent): void {
       >
         {{ resultText }}
       </div>
+      <div
+        v-if="hint"
+        class="amount-entry-hint"
+        :class="{ warn: hintWarn }"
+      >
+        {{ hint }}
+      </div>
       <div v-if="error" class="error" role="alert">
         {{ error }}
       </div>
     </div>
 
     <button
-      v-if="hasLastAmount"
+      v-if="hasLastAmount && !bare"
       class="text-btn amount-entry-start-last"
       type="button"
       @click="startFromLast"
@@ -256,6 +309,7 @@ function onKeydown(event: KeyboardEvent): void {
     <BbKeypad :minus-disabled="minusDisabled" @press="press" />
 
     <button
+      v-if="!bare"
       class="primary"
       type="button"
       :disabled="!canSave || saving || offline"
