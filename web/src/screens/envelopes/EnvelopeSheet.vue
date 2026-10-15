@@ -26,7 +26,7 @@ import BbConfirmSheet from '../../components/BbConfirmSheet.vue';
 import BbSheet from '../../components/BbSheet.vue';
 import CategoryPickerSheet from '../../components/CategoryPickerSheet.vue';
 import CurrencyPickerSheet from '../../components/CurrencyPickerSheet.vue';
-import { callApi, EnvelopeApiError } from './envelopeApi.js';
+import { callApi, ApiError } from '../../api/callApi.js';
 import {
   envelopeCurrency,
   expenseCountText,
@@ -195,7 +195,7 @@ async function load(): Promise<void> {
     if (!currencyCode.value) currencyCode.value = settings.commonCurrency;
   } catch (cause) {
     loadError.value =
-      cause instanceof EnvelopeApiError
+      cause instanceof ApiError
         ? cause.message
         : 'Could not load the envelope options. Try again.';
   } finally {
@@ -247,7 +247,7 @@ function amountText(field: AmountField): string {
 }
 
 function messageFor(cause: unknown): string {
-  return cause instanceof EnvelopeApiError
+  return cause instanceof ApiError
     ? cause.message
     : 'Could not save the envelope. Try again.';
 }
@@ -303,7 +303,7 @@ async function save(): Promise<void> {
     }
     emit('close');
   } catch (cause) {
-    if (cause instanceof EnvelopeApiError && cause.fields.name) {
+    if (cause instanceof ApiError && cause.fields.name) {
       nameError.value = cause.fields.name;
     } else {
       error.value = messageFor(cause);
@@ -612,6 +612,8 @@ async function remove(): Promise<void> {
 }
 .env-danger :deep(.secondary) {
   flex: none;
+  /* .secondary is full width; the row keeps room for the hint. */
+  width: auto;
   height: 44px;
   padding: 0 16px;
   border-radius: 22px;

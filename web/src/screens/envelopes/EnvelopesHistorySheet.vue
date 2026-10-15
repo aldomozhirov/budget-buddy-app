@@ -6,7 +6,7 @@ import {
   type Envelope,
 } from '@budget-buddy/shared';
 import BbSheet from '../../components/BbSheet.vue';
-import { callApi } from './envelopeApi.js';
+import { callApi } from '../../api/callApi.js';
 import { modeLabel, monthWithYear } from './envelopeFormat.js';
 
 /**

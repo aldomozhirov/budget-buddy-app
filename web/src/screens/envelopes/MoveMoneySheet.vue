@@ -9,7 +9,7 @@ import {
 import BbAmountInput from '../../components/BbAmountInput.vue';
 import BbChipGroup from '../../components/BbChipGroup.vue';
 import BbSheet from '../../components/BbSheet.vue';
-import { callApi, EnvelopeApiError } from './envelopeApi.js';
+import { callApi, ApiError } from '../../api/callApi.js';
 import { envelopeCurrency } from './envelopeFormat.js';
 
 /**
@@ -87,7 +87,7 @@ async function move(value: bigint): Promise<void> {
     emit('close');
   } catch (cause) {
     error.value =
-      cause instanceof EnvelopeApiError
+      cause instanceof ApiError
         ? cause.message
         : 'Could not move the money. Try again.';
   } finally {

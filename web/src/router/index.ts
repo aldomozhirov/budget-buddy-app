@@ -88,10 +88,9 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'Archived envelopes' },
   },
   {
-    // The envelope page is task 6 of spec 2; the History picker links here.
     path: '/envelopes/:id',
     name: 'Envelope',
-    component: () => import('../screens/PlaceholderScreen.vue'),
+    component: () => import('../screens/envelopes/EnvelopeScreen.vue'),
     meta: { title: 'Envelope' },
   },
   {

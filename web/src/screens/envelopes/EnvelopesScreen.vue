@@ -16,7 +16,7 @@ import BbIcon from '../../components/BbIcon.vue';
 import BbProgress from '../../components/BbProgress.vue';
 import BbTag from '../../components/BbTag.vue';
 import { useBack } from '../../composables/useBack.js';
-import { callApi, EnvelopeApiError } from './envelopeApi.js';
+import { callApi, ApiError } from '../../api/callApi.js';
 import {
   cardFigures,
   envelopeCurrency,
@@ -88,7 +88,7 @@ async function load(): Promise<void> {
     month.value = monthOfDate(todayInTimeZone(new Date(), settings.timeZone));
   } catch (cause) {
     error.value =
-      cause instanceof EnvelopeApiError && cause.status !== 0
+      cause instanceof ApiError && cause.status !== 0
         ? cause.message
         : 'Could not load the envelopes. Check your connection and try again.';
   } finally {

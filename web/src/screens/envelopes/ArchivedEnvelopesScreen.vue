@@ -16,7 +16,7 @@ import {
 import BbBackButton from '../../components/BbBackButton.vue';
 import BbListCard from '../../components/BbListCard.vue';
 import { useBack } from '../../composables/useBack.js';
-import { callApi, EnvelopeApiError } from './envelopeApi.js';
+import { callApi, ApiError } from '../../api/callApi.js';
 import {
   envelopeCurrency,
   expenseCountText,
@@ -89,7 +89,7 @@ async function load(): Promise<void> {
     coins.value = currencyData.coins;
   } catch (cause) {
     error.value =
-      cause instanceof EnvelopeApiError && cause.status !== 0
+      cause instanceof ApiError && cause.status !== 0
         ? cause.message
         : 'Could not load the archive. Check your connection and try again.';
   } finally {
@@ -113,7 +113,7 @@ async function setArchived(envelope: Envelope, archived: boolean) {
     await load();
   } catch (cause) {
     error.value =
-      cause instanceof EnvelopeApiError
+      cause instanceof ApiError
         ? cause.message
         : 'Could not change the envelope. Try again.';
   } finally {

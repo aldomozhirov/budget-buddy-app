@@ -891,7 +891,7 @@ function loadExpenses(
   const rows = database
     .prepare(
       `SELECT t.id AS transactionId, t.date, t.merchant, t.note,
-         p.amount, a.currency AS accountCurrency,
+         p.amount, a.currency AS accountCurrency, a.name AS accountName,
          p.envelope_amount AS envelopeAmount, t.member_id AS memberId
        FROM txn_part p
          JOIN txn t ON t.id = p.txn_id
@@ -912,6 +912,7 @@ function loadExpenses(
     note: string | null;
     amount: bigint;
     accountCurrency: string;
+    accountName: string;
     envelopeAmount: bigint | null;
     memberId: bigint;
   }>;
@@ -922,6 +923,7 @@ function loadExpenses(
     note: row.note,
     amount: toMinorString(row.amount),
     accountCurrency: row.accountCurrency,
+    accountName: row.accountName,
     envelopeAmount:
       row.envelopeAmount === null ? null : toMinorString(row.envelopeAmount),
     memberId: Number(row.memberId),

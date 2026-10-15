@@ -6,6 +6,8 @@ import {
   type CoinSetting,
   type Currency,
   type Envelope,
+  type EnvelopeMonth,
+  type EnvelopePlan,
 } from '@budget-buddy/shared';
 
 const MONTH_NAMES = [
@@ -98,4 +100,73 @@ export function envelopeCurrency(
   coins: readonly CoinSetting[],
 ): Currency {
   return getCurrency(code, coins) ?? getCurrency('EUR')!;
+}
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
+/**
+ * A `YYYY-MM-DD` date as a list row says it: "Today", or "Sun 4 Oct" (with
+ * the year when it is not `today`'s).
+ */
+export function dayLabel(date: string, today: string): string {
+  if (date === today) return 'Today';
+  const [year, month, day] = date.split('-').map(Number);
+  const weekday =
+    WEEKDAYS[new Date(Date.UTC(year!, month! - 1, day!)).getUTCDay()];
+  const name = monthName(date.slice(0, 7)).slice(0, 3);
+  const years = date.slice(0, 4) === today.slice(0, 4) ? '' : ` ${year}`;
+  return `${weekday} ${day} ${name}${years}`;
+}
+
+/** Days left in the month after `today` ("26 days to go"). */
+export function daysToGo(today: string): string {
+  const [year, month, day] = today.split('-').map(Number);
+  const last = new Date(Date.UTC(year!, month!, 0)).getUTCDate();
+  const left = last - day!;
+  if (left === 0) return 'last day of the month';
+  return `${left} ${left === 1 ? 'day' : 'days'} to go`;
+}
+
+/** What a plan says in an envelope's header. */
+function modePhrase(mode: 'carry_over' | 'reset'): string {
+  return mode === 'reset' ? 'resets on the 1st' : 'carries over on the 1st';
+}
+
+/** The header line: "€500.00 a month · resets on the 1st". */
+export function planLine(plan: EnvelopePlan, currency: Currency): string {
+  return `${formatMoney(BigInt(plan.monthlyAmount), currency)} a month · ${modePhrase(plan.mode)}`;
+}
+
+/**
+ * The pending change in the accent colour (UI-ENV-7): "From 1 November:
+ * €350.00 a month", with the new mode when only that differs (O4).
+ */
+export function pendingPlanLine(
+  pending: EnvelopePlan,
+  current: EnvelopePlan | null,
+  currency: Currency,
+): string {
+  const base = `From 1 ${monthName(pending.fromMonth)}: ${formatMoney(BigInt(pending.monthlyAmount), currency)} a month`;
+  return current && current.mode !== pending.mode
+    ? `${base} · ${modePhrase(pending.mode)}`
+    : base;
+}
+
+/**
+ * The History chart's accessible summary. A closed month is "over the
+ * limit" when it spent more than `limit`, the rule `BarChart` colours its
+ * bars by, so a screen reader hears what the chart shows.
+ */
+export function historySummary(
+  months: readonly EnvelopeMonth[],
+  limit: bigint,
+  money: (value: string | bigint) => string,
+): string {
+  const parts = months.map((month) => {
+    const over = month.closed && BigInt(month.spent) > limit;
+    return `${monthName(month.month)} ${money(month.spent)}${
+      over ? ', over the limit' : ''
+    }${month.closed ? '' : ', this month'}`;
+  });
+  return `Spent per month against a limit of ${money(limit)}: ${parts.join('; ')}`;
 }

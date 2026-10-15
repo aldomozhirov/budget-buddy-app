@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { getCurrency, type Envelope } from '@budget-buddy/shared';
 import {
   cardFigures,
+  dayLabel,
+  daysToGo,
+  pendingPlanLine,
+  planLine,
   shortDate,
   topUpLine,
 } from '../src/screens/envelopes/envelopeFormat';
@@ -106,5 +110,43 @@ describe('envelope dates', () => {
     expect(shortDate(Date.parse('2026-08-29T22:30:00Z'), 'Europe/Berlin')).toBe(
       '30 Aug 2026',
     );
+  });
+});
+
+describe('envelope page lines', () => {
+  it('writes the plan and a pending change', () => {
+    const reset = {
+      fromMonth: '2026-05',
+      monthlyAmount: '50000',
+      mode: 'reset' as const,
+    };
+    const carry = {
+      fromMonth: '2026-11',
+      monthlyAmount: '35000',
+      mode: 'carry_over' as const,
+    };
+    expect(planLine(reset, eur)).toBe('€500.00 a month · resets on the 1st');
+    expect(planLine({ ...reset, mode: 'carry_over' }, eur)).toBe(
+      '€500.00 a month · carries over on the 1st',
+    );
+    expect(pendingPlanLine({ ...carry, mode: 'reset' }, reset, eur)).toBe(
+      'From 1 November: €350.00 a month',
+    );
+    expect(pendingPlanLine(carry, reset, eur)).toBe(
+      'From 1 November: €350.00 a month · carries over on the 1st',
+    );
+  });
+
+  it('labels days as the list rows do', () => {
+    expect(dayLabel('2026-10-05', '2026-10-05')).toBe('Today');
+    expect(dayLabel('2026-10-04', '2026-10-05')).toBe('Sun 4 Oct');
+    expect(dayLabel('2025-12-31', '2026-10-05')).toBe('Wed 31 Dec 2025');
+  });
+
+  it('counts the days left after today', () => {
+    expect(daysToGo('2026-10-05')).toBe('26 days to go');
+    expect(daysToGo('2026-10-30')).toBe('1 day to go');
+    expect(daysToGo('2026-10-31')).toBe('last day of the month');
+    expect(daysToGo('2028-02-01')).toBe('28 days to go');
   });
 });
