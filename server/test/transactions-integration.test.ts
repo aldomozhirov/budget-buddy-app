@@ -444,6 +444,121 @@ describe('transactions API', () => {
     });
   });
 
+  it('takes a typed envelope amount only across currencies', async () => {
+    const joint = await account('Joint', 'EUR');
+    const groceries = await envelope('Groceries');
+    const { transaction } = await created({
+      kind: 'expense',
+      accountId: joint,
+      amount: '2380',
+      envelopeId: groceries,
+    });
+    const typed = await call('PATCH', `/api/transactions/${transaction.id}`, {
+      envelopeAmount: '100',
+    });
+    expect(typed.statusCode).toBe(400);
+    expect(typed.json().error.fields.envelopeAmount).toBe(
+      'Only an expense in another currency than its envelope can be ' +
+        'typed by hand.',
+    );
+    const unlinked = await created({
+      kind: 'expense',
+      accountId: joint,
+      amount: '100',
+    });
+    const noEnvelope = await call(
+      'PATCH',
+      `/api/transactions/${unlinked.transaction.id}`,
+      { envelopeAmount: '100' },
+    );
+    expect(noEnvelope.json().error.fields.envelopeAmount).toBe(
+      'Choose an envelope first.',
+    );
+  });
+
+  it('needs the amount when an edit changes what it is counted in', async () => {
+    const joint = await account('Joint', 'EUR');
+    const wise = await account('Wise $', 'USD');
+    const yen = await account('Yen', 'JPY');
+    const savings = await account('Savings', 'EUR');
+    const transfer = await created({
+      kind: 'transfer',
+      accountId: joint,
+      toAccountId: wise,
+      amount: '1000',
+      toAmount: '1100',
+    });
+    const url = `/api/transactions/${transfer.transaction.id}`;
+    // $11.00 is not ¥1100: a new pair needs the amount that arrives.
+    const toYen = await call('PATCH', url, { toAccountId: yen });
+    expect(toYen.statusCode).toBe(400);
+    expect(toYen.json().error.fields.toAmount).toBe(
+      'Enter the amount that arrives.',
+    );
+    const given = await call('PATCH', url, {
+      toAccountId: yen,
+      toAmount: '1650',
+    });
+    expect(given.json().transaction).toMatchObject({
+      toCurrency: 'JPY',
+      toAmount: '1650',
+    });
+    // Into one currency the same amount arrives without being typed.
+    const toSavings = await call('PATCH', url, { toAccountId: savings });
+    expect(toSavings.json().transaction.toAmount).toBe('1000');
+
+    const expense = await created({
+      kind: 'expense',
+      accountId: joint,
+      amount: '1999',
+    });
+    const expenseUrl = `/api/transactions/${expense.transaction.id}`;
+    const noAmount = await call('PATCH', expenseUrl, { accountId: yen });
+    expect(noAmount.statusCode).toBe(400);
+    expect(noAmount.json().error.fields.amount).toBeDefined();
+    const withAmount = await call('PATCH', expenseUrl, {
+      accountId: yen,
+      amount: '3200',
+    });
+    expect(withAmount.json().transaction).toMatchObject({
+      currency: 'JPY',
+      amount: '3200',
+    });
+    // The same decimals keep the amount as typed.
+    const toDollars = await call('PATCH', expenseUrl, {
+      accountId: wise,
+      amount: '2000',
+    });
+    expect(toDollars.statusCode).toBe(200);
+    const back = await call('PATCH', expenseUrl, { accountId: joint });
+    expect(back.json().transaction).toMatchObject({ amount: '2000' });
+  });
+
+  it('keeps the amounts of a pair a relabel made one currency', async () => {
+    const joint = await account('Joint', 'EUR');
+    const wise = await account('Wise $', 'USD');
+    const transfer = await created({
+      kind: 'transfer',
+      accountId: joint,
+      toAccountId: wise,
+      amount: '1000',
+      toAmount: '1100',
+    });
+    const relabelled = await call('POST', `/api/accounts/${wise}/currency`, {
+      currency: 'EUR',
+      confirm: true,
+    });
+    expect(relabelled.statusCode, relabelled.body).toBe(200);
+    const url = `/api/transactions/${transfer.transaction.id}`;
+    const note = await call('PATCH', url, { note: 'Top-up' });
+    expect(note.json().transaction).toMatchObject({
+      amount: '1000',
+      toAmount: '1100',
+    });
+    const amount = await call('PATCH', url, { amount: '1200' });
+    expect(amount.json().transaction.toAmount).toBe('1200');
+  });
+
   it('leaves the envelope amount empty until a rate arrives', async () => {
     const wise = await account('Wise $', 'USD');
     const groceries = await envelope('Groceries');
@@ -806,6 +921,7 @@ describe('transactions API', () => {
     const joint = await account('Joint', 'EUR');
     const wise = await account('Wise $', 'USD');
     const groceries = await envelope('Groceries');
+    const travel = await envelope('Travel', 'USD');
     rate('EUR', 'JPY', '2026-10-01', '160');
     const expense = await created({
       kind: 'expense',
@@ -817,11 +933,14 @@ describe('transactions API', () => {
       kind: 'expense',
       accountId: joint,
       amount: '1000',
-      envelopeId: groceries,
+      envelopeId: travel,
     });
-    await call('PATCH', `/api/transactions/${manual.transaction.id}`, {
-      envelopeAmount: '999',
-    });
+    const typed = await call(
+      'PATCH',
+      `/api/transactions/${manual.transaction.id}`,
+      { envelopeAmount: '999' },
+    );
+    expect(typed.statusCode, typed.body).toBe(200);
     const transfer = await created({
       kind: 'transfer',
       accountId: wise,

@@ -26,6 +26,7 @@ import {
   writeRevision,
   type StoredTransaction,
 } from '../../domain/transactions.js';
+import { lookupCurrency } from '../../domain/currencies.js';
 import { createRateLookup } from '../../rates/lookup.js';
 import type { BackfillRequester } from '../../rates/service.js';
 
@@ -39,8 +40,12 @@ type Issue = { path: PropertyKey[]; message: string };
 interface Draft {
   state: StoredTransaction;
   changed: (field: keyof StoredTransaction) => boolean;
+  /** The request gives `amount`. */
+  amountGiven: boolean;
   /** The amount arriving that the request gave for a transfer. */
   toAmountGiven: bigint | undefined;
+  /** The account currencies before an edit; null for a new transaction. */
+  before: { currency: string; toCurrency: string | null } | null;
 }
 
 /** Registers `POST`, `GET /:id`, `PATCH` and `DELETE` of transactions. */
@@ -359,7 +364,9 @@ function createDraft(
       updatedAt: now,
     },
     changed: () => true,
+    amountGiven: true,
     toAmountGiven: toAmount,
+    before: null,
   };
 }
 
@@ -382,6 +389,8 @@ function editDraft(
   return {
     state,
     changed: (field) => state[field] !== stored[field],
+    amountGiven: body.amount !== undefined,
+    before: { currency: stored.currency, toCurrency: stored.toCurrency },
     toAmountGiven:
       body.toAmount === undefined ? undefined : BigInt(body.toAmount),
   };
@@ -420,6 +429,15 @@ function checkDraft(
   if (!account) issue('accountId', 'Choose an account.');
   else {
     state.currency = account.currency;
+    // Minor units mean another value in a currency of other decimals.
+    if (
+      draft.before !== null &&
+      !draft.amountGiven &&
+      decimalsOf(database, account.currency) !==
+        decimalsOf(database, draft.before.currency)
+    ) {
+      issue('amount', 'Enter the amount in the currency of the new account.');
+    }
     if (
       (changed('accountId') || datesMoved) &&
       deactivatedBefore(account, state.date, timeZone)
@@ -445,6 +463,11 @@ function checkDraft(
       ) {
         issue('toAccountId', 'This account was closed before that date.');
       }
+      // A new pair of currencies needs the amount that arrives in it.
+      const pairMoved =
+        draft.before === null ||
+        draft.before.currency !== account?.currency ||
+        draft.before.toCurrency !== to.currency;
       if (account && account.currency === to.currency) {
         // One currency: the same amount arrives (TXN-4).
         if (
@@ -456,7 +479,17 @@ function checkDraft(
             'Between accounts of one currency the same amount arrives.',
           );
         }
-        state.toAmount = state.amount;
+        // Only when the request touches it, so a pair that a relabel made
+        // one currency keeps its stored amounts.
+        if (
+          pairMoved ||
+          changed('amount') ||
+          draft.toAmountGiven !== undefined
+        ) {
+          state.toAmount = state.amount;
+        }
+      } else if (pairMoved && draft.toAmountGiven === undefined) {
+        issue('toAmount', 'Enter the amount that arrives.');
       } else if (state.toAmount === null) {
         issue('toAmount', 'Enter the amount that arrives.');
       } else if (state.toAmount <= 0n) {
@@ -513,16 +546,19 @@ function checkEnvelopeAmount(
   if (body.envelopeAmount === null || body.envelopeAmount === undefined) {
     return [];
   }
-  const message =
-    state.envelopeId === null
-      ? 'Choose an envelope first.'
-      : 'Enter an amount with the same sign as the expense.';
+  const issue = (message: string) => [{ path: ['envelopeAmount'], message }];
+  if (state.envelopeId === null) return issue('Choose an envelope first.');
+  // The same currency counts the expense itself (3.3, UI-TXN-5).
+  if (state.envelopeCurrency === state.currency) {
+    return issue(
+      'Only an expense in another currency than its envelope can be ' +
+        'typed by hand.',
+    );
+  }
   const amount = BigInt(body.envelopeAmount);
-  const fits =
-    state.envelopeId !== null &&
-    amount !== 0n &&
-    amount < 0n === state.amount < 0n;
-  return fits ? [] : [{ path: ['envelopeAmount'], message }];
+  return amount !== 0n && amount < 0n === state.amount < 0n
+    ? []
+    : issue('Enter an amount with the same sign as the expense.');
 }
 
 /**
@@ -702,6 +738,16 @@ function deactivatedBefore(
   if (account.active) return false;
   if (account.deactivatedAt === null) return true;
   return todayInTimeZone(new Date(account.deactivatedAt), timeZone) < date;
+}
+
+/**
+ * The decimals of a stored currency code.
+ * @throws {Error} if the code is unknown, which stored data never is.
+ */
+function decimalsOf(database: Database.Database, code: string): number {
+  const currency = lookupCurrency(database, code);
+  if (!currency) throw new Error(`Unknown stored currency ${code}.`);
+  return currency.decimals;
 }
 
 function memberExists(database: Database.Database, id: number): boolean {
