@@ -142,6 +142,8 @@ describe('sign in again when the app is re-opened', () => {
       ['DELETE', '/api/rules/1'],
       // The locked exception of spec 2 Design 4 waits for task 17.
       ['POST', '/api/transactions'],
+      ['GET', '/api/transactions'],
+      ['GET', '/api/transactions/facets?facet=member'],
       ['GET', '/api/transactions/1'],
       ['PATCH', '/api/transactions/1'],
       ['DELETE', '/api/transactions/1'],

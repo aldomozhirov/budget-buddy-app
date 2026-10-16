@@ -338,10 +338,19 @@ Try it: on an iPhone-sized browser, add an expense with only an amount, one with
 
 Try it: find last week's groceries, label three expenses at once and undo it, correct a transaction, see the envelopes on Home with amounts hidden.
 
-- [ ] **12. Transactions list API.**
+- [x] **12. Transactions list API.**
   Refs: TXN-6, UI-TXN-1, UI-TXN-2, PRF-1, COR-4, Design 3.11, 5. Depends: 8.
   Files: `server/src/modules/transactions/list.ts`, `shared/src/api/transactions.ts`, tests.
   Acceptance: integration tests: every filter alone and combined; `none` for category and envelope; refunds under `kind=refund`; search words over each field, the amount rule of Design 5, and a word with an umlaut; keyset pages of 50 without gaps or repeats, also when many transactions share a date; day totals and the summary match a hand sum, convert at each date's rate and say incomplete on a missing rate; facet counts equal the count the list returns with that option; drafts (inserted directly) never appear; a performance test with 100,000 transactions over 10 years answers the first page, its summary and a facet in under 300 ms each on the developer machine.
+  Decisions taken where the spec was silent (built in `server/src/modules/transactions/list.ts`; no migration was needed, the indexes of Design 2 are enough: all time, first page and summary 72 ms, a facet 38 ms, a search 52 ms, on the developer machine):
+  - Every list filter takes several values, comma-separated or repeated (`member=1,2`), because the filter sheet picks any ("None picked shows all"); `account` matches either side of a transfer, so a transfer counts for both accounts. `from` and `to` are accepted only with `period=custom`.
+  - "Last 3 months" is this month and the two before it, from the 1st of that month. Periods follow the family time zone.
+  - `category=none` matches expenses and incomes without a category, never transfers (O7). `envelope=none` matches expenses without an envelope; an income or a transfer has no envelope to lack, and matches no envelope option.
+  - Search words match as case-folded parts (`unicode_casefold` rules, so "MÜLLER" finds "Café Müller" but "muller" does not); a word matches an account on either side of a transfer. A number word is an amount in each currency's own minor units on `amount` (by size, so a refund matches `19.99`) and on `to_amount`; `,` works as the decimal mark; a word with more decimals than a currency has matches nothing in it. A number is also searched as text.
+  - Totals (`spent`: expenses less refunds; `income`; transfers in neither) are in the common currency: each (day, account currency) total is converted once at that day's rate, so the summary is exactly the sum of the day totals (COR-4). A missing rate leaves the amount out and sets `incomplete` on the day and on the summary. Day totals cover the whole day under the filters, so a day split over two pages has the same total on both.
+  - A row carries ids and names (account, to-account, payer, category, envelope), amounts in their own currency and no tags; the screen derives "No category", "Refund" and "Transfer".
+  - Facets: `GET /api/transactions/facets?facet=period|member|account|category|envelope|kind` counts the options that have any transaction, with the other filters applied and the facet's own left out; an option's count equals the list's summary count with only that option picked. Values are ids, `none`, kind names or period names (`period` counts the five presets, not `custom`).
+  - The cursor is `YYYY-MM-DD:id` of the last row; the page size is 50.
 
 - [ ] **13. Transactions screen.**
   Refs: TXN-6, UI-TXN-1, UI-TXN-2, UI-TXN-9, UI-NAV-5, UI-NAV-7, UI-VIS-9, UI-ACC-2, O14; screens `Transactions`, `TransactionsFilter`, `TransactionsOutbox`. Depends: 12, 11.
