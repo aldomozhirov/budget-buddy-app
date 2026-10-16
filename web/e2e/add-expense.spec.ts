@@ -135,9 +135,10 @@ test('an expense with only an amount saves and fits the screen', async ({
     await typeAmount(page, '23.80');
     await page.getByRole('button', { name: 'Save €23.80' }).click();
 
+    // Focus follows into the saved view, so it is read out.
     await expect(
       page.getByRole('heading', { name: 'Expense saved' }),
-    ).toBeVisible();
+    ).toBeFocused();
     await expect(
       page.getByText('€23.80 · ING Visa', { exact: true }),
     ).toBeVisible();
@@ -152,6 +153,9 @@ test('an expense with only an amount saves and fits the screen', async ({
     await screenshot(page, testInfo, 'AddExpenseSaved');
 
     await page.getByRole('button', { name: 'Add another' }).click();
+    await expect(
+      page.getByRole('group', { name: 'Amount', exact: true }),
+    ).toBeFocused();
     await expect(
       page.getByRole('button', { name: 'Enter an amount' }),
     ).toBeDisabled();
@@ -408,6 +412,9 @@ test('Undo deletes the saved expense and returns to the form', async ({
       transaction: { id: number };
     };
     await page.getByRole('button', { name: 'Undo' }).click();
+    await expect(
+      page.getByRole('group', { name: 'Amount', exact: true }),
+    ).toBeFocused();
     await expect(
       page.getByRole('button', { name: 'Save €7.50' }),
     ).toBeEnabled();

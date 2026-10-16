@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import {
   accountChipLabels,
   addOptionsResponseSchema,
@@ -100,6 +100,16 @@ const saved = ref<{
   noCategory: boolean;
 } | null>(null);
 const undoing = ref(false);
+const savedHeading = ref<HTMLElement>();
+const amountGroup = ref<HTMLElement>();
+
+/**
+ * Moves focus into the saved view or back to the form: the side that is
+ * left turns inert or goes away, so focus would fall to the page.
+ */
+function focusAfter(target: typeof savedHeading): void {
+  void nextTick(() => target.value?.focus());
+}
 const undoError = ref('');
 
 /**
@@ -324,7 +334,7 @@ async function loadSuggestions(): Promise<void> {
   }
 }
 watch(
-  () => [merchant.value, envelope.value.id, accountId.value] as const,
+  [() => merchant.value, () => envelope.value.id, () => accountId.value],
   () => void loadSuggestions(),
 );
 
@@ -482,6 +492,7 @@ async function save(): Promise<void> {
       noCategory: transaction.categoryId === null,
     };
     undoError.value = '';
+    focusAfter(savedHeading);
   } catch (cause) {
     saveError.value =
       cause instanceof ApiError
@@ -505,6 +516,7 @@ async function undo(): Promise<void> {
       deleteTransactionResponseSchema,
     );
     saved.value = null;
+    focusAfter(amountGroup);
   } catch (cause) {
     undoError.value =
       cause instanceof ApiError ? cause.message : 'Could not undo. Try again.';
@@ -516,6 +528,7 @@ async function undo(): Promise<void> {
 function addAnother(): void {
   saved.value = null;
   resetForm();
+  focusAfter(amountGroup);
 }
 </script>
 
@@ -563,7 +576,13 @@ function addAnother(): void {
         />
       </header>
 
-      <div class="add-amount" role="group" aria-label="Amount">
+      <div
+        ref="amountGroup"
+        class="add-amount"
+        role="group"
+        aria-label="Amount"
+        tabindex="-1"
+      >
         <span class="num amount-expr add-expr">{{ expression }}</span>
         <div class="add-amount-line">
           <span
@@ -722,7 +741,14 @@ function addAnother(): void {
       <span class="add-saved-icon success-icon">
         <BbIcon name="check" :size="34" />
       </span>
-      <h2 id="add-saved-title" class="add-saved-title">Expense saved</h2>
+      <h2
+        id="add-saved-title"
+        ref="savedHeading"
+        class="add-saved-title"
+        tabindex="-1"
+      >
+        Expense saved
+      </h2>
       <p class="num add-saved-summary">{{ saved.summary }}</p>
       <p v-if="saved.noCategory" class="add-saved-note">
         No category yet. It waits in
