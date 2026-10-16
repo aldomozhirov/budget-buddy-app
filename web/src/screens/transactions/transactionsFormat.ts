@@ -342,7 +342,7 @@ export function countText(count: number): string {
 
 /** What the screen knows about each option of the id-based filters. */
 export interface FilterLookups {
-  member: readonly { id: number; name: string }[];
+  member: readonly { id: number; name: string; archived: boolean }[];
   account: readonly { id: number; name: string; archived: boolean }[];
   category: readonly {
     id: number;
@@ -370,7 +370,7 @@ export interface SheetOption {
 /**
  * The rows of one facet's sheet (UI-TXN-1): every option the family has, in
  * list order, with its count (0 when none). An archived account, category or
- * envelope is listed only while it has transactions or is picked. "No
+ * envelope, or an inactive profile, is listed only while it has transactions or is picked. "No
  * category" and "No envelope" come last; categories sit under "Expense
  * categories" and "Income categories" once both kinds are listed.
  */
@@ -406,7 +406,9 @@ export function facetOptions(
     );
   }
   if (facet === 'member') {
-    return lookups.member.map((item) => option(String(item.id), item.name));
+    return lookups.member
+      .filter((item) => visible(String(item.id), item.archived))
+      .map((item) => option(String(item.id), item.name));
   }
   if (facet === 'account') {
     return lookups.account

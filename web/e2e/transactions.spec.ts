@@ -320,6 +320,40 @@ test('scrolling loads the next page of fifty', async ({ page }) => {
   });
 });
 
+test('a failed next page can be retried and the list recovers', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    const { ids } = await seed(family);
+    for (let day = 0; day < 55; day++) {
+      await create(family, '/api/transactions', {
+        kind: 'expense',
+        accountId: ids['ING Visa'],
+        amount: '100',
+        merchant: `Old shop ${day}`,
+        date: new Date(Date.UTC(2025, 0, 1 + day)).toISOString().slice(0, 10),
+      });
+    }
+    let failures = 1;
+    await page.route(/\/api\/transactions\?.*cursor=/u, async (route) => {
+      if (failures-- > 0) await route.abort();
+      else await route.continue();
+    });
+    await page.goto(`${family.origin}/transactions?period=all`);
+    await loaded(page);
+    const list = page.getByTestId('transactions-list');
+    await list.evaluate((element) => element.scrollTo(0, element.scrollHeight));
+    const alert = page.getByRole('alert');
+    await expect(alert).toContainText('Could not');
+    await expect(page.getByText('61 transactions')).toHaveCount(0);
+
+    await alert.getByRole('button', { name: 'Try again' }).click();
+    await expect(page.getByTestId('transaction-row')).toHaveCount(61);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(page.getByText('61 transactions')).toBeVisible();
+  });
+});
+
 test('the Needs a category tab opens from its link and keeps its count', async ({
   page,
 }) => {

@@ -191,7 +191,11 @@ async function bootstrap(): Promise<void> {
         callApi('GET', '/api/currencies', currenciesResponseSchema),
       ]);
     lookups.value = {
-      member: members.members.filter((item) => item.active),
+      member: members.members.map((item) => ({
+        id: item.id,
+        name: item.name,
+        archived: !item.active,
+      })),
       account: accounts.accounts.map((item) => ({
         id: item.id,
         name: item.name,
@@ -257,6 +261,8 @@ async function loadFirstPage(): Promise<void> {
     nextCursor.value = response.nextCursor;
   } catch (cause) {
     if (mine !== generation) return;
+    rows.value = [];
+    nextCursor.value = null;
     listError.value = errorText(
       cause,
       'Could not load the transactions. Check your connection and try again.',
@@ -271,6 +277,7 @@ async function loadMore(): Promise<void> {
   if (!cursor || loading.value || loadingMore.value) return;
   const mine = generation;
   loadingMore.value = true;
+  listError.value = '';
   try {
     const response = await fetchPage(cursor);
     if (mine !== generation) return;

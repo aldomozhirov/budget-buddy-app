@@ -236,9 +236,14 @@ describe('totalsText', () => {
   });
 });
 
+const names2: FilterNames = { ...names, member: new Map([[2, 'Tom']]) };
+
 describe('facetOptions', () => {
   const lookups: FilterLookups = {
-    member: [{ id: 1, name: 'Alena' }],
+    member: [
+      { id: 1, name: 'Alena', archived: false },
+      { id: 2, name: 'Tom', archived: true },
+    ],
     account: [
       { id: 3, name: 'ING Visa', archived: false },
       { id: 4, name: 'Old card', archived: true },
@@ -263,6 +268,30 @@ describe('facetOptions', () => {
       ['ING Visa', 0],
       ['Old card', 2],
     ]);
+  });
+
+  it('lists an inactive profile only while it has transactions', () => {
+    expect(
+      facetOptions('member', lookups, new Map(), emptyFilters()).map(
+        (item) => item.label,
+      ),
+    ).toEqual(['Alena']);
+    expect(
+      facetOptions('member', lookups, new Map([['2', 4]]), emptyFilters()).map(
+        (item) => [item.label, item.count],
+      ),
+    ).toEqual([
+      ['Alena', 0],
+      ['Tom', 4],
+    ]);
+    expect(
+      chipLabel(
+        'member',
+        { ...emptyFilters(), member: [2] },
+        names2,
+        '2026-10',
+      ),
+    ).toBe('Tom');
   });
 
   it('groups categories by kind and ends with No category', () => {
