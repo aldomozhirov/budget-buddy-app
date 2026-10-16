@@ -285,7 +285,9 @@ test('shows opening balances and supports balance entry, settings and history', 
   await expect(page.getByText('Low €1,926.30')).toBeVisible();
   await expect(page.getByText('Apr 26', { exact: true })).toBeVisible();
   await expect(page.getByText('Oct 26', { exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Transactions' })).toHaveCount(0);
+  await expect(
+    page.getByRole('link', { name: 'Transactions', exact: true }),
+  ).toHaveAttribute('href', /^\/transactions\?account=\d+&period=all$/u);
   await expect(page.getByRole('button', { name: 'Transactions' })).toHaveCount(
     0,
   );
