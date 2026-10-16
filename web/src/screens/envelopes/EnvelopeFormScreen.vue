@@ -489,6 +489,7 @@ async function remove(): Promise<void> {
           <BbChipGroup
             v-model="categoryId"
             label="Default category"
+            wrap
             :options="categoryChips"
           >
             <template #trailing>

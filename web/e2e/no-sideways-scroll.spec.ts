@@ -120,6 +120,8 @@ test('the envelope page, the edit page, its sheets and Categories do not scroll 
     await edit.getByLabel('Name', { exact: true }).waitFor();
     await settled(page);
     await expectNoSidewaysScroll(page, 'Edit envelope');
+    // .hrow is exempt from the guard, so the form must not use one.
+    await expect(edit.locator('.hrow')).toHaveCount(0);
     await edit.getByRole('button', { name: 'Back to envelope' }).click();
 
     await page.goto(`${family.origin}/categories`);
