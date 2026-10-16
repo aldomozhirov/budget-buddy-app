@@ -573,7 +573,20 @@ function setKind(next: FormKind): void {
   resetArrive();
   ensureTo();
   if (next === 'expense') reapplyRule();
+  // Only an expense can be a refund: drop a negative amount.
+  if (next !== 'expense' && amount.value !== null && amount.value < 0n) {
+    amount.value = null;
+    typed.value = null;
+    preview.value = null;
+    keypadKey.value += 1;
+  }
 }
+
+// Follows a link to another kind while the form is open.
+watch(
+  () => route.query.kind,
+  (next) => setKind(parseKind(next)),
+);
 
 function resetForm(): void {
   const data = options.value;

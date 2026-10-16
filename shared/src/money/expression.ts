@@ -7,19 +7,18 @@ import { roundHalfAwayFromZero } from './rounding.js';
  * Outcome of evaluating a typed amount: minor units, or a short user-facing
  * reason such as `'Division by zero'`.
  */
-export type ExpressionResult =
-  | { readonly ok: true; readonly value: bigint }
-  | { readonly ok: false; readonly reason: string };
+export type ExpressionResult = { readonly ok: true; readonly value: bigint } | { readonly ok: false; readonly reason: string };
 
 /** Display classification for a failed amount expression. */
 export type ExpressionErrorKind =
-  'incomplete' | 'brackets' | 'division-by-zero' | 'too-large' | 'other';
+  | 'incomplete'
+  | 'brackets'
+  | 'division-by-zero'
+  | 'too-large'
+  | 'other';
 
 /** Decimal context for expressions: 100 significant digits. */
-const ExpressionDecimal = Decimal.clone({
-  precision: 100,
-  rounding: Decimal.ROUND_HALF_UP,
-});
+const ExpressionDecimal = Decimal.clone({ precision: 100, rounding: Decimal.ROUND_HALF_UP });
 
 /** Error whose message is shown to the user as the failure reason. */
 class ExpressionError extends Error {}
@@ -31,19 +30,12 @@ class ExpressionError extends Error {}
  * @throws {ExpressionError} on an invalid character or malformed number.
  */
 function tokenize(expression: string): string[] {
-  const input = expression
-    .replaceAll('−', '-')
-    .replaceAll('×', '*')
-    .replaceAll('÷', '/')
-    .replaceAll(',', '.');
+  const input = expression.replaceAll('−', '-').replaceAll('×', '*').replaceAll('÷', '/').replaceAll(',', '.');
   const tokens: string[] = [];
   for (let index = 0; index < input.length;) {
     const character = input[index];
     if (character === undefined) break;
-    if (/\s/.test(character)) {
-      index += 1;
-      continue;
-    }
+    if (/\s/.test(character)) { index += 1; continue; }
     if (/[0-9.]/.test(character)) {
       const start = index;
       let dots = 0;
@@ -56,11 +48,7 @@ function tokenize(expression: string): string[] {
       tokens.push(literal);
       continue;
     }
-    if ('+-*/()%'.includes(character)) {
-      tokens.push(character);
-      index += 1;
-      continue;
-    }
+    if ('+-*/()%'.includes(character)) { tokens.push(character); index += 1; continue; }
     throw new ExpressionError('Invalid character');
   }
   return tokens;
@@ -89,17 +77,13 @@ function parseTokens(tokens: readonly string[]): Decimal {
       return value;
     }
     const token = consume();
-    if (!token || !/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(token))
-      throw new ExpressionError('Expected a number');
+    if (!token || !/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(token)) throw new ExpressionError('Expected a number');
     return new ExpressionDecimal(token);
   }
 
   function postfix(allowUnary: boolean): Decimal {
     let value = primary(allowUnary);
-    while (current() === '%') {
-      consume();
-      value = value.div(100);
-    }
+    while (current() === '%') { consume(); value = value.div(100); }
     return value;
   }
 
@@ -108,8 +92,7 @@ function parseTokens(tokens: readonly string[]): Decimal {
     while (current() === '*' || current() === '/') {
       const operator = consume();
       const right = postfix(false);
-      if (operator === '/' && right.isZero())
-        throw new ExpressionError('Division by zero');
+      if (operator === '/' && right.isZero()) throw new ExpressionError('Division by zero');
       value = operator === '*' ? value.mul(right) : value.div(right);
     }
     return value;
@@ -154,19 +137,13 @@ function minorResult(value: Decimal, currency: Currency): bigint {
  * evaluateExpression('200 + 10%', getCurrency('EUR')!);
  * // { ok: true, value: 20010n }
  */
-export function evaluateExpression(
-  expression: string,
-  currency: Currency,
-): ExpressionResult {
+export function evaluateExpression(expression: string, currency: Currency): ExpressionResult {
   try {
     const result = parseTokens(tokenize(expression));
     if (!result.isFinite()) return { ok: false, reason: 'Amount is too large' };
     return { ok: true, value: minorResult(result, currency) };
   } catch (error) {
-    return {
-      ok: false,
-      reason: error instanceof Error ? error.message : 'Invalid expression',
-    };
+    return { ok: false, reason: error instanceof Error ? error.message : 'Invalid expression' };
   }
 }
 
@@ -284,16 +261,9 @@ export function classifyExpressionError(
  * Returns `undefined` when the expression has no incomplete suffix or cannot
  * be evaluated.
  */
-export function lastCompleteValue(
-  expression: string,
-  currency: Currency,
-): bigint | undefined {
+export function lastCompleteValue(expression: string, currency: Currency): bigint | undefined {
   let tokens: string[];
-  try {
-    tokens = tokenize(expression);
-  } catch {
-    return undefined;
-  }
+  try { tokens = tokenize(expression); } catch { return undefined; }
   if (tokens.length === 0) return undefined;
   const trailingOperator = ['+', '-', '*', '/'].includes(tokens.at(-1) ?? '');
   const trailingDecimalPoint = tokens.at(-1) === '.';
@@ -314,9 +284,5 @@ export function lastCompleteValue(
     tokens.push(')');
     openBrackets -= 1;
   }
-  try {
-    return minorResult(parseTokens(tokens), currency);
-  } catch {
-    return undefined;
-  }
+  try { return minorResult(parseTokens(tokens), currency); } catch { return undefined; }
 }

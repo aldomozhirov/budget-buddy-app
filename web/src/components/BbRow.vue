@@ -44,10 +44,16 @@ defineOptions({ inheritAttrs: false });
     <slot name="leading" />
     <span class="row-l">
       <slot name="title">{{ title }}</slot>
-      <span v-if="subtitle" class="t-sub">{{ subtitle }}</span>
+      <span
+        v-if="subtitle"
+        class="t-sub"
+      >{{ subtitle }}</span>
     </span>
     <slot name="trailing">
-      <span v-if="value" class="row-v">{{ value }}</span>
+      <span
+        v-if="value"
+        class="row-v"
+      >{{ value }}</span>
     </slot>
   </component>
 </template>

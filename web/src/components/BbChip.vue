@@ -59,9 +59,7 @@ const classes = {
     <span
       :class="[
         classes[variant],
-        {
-          'chip-on': selected && (variant === 'choice' || variant === 'small'),
-        },
+        { 'chip-on': selected && (variant === 'choice' || variant === 'small') },
         { 'fchip-on': selected && variant === 'filter' },
         { 'pill-on': selected && variant === 'pill' },
       ]"

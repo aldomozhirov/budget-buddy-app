@@ -225,6 +225,13 @@ test('switching the kind clears category and envelope', async ({ page }) => {
         .getByRole('radiogroup', { name: 'Envelope' })
         .getByRole('radio', { checked: true }),
     ).toHaveCount(0);
+
+    // A refund is only an expense: the negative amount does not carry over.
+    await typeAmount(page, '−5');
+    await page.getByRole('radio', { name: 'Income', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Enter an amount' }),
+    ).toBeDisabled();
   });
 });
 

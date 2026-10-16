@@ -32,7 +32,10 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <BbSheet :title="title" @close="emit('cancel')">
+  <BbSheet
+    :title="title"
+    @close="emit('cancel')"
+  >
     <p class="t-sub sheet-copy">
       {{ message }}
     </p>
@@ -43,7 +46,10 @@ const emit = defineEmits<{
     >
       {{ confirmLabel }}
     </BbButton>
-    <BbButton variant="text" @click="emit('cancel')">
+    <BbButton
+      variant="text"
+      @click="emit('cancel')"
+    >
       {{ cancelLabel }}
     </BbButton>
   </BbSheet>

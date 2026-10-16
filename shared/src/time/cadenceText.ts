@@ -59,7 +59,9 @@ export function sameCadenceSetting(
     return a.day === b.day && a.time === b.time;
   }
   if (a.kind === 'weeks' && b.kind === 'weeks') {
-    return a.every === b.every && a.weekday === b.weekday && a.time === b.time;
+    return (
+      a.every === b.every && a.weekday === b.weekday && a.time === b.time
+    );
   }
   return false;
 }
@@ -87,9 +89,7 @@ export function nextCadenceSlot(
 /** `5` becomes `5th`, `22` becomes `22nd`. */
 function ordinal(day: number): string {
   const teen = day % 100 >= 11 && day % 100 <= 13;
-  const suffix = teen
-    ? 'th'
-    : ({ 1: 'st', 2: 'nd', 3: 'rd' }[day % 10] ?? 'th');
+  const suffix = teen ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[day % 10] ?? 'th');
   return `${day}${suffix}`;
 }
 
@@ -118,8 +118,7 @@ function weeksPhrase(every: number): string {
 export function describeCadence(setting: CadenceSetting): string {
   if (setting.kind === 'off') return 'Schedule off';
   if (setting.kind === 'monthly') {
-    const day =
-      setting.day === 'last' ? 'the last day' : `the ${ordinal(setting.day)}`;
+    const day = setting.day === 'last' ? 'the last day' : `the ${ordinal(setting.day)}`;
     return `Monthly on ${day}, ${setting.time}`;
   }
   const weekday = weekdays[setting.weekday - 1] ?? '';
