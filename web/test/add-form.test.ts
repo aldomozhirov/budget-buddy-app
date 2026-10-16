@@ -1,3 +1,4 @@
+import { convert, getCurrency } from '@budget-buddy/shared';
 import { describe, expect, it } from 'vitest';
 import {
   accountCurrency,
@@ -6,7 +7,10 @@ import {
   dayLabel,
   EMPTY_PICK,
   filledText,
+  kindWords,
   merchantHint,
+  pairLookup,
+  parseKind,
   pickLabel,
   savedSummary,
   shiftDate,
@@ -171,5 +175,79 @@ describe('saved view', () => {
         category: 'Transport',
       }),
     ).toBe('€3.00 · Yesterday · paid by Max · Cash · Transport');
+  });
+});
+
+describe('parseKind', () => {
+  it('opens income and transfer by name and anything else as an expense', () => {
+    expect(parseKind('income')).toBe('income');
+    expect(parseKind('transfer')).toBe('transfer');
+    expect(parseKind(['income', 'transfer'])).toBe('income');
+    expect(parseKind('expense')).toBe('expense');
+    expect(parseKind('nonsense')).toBe('expense');
+    expect(parseKind(undefined)).toBe('expense');
+  });
+});
+
+describe('kindWords', () => {
+  it('labels the account row and the person tile of each kind', () => {
+    expect(kindWords('expense')).toMatchObject({
+      fromLabel: 'Paid from',
+      payerLabel: 'Paid by',
+    });
+    expect(kindWords('income')).toMatchObject({
+      noun: 'Income',
+      fromLabel: 'Paid into',
+      payerLabel: 'Received by',
+    });
+    expect(kindWords('transfer')).toMatchObject({
+      noun: 'Transfer',
+      fromLabel: 'From',
+      payerLabel: 'Done by',
+    });
+  });
+});
+
+describe('pairLookup', () => {
+  it('answers for its pair only, so convert uses the server’s rate', () => {
+    const lookup = pairLookup('EUR', 'USD', {
+      rate: '1.093',
+      date: '2026-10-13',
+    });
+    const eur = getCurrency('EUR')!;
+    const usd = getCurrency('USD')!;
+    expect(convert(2000n, eur, usd, '2026-10-15', lookup)).toEqual({
+      value: 2186n,
+      rateDate: '2026-10-13',
+    });
+    expect(lookup('USD', 'EUR', '2026-10-15')).toBeUndefined();
+  });
+});
+
+describe('savedSummary for other kinds', () => {
+  it('names the person tile of an income and a transfer', () => {
+    expect(
+      savedSummary({
+        amount: '€4,200.00',
+        merchant: null,
+        date: null,
+        payer: 'Max',
+        payerLabel: 'Received by',
+        account: 'DKB',
+        envelope: null,
+        category: 'Salary',
+      }),
+    ).toBe('€4,200.00 · received by Max · DKB · Salary');
+    expect(
+      savedSummary({
+        amount: '€20.00 → $21.86',
+        merchant: null,
+        date: null,
+        payer: null,
+        account: 'ING Visa → Wise $',
+        envelope: null,
+        category: null,
+      }),
+    ).toBe('€20.00 → $21.86 · ING Visa → Wise $');
   });
 });

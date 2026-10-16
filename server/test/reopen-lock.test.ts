@@ -147,6 +147,7 @@ describe('sign in again when the app is re-opened', () => {
       ['DELETE', '/api/transactions/1'],
       ['GET', '/api/add-options'],
       ['GET', '/api/merchants'],
+      ['GET', '/api/rates/pair?from=EUR&to=USD&date=2026-10-15'],
       ['GET', '/api/suggestions/categories?kind=expense'],
       ['POST', '/api/auth/sign-out'],
     ] as const) {

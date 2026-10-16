@@ -656,10 +656,62 @@ describe('add options, merchants and suggestions API', () => {
     });
   });
 
+  describe('rate pair', () => {
+    const insertRate = (
+      base: string,
+      quote: string,
+      date: string,
+      rate: string,
+    ) =>
+      database
+        .prepare(
+          `INSERT INTO rate (base, quote, date, rate, source, fetched_at)
+           VALUES (?, ?, ?, ?, 'test', 0)`,
+        )
+        .run(base, quote, date, rate);
+
+    it('gives the rate on or before the day, also inverted', async () => {
+      insertRate('EUR', 'USD', '2026-10-13', '1.0930');
+      const direct = await call(
+        'GET',
+        '/api/rates/pair?from=EUR&to=USD&date=2026-10-15',
+      );
+      expect(direct.json()).toEqual({
+        rate: { rate: '1.093', date: '2026-10-13' },
+      });
+      const inverse = await call(
+        'GET',
+        '/api/rates/pair?from=USD&to=EUR&date=2026-10-15',
+      );
+      expect(inverse.json().rate.date).toBe('2026-10-13');
+      expect(Number(inverse.json().rate.rate)).toBeCloseTo(1 / 1.093, 6);
+    });
+
+    it('says null with no rate yet, for a day before it or one currency', async () => {
+      insertRate('EUR', 'USD', '2026-10-13', '1.0930');
+      for (const query of [
+        'from=EUR&to=USD&date=2026-10-12',
+        'from=EUR&to=GBP&date=2026-10-15',
+        'from=EUR&to=EUR&date=2026-10-15',
+      ]) {
+        const response = await call('GET', `/api/rates/pair?${query}`);
+        expect(response.statusCode, query).toBe(200);
+        expect(response.json(), query).toEqual({ rate: null });
+      }
+    });
+
+    it('refuses a bad query', async () => {
+      const response = await call('GET', '/api/rates/pair?from=EUR&to=USD');
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error.code).toBe('validation');
+    });
+  });
+
   it('refuses a request without a session', async () => {
     for (const url of [
       '/api/add-options',
       '/api/merchants',
+      '/api/rates/pair?from=EUR&to=USD&date=2026-10-15',
       '/api/suggestions/categories?kind=expense',
     ]) {
       const response = await app.inject({
