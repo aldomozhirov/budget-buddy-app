@@ -7,8 +7,12 @@ import Decimal from 'decimal.js';
  * @throws {RangeError} if `decimals` is not an integer from 0 to 100, or
  * `value` is not a finite decimal.
  */
-export function roundHalfAwayFromZero(value: Decimal.Value, decimals: number): bigint {
-  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 100) throw new RangeError('Invalid decimal places');
+export function roundHalfAwayFromZero(
+  value: Decimal.Value,
+  decimals: number,
+): bigint {
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 100)
+    throw new RangeError('Invalid decimal places');
   let decimal: Decimal;
   try {
     decimal = new Decimal(value);

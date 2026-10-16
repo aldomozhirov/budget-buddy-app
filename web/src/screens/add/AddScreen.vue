@@ -905,7 +905,7 @@ function addAnother(): void {
           :aria-label="`${arriveText}. Change`"
           @click="editArrive"
         >
-          {{ arriveText }}
+          <span class="add-arrive-t">{{ arriveText }}</span>
           <svg
             width="14"
             height="14"
@@ -1266,10 +1266,11 @@ function addAnother(): void {
   border: 0;
   background: none;
   color: inherit;
-  font: inherit;
+  font-family: inherit;
   cursor: pointer;
 }
 .add-arrive {
+  max-width: 100%;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1283,6 +1284,15 @@ function addAnother(): void {
   font: inherit;
   font-size: 14px;
   font-weight: 600;
+}
+.add-arrive svg {
+  flex: none;
+}
+.add-arrive-t {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .add-arrive-warn {
   background: var(--warn-soft);

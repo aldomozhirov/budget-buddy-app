@@ -12,11 +12,7 @@ defineProps<{
 </script>
 
 <template>
-  <button
-    class="icon-btn"
-    type="button"
-    :aria-label="label"
-  >
+  <button class="icon-btn" type="button" :aria-label="label">
     <BbIcon name="back" />
   </button>
 </template>

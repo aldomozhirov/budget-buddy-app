@@ -1,11 +1,5 @@
 <script setup lang="ts">
-import {
-  computed,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  watch,
-} from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 /** Draws a labelled, accessible SVG line chart for dated account balances. */
 defineOptions({ name: 'LineChart' });
@@ -97,10 +91,7 @@ function layoutMonthTicks(): void {
   const gap = 4;
   for (const candidate of candidates) {
     if (candidate.index === lastIndex) {
-      while (
-        visible.length &&
-        candidate.left < visible.at(-1)!.right + gap
-      ) {
+      while (visible.length && candidate.left < visible.at(-1)!.right + gap) {
         visible.pop();
       }
     }

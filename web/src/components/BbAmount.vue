@@ -26,16 +26,10 @@ withDefaults(
 </script>
 
 <template>
-  <span
-    v-if="visible"
-    class="num"
-  >
+  <span v-if="visible" class="num">
     {{ value }}
   </span>
-  <span
-    v-else
-    class="num masked"
-  >
+  <span v-else class="num masked">
     <span aria-hidden="true">{{ maskedValue }}</span>
     <span class="visually-hidden">{{ hiddenLabel }}</span>
   </span>

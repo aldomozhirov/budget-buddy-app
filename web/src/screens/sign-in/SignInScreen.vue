@@ -237,29 +237,14 @@ function startLockout(seconds: number): void {
 <template>
   <main class="screen auth-screen">
     <div class="auth-brand">
-      <span
-        class="auth-mark"
-        aria-hidden="true"
-      >
-        <BbIcon
-          name="wallet"
-          :size="34"
-          :stroke-width="1.8"
-        />
+      <span class="auth-mark" aria-hidden="true">
+        <BbIcon name="wallet" :size="34" :stroke-width="1.8" />
       </span>
       <h1>Budget Buddy</h1>
     </div>
 
-    <form
-      v-if="!pickerMode"
-      class="auth-form"
-      @submit.prevent="signIn"
-    >
-      <p
-        v-if="locked"
-        class="t-sub auth-device-copy"
-        role="status"
-      >
+    <form v-if="!pickerMode" class="auth-form" @submit.prevent="signIn">
+      <p v-if="locked" class="t-sub auth-device-copy" role="status">
         {{
           isOnline
             ? 'Locked after more than 5 minutes away.'
@@ -267,10 +252,7 @@ function startLockout(seconds: number): void {
         }}
       </p>
       <div class="input-wrap">
-        <label
-          class="visually-hidden"
-          for="family-password"
-        >
+        <label class="visually-hidden" for="family-password">
           Family password
         </label>
         <input
@@ -288,7 +270,7 @@ function startLockout(seconds: number): void {
             passwordError = '';
             shakePassword = false;
           "
-        >
+        />
         <button
           class="input-btn"
           type="button"
@@ -298,18 +280,10 @@ function startLockout(seconds: number): void {
           <BbIcon :name="passwordVisible ? 'eye-off' : 'eye'" />
         </button>
       </div>
-      <p
-        id="password-error"
-        class="error auth-error"
-        role="alert"
-      >
+      <p id="password-error" class="error auth-error" role="alert">
         {{ passwordError }}
       </p>
-      <p
-        v-if="formError"
-        class="error auth-error"
-        role="alert"
-      >
+      <p v-if="formError" class="error auth-error" role="alert">
         {{ formError }}
       </p>
       <BbButton
@@ -331,10 +305,7 @@ function startLockout(seconds: number): void {
         <BbIcon name="faceid" />
         Use Face ID
       </BbButton>
-      <p
-        v-if="openAs"
-        class="t-sub auth-device-copy"
-      >
+      <p v-if="openAs" class="t-sub auth-device-copy">
         {{ openAs }}
       </p>
       <BbButton
@@ -345,10 +316,7 @@ function startLockout(seconds: number): void {
       >
         Forgot password?
       </BbButton>
-      <p
-        v-if="forgotPasswordOpen"
-        class="t-sub auth-forgot-copy"
-      >
+      <p v-if="forgotPasswordOpen" class="t-sub auth-forgot-copy">
         Anyone in the family who is still signed in can set a new one in
         Settings → Family password. If nobody is, reset it on the Mac mini as
         the README describes.
@@ -360,10 +328,7 @@ function startLockout(seconds: number): void {
       class="auth-form auth-picker"
       aria-labelledby="profile-picker-heading"
     >
-      <h2
-        id="profile-picker-heading"
-        class="auth-picker-heading"
-      >
+      <h2 id="profile-picker-heading" class="auth-picker-heading">
         Who’s using {{ deviceLabel }}?
       </h2>
       <p class="auth-picker-copy">
@@ -384,24 +349,14 @@ function startLockout(seconds: number): void {
           :disabled="selectingProfile !== null || !isOnline"
           @click="chooseProfile(profile)"
         >
-          <span
-            class="auth-avatar"
-            aria-hidden="true"
-          >{{
+          <span class="auth-avatar" aria-hidden="true">{{
             profile.name.slice(0, 1).toLocaleUpperCase()
           }}</span>
           <span class="auth-profile-name">{{ profile.name }}</span>
-          <span
-            v-if="selectingProfile === profile.id"
-            class="visually-hidden"
-          >
+          <span v-if="selectingProfile === profile.id" class="visually-hidden">
             Opening
           </span>
-          <BbIcon
-            name="forward"
-            class="auth-profile-chevron"
-            :size="18"
-          />
+          <BbIcon name="forward" class="auth-profile-chevron" :size="18" />
         </button>
       </div>
       <div class="auth-remember-row">
@@ -415,11 +370,7 @@ function startLockout(seconds: number): void {
           :disabled="selectingProfile !== null"
         />
       </div>
-      <p
-        v-if="formError"
-        class="error auth-error"
-        role="alert"
-      >
+      <p v-if="formError" class="error auth-error" role="alert">
         {{ formError }}
       </p>
     </section>

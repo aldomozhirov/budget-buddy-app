@@ -386,3 +386,36 @@ test('Add expense and its sheets do not scroll sideways', async ({ page }) => {
     }
   });
 });
+
+test('Add income and Add transfer, with long names, do not scroll sideways', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    await seed(family);
+    await page.goto(`${family.origin}/add?kind=income`);
+    await page.getByRole('button', { name: 'Enter an amount' }).waitFor();
+    await settled(page);
+    await expectNoSidewaysScroll(page, 'Add income');
+    await checkSheet(page, 'Paid into', () =>
+      page.getByRole('button', { name: 'All accounts' }).click(),
+    );
+
+    await page.goto(`${family.origin}/add?kind=transfer`);
+    await page.getByRole('button', { name: 'Enter an amount' }).waitFor();
+    // The first two accounts are in two currencies, so a second amount asks
+    // for what arrives in an account with a long name.
+    await page
+      .getByRole('button', { name: /^Type what arrives|^Arrives as/ })
+      .waitFor();
+    await settled(page);
+    await expectNoSidewaysScroll(page, 'Add transfer');
+    for (const [button, dialog] of [
+      ['All accounts', 'Transfer from'],
+      ['All accounts to send to', 'Transfer to'],
+    ] as const) {
+      await checkSheet(page, dialog, () =>
+        page.getByRole('button', { name: button, exact: true }).click(),
+      );
+    }
+  });
+});
