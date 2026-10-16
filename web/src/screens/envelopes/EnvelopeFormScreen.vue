@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import {
   accountsResponseSchema,
   addMonths,
   categoriesResponseSchema,
   currenciesResponseSchema,
   deleteEnvelopeResponseSchema,
+  envelopeDetailResponseSchema,
   envelopeResponseSchema,
   formatMoney,
+  monthOfDate,
   settingsResponseSchema,
+  todayInTimeZone,
   type Category,
   type CoinSetting,
   type CreateEnvelopeRequest,
@@ -19,14 +23,16 @@ import {
 import BbAmountInput, {
   type AmountChange,
 } from '../../components/BbAmountInput.vue';
+import BbBackButton from '../../components/BbBackButton.vue';
 import BbButton from '../../components/BbButton.vue';
 import BbChip from '../../components/BbChip.vue';
 import BbChipGroup from '../../components/BbChipGroup.vue';
 import BbConfirmSheet from '../../components/BbConfirmSheet.vue';
-import BbSheet from '../../components/BbSheet.vue';
 import CategoryPickerSheet from '../../components/CategoryPickerSheet.vue';
 import CurrencyPickerSheet from '../../components/CurrencyPickerSheet.vue';
 import { callApi, ApiError } from '../../api/callApi.js';
+import { useBack } from '../../composables/useBack.js';
+import { leaveToPast, replaceScreen } from '../../router/index.js';
 import {
   envelopeCurrency,
   expenseCountText,
@@ -34,50 +40,40 @@ import {
 } from './envelopeFormat.js';
 
 /**
- * The new and edit envelope sheet (UI-ENV-6): name, currency or coin,
+ * The new and edit envelope page (UI-ENV-6): name, currency or coin,
  * monthly amount, mode, starting balance (new only) and default category,
- * with the keypad docked under the form while an amount is being typed.
- * The sheet reads what it needs (currencies, accounts, categories) itself.
+ * with the keypad docked above the button while an amount is being typed.
+ * `/envelopes/new` and `/envelopes/:id/edit` both open it; it reads what it
+ * needs (the envelope, currencies, accounts, categories) itself. Save on a
+ * new envelope opens its page, Save on an edit goes Back, Delete and Archive
+ * go to Envelopes, leaving the envelope's page out of the Back stack.
  */
-const props = defineProps<{
-  /** The envelope to edit; left out for a new one. */
-  envelope?: Envelope;
-  /** The current month (`YYYY-MM`), for "Applies from the top-up on 1 …". */
-  month: string;
-}>();
-
-const emit = defineEmits<{
-  /** The envelope was created or changed. */
-  saved: [envelope: Envelope];
-  /** An unused envelope was deleted. */
-  deleted: [id: number];
-  /** The envelope was archived. */
-  archived: [envelope: Envelope];
-  /** Close button, scrim tap, swipe down, or after a save. */
-  close: [];
-}>();
+defineOptions({ name: 'EnvelopeFormScreen' });
 
 type AmountField = 'monthly' | 'starting';
 type Mode = 'carry_over' | 'reset';
 
-const editing = props.envelope !== undefined;
-const initialPlan = props.envelope?.pendingPlan ?? props.envelope?.plan;
+const route = useRoute();
+const { label: backLabel, goBack } = useBack();
+const editing = route.name === 'EditEnvelope';
 
 const loading = ref(true);
 const loadError = ref('');
+const envelope = ref<Envelope | null>(null);
+const month = ref('');
 const currencies = ref<CurrencyOption[]>([]);
 const coins = ref<CoinSetting[]>([]);
 const categories = ref<Category[]>([]);
 const quickCodes = ref<string[]>([]);
 const commonCurrency = ref('EUR');
 
-const name = ref(props.envelope?.name ?? '');
-const currencyCode = ref(props.envelope?.currency ?? '');
-const monthly = ref(BigInt(initialPlan?.monthlyAmount ?? '0'));
-const mode = ref<Mode>(initialPlan?.mode ?? 'reset');
+const name = ref('');
+const currencyCode = ref('');
+const monthly = ref(0n);
+const mode = ref<Mode>('reset');
 /** Null while the starting balance is left to the proposal. */
 const starting = ref<bigint | null>(null);
-const categoryId = ref(props.envelope?.defaultCategoryId ?? 0);
+const categoryId = ref(0);
 
 const activeField = ref<AmountField | null>(editing ? null : 'monthly');
 const typed = ref<AmountChange | null>(null);
@@ -89,14 +85,18 @@ const saving = ref(false);
 const error = ref('');
 const nameError = ref('');
 
+/** The plan the form starts from: the pending one, else the current. */
+const initialPlan = computed(
+  () => envelope.value?.pendingPlan ?? envelope.value?.plan,
+);
 const currency = computed(() =>
   envelopeCurrency(currencyCode.value || commonCurrency.value, coins.value),
 );
 const startingShown = computed(() => starting.value ?? monthly.value);
-const currencyLocked = computed(() => props.envelope?.used === true);
-const nextTopUp = computed(() => monthName(addMonths(props.month, 1)));
+const currencyLocked = computed(() => envelope.value?.used === true);
+const nextTopUp = computed(() => monthName(addMonths(month.value, 1)));
 const showApplies = computed(() => {
-  const plan = props.envelope?.plan;
+  const plan = envelope.value?.plan;
   if (!editing || !plan) return false;
   return (
     monthly.value !== BigInt(plan.monthlyAmount) || mode.value !== plan.mode
@@ -110,6 +110,7 @@ const canSave = computed(
     !saving.value &&
     !keypadInvalid.value,
 );
+const title = editing ? 'Edit envelope' : 'New envelope';
 const saveLabel = computed(() => {
   if (saving.value) return 'Saving…';
   if (editing) return 'Save';
@@ -149,7 +150,7 @@ const modeHint = computed(() =>
     : 'On the 1st the monthly amount is added to what’s left, or to the overspend.',
 );
 const archiveHint = computed(() => {
-  const count = props.envelope?.expenseCount ?? 0;
+  const count = envelope.value?.expenseCount ?? 0;
   if (count === 0) {
     return 'It has adjustments, so it can only be archived. They keep this envelope.';
   }
@@ -170,15 +171,24 @@ async function load(): Promise<void> {
   loading.value = true;
   loadError.value = '';
   try {
-    const [currencyData, settings, accounts, categoryData] = await Promise.all([
-      callApi('GET', '/api/currencies', currenciesResponseSchema),
-      callApi('GET', '/api/settings', settingsResponseSchema),
-      callApi('GET', '/api/accounts', accountsResponseSchema),
-      callApi('GET', '/api/categories', categoriesResponseSchema),
-    ]);
+    const [currencyData, settings, accounts, categoryData, detail] =
+      await Promise.all([
+        callApi('GET', '/api/currencies', currenciesResponseSchema),
+        callApi('GET', '/api/settings', settingsResponseSchema),
+        callApi('GET', '/api/accounts', accountsResponseSchema),
+        callApi('GET', '/api/categories', categoriesResponseSchema),
+        editing
+          ? callApi(
+              'GET',
+              `/api/envelopes/${String(route.params.id)}`,
+              envelopeDetailResponseSchema,
+            )
+          : Promise.resolve(null),
+      ]);
     currencies.value = currencyData.currencies;
     coins.value = currencyData.coins;
     commonCurrency.value = settings.commonCurrency;
+    month.value = monthOfDate(todayInTimeZone(new Date(), settings.timeZone));
     categories.value = categoryData.categories;
     // The family's currencies: the common one first, then by use.
     const counts = new Map<string, number>();
@@ -192,7 +202,16 @@ async function load(): Promise<void> {
         .map(([code]) => code)
         .filter((code) => code !== settings.commonCurrency),
     ];
-    if (!currencyCode.value) currencyCode.value = settings.commonCurrency;
+    if (detail) {
+      envelope.value = detail.envelope;
+      name.value = detail.envelope.name;
+      currencyCode.value = detail.envelope.currency;
+      monthly.value = BigInt(initialPlan.value?.monthlyAmount ?? '0');
+      mode.value = initialPlan.value?.mode ?? 'reset';
+      categoryId.value = detail.envelope.defaultCategoryId ?? 0;
+    } else {
+      currencyCode.value = settings.commonCurrency;
+    }
   } catch (cause) {
     loadError.value =
       cause instanceof ApiError
@@ -258,9 +277,9 @@ async function save(): Promise<void> {
   error.value = '';
   nameError.value = '';
   try {
-    if (props.envelope) {
+    if (envelope.value) {
       const body: UpdateEnvelopeRequest = {};
-      const before = props.envelope;
+      const before = envelope.value;
       if (name.value.trim() !== before.name) body.name = name.value.trim();
       if ((categoryId.value || null) !== before.defaultCategoryId) {
         body.defaultCategoryId = categoryId.value || null;
@@ -269,21 +288,22 @@ async function save(): Promise<void> {
         body.currency = currencyCode.value;
         body.confirm = true;
       }
-      if (monthly.value !== BigInt(initialPlan?.monthlyAmount ?? '0')) {
+      if (monthly.value !== BigInt(initialPlan.value?.monthlyAmount ?? '0')) {
         body.monthlyAmount = monthly.value.toString();
       }
-      if (mode.value !== (initialPlan?.mode ?? 'reset')) body.mode = mode.value;
+      if (mode.value !== (initialPlan.value?.mode ?? 'reset'))
+        body.mode = mode.value;
       if (Object.keys(body).length === 0) {
-        emit('close');
+        goBack();
         return;
       }
-      const { envelope } = await callApi(
+      await callApi(
         'PATCH',
         `/api/envelopes/${before.id}`,
         envelopeResponseSchema,
         body,
       );
-      emit('saved', envelope);
+      goBack();
     } else {
       const body: CreateEnvelopeRequest = {
         name: name.value.trim(),
@@ -293,15 +313,14 @@ async function save(): Promise<void> {
         startingBalance: startingShown.value.toString(),
         ...(categoryId.value ? { defaultCategoryId: categoryId.value } : {}),
       };
-      const { envelope } = await callApi(
+      const created = await callApi(
         'POST',
         '/api/envelopes',
         envelopeResponseSchema,
         body,
       );
-      emit('saved', envelope);
+      await replaceScreen(`/envelopes/${created.envelope.id}`);
     }
-    emit('close');
   } catch (cause) {
     if (cause instanceof ApiError && cause.fields.name) {
       nameError.value = cause.fields.name;
@@ -314,18 +333,17 @@ async function save(): Promise<void> {
 }
 
 async function archive(): Promise<void> {
-  if (!props.envelope || saving.value) return;
+  if (!envelope.value || saving.value) return;
   saving.value = true;
   error.value = '';
   try {
-    const { envelope } = await callApi(
+    await callApi(
       'PATCH',
-      `/api/envelopes/${props.envelope.id}`,
+      `/api/envelopes/${envelope.value.id}`,
       envelopeResponseSchema,
       { archived: true },
     );
-    emit('archived', envelope);
-    emit('close');
+    await leaveToPast('/envelopes', `/envelopes/${envelope.value.id}`);
   } catch (cause) {
     error.value = messageFor(cause);
   } finally {
@@ -334,18 +352,17 @@ async function archive(): Promise<void> {
 }
 
 async function remove(): Promise<void> {
-  if (!props.envelope || saving.value) return;
+  if (!envelope.value || saving.value) return;
   confirmDelete.value = false;
   saving.value = true;
   error.value = '';
   try {
     await callApi(
       'DELETE',
-      `/api/envelopes/${props.envelope.id}`,
+      `/api/envelopes/${envelope.value.id}`,
       deleteEnvelopeResponseSchema,
     );
-    emit('deleted', props.envelope.id);
-    emit('close');
+    await leaveToPast('/envelopes', `/envelopes/${envelope.value.id}`);
   } catch (cause) {
     error.value = messageFor(cause);
   } finally {
@@ -355,12 +372,12 @@ async function remove(): Promise<void> {
 </script>
 
 <template>
-  <BbSheet
-    :title="editing ? 'Edit envelope' : 'New envelope'"
-    tall
-    @close="emit('close')"
-  >
-    <div class="env-body scroll">
+  <main class="screen app-screen env-form-screen">
+    <header class="topbar">
+      <BbBackButton :label="backLabel" @click="goBack" />
+      <h1 class="t-title">{{ title }}</h1>
+    </header>
+    <div class="content env-body scroll">
       <p v-if="loading" role="status">Loading…</p>
       <div v-else-if="loadError" role="alert">
         <p class="error">{{ loadError }}</p>
@@ -472,6 +489,7 @@ async function remove(): Promise<void> {
           <BbChipGroup
             v-model="categoryId"
             label="Default category"
+            wrap
             :options="categoryChips"
           >
             <template #trailing>
@@ -501,22 +519,24 @@ async function remove(): Promise<void> {
       </template>
     </div>
 
-    <BbAmountInput
-      v-if="activeField"
-      :key="activeField"
-      class="env-keys"
-      bare
-      :allow-negative="activeField === 'starting'"
-      :currency="currency"
-      label="Amount"
-      @change="onAmountChange"
-    />
-    <p v-if="typed?.error" class="error" role="alert">{{ typed.error }}</p>
-    <p v-if="error" class="error" role="alert">{{ error }}</p>
-    <BbButton needs-server :disabled="!canSave" @click="save">{{
-      saveLabel
-    }}</BbButton>
-  </BbSheet>
+    <footer class="bottombar env-footer">
+      <BbAmountInput
+        v-if="activeField && !loading && !loadError"
+        :key="activeField"
+        class="env-keys"
+        bare
+        :allow-negative="activeField === 'starting'"
+        :currency="currency"
+        label="Amount"
+        @change="onAmountChange"
+      />
+      <p v-if="typed?.error" class="error" role="alert">{{ typed.error }}</p>
+      <p v-if="error" class="error" role="alert">{{ error }}</p>
+      <BbButton needs-server :disabled="!canSave" @click="save">{{
+        saveLabel
+      }}</BbButton>
+    </footer>
+  </main>
 
   <CurrencyPickerSheet
     v-if="currencySheet"
@@ -546,17 +566,18 @@ async function remove(): Promise<void> {
 </template>
 
 <style scoped>
+.env-form-screen {
+  height: var(--app-h, 100dvh);
+}
 .env-body {
-  flex: 1;
   min-height: 0;
   overflow-y: auto;
+  gap: 14px;
+}
+.env-footer {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  /* The swipeable chip row bleeds one gutter to each side; the body takes
-     the gutter back as padding so that bleed is not scrollable overflow. */
-  margin: 0 calc(-1 * var(--gutter));
-  padding: 0 var(--gutter) 4px;
+  gap: 8px;
 }
 .env-field {
   display: flex;
@@ -580,7 +601,7 @@ async function remove(): Promise<void> {
   box-sizing: border-box;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: var(--bg);
+  background: var(--surface);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -622,7 +643,7 @@ async function remove(): Promise<void> {
   height: 44px;
   padding: 0 16px;
   border-radius: 22px;
-  background: var(--bg);
+  background: var(--surface);
   font-size: 14px;
 }
 .env-keys :deep(.key) {

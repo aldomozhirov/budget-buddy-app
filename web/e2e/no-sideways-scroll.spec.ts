@@ -38,7 +38,9 @@ async function seed(family: Family): Promise<void> {
   });
 }
 
-test('envelope screens and sheets do not scroll sideways', async ({ page }) => {
+test('envelope screens, the new envelope page and sheets do not scroll sideways', async ({
+  page,
+}) => {
   await startFamily(page, async (family) => {
     await seed(family);
 
@@ -47,8 +49,8 @@ test('envelope screens and sheets do not scroll sideways', async ({ page }) => {
     await settled(page);
     await expectNoSidewaysScroll(page, 'Envelopes');
 
-    await page.getByRole('button', { name: 'New envelope' }).click();
-    const fresh = page.getByRole('dialog', { name: 'New envelope' });
+    await page.getByRole('link', { name: 'New envelope' }).click();
+    const fresh = page.getByRole('main');
     await fresh.getByLabel('Name', { exact: true }).fill(LONG);
     await settled(page);
     await expectNoSidewaysScroll(page, 'New envelope');
@@ -66,7 +68,7 @@ test('envelope screens and sheets do not scroll sideways', async ({ page }) => {
       .getByRole('dialog', { name: 'Category' })
       .getByRole('button', { name: 'Close', exact: true })
       .click();
-    await fresh.getByRole('button', { name: 'Close', exact: true }).click();
+    await fresh.getByRole('button', { name: 'Back to envelopes' }).click();
 
     await page.getByRole('button', { name: 'Move money' }).click();
     await settled(page);
@@ -90,7 +92,7 @@ test('envelope screens and sheets do not scroll sideways', async ({ page }) => {
   });
 });
 
-test('the envelope page, its sheets and Categories do not scroll sideways', async ({
+test('the envelope page, the edit page, its sheets and Categories do not scroll sideways', async ({
   page,
 }) => {
   await startFamily(page, async (family) => {
@@ -101,7 +103,7 @@ test('the envelope page, its sheets and Categories do not scroll sideways', asyn
       .getByRole('link', { name: new RegExp(LONG) })
       .first()
       .click();
-    await page.getByRole('button', { name: 'Edit envelope' }).waitFor();
+    await page.getByRole('link', { name: 'Edit envelope' }).waitFor();
     await settled(page);
     await expectNoSidewaysScroll(page, 'Envelope page');
 
@@ -113,12 +115,14 @@ test('the envelope page, its sheets and Categories do not scroll sideways', asyn
       .getByRole('button', { name: 'Close', exact: true })
       .click();
 
-    await page.getByRole('button', { name: 'Edit envelope' }).click();
-    const edit = page.getByRole('dialog', { name: 'Edit envelope' });
+    await page.getByRole('link', { name: 'Edit envelope' }).click();
+    const edit = page.getByRole('main');
     await edit.getByLabel('Name', { exact: true }).waitFor();
     await settled(page);
     await expectNoSidewaysScroll(page, 'Edit envelope');
-    await edit.getByRole('button', { name: 'Close', exact: true }).click();
+    // .hrow is exempt from the guard, so the form must not use one.
+    await expect(edit.locator('.hrow')).toHaveCount(0);
+    await edit.getByRole('button', { name: 'Back to envelope' }).click();
 
     await page.goto(`${family.origin}/categories`);
     await page.getByRole('button', { name: 'New category' }).waitFor();

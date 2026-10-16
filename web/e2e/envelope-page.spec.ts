@@ -299,7 +299,7 @@ test('History shows the bars, the statistics and the monthly records', async ({
   });
 });
 
-test('the month tab adjusts the balance and the cog opens the edit sheet', async ({
+test('the month tab adjusts the balance and the cog opens the edit page', async ({
   page,
 }, testInfo) => {
   await startFamily(page, async (family) => {
@@ -349,12 +349,15 @@ test('the month tab adjusts the balance and the cog opens the edit sheet', async
     ).toBeVisible();
     await expect(hero).toContainText('€167.60');
 
-    // The settings button is the cog and opens the edit sheet.
-    const cog = page.getByRole('button', { name: 'Edit envelope' });
+    // The settings button is the cog and opens the edit page.
+    const cog = page.getByRole('link', { name: 'Edit envelope' });
     await expect(cog.locator('svg.lucide-settings')).toHaveCount(1);
     await cog.click();
-    const edit = page.getByRole('dialog', { name: 'Edit envelope' });
-    await expect(edit).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/envelopes/${id}/edit$`));
+    const edit = page.getByRole('main');
+    await expect(
+      edit.getByRole('heading', { name: 'Edit envelope', level: 1 }),
+    ).toBeVisible();
     await expect(edit.getByLabel('Name', { exact: true })).toHaveValue(
       'Groceries',
     );
@@ -362,8 +365,79 @@ test('the month tab adjusts the balance and the cog opens the edit sheet', async
       await page.waitForTimeout(1200);
       await saveScreenshot(page, 'EnvelopeEdit.png');
     }
-    await edit.getByRole('button', { name: 'Close', exact: true }).click();
-    await expect(edit).toBeHidden();
+    // Back returns to the envelope page.
+    await edit
+      .getByRole('button', { name: 'Back to envelope', exact: true })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`/envelopes/${id}$`));
+    await expect(
+      page.getByRole('heading', { name: 'Groceries', level: 1 }),
+    ).toBeVisible();
+  });
+});
+
+test('Delete and Archive on the edit page leave the envelope out of Back', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    await seedGroceries(family);
+    await createEnvelope(family, {
+      name: 'Spare',
+      currency: 'EUR',
+      monthlyAmount: '1000',
+      mode: 'reset',
+      startingBalance: '0',
+    });
+
+    // Settings → Envelopes → envelope → cog → Archive / Delete: Back on
+    // Envelopes leads to Settings, not to the removed envelope.
+    await createEnvelope(family, {
+      name: 'Holiday',
+      currency: 'EUR',
+      monthlyAmount: '1000',
+      mode: 'reset',
+      startingBalance: '0',
+    });
+
+    // The third run opens the envelope from the History picker, so its page
+    // is `?tab=history` in the Back stack.
+    for (const [name, action, via] of [
+      ['Groceries', 'Archive', 'card'],
+      ['Spare', 'Delete', 'card'],
+      ['Holiday', 'Delete', 'history'],
+    ] as const) {
+      await page.goto(`${family.origin}/settings`);
+      await page
+        .getByRole('region', { name: 'Spending' })
+        .getByRole('link', { name: /Envelopes/ })
+        .click();
+      if (via === 'history') {
+        await page.getByRole('button', { name: 'History' }).click();
+        await page
+          .getByRole('dialog', { name: 'History' })
+          .getByRole('link', { name: new RegExp(name) })
+          .click();
+        await expect(page).toHaveURL(/\/envelopes\/\d+\?tab=history$/);
+      } else {
+        await page.getByRole('link', { name: new RegExp(name) }).click();
+      }
+      await page.getByRole('link', { name: 'Edit envelope' }).click();
+      await expect(page).toHaveURL(/\/envelopes\/\d+\/edit$/);
+      await page.getByRole('button', { name: action, exact: true }).click();
+      if (action === 'Delete') {
+        await page
+          .getByRole('dialog', { name: `Delete ${name}?` })
+          .getByRole('button', { name: 'Delete' })
+          .click();
+      }
+      await expect(page).toHaveURL(/\/envelopes$/);
+      await expect(
+        page.getByRole('button', { name: 'Back to settings' }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: 'Back to envelope', exact: true }),
+      ).toHaveCount(0);
+    }
   });
 });
 

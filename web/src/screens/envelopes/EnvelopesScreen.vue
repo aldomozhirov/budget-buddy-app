@@ -23,14 +23,13 @@ import {
   modeLabel,
   topUpLine,
 } from './envelopeFormat.js';
-import EnvelopeSheet from './EnvelopeSheet.vue';
 import EnvelopesHistorySheet from './EnvelopesHistorySheet.vue';
 import MoveMoneySheet from './MoveMoneySheet.vue';
 
 /** Envelopes: this month's balance of each, with the sheets for the family. */
 defineOptions({ name: 'EnvelopesScreen' });
 
-type OpenSheet = 'new' | 'move' | 'history' | null;
+type OpenSheet = 'move' | 'history' | null;
 
 const { label: backLabel, goBack } = useBack();
 const envelopes = ref<Envelope[]>([]);
@@ -105,16 +104,13 @@ async function load(): Promise<void> {
         <h1 class="t-title">Envelopes</h1>
         <span v-if="month" class="t-sub">{{ topUpLine(month) }}</span>
       </div>
-      <button
+      <RouterLink
         class="icon-btn icon-btn-ink"
-        type="button"
+        to="/envelopes/new"
         aria-label="New envelope"
-        aria-haspopup="dialog"
-        :disabled="loading || Boolean(error)"
-        @click="sheet = 'new'"
       >
         <BbIcon name="plus" />
-      </button>
+      </RouterLink>
     </header>
 
     <div class="content app-content">
@@ -183,12 +179,6 @@ async function load(): Promise<void> {
       </template>
     </div>
 
-    <EnvelopeSheet
-      v-if="sheet === 'new'"
-      :month="month"
-      @saved="load"
-      @close="sheet = null"
-    />
     <MoveMoneySheet
       v-if="sheet === 'move'"
       :envelopes="envelopes"

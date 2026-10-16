@@ -82,6 +82,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'Envelopes' },
   },
   {
+    path: '/envelopes/new',
+    name: 'NewEnvelope',
+    component: () => import('../screens/envelopes/EnvelopeFormScreen.vue'),
+    meta: { title: 'New envelope' },
+  },
+  {
     path: '/envelopes/archived',
     name: 'ArchivedEnvelopes',
     component: () => import('../screens/envelopes/ArchivedEnvelopesScreen.vue'),
@@ -92,6 +98,12 @@ const routes: RouteRecordRaw[] = [
     name: 'Envelope',
     component: () => import('../screens/envelopes/EnvelopeScreen.vue'),
     meta: { title: 'Envelope' },
+  },
+  {
+    path: '/envelopes/:id/edit',
+    name: 'EditEnvelope',
+    component: () => import('../screens/envelopes/EnvelopeFormScreen.vue'),
+    meta: { title: 'Edit envelope' },
   },
   {
     path: '/categories',
@@ -196,6 +208,8 @@ router.afterEach((to, from, failure) => {
 function naturalParent(path: string): string {
   if (path.startsWith('/accounts/')) return '/accounts';
   if (path.startsWith('/check-ins/')) return '/check-ins';
+  const edited = /^\/envelopes\/(\d+)\/edit$/.exec(path);
+  if (edited) return `/envelopes/${edited[1]}`;
   if (path.startsWith('/envelopes/')) return '/envelopes';
   return '/';
 }
@@ -226,4 +240,22 @@ export function navigateBack(path: string): void {
 export async function replaceScreen(path: string): Promise<void> {
   pendingNavigation = 'replace';
   await router.replace(path);
+}
+
+/**
+ * Leaves a screen whose parent page is gone (an archived or deleted
+ * envelope) for `path`. When the Back stack ends `path`, `parent` (compared
+ * by path, since an entry may carry a query such as `?tab=history`), the
+ * history goes back two entries, so Back on `path` leads to the screen
+ * before it; otherwise the screen is replaced and the stack is unchanged.
+ */
+export async function leaveToPast(path: string, parent: string): Promise<void> {
+  const stack = navigationStack.value;
+  const pathOf = (location: string | undefined): string | undefined =>
+    location === undefined ? undefined : router.resolve(location).path;
+  if (pathOf(stack.at(-1)) === parent && pathOf(stack.at(-2)) === path) {
+    router.go(-2);
+    return;
+  }
+  await replaceScreen(path);
 }
