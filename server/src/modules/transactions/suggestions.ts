@@ -3,17 +3,22 @@ import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 import {
   categorySuggestionsQuerySchema,
   categorySuggestionsResponseSchema,
+  exchangeRate,
   merchantsQuerySchema,
   merchantsResponseSchema,
+  ratePairQuerySchema,
+  ratePairResponseSchema,
   todayInTimeZone,
 } from '@budget-buddy/shared';
 import { systemClock, type Clock } from '../../clock.js';
 import { searchMerchants } from '../../domain/merchants.js';
 import { suggestCategories } from '../../domain/suggestions.js';
+import { createRateLookup } from '../../rates/lookup.js';
 
 /**
- * Registers `GET /api/merchants` and `GET /api/suggestions/categories`, the
- * lookups behind the Add form (UI-ADD-3, CAT-5; Design 3.6).
+ * Registers `GET /api/merchants`, `GET /api/suggestions/categories` and
+ * `GET /api/rates/pair`, the lookups behind the Add form (UI-ADD-3, CAT-5,
+ * UI-ADD-15; Design 3.6).
  */
 export const suggestionRoutes: FastifyPluginAsync<{
   database: Database.Database;
@@ -50,6 +55,18 @@ export const suggestionRoutes: FastifyPluginAsync<{
         timeZone: family.tz,
         today: todayInTimeZone(clock.now(), family.tz),
       }),
+    });
+  });
+
+  app.get('/api/rates/pair', async (request, reply) => {
+    const parsed = ratePairQuerySchema.safeParse(request.query);
+    if (!parsed.success) return sendValidation(reply, 'Check the query.');
+    const { from, to, date } = parsed.data;
+    return ratePairResponseSchema.parse({
+      rate:
+        from === to
+          ? null
+          : (exchangeRate(from, to, date, createRateLookup(database)) ?? null),
     });
   });
 };

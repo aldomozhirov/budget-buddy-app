@@ -1,18 +1,22 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import {
   accountChipLabels,
   addOptionsResponseSchema,
   categorySuggestionsResponseSchema,
+  convert,
   createTransactionResponseSchema,
   deleteTransactionResponseSchema,
   fillOnSave,
   formatMoney,
   matchRule,
   pickAccountChips,
+  ratePairResponseSchema,
   todayInTimeZone,
   type AddOptionsAccount,
   type AddOptionsResponse,
+  type DatedRate,
   type Transaction,
 } from '@budget-buddy/shared';
 import AccountPickerSheet from '../../components/AccountPickerSheet.vue';
@@ -39,27 +43,39 @@ import {
   dayLabel,
   EMPTY_PICK,
   filledText,
+  kindWords,
   merchantHint,
+  pairLookup,
+  parseKind,
   pickLabel,
   savedSummary,
   toggleChip,
   withFront,
+  type FormKind,
   type FormPick,
 } from './addForm.js';
 
 /**
- * Add expense (UI-ADD-1 to UI-ADD-13): amount on the app's keypad, account
- * chips, merchant, category and envelope chips, and the Date, Paid by and
- * Note tiles, all on one iPhone screen; then the saved view with Undo.
- * Income and Transfer arrive in task 11; the outbox in task 17, so saving
- * needs the server for now.
+ * Add expense, income or transfer (UI-ADD-1 to UI-ADD-15): amount on the
+ * app's keypad, account chips, merchant, category and envelope chips, and
+ * the Date, Paid by and Note tiles, all on one iPhone screen; then the saved
+ * view with Undo. A transfer has From and To rows and, between two
+ * currencies, a second amount that arrives (O11). The outbox is task 17, so
+ * saving needs the server for now.
  */
 defineOptions({ name: 'AddScreen' });
 
 type CategoryOption = AddOptionsResponse['categories'][number];
 type EnvelopeOption = AddOptionsResponse['envelopes'][number];
 type SheetName =
-  'account' | 'merchant' | 'category' | 'envelope' | 'date' | 'payer' | 'note';
+  | 'account'
+  | 'toAccount'
+  | 'merchant'
+  | 'category'
+  | 'envelope'
+  | 'date'
+  | 'payer'
+  | 'note';
 
 /** Chips before "All…" for suggested categories and envelopes. */
 const CATEGORY_CHIPS = 4;
@@ -67,14 +83,20 @@ const ENVELOPE_CHIPS = 5;
 const RECENT_CATEGORIES = 3;
 
 const { goBack } = useBack();
+const route = useRoute();
 
 const options = ref<AddOptionsResponse | null>(null);
 const loading = ref(true);
 const loadError = ref('');
 
+const kind = ref<FormKind>(parseKind(route.query.kind));
+const words = computed(() => kindWords(kind.value));
 const accountId = ref<number | null>(null);
 /** An account picked from the sheet, kept at the front of the row. */
 const extraAccountId = ref<number | null>(null);
+/** The account a transfer goes to; never the one it leaves. */
+const toAccountId = ref<number | null>(null);
+const extraToAccountId = ref<number | null>(null);
 const amount = ref<bigint | null>(null);
 const typed = ref<AmountChange | null>(null);
 const preview = ref<bigint | null>(null);
@@ -91,10 +113,23 @@ const payerId = ref(0);
 const note = ref('');
 const sheet = ref<SheetName | null>(null);
 
+/** What the second amount of a two-currency transfer has been given. */
+const arriveTyped = ref<AmountChange | null>(null);
+const arrivePreview = ref<bigint | null>(null);
+/** The keypad types the second amount (O11). */
+const arriveEdit = ref(false);
+/** Remounts the second keypad to clear what was typed. */
+const arriveKey = ref(0);
+/** The date's rate between the two accounts' currencies. */
+const rate = ref<DatedRate | null>(null);
+const rateLoading = ref(false);
+
 const saving = ref(false);
 const saveError = ref('');
 const saved = ref<{
   transaction: Transaction;
+  /** "Expense", "Income" or "Transfer", for the title. */
+  noun: string;
   summary: string;
   filled: string;
   noCategory: boolean;
@@ -145,18 +180,57 @@ function envelopeById(id: number | null): EnvelopeOption | undefined {
   return options.value?.envelopes.find((item) => item.id === id);
 }
 
-const accountChips = computed(() => {
+/** The accounts of one chip row: the usual five, a sheet pick, the choice. */
+function accountRow(
+  pool: AddOptionsAccount[],
+  extra: number | null,
+  selected: number | null,
+): AddOptionsAccount[] {
   const data = options.value;
   if (!data) return [];
-  const base = pickAccountChips(data.accounts, data.profileId).map(
-    (item) => item.id,
-  );
-  const ids = withFront(withFront(base, extraAccountId.value), accountId.value);
-  const accounts = ids
-    .map((id) => data.accounts.find((item) => item.id === id))
+  const base = pickAccountChips(pool, data.profileId).map((item) => item.id);
+  return withFront(withFront(base, extra), selected)
+    .map((id) => pool.find((item) => item.id === id))
     .filter((item): item is AddOptionsAccount => item !== undefined);
-  return accountChipLabels(accounts, data.profileId, data.commonCurrency);
+}
+const fromRow = computed(() =>
+  accountRow(
+    options.value?.accounts ?? [],
+    extraAccountId.value,
+    accountId.value,
+  ),
+);
+const toRow = computed(() =>
+  kind.value === 'transfer'
+    ? accountRow(toPool.value, extraToAccountId.value, toAccountId.value)
+    : [],
+);
+/** Chip labels are worked out over both rows, so one account reads alike. */
+const chipLabels = computed(() => {
+  const data = options.value;
+  const labels = new Map<number, string>();
+  if (!data) return labels;
+  const unique = [
+    ...new Map(
+      [...fromRow.value, ...toRow.value].map((item) => [item.id, item]),
+    ).values(),
+  ];
+  for (const chip of accountChipLabels(
+    unique,
+    data.profileId,
+    data.commonCurrency,
+  )) {
+    labels.set(chip.account.id, chip.label);
+  }
+  return labels;
 });
+function chipsOf(row: AddOptionsAccount[]) {
+  return row.map((item) => ({
+    account: item,
+    label: chipLabels.value.get(item.id) ?? item.name,
+  }));
+}
+const accountChips = computed(() => chipsOf(fromRow.value));
 const accountLabel = computed(
   () =>
     accountChips.value.find((chip) => chip.account.id === accountId.value)
@@ -165,21 +239,54 @@ const accountLabel = computed(
     '',
 );
 
-const expenseCategories = computed(
+/** The accounts a transfer can go to: all but the one it leaves. */
+const toPool = computed(() =>
+  (options.value?.accounts ?? []).filter((item) => item.id !== accountId.value),
+);
+const toChips = computed(() => chipsOf(toRow.value));
+const toAccount = computed(() =>
+  options.value?.accounts.find((item) => item.id === toAccountId.value),
+);
+const toLabel = computed(
   () =>
-    options.value?.categories.filter((item) => item.kind === 'expense') ?? [],
+    toChips.value.find((chip) => chip.account.id === toAccountId.value)
+      ?.label ??
+    toAccount.value?.name ??
+    '',
+);
+const toCurrency = computed(() =>
+  toAccount.value ? accountCurrency(toAccount.value) : currency.value,
+);
+/** A transfer between two currencies has a second amount (O11). */
+const fx = computed(
+  () =>
+    kind.value === 'transfer' &&
+    toAccount.value !== undefined &&
+    account.value !== undefined &&
+    account.value.currency !== toAccount.value.currency,
+);
+
+/** Income takes income categories, an expense expense ones. */
+const categoryKind = computed(() =>
+  kind.value === 'income' ? 'income' : 'expense',
+);
+const kindCategories = computed(
+  () =>
+    options.value?.categories.filter(
+      (item) => item.kind === categoryKind.value,
+    ) ?? [],
 );
 const categoryChips = computed(() => {
   const base = suggestedIds.value.length
     ? suggestedIds.value
-    : expenseCategories.value.slice(0, CATEGORY_CHIPS).map((item) => item.id);
+    : kindCategories.value.slice(0, CATEGORY_CHIPS).map((item) => item.id);
   return withFront(withFront(base, extraCategoryId.value), category.value.id)
     .map((id) => categoryById(id))
-    .filter((item): item is CategoryOption => item?.kind === 'expense')
+    .filter((item): item is CategoryOption => item?.kind === categoryKind.value)
     .map((item) => ({ label: item.name, value: item.id }));
 });
 const recentCategoryIds = computed(() =>
-  expenseCategories.value.slice(0, RECENT_CATEGORIES).map((item) => item.id),
+  kindCategories.value.slice(0, RECENT_CATEGORIES).map((item) => item.id),
 );
 
 const envelopes = computed(() => options.value?.envelopes ?? []);
@@ -213,7 +320,7 @@ const merchants = computed<MerchantOption[]>(() => {
 const fillPreview = computed(() =>
   fillOnSave(
     {
-      kind: 'expense',
+      kind: kind.value,
       categoryId: category.value.id,
       envelopeId: envelope.value.id,
     },
@@ -273,17 +380,73 @@ const shownAmount = computed(() =>
 const expression = computed(() =>
   typed.value && /[+−\-×÷*/%()]/.test(typed.value.text) ? typed.value.text : '',
 );
+/** Only an expense can be negative (a refund, TXN-8). */
+const amountOk = computed(
+  () =>
+    amount.value !== null &&
+    (kind.value === 'expense' ? amount.value !== 0n : amount.value > 0n),
+);
+
+/** What arrives, from the date's rate (O11); null without one. */
+const autoArrive = computed<bigint | null>(() => {
+  if (!fx.value || !rate.value || !account.value || !toAccount.value) {
+    return null;
+  }
+  if (amount.value === null || amount.value <= 0n) return null;
+  const result = convert(
+    amount.value,
+    currency.value,
+    toCurrency.value,
+    date.value,
+    pairLookup(account.value.currency, toAccount.value.currency, rate.value),
+  );
+  return 'value' in result && result.value > 0n ? result.value : null;
+});
+/** The second amount: typed once the member types it, else the rate's. */
+const arriveValue = computed<bigint | null>(() => {
+  if (!fx.value) return null;
+  if (arriveTyped.value === null) return autoArrive.value;
+  return arriveTyped.value.empty ? null : arriveTyped.value.amount;
+});
+const arriveOk = computed(
+  () => arriveValue.value !== null && arriveValue.value > 0n,
+);
+const arriveText = computed(() => {
+  const typedNow = arriveTyped.value !== null && !arriveTyped.value.empty;
+  const shown = typedNow ? arrivePreview.value : arriveValue.value;
+  if (shown !== null && shown > 0n) {
+    return `Arrives as ${formatMoney(shown, toCurrency.value)}`;
+  }
+  if (rateLoading.value && arriveTyped.value === null) {
+    return 'Checking the rate…';
+  }
+  return `Type what arrives in ${toLabel.value}`;
+});
+/** The pill is in the warning colour while the member has to type it. */
+const arriveWarn = computed(
+  () => !arriveOk.value && !arriveEdit.value && !rateLoading.value,
+);
+/** The expression error of whichever amount the keypad is typing. */
+const keypadError = computed(
+  () => (arriveEdit.value ? arriveTyped.value : typed.value)?.error ?? '',
+);
+
 const canSave = computed(
   () =>
     account.value !== undefined &&
-    amount.value !== null &&
-    amount.value !== 0n &&
+    amountOk.value &&
+    (kind.value !== 'transfer' ||
+      (toAccount.value !== undefined && (!fx.value || arriveOk.value))) &&
     !saving.value,
 );
 const saveLabel = computed(() => {
   if (saving.value) return 'Saving…';
-  if (amount.value === null || amount.value === 0n) return 'Enter an amount';
-  return `Save ${formatMoney(amount.value, currency.value)}`;
+  if (!amountOk.value || amount.value === null) return 'Enter an amount';
+  if (fx.value && !arriveOk.value) return 'Type what arrives';
+  const sent = formatMoney(amount.value, currency.value);
+  return fx.value && arriveValue.value !== null
+    ? `Save ${sent} → ${formatMoney(arriveValue.value, toCurrency.value)}`
+    : `Save ${sent}`;
 });
 
 function onAmountChange(change: AmountChange): void {
@@ -291,10 +454,17 @@ function onAmountChange(change: AmountChange): void {
   if (change.amount !== null || change.empty) preview.value = change.amount;
 }
 
+function onArriveChange(change: AmountChange): void {
+  arriveTyped.value = change;
+  if (change.amount !== null || change.empty) {
+    arrivePreview.value = change.amount;
+  }
+}
+
 /** Applies the merchant's rule again after the merchant or account moved. */
 function reapplyRule(): void {
   const data = options.value;
-  if (!data) return;
+  if (!data || kind.value !== 'expense') return;
   const match = matchRule(merchant.value, accountId.value, data.rules);
   const usable = match && categoryById(match.categoryId) ? match : null;
   const next = applyRule(
@@ -310,9 +480,11 @@ function reapplyRule(): void {
 
 /** The query of the category chips (Design 3.6) for the form as it is. */
 function suggestionQuery(): string {
-  const query = new URLSearchParams({ kind: 'expense' });
-  if (merchant.value) query.set('merchant', merchant.value);
-  if (envelope.value.id !== null) {
+  const query = new URLSearchParams({ kind: categoryKind.value });
+  if (kind.value === 'expense' && merchant.value) {
+    query.set('merchant', merchant.value);
+  }
+  if (kind.value === 'expense' && envelope.value.id !== null) {
     query.set('envelopeId', String(envelope.value.id));
   }
   if (accountId.value !== null) query.set('accountId', String(accountId.value));
@@ -334,8 +506,86 @@ async function loadSuggestions(): Promise<void> {
   }
 }
 watch(
-  [() => merchant.value, () => envelope.value.id, () => accountId.value],
+  [
+    () => kind.value,
+    () => merchant.value,
+    () => envelope.value.id,
+    () => accountId.value,
+  ],
   () => void loadSuggestions(),
+);
+
+/** Asks for the date's rate between the two currencies; latest wins. */
+async function loadRate(): Promise<void> {
+  const from = account.value?.currency;
+  const to = toAccount.value?.currency;
+  if (!fx.value || !from || !to || !date.value) {
+    rate.value = null;
+    rateLoading.value = false;
+    return;
+  }
+  const asked = `${from}>${to}@${date.value}`;
+  rate.value = null;
+  rateLoading.value = true;
+  try {
+    const answer = await callApi(
+      'GET',
+      `/api/rates/pair?${new URLSearchParams({ from, to, date: date.value })}`,
+      ratePairResponseSchema,
+    );
+    if (asked === rateKey()) rate.value = answer.rate;
+  } catch {
+    // No rate: the member types what arrives.
+  } finally {
+    if (asked === rateKey()) rateLoading.value = false;
+  }
+}
+function rateKey(): string {
+  return `${account.value?.currency}>${toAccount.value?.currency}@${date.value}`;
+}
+watch([fx, rateKey], () => void loadRate());
+
+/** Forgets a typed second amount, e.g. after another account is picked. */
+function resetArrive(): void {
+  arriveTyped.value = null;
+  arrivePreview.value = null;
+  arriveEdit.value = false;
+  arriveKey.value += 1;
+}
+
+/** A transfer never goes to the account it leaves. */
+function ensureTo(): void {
+  if (toAccountId.value !== null && toAccountId.value !== accountId.value) {
+    return;
+  }
+  toAccountId.value = toChips.value[0]?.account.id ?? null;
+}
+
+/** Switches the kind; category and envelope start over (UI-ADD-8). */
+function setKind(next: FormKind): void {
+  if (next === kind.value) return;
+  kind.value = next;
+  category.value = EMPTY_PICK;
+  envelope.value = EMPTY_PICK;
+  extraCategoryId.value = null;
+  extraEnvelopeId.value = null;
+  suggestedIds.value = [];
+  resetArrive();
+  ensureTo();
+  if (next === 'expense') reapplyRule();
+  // Only an expense can be a refund: drop a negative amount.
+  if (next !== 'expense' && amount.value !== null && amount.value < 0n) {
+    amount.value = null;
+    typed.value = null;
+    preview.value = null;
+    keypadKey.value += 1;
+  }
+}
+
+// Follows a link to another kind while the form is open.
+watch(
+  () => route.query.kind,
+  (next) => setKind(parseKind(next)),
 );
 
 function resetForm(): void {
@@ -345,6 +595,7 @@ function resetForm(): void {
   preview.value = null;
   keypadKey.value += 1;
   merchant.value = '';
+  resetArrive();
   category.value = EMPTY_PICK;
   envelope.value = EMPTY_PICK;
   extraCategoryId.value = null;
@@ -367,7 +618,9 @@ async function load(): Promise<void> {
     );
     options.value = data;
     accountId.value = data.accounts[0]?.id ?? null;
+    toAccountId.value = null;
     resetForm();
+    ensureTo();
   } catch (cause) {
     loadError.value =
       cause instanceof ApiError && cause.status !== 0
@@ -382,6 +635,8 @@ onMounted(load);
 
 function pickAccount(id: number): void {
   accountId.value = id;
+  ensureTo();
+  resetArrive();
   reapplyRule();
 }
 
@@ -390,6 +645,23 @@ function pickAccountFromSheet(picked: AddOptionsAccount | null): void {
   if (!picked) return;
   extraAccountId.value = picked.id;
   pickAccount(picked.id);
+}
+
+function pickTo(id: number): void {
+  toAccountId.value = id;
+  resetArrive();
+}
+
+function pickToFromSheet(picked: AddOptionsAccount | null): void {
+  sheet.value = null;
+  if (!picked) return;
+  extraToAccountId.value = picked.id;
+  pickTo(picked.id);
+}
+
+/** A tap on "Arrives as" moves the keypad to the second amount. */
+function editArrive(): void {
+  arriveEdit.value = true;
 }
 
 function pickMerchant(value: string): void {
@@ -416,7 +688,7 @@ function pickCategoryFromSheet(picked: { id: number; name: string }): void {
       {
         id: picked.id,
         name: picked.name,
-        kind: 'expense',
+        kind: categoryKind.value,
         defaultEnvelopeId: null,
       },
     ];
@@ -442,17 +714,31 @@ function pickEnvelopeFromSheet(picked: EnvelopeOption | null): void {
 async function save(): Promise<void> {
   const value = amount.value;
   if (!canSave.value || value === null || accountId.value === null) return;
-  const form = {
-    kind: 'expense' as const,
+  const common = {
+    kind: kind.value,
     date: date.value,
     accountId: accountId.value,
     amount: value.toString(),
     memberId: payerId.value,
-    ...(merchant.value ? { merchant: merchant.value } : {}),
     ...(note.value ? { note: note.value } : {}),
-    categoryId: category.value.id,
-    envelopeId: envelope.value.id,
   };
+  const form =
+    kind.value === 'transfer'
+      ? {
+          ...common,
+          toAccountId: toAccountId.value,
+          ...(fx.value && arriveValue.value !== null
+            ? { toAmount: arriveValue.value.toString() }
+            : {}),
+        }
+      : kind.value === 'income'
+        ? { ...common, categoryId: category.value.id }
+        : {
+            ...common,
+            ...(merchant.value ? { merchant: merchant.value } : {}),
+            categoryId: category.value.id,
+            envelopeId: envelope.value.id,
+          };
   const signature = JSON.stringify(form);
   if (pending?.signature !== signature) {
     pending = {
@@ -473,10 +759,16 @@ async function save(): Promise<void> {
     pending = null;
     const categoryName = categoryById(transaction.categoryId)?.name ?? null;
     const envelopeName = envelopeById(transaction.envelopeId)?.name ?? null;
+    const sent = formatMoney(BigInt(transaction.amount), currency.value);
     saved.value = {
       transaction,
+      noun: words.value.noun,
       summary: savedSummary({
-        amount: formatMoney(BigInt(transaction.amount), currency.value),
+        amount:
+          transaction.toAmount !== null &&
+          transaction.toCurrency !== transaction.currency
+            ? `${sent} → ${formatMoney(BigInt(transaction.toAmount), toCurrency.value)}`
+            : sent,
         merchant: transaction.merchant,
         date:
           transaction.date === today.value
@@ -484,12 +776,17 @@ async function save(): Promise<void> {
             : dayLabel(transaction.date, today.value),
         payer:
           transaction.memberId === profileId.value ? null : payerName.value,
-        account: accountLabel.value,
+        payerLabel: words.value.payerLabel,
+        account:
+          transaction.kind === 'transfer'
+            ? `${accountLabel.value} → ${toLabel.value}`
+            : accountLabel.value,
         envelope: envelopeName,
         category: categoryName,
       }),
       filled: filledText(filled, categoryName, envelopeName),
-      noCategory: transaction.categoryId === null,
+      noCategory:
+        transaction.kind !== 'transfer' && transaction.categoryId === null,
     };
     undoError.value = '';
     focusAfter(savedHeading);
@@ -497,7 +794,7 @@ async function save(): Promise<void> {
     saveError.value =
       cause instanceof ApiError
         ? cause.message
-        : 'Could not save the expense. Try again.';
+        : `Could not save the ${words.value.noun.toLowerCase()}. Try again.`;
   } finally {
     saving.value = false;
   }
@@ -566,13 +863,14 @@ function addAnother(): void {
         </button>
         <BbSegmented
           class="add-kind"
-          model-value="expense"
+          :model-value="kind"
           label="Kind"
           :options="[
             { label: 'Expense', value: 'expense' },
-            { label: 'Income', value: 'income', disabled: true },
-            { label: 'Transfer', value: 'transfer', disabled: true },
+            { label: 'Income', value: 'income' },
+            { label: 'Transfer', value: 'transfer' },
           ]"
+          @update:model-value="setKind($event as FormKind)"
         />
       </header>
 
@@ -585,24 +883,65 @@ function addAnother(): void {
       >
         <span class="num amount-expr add-expr">{{ expression }}</span>
         <div class="add-amount-line">
-          <span
+          <component
+            :is="fx ? 'button' : 'span'"
             class="num amount"
-            :class="{ 'add-amount-empty': typed === null || typed.empty }"
+            :class="{
+              'add-amount-empty': typed === null || typed.empty,
+              'add-amount-dim': arriveEdit,
+              'add-amount-btn': fx,
+            }"
+            :type="fx ? 'button' : undefined"
+            :aria-label="
+              fx
+                ? arriveEdit
+                  ? `Amount ${shownAmount}. Type it again`
+                  : `Amount ${shownAmount}`
+                : undefined
+            "
             aria-live="polite"
             aria-atomic="true"
-            >{{ shownAmount }}</span
+            @click="arriveEdit = false"
+            >{{ shownAmount }}</component
           >
           <span class="add-currency">{{ currency.code }}</span>
         </div>
-        <span class="add-error">
-          <span v-if="typed?.error" class="error" role="alert">{{
-            typed.error
+        <button
+          v-if="fx"
+          class="num add-arrive"
+          :class="{
+            'add-arrive-warn': arriveWarn,
+            'add-arrive-edit': arriveEdit,
+          }"
+          type="button"
+          :aria-pressed="arriveEdit"
+          :aria-label="`${arriveText}. Change`"
+          @click="editArrive"
+        >
+          <span class="add-arrive-t">{{ arriveText }}</span>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M4 20h4L19 9l-4-4L4 16v4z" />
+          </svg>
+        </button>
+        <span v-if="!fx || keypadError" class="add-error">
+          <span v-if="keypadError" class="error" role="alert">{{
+            keypadError
           }}</span>
         </span>
       </div>
 
       <div class="add-field">
-        <span class="lbl">Paid from</span>
+        <span class="lbl">{{ words.fromLabel }}</span>
         <BbChipGroup
           :model-value="accountId ?? 0"
           :options="
@@ -611,7 +950,7 @@ function addAnother(): void {
               value: chip.account.id,
             }))
           "
-          label="Paid from"
+          :label="words.fromLabel"
           @update:model-value="pickAccount(Number($event))"
         >
           <template #trailing>
@@ -625,7 +964,32 @@ function addAnother(): void {
         </BbChipGroup>
       </div>
 
+      <div v-if="kind === 'transfer'" class="add-field">
+        <span class="lbl">To</span>
+        <BbChipGroup
+          :model-value="toAccountId ?? 0"
+          :options="
+            toChips.map((chip) => ({
+              label: chip.label,
+              value: chip.account.id,
+            }))
+          "
+          label="To"
+          @update:model-value="pickTo(Number($event))"
+        >
+          <template #trailing>
+            <BbChip
+              variant="ghost"
+              aria-label="All accounts to send to"
+              @click="sheet = 'toAccount'"
+              >All…</BbChip
+            >
+          </template>
+        </BbChipGroup>
+      </div>
+
       <button
+        v-if="kind === 'expense'"
         class="field-btn"
         type="button"
         :aria-label="
@@ -641,7 +1005,7 @@ function addAnother(): void {
         <BbIcon name="forward" :size="16" />
       </button>
 
-      <div class="add-field">
+      <div v-if="kind !== 'transfer'" class="add-field">
         <span class="lbl">{{ categoryLabel }}</span>
         <BbChipGroup
           :model-value="category.id ?? 0"
@@ -660,7 +1024,7 @@ function addAnother(): void {
         </BbChipGroup>
       </div>
 
-      <div v-if="envelopes.length" class="add-field">
+      <div v-if="kind === 'expense' && envelopes.length" class="add-field">
         <span class="lbl">{{ envelopeLabel }}</span>
         <BbChipGroup
           :model-value="envelope.id ?? 0"
@@ -697,10 +1061,12 @@ function addAnother(): void {
           class="meta"
           :class="{ 'meta-set': payerId !== profileId }"
           type="button"
-          :aria-label="`Paid by: ${payerName}. Change`"
+          :aria-label="`${words.payerLabel}: ${payerName}. Change`"
           @click="sheet = 'payer'"
         >
-          <span class="meta-l"><BbIcon name="person" :size="13" />Paid by</span>
+          <span class="meta-l"
+            ><BbIcon name="person" :size="13" />{{ words.payerLabel }}</span
+          >
           <span class="meta-v"
             ><span class="add-meta-t">{{ payerName }}</span
             ><BbIcon name="down" :size="14"
@@ -724,13 +1090,23 @@ function addAnother(): void {
       <div class="add-spacer" />
 
       <BbAmountInput
+        v-show="!arriveEdit"
         :key="keypadKey"
         v-model:amount="amount"
         bare
-        allow-negative
+        :allow-negative="kind === 'expense'"
         :currency="currency"
         label="Amount"
         @change="onAmountChange"
+      />
+      <BbAmountInput
+        v-if="fx"
+        v-show="arriveEdit"
+        :key="`arrive-${arriveKey}`"
+        bare
+        :currency="toCurrency"
+        label="Amount that arrives"
+        @change="onArriveChange"
       />
       <p v-if="saveError" class="error" role="alert">{{ saveError }}</p>
       <BbButton class="num" needs-server :disabled="!canSave" @click="save">{{
@@ -747,7 +1123,7 @@ function addAnother(): void {
         class="add-saved-title"
         tabindex="-1"
       >
-        Expense saved
+        {{ saved.noun }} saved
       </h2>
       <p class="num add-saved-summary">{{ saved.summary }}</p>
       <p v-if="saved.noCategory" class="add-saved-note">
@@ -772,8 +1148,17 @@ function addAnother(): void {
       :accounts="options.accounts"
       :selected-id="accountId"
       :profile-id="profileId"
-      title="Paid from"
+      :title="words.fromSheet"
       @pick="pickAccountFromSheet"
+      @close="sheet = null"
+    />
+    <AccountPickerSheet
+      v-if="sheet === 'toAccount' && options"
+      :accounts="toPool"
+      :selected-id="toAccountId"
+      :profile-id="profileId"
+      title="Transfer to"
+      @pick="pickToFromSheet"
       @close="sheet = null"
     />
     <MerchantSheet
@@ -786,11 +1171,11 @@ function addAnother(): void {
     <CategoryPickerSheet
       v-if="sheet === 'category'"
       :categories="
-        [...expenseCategories].sort((a, b) => a.name.localeCompare(b.name))
+        [...kindCategories].sort((a, b) => a.name.localeCompare(b.name))
       "
       :selected-id="category.id"
       :recent-ids="recentCategoryIds"
-      kind="expense"
+      :kind="categoryKind"
       @pick="pickCategoryFromSheet"
       @close="sheet = null"
     />
@@ -814,8 +1199,8 @@ function addAnother(): void {
     />
     <PayerSheet
       v-if="sheet === 'payer' && options"
-      title="Paid by"
-      hint="Who paid. The account above stays as picked."
+      :title="words.payerLabel"
+      :hint="words.payerHint"
       :profiles="options.profiles"
       :profile-id="profileId"
       :selected-id="payerId"
@@ -885,6 +1270,50 @@ function addAnother(): void {
 }
 .add-amount-empty {
   color: var(--muted);
+}
+.add-amount-dim {
+  opacity: 0.45;
+}
+.add-amount-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+.add-arrive {
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-top: 2px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--soft);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+}
+.add-arrive svg {
+  flex: none;
+}
+.add-arrive-t {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.add-arrive-warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.add-arrive-edit {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 2px var(--ink);
 }
 .add-currency {
   display: inline-flex;

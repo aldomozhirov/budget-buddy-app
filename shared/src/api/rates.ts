@@ -46,3 +46,30 @@ export type RateFeedStatus = z.infer<typeof rateFeedStatusSchema>;
 
 /** Exchange-rate status for the read-only Settings sheet. */
 export type RatesStatusResponse = z.infer<typeof ratesStatusResponseSchema>;
+
+/**
+ * Query of `GET /api/rates/pair`: the rate between two currencies on a day,
+ * for the transfer form's "Arrives as" line (UI-ADD-15).
+ */
+export const ratePairQuerySchema = z
+  .object({
+    from: z.string().regex(/^[A-Z0-9]{2,10}$/u),
+    to: z.string().regex(/^[A-Z0-9]{2,10}$/u),
+    date: dateSchema,
+  })
+  .strict();
+
+/** Validated rate pair query. */
+export type RatePairQuery = z.infer<typeof ratePairQuerySchema>;
+
+/**
+ * Response of `GET /api/rates/pair`: units of `to` per one whole unit of
+ * `from` on or before the date, as `convert` would use it, with the date of
+ * the oldest stored rate behind it; null when there is none.
+ */
+export const ratePairResponseSchema = z.object({
+  rate: z.object({ rate: z.string(), date: dateSchema }).nullable(),
+});
+
+/** Rate between two currencies for the transfer form. */
+export type RatePairResponse = z.infer<typeof ratePairResponseSchema>;

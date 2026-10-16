@@ -4,8 +4,75 @@ import {
   getIsoCurrency,
   type AddOptionsAccount,
   type Currency,
+  type DatedRate,
+  type RateLookup,
   type RuleMatch,
+  type TransactionKind,
 } from '@budget-buddy/shared';
+
+/** What the Add form records; the control at the top switches it. */
+export type FormKind = TransactionKind;
+
+/** The words that change with the kind of the form (UI-ADD-2, UI-ADD-6). */
+export interface KindWords {
+  /** Title of the saved view: "Expense saved". */
+  noun: string;
+  /** Label above the first account row. */
+  fromLabel: string;
+  /** Title of the first account's search sheet. */
+  fromSheet: string;
+  /** Label of the person tile and title of its sheet. */
+  payerLabel: string;
+  /** The line in the person sheet. */
+  payerHint: string;
+}
+
+const KIND_WORDS: Record<FormKind, KindWords> = {
+  expense: {
+    noun: 'Expense',
+    fromLabel: 'Paid from',
+    fromSheet: 'Paid from',
+    payerLabel: 'Paid by',
+    payerHint: 'Who paid. The account above stays as picked.',
+  },
+  income: {
+    noun: 'Income',
+    fromLabel: 'Paid into',
+    fromSheet: 'Paid into',
+    payerLabel: 'Received by',
+    payerHint: 'Who received the money.',
+  },
+  transfer: {
+    noun: 'Transfer',
+    fromLabel: 'From',
+    fromSheet: 'Transfer from',
+    payerLabel: 'Done by',
+    payerHint: 'Who moved the money. The accounts above stay as picked.',
+  },
+};
+
+/** The words of one kind. */
+export function kindWords(kind: FormKind): KindWords {
+  return KIND_WORDS[kind];
+}
+
+/** The kind named by `/add?kind=`; anything else opens an expense. */
+export function parseKind(value: unknown): FormKind {
+  const first = Array.isArray(value) ? value[0] : value;
+  return first === 'income' || first === 'transfer' ? first : 'expense';
+}
+
+/**
+ * A rate source holding the one rate the server gave for a pair, so the
+ * shared `convert` gives the same amount the server would (UI-ADD-15).
+ */
+export function pairLookup(
+  from: string,
+  to: string,
+  rate: DatedRate,
+): RateLookup {
+  return (base, quote) => (base === from && quote === to ? rate : undefined);
+}
 
 /**
  * Who set a category or envelope on the Add form: the member by hand, a
@@ -220,13 +287,16 @@ export function filledText(
  * The one-line summary on the saved screen (UI-ADD-13): "€23.80 · REWE ·
  * ING Visa · Groceries". The date and payer are named only when they are
  * not today and the signed-in profile; the category only when it differs
- * from the envelope's name.
+ * from the envelope's name. A transfer passes "ING Visa → Wise $" as the
+ * account and "€20.00 → $21.86" as the amount.
  */
 export function savedSummary(parts: {
   amount: string;
   merchant: string | null;
   date: string | null;
   payer: string | null;
+  /** The person tile's label, lower-cased in front of the name. */
+  payerLabel?: string;
   account: string;
   envelope: string | null;
   category: string | null;
@@ -234,7 +304,11 @@ export function savedSummary(parts: {
   const line = [parts.amount];
   if (parts.merchant) line.push(parts.merchant);
   if (parts.date) line.push(parts.date);
-  if (parts.payer) line.push(`paid by ${parts.payer}`);
+  if (parts.payer) {
+    line.push(
+      `${(parts.payerLabel ?? 'Paid by').toLowerCase()} ${parts.payer}`,
+    );
+  }
   line.push(parts.account);
   if (parts.envelope) line.push(parts.envelope);
   if (parts.category && parts.category !== parts.envelope) {
