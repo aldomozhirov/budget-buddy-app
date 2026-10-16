@@ -145,6 +145,9 @@ describe('sign in again when the app is re-opened', () => {
       ['GET', '/api/transactions/1'],
       ['PATCH', '/api/transactions/1'],
       ['DELETE', '/api/transactions/1'],
+      ['GET', '/api/add-options'],
+      ['GET', '/api/merchants'],
+      ['GET', '/api/suggestions/categories?kind=expense'],
       ['POST', '/api/auth/sign-out'],
     ] as const) {
       const response = await call(alex, method, url, {});
