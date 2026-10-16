@@ -179,9 +179,12 @@ test('creates two envelopes, shows their cards and moves money between them', as
     ).toBeVisible();
 
     // Groceries: €500.00, resets, starting €187.60.
-    await page.getByRole('button', { name: 'New envelope' }).click();
-    const sheet = page.getByRole('dialog', { name: 'New envelope' });
-    await expect(sheet).toBeVisible();
+    await page.getByRole('link', { name: 'New envelope' }).click();
+    await expect(page).toHaveURL(/\/envelopes\/new$/);
+    const sheet = page.getByRole('main');
+    await expect(
+      sheet.getByRole('heading', { name: 'New envelope', level: 1 }),
+    ).toBeVisible();
     await expect(
       sheet.getByRole('button', { name: 'Name the envelope' }),
     ).toBeDisabled();
@@ -199,10 +202,15 @@ test('creates two envelopes, shows their cards and moves money between them', as
       .click();
     await typeAmount(sheet, '187.60');
     await sheet.getByRole('button', { name: 'Add envelope' }).click();
-    await expect(sheet).toBeHidden();
+    // Saving opens the new envelope's page; Back returns to Envelopes.
+    await expect(page).toHaveURL(/\/envelopes\/\d+$/);
+    await expect(
+      page.getByRole('heading', { name: 'Groceries', level: 1 }),
+    ).toBeVisible();
+    await backToEnvelopes(page);
 
     // Unexpected: €300.00, carries over; the starting balance is proposed.
-    await page.getByRole('button', { name: 'New envelope' }).click();
+    await page.getByRole('link', { name: 'New envelope' }).click();
     await sheet.getByLabel('Name', { exact: true }).fill('Unexpected');
     await sheet.getByRole('button', { name: 'Monthly amount' }).click();
     await typeAmount(sheet, '300');
@@ -214,7 +222,8 @@ test('creates two envelopes, shows their cards and moves money between them', as
     ).toBeVisible();
     await expect(sheet.getByText('Proposed: the monthly amount')).toBeVisible();
     await sheet.getByRole('button', { name: 'Add envelope' }).click();
-    await expect(sheet).toBeHidden();
+    await expect(page).toHaveURL(/\/envelopes\/\d+$/);
+    await backToEnvelopes(page);
 
     const groceries = page.getByRole('link', { name: /Groceries/ });
     await expect(groceries).toContainText('Resets monthly');
@@ -232,7 +241,7 @@ test('creates two envelopes, shows their cards and moves money between them', as
     ).toContainText('€487.60');
 
     // A USD envelope through "Other…": the sheet is searchable and grouped.
-    await page.getByRole('button', { name: 'New envelope' }).click();
+    await page.getByRole('link', { name: 'New envelope' }).click();
     await sheet.getByLabel('Name', { exact: true }).fill('Holiday');
     await sheet.getByRole('button', { name: 'Other currency or coin' }).click();
     const picker = page.getByRole('dialog', { name: 'Currency or coin' });
@@ -248,7 +257,8 @@ test('creates two envelopes, shows their cards and moves money between them', as
     await expect(picker).toBeHidden();
     await expect(sheet.getByRole('radio', { name: 'USD' })).toBeChecked();
     await sheet.getByRole('button', { name: 'Add envelope' }).click();
-    await expect(sheet).toBeHidden();
+    await expect(page).toHaveURL(/\/envelopes\/\d+$/);
+    await backToEnvelopes(page);
     await expect(page.getByRole('link', { name: /Holiday/ })).toContainText(
       '$0.00',
     );
@@ -290,13 +300,13 @@ test('creates two envelopes, shows their cards and moves money between them', as
       await page.goto(`${origin}/envelopes`);
       await expect(page.getByRole('link', { name: /Holiday/ })).toBeVisible();
       await saveScreenshot(page, 'Envelopes.png');
-      await page.getByRole('button', { name: 'New envelope' }).click();
+      await page.getByRole('link', { name: 'New envelope' }).click();
       await expect(
-        page.getByRole('dialog', { name: 'New envelope' }),
+        page.getByRole('heading', { name: 'New envelope', level: 1 }),
       ).toBeVisible();
       await page.waitForTimeout(700);
       await saveScreenshot(page, 'EnvelopeNew.png');
-      await page.getByRole('button', { name: 'Close', exact: true }).click();
+      await page.getByRole('button', { name: 'Back to envelopes' }).click();
       await page.getByRole('button', { name: 'Move money' }).click();
       await typeAmount(page.getByRole('dialog', { name: 'Move money' }), '50');
       await page.waitForTimeout(700);
@@ -389,8 +399,7 @@ test('shows an overspent envelope, the History picker and Archived envelopes', a
       page.getByRole('button', { name: 'Restore Holiday' }),
     ).toBeVisible();
     await page.getByRole('button', { name: 'Restore Holiday' }).click();
-    await page.getByRole('button', { name: 'Back to envelopes' }).click();
-    await expect(page).toHaveURL(/\/envelopes$/);
+    await backToEnvelopes(page);
     await expect(
       page.getByRole('link', { name: /Archived envelopes · 0/ }),
     ).toBeVisible();
@@ -422,6 +431,16 @@ test('the move sheet offers only envelopes of the same currency', async ({
     await expect(move.getByText('No other envelope in USD.')).toBeVisible();
   });
 });
+
+/** Taps Back on an envelope or form page and waits for Envelopes to settle. */
+async function backToEnvelopes(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Back to envelopes' }).click();
+  await expect(page).toHaveURL(/\/envelopes$/);
+  // The leaving screen stays in the page until its transition ends.
+  await expect(
+    page.getByRole('button', { name: 'Back to envelopes' }),
+  ).toHaveCount(0);
+}
 
 async function saveScreenshot(page: Page, name: string): Promise<void> {
   mkdirSync('test-results/screens', { recursive: true });
