@@ -1,4 +1,11 @@
-<script setup lang="ts">
+<script
+  setup
+  lang="ts"
+  generic="
+    T extends Pick<Envelope, 'id' | 'name'> &
+      Partial<Pick<Envelope, 'currency' | 'plan' | 'current'>>
+  "
+>
 import {
   formatMoney,
   type CoinSetting,
@@ -14,11 +21,12 @@ import BbSheet from './BbSheet.vue';
 /**
  * Sheet behind an envelope chip row's "All…" (UI-NAV-7, UI-TXN-4): every
  * active envelope with its mode and what is left, and "None" to clear the
- * choice. One pick closes it.
+ * choice. The Add form knows no amounts (D3), so an envelope without
+ * `current` shows its name only. One pick closes it.
  */
 const props = defineProps<{
   /** The active envelopes, in the family's order. */
-  envelopes: Envelope[];
+  envelopes: T[];
   /** Coins of the family, to write each envelope's amount. */
   coins: CoinSetting[];
   /** The id that is selected now, or null for none. */
@@ -27,12 +35,13 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   /** An envelope was picked, or null for "None". */
-  pick: [envelope: Envelope | null];
+  pick: [envelope: T | null];
   /** Close button, scrim tap or swipe down. */
   close: [];
 }>();
 
-function detail(envelope: Envelope): string {
+function detail(envelope: T): string {
+  if (!('current' in envelope) || envelope.currency === undefined) return '';
   const left = formatMoney(
     BigInt(envelope.current?.closing ?? '0'),
     envelopeCurrency(envelope.currency, props.coins),
@@ -66,7 +75,9 @@ function detail(envelope: Envelope): string {
       >
         <span class="picker-text">
           <span class="picker-name">{{ envelope.name }}</span>
-          <span class="num t-sub">{{ detail(envelope) }}</span>
+          <span v-if="detail(envelope)" class="num t-sub">{{
+            detail(envelope)
+          }}</span>
         </span>
         <BbIcon v-if="envelope.id === selectedId" name="check" :size="18" />
       </button>

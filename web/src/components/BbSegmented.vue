@@ -6,6 +6,8 @@ export interface BbSegmentOption {
   label: string;
   /** Emitted on selection; must be unique within the control (used as key). */
   value: string | number;
+  /** Shown but not selectable, e.g. a kind that is not built yet. */
+  disabled?: boolean;
 }
 
 /**
@@ -67,15 +69,27 @@ function onKeydown(event: KeyboardEvent) {
   const currentIndex = props.options.findIndex(
     (option) => option.value === props.modelValue,
   );
-  const index =
+  const count = props.options.length;
+  const step =
+    event.key === 'ArrowRight' ||
+    event.key === 'ArrowDown' ||
+    event.key === 'Home'
+      ? 1
+      : -1;
+  let index =
     event.key === 'Home'
       ? 0
       : event.key === 'End'
-        ? props.options.length - 1
-        : event.key === 'ArrowRight' || event.key === 'ArrowDown'
-          ? (Math.max(currentIndex, 0) + 1) % props.options.length
-          : (Math.max(currentIndex, 0) - 1 + props.options.length) %
-            props.options.length;
+        ? count - 1
+        : (Math.max(currentIndex, 0) + step + count) % count;
+  // Skip disabled segments; stay put when every other one is disabled.
+  for (
+    let tries = 0;
+    props.options[index]?.disabled && tries < count;
+    tries++
+  ) {
+    index = (index + step + count) % count;
+  }
   const option = props.options[index];
   if (!option) return;
   select(option);
@@ -106,12 +120,10 @@ function onKeydown(event: KeyboardEvent) {
       role="radio"
       :aria-checked="option.value === modelValue"
       :tabindex="isTabStop(option, index) ? 0 : -1"
+      :disabled="option.disabled"
       @click="select(option)"
     >
-      <span
-        class="seg"
-        :class="{ 'seg-on': option.value === modelValue }"
-      >
+      <span class="seg" :class="{ 'seg-on': option.value === modelValue }">
         {{ option.label }}
       </span>
     </button>
