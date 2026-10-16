@@ -28,21 +28,16 @@ async function screenshot(
   await page.screenshot({ path: `test-results/screens/${name}.png` });
 }
 
-interface Seeded {
-  groceries: number;
-  transport: number;
-  groceriesEnvelope: number;
-}
-
 /**
- * Alena and Max; four of Alena's accounts and Max's DKB; the three
- * envelopes; Groceries files into the Groceries envelope by default; a rule
- * sends REWE to Groceries.
+ * Alena and Max; five of Alena's accounts and Max's DKB, which is beyond
+ * the five account chips; the three envelopes; Groceries files into the
+ * Groceries envelope by default; a rule sends REWE to Groceries.
  */
-async function seed(family: Family): Promise<Seeded> {
+async function seed(family: Family): Promise<void> {
   await create(family, '/api/members', { name: 'Max' });
   for (const [name, owner, type, currency] of [
     ['ING Visa', 1, 'bank', 'EUR'],
+    ['N26', 1, 'bank', 'EUR'],
     ['Cash', 1, 'cash', 'EUR'],
     ['Revolut', 1, 'bank', 'EUR'],
     ['Wise', 1, 'bank', 'USD'],
@@ -89,11 +84,6 @@ async function seed(family: Family): Promise<Seeded> {
     categoryId: groceries,
     envelopeId: envelopes[0],
   });
-  return {
-    groceries,
-    transport: byName('Transport'),
-    groceriesEnvelope: envelopes[0]!,
-  };
 }
 
 async function openAdd(page: Page, family: Family): Promise<void> {
@@ -205,10 +195,10 @@ test('a merchant rule fills category and envelope, never over a hand pick', asyn
     );
 
     // A category picked by hand survives another merchant's rule.
-    await categories.getByRole('radio', { name: 'Transport' }).click();
+    await categories.getByRole('radio', { name: 'Eating out' }).click();
     await pickMerchant(page, 'REWE');
     await expect(
-      categories.getByRole('radio', { name: 'Transport' }),
+      categories.getByRole('radio', { name: 'Eating out' }),
     ).toBeChecked();
     await expect(
       envelopes.getByRole('radio', { name: 'Groceries' }),
