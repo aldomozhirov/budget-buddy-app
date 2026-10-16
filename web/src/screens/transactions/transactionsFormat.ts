@@ -370,9 +370,10 @@ export interface SheetOption {
 /**
  * The rows of one facet's sheet (UI-TXN-1): every option the family has, in
  * list order, with its count (0 when none). An archived account, category or
- * envelope, or an inactive profile, is listed only while it has transactions or is picked. "No
- * category" and "No envelope" come last; categories sit under "Expense
- * categories" and "Income categories" once both kinds are listed.
+ * envelope, or an inactive profile, is listed only while it has transactions
+ * or is picked. "No category" and "No envelope" come last; categories sit
+ * under "Expense categories" and "Income categories" once both kinds are
+ * listed.
  */
 export function facetOptions(
   facet: TransactionFacet,
