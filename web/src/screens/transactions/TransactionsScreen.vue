@@ -99,6 +99,8 @@ const loading = ref(false);
 const loadingMore = ref(false);
 const listError = ref('');
 const needsCount = ref<number | null>(null);
+/** Labelling changed rows the "All" list has already loaded. */
+const listStale = ref(false);
 
 const openFacet = ref<TransactionFacet | null>(null);
 const facetCounts = ref(new Map<string, number>());
@@ -383,6 +385,13 @@ onBeforeUnmount(() => {
   clearTimeout(searchTimer);
 });
 
+watch(tab, (value) => {
+  if (value === 'all' && listStale.value && bootstrapped.value) {
+    listStale.value = false;
+    void loadFirstPage();
+  }
+});
+
 watch(searchText, (text) => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => {
@@ -484,7 +493,13 @@ watch(
       </div>
       <p v-else-if="!bootstrapped" role="status">Loading transactions…</p>
 
-      <NeedsCategoryTab v-else-if="tab === 'needs-category'" />
+      <NeedsCategoryTab
+        v-else-if="tab === 'needs-category'"
+        :coins="coins"
+        :today="today"
+        @count="needsCount = $event"
+        @changed="listStale = true"
+      />
 
       <template v-else>
         <div v-if="summary && !listError" class="num transactions-summary">
