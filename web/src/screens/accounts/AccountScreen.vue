@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { goToSignIn } from '../../session/lock.js';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import {
   accountResponseSchema,
   currenciesResponseSchema,
@@ -674,7 +674,14 @@ function goHome(): void {
         </section>
 
         <div class="account-actions">
-          <BbButton @click="openBalance">Set balance</BbButton>
+          <BbButton class="secondary-sm" @click="openBalance"
+            >Set balance</BbButton
+          >
+          <RouterLink
+            class="secondary secondary-sm"
+            :to="`/transactions?account=${account.id}&period=all`"
+            >Transactions</RouterLink
+          >
         </div>
         <section class="account-history-section">
           <h2 class="t-sub account-history-title">
@@ -1057,7 +1064,7 @@ function goHome(): void {
 }
 .account-actions {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 .account-history-section {
