@@ -310,3 +310,243 @@ export const createTransactionResponseSchema = z.object({
 export const deleteTransactionResponseSchema = z.object({
   deleted: z.literal(true),
 });
+
+/** The periods of the list filter (Design 5); `custom` needs `from`, `to`. */
+export const transactionPeriodSchema = z.enum([
+  'this_month',
+  'last_month',
+  'last_3_months',
+  'this_year',
+  'all',
+  'custom',
+]);
+
+/** Period of the list filter. */
+export type TransactionPeriod = z.infer<typeof transactionPeriodSchema>;
+
+/** The kinds a list filter offers; a refund is an expense below zero. */
+export const transactionFilterKindSchema = z.enum([
+  'expense',
+  'income',
+  'transfer',
+  'refund',
+]);
+
+/** Kind of the list filter. */
+export type TransactionFilterKind = z.infer<typeof transactionFilterKindSchema>;
+
+/** A list filter value is sent as `a,b` or as a repeated parameter. */
+const filterList = <T extends z.ZodType>(item: T) =>
+  z.preprocess(
+    (value) =>
+      typeof value === 'string'
+        ? value.split(',').filter((part) => part !== '')
+        : value,
+    z.array(item).max(200).optional(),
+  );
+
+const filterId = z
+  .string()
+  .regex(/^[1-9]\d{0,14}$/u, 'Choose from the list.')
+  .transform(Number);
+const filterIdOrNone = z.union([z.literal('none'), filterId]);
+
+/**
+ * The filters of `GET /api/transactions` and `/api/transactions/facets`
+ * (TXN-6, UI-TXN-1). Every list filter takes several values (any of them
+ * matches); none given shows all. `category` and `envelope` accept `none`.
+ * `account` matches either side of a transfer. `q` is the search text.
+ */
+export const transactionFilterShape = {
+  period: transactionPeriodSchema.optional(),
+  /** Inclusive dates of a `custom` period. */
+  from: dateSchema.optional(),
+  to: dateSchema.optional(),
+  member: filterList(filterId),
+  account: filterList(filterId),
+  category: filterList(filterIdOrNone),
+  envelope: filterList(filterIdOrNone),
+  kind: filterList(transactionFilterKindSchema),
+  q: z.string().trim().max(200).optional(),
+};
+
+/** Checks `from` and `to` against the period. */
+function checkPeriod(
+  value: {
+    period?: string | undefined;
+    from?: string | undefined;
+    to?: string | undefined;
+  },
+  context: z.RefinementCtx,
+): void {
+  const issue = (path: string, message: string) =>
+    context.addIssue({ code: 'custom', path: [path], message });
+  if (value.period === 'custom') {
+    if (value.from === undefined) issue('from', 'Choose the first day.');
+    if (value.to === undefined) issue('to', 'Choose the last day.');
+    if (
+      value.from !== undefined &&
+      value.to !== undefined &&
+      value.from > value.to
+    ) {
+      issue('to', 'The last day is before the first day.');
+    }
+  } else {
+    if (value.from !== undefined) {
+      issue('from', 'Dates are only for a custom period.');
+    }
+    if (value.to !== undefined) {
+      issue('to', 'Dates are only for a custom period.');
+    }
+  }
+}
+
+/**
+ * Validates the query of `GET /api/transactions`: the filters and the
+ * `cursor` of the page before (`YYYY-MM-DD:id`), as the last response gave
+ * it.
+ */
+export const listTransactionsQuerySchema = z
+  .object({
+    ...transactionFilterShape,
+    cursor: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}:[1-9]\d{0,17}$/u, 'Use the cursor given.')
+      .optional(),
+  })
+  .strict()
+  .superRefine(checkPeriod);
+
+/** Validated list query. */
+export type ListTransactionsQuery = z.output<
+  typeof listTransactionsQuerySchema
+>;
+
+/** The filters whose options the facets endpoint counts. */
+export const transactionFacetSchema = z.enum([
+  'period',
+  'member',
+  'account',
+  'category',
+  'envelope',
+  'kind',
+]);
+
+/** A facet of the list filters. */
+export type TransactionFacet = z.infer<typeof transactionFacetSchema>;
+
+/**
+ * Validates the query of `GET /api/transactions/facets`: the facet to count
+ * and the filters. The facet's own filter, if sent, is not applied.
+ */
+export const transactionFacetsQuerySchema = z
+  .object({ facet: transactionFacetSchema, ...transactionFilterShape })
+  .strict()
+  .superRefine(checkPeriod);
+
+/** Validated facets query. */
+export type TransactionFacetsQuery = z.output<
+  typeof transactionFacetsQuerySchema
+>;
+
+/**
+ * One row of the list: the transaction with the names a row shows. The
+ * tags are derived: "No category" (no category, not a transfer), "Refund"
+ * (an expense below zero) and "Transfer".
+ */
+export const listedTransactionSchema = z.object({
+  id: idSchema,
+  kind: transactionKindSchema,
+  date: dateSchema,
+  accountId: idSchema,
+  accountName: z.string(),
+  currency: z.string(),
+  /** In `currency`; below zero for a refund. */
+  amount: minorStringSchema,
+  toAccountId: idSchema.nullable(),
+  toAccountName: z.string().nullable(),
+  toCurrency: z.string().nullable(),
+  toAmount: minorStringSchema.nullable(),
+  memberId: idSchema,
+  memberName: z.string(),
+  merchant: z.string().nullable(),
+  note: z.string().nullable(),
+  categoryId: idSchema.nullable(),
+  categoryName: z.string().nullable(),
+  envelopeId: idSchema.nullable(),
+  envelopeName: z.string().nullable(),
+});
+
+/** Row of the transactions list. */
+export type ListedTransaction = z.infer<typeof listedTransactionSchema>;
+
+/**
+ * Totals of some transactions in the common currency (Design 3.11): each
+ * account currency's total of a day is converted at that day's rate, and
+ * the results are added. `spent` is the expenses less the refunds, `income`
+ * the incomes; transfers are in neither. `incomplete` is true when a rate
+ * was missing: the amounts then leave those out and are never guessed.
+ */
+export const transactionTotalsSchema = z.object({
+  spent: minorStringSchema,
+  income: minorStringSchema,
+  incomplete: z.boolean(),
+});
+
+/** Spent and income of some transactions. */
+export type TransactionTotals = z.infer<typeof transactionTotalsSchema>;
+
+/** The total of one day, over every transaction of the day that matches. */
+export const dayTotalSchema = transactionTotalsSchema.extend({
+  date: dateSchema,
+});
+
+/** Total of a day of the list. */
+export type DayTotal = z.infer<typeof dayTotalSchema>;
+
+/** Response of `GET /api/transactions` (UI-TXN-1, UI-TXN-2). */
+export const listTransactionsResponseSchema = z.object({
+  /** Newest first: by date, then id; at most 50. */
+  transactions: z.array(listedTransactionSchema),
+  /** Send as `cursor` for the next page; null on the last page. */
+  nextCursor: z.string().nullable(),
+  /**
+   * Totals of every day on this page, for the whole day: a day that goes
+   * on in the next page has the same total in both.
+   */
+  days: z.array(dayTotalSchema),
+  /** Everything the filters match, not only this page. */
+  summary: transactionTotalsSchema.extend({
+    count: z.number().int().nonnegative(),
+    /** The common currency the totals are in. */
+    currency: z.string(),
+  }),
+});
+
+/** Response of the transactions list. */
+export type ListTransactionsResponse = z.infer<
+  typeof listTransactionsResponseSchema
+>;
+
+/** Response of `GET /api/transactions/facets`. */
+export const transactionFacetsResponseSchema = z.object({
+  facet: transactionFacetSchema,
+  /**
+   * The transactions the other filters match, whatever this facet's own
+   * choice is.
+   */
+  total: z.number().int().nonnegative(),
+  /**
+   * The count of each option that has any, in the query's own terms: a
+   * period name, an id, `none`, or a kind. It equals the summary's count
+   * with only that option picked.
+   */
+  options: z.array(
+    z.object({ value: z.string(), count: z.number().int().positive() }),
+  ),
+});
+
+/** Response of the transactions facets. */
+export type TransactionFacetsResponse = z.infer<
+  typeof transactionFacetsResponseSchema
+>;
