@@ -541,34 +541,7 @@ function addAnother(): void {
       </div>
     </div>
 
-    <section
-      v-else-if="saved"
-      class="add-saved"
-      aria-labelledby="add-saved-title"
-    >
-      <span class="add-saved-icon success-icon">
-        <BbIcon name="check" :size="34" />
-      </span>
-      <h2 id="add-saved-title" class="add-saved-title">Expense saved</h2>
-      <p class="num add-saved-summary">{{ saved.summary }}</p>
-      <p v-if="saved.noCategory" class="add-saved-note">
-        No category yet. It waits in
-        <RouterLink class="add-saved-link" to="/transactions?tab=needs-category"
-          >Needs a category</RouterLink
-        >, with a suggestion.
-      </p>
-      <p v-if="saved.filled" class="add-saved-note">{{ saved.filled }}</p>
-      <p v-if="undoError" class="error" role="alert">{{ undoError }}</p>
-      <div class="add-saved-actions">
-        <BbButton @click="goBack">Done</BbButton>
-        <BbButton variant="secondary" @click="addAnother">Add another</BbButton>
-        <BbButton variant="text" needs-server :disabled="undoing" @click="undo"
-          >Undo</BbButton
-        >
-      </div>
-    </section>
-
-    <div v-else class="add-form">
+    <div v-else class="add-form" :inert="saved !== null">
       <header class="add-head">
         <button
           class="icon-btn add-close"
@@ -745,6 +718,28 @@ function addAnother(): void {
         saveLabel
       }}</BbButton>
     </div>
+    <section v-if="saved" class="add-saved" aria-labelledby="add-saved-title">
+      <span class="add-saved-icon success-icon">
+        <BbIcon name="check" :size="34" />
+      </span>
+      <h2 id="add-saved-title" class="add-saved-title">Expense saved</h2>
+      <p class="num add-saved-summary">{{ saved.summary }}</p>
+      <p v-if="saved.noCategory" class="add-saved-note">
+        No category yet. It waits in
+        <RouterLink class="add-saved-link" to="/transactions?tab=needs-category"
+          >Needs a category</RouterLink
+        >, with a suggestion.
+      </p>
+      <p v-if="saved.filled" class="add-saved-note">{{ saved.filled }}</p>
+      <p v-if="undoError" class="error" role="alert">{{ undoError }}</p>
+      <div class="add-saved-actions">
+        <BbButton @click="goBack">Done</BbButton>
+        <BbButton variant="secondary" @click="addAnother">Add another</BbButton>
+        <BbButton variant="text" needs-server :disabled="undoing" @click="undo"
+          >Undo</BbButton
+        >
+      </div>
+    </section>
 
     <AccountPickerSheet
       v-if="sheet === 'account' && options"
@@ -920,13 +915,16 @@ function addAnother(): void {
   flex: 1;
 }
 .add-saved {
-  flex: 1;
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  background: var(--bg);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 14px;
-  padding: 0 16px;
+  padding: 32px;
   text-align: center;
 }
 .add-saved-icon {

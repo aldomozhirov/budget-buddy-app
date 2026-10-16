@@ -344,3 +344,41 @@ test('accounts, check-ins and their sheets do not scroll sideways', async ({
     await expectNoSidewaysScroll(page, 'Check-in summary');
   });
 });
+
+test('Add expense and its sheets do not scroll sideways', async ({ page }) => {
+  await startFamily(page, async (family) => {
+    await seed(family);
+    await page.goto(`${family.origin}/add`);
+    await page.getByRole('button', { name: 'Enter an amount' }).waitFor();
+    await settled(page);
+    await expectNoSidewaysScroll(page, 'Add expense');
+
+    await page.getByRole('button', { name: 'Add merchant' }).click();
+    const merchant = page.getByRole('dialog', { name: 'Merchant' });
+    await merchant.getByLabel('Search or type a merchant').fill(LONG);
+    await settled(page);
+    await expectNoSidewaysScroll(page, 'Merchant');
+    await merchant.getByRole('button', { name: `Use “${LONG}”` }).click();
+    await page.getByRole('button', { name: 'Add note' }).click();
+    await page
+      .getByRole('dialog', { name: 'Note' })
+      .getByLabel('Note')
+      .fill(LONG);
+    await page.getByRole('button', { name: 'Done' }).click();
+    await settled(page);
+    await expectNoSidewaysScroll(page, 'Add expense with long values');
+
+    for (const [button, dialog] of [
+      ['All accounts', 'Paid from'],
+      [`Merchant: ${LONG}. Change`, 'Merchant'],
+      ['All categories', 'Category'],
+      ['Date: Today. Change', 'Date'],
+      ['Paid by: Alena. Change', 'Paid by'],
+      [`Note: ${LONG}. Change`, 'Note'],
+    ] as const) {
+      await checkSheet(page, dialog, () =>
+        page.getByRole('button', { name: button }).click(),
+      );
+    }
+  });
+});
