@@ -118,6 +118,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'Add expense' },
   },
   {
+    path: '/transactions',
+    name: 'Transactions',
+    component: () => import('../screens/transactions/TransactionsScreen.vue'),
+    meta: { title: 'Transactions' },
+  },
+  {
     path: '/settings',
     name: 'Settings',
     component: () => import('../screens/settings/SettingsScreen.vue'),
