@@ -95,20 +95,20 @@ export function listTransactions(
   }
   const rows = database
     .prepare(
-      `SELECT t.id, t.kind, t.date, t.account_id AS accountId,
+      withJoins(`SELECT t.id, t.kind, t.date, t.account_id AS accountId,
          a.name AS accountName, a.currency, t.amount,
          t.to_account_id AS toAccountId, ta.name AS toAccountName,
          ta.currency AS toCurrency, t.to_amount AS toAmount,
          t.member_id AS memberId, m.name AS memberName, t.merchant, t.note,
          p.category_id AS categoryId, c.name AS categoryName,
          p.envelope_id AS envelopeId, e.name AS envelopeName
-       ${fromClause}
+       FROM txn t
          JOIN member m ON m.id = t.member_id
          LEFT JOIN category c ON c.id = p.category_id
          LEFT JOIN envelope e ON e.id = p.envelope_id
        WHERE ${where.join(' AND ')}
        ORDER BY t.date DESC, t.id DESC
-       LIMIT ${transactionPageSize + 1}`,
+       LIMIT ${transactionPageSize + 1}`),
     )
     .all(...params) as ListRow[];
   const page = rows.slice(0, transactionPageSize);
@@ -116,13 +116,13 @@ export function listTransactions(
 
   const groups = database
     .prepare(
-      `SELECT t.date AS date, a.currency AS currency,
+      withJoins(`SELECT t.date AS date, a.currency AS currency,
          SUM(CASE WHEN t.kind = 'expense' THEN t.amount ELSE 0 END) AS spent,
          SUM(CASE WHEN t.kind = 'income' THEN t.amount ELSE 0 END) AS income,
          COUNT(*) AS count
-       ${fromClause}
+       FROM txn t
        WHERE ${filter.where.join(' AND ')}
-       GROUP BY t.date, a.currency`,
+       GROUP BY t.date, a.currency`),
     )
     .all(...filter.params) as GroupRow[];
   const totals = totalsOf(groups, valuation);
@@ -165,7 +165,9 @@ export function transactionFacets(
   const total = Number(
     (
       database
-        .prepare(`SELECT COUNT(*) AS count ${fromClause} WHERE ${where}`)
+        .prepare(
+          withJoins(`SELECT COUNT(*) AS count FROM txn t WHERE ${where}`),
+        )
         .get(...filter.params) as { count: bigint }
     ).count,
   );
@@ -173,13 +175,15 @@ export function transactionFacets(
     (
       database
         .prepare(
-          `SELECT value, COUNT(*) AS count FROM (${sql}) GROUP BY value
-           ORDER BY count DESC, value`,
+          withJoins(
+            `SELECT value, COUNT(*) AS count FROM (${sql}) GROUP BY value
+             ORDER BY count DESC, value`,
+          ),
         )
         .all(...filter.params) as Array<{ value: string; count: bigint }>
     ).map((row) => ({ value: String(row.value), count: Number(row.count) }));
   const select = (value: string, extra = '1') =>
-    `SELECT ${value} AS value ${fromClause} WHERE ${where} AND ${extra}`;
+    `SELECT ${value} AS value FROM txn t WHERE ${where} AND ${extra}`;
 
   let counted: Array<{ value: string; count: number }>;
   switch (facet) {
@@ -217,10 +221,20 @@ export function transactionFacets(
   return { facet, total, options: counted };
 }
 
-const fromClause = `FROM txn t
-  JOIN account a ON a.id = t.account_id
-  LEFT JOIN account ta ON ta.id = t.to_account_id
-  LEFT JOIN txn_part p ON p.txn_id = t.id AND p.position = 1`;
+/**
+ * Adds the joins a statement refers to after `FROM txn t`: the account
+ * (`a`), the account arriving (`ta`) and the first part (`p`). Every
+ * transaction has an account, so leaving a join out never drops a row.
+ */
+function withJoins(sql: string): string {
+  const joins = [
+    /\ba\./u.test(sql) && 'JOIN account a ON a.id = t.account_id',
+    /\bta\./u.test(sql) && 'LEFT JOIN account ta ON ta.id = t.to_account_id',
+    /\bp\./u.test(sql) &&
+      'LEFT JOIN txn_part p ON p.txn_id = t.id AND p.position = 1',
+  ].filter(Boolean);
+  return sql.replaceAll('FROM txn t', `FROM txn t ${joins.join(' ')}`);
+}
 
 const kindExpression = `CASE WHEN t.kind = 'expense'
   THEN (CASE WHEN t.amount < 0 THEN 'refund' ELSE 'expense' END)
@@ -434,12 +448,12 @@ function periodOptions(
   const ranges = countedPeriods.map((period) => periodRange({ period }, today));
   const row = database
     .prepare(
-      `SELECT ${ranges
+      withJoins(`SELECT ${ranges
         .map((range) =>
           range ? 'COALESCE(SUM(t.date BETWEEN ? AND ?), 0)' : 'COUNT(*)',
         )
         .join(', ')}
-       ${fromClause} WHERE ${filter.where.join(' AND ')}`,
+       FROM txn t WHERE ${filter.where.join(' AND ')}`),
     )
     .raw()
     .get(
@@ -459,12 +473,12 @@ function accountOptions(database: Database.Database, filter: Filter) {
   const where = filter.where.join(' AND ');
   const rows = database
     .prepare(
-      `SELECT value, COUNT(*) AS count FROM (
-         SELECT t.account_id AS value ${fromClause} WHERE ${where}
+      withJoins(`SELECT value, COUNT(*) AS count FROM (
+         SELECT t.account_id AS value FROM txn t WHERE ${where}
          UNION ALL
-         SELECT t.to_account_id ${fromClause}
+         SELECT t.to_account_id FROM txn t
            WHERE ${where} AND t.to_account_id IS NOT NULL
-       ) GROUP BY value ORDER BY count DESC, value`,
+       ) GROUP BY value ORDER BY count DESC, value`),
     )
     .all(...filter.params, ...filter.params) as Array<{
     value: bigint;
