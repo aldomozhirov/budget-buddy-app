@@ -163,6 +163,9 @@ test('the tab lists what waits, each with its suggestion and Other…', async ({
       page.getByRole('tab', { name: 'Needs a category · 3' }),
     ).toHaveAttribute('aria-selected', 'true');
     await expect(
+      page.getByRole('tabpanel', { name: 'Needs a category · 3' }),
+    ).toBeVisible();
+    await expect(
       page.getByRole('button', { name: 'Select PayPal *Spotify' }),
     ).toHaveAttribute('aria-pressed', 'false');
     await expect(page.getByText('−€10.99')).toBeVisible();

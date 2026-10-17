@@ -445,10 +445,12 @@ watch(
       <div class="segmented" role="tablist" aria-label="Show">
         <button
           v-for="item in tabs"
+          :id="`transactions-tab-${item.value}`"
           :key="item.value"
           class="seg"
           type="button"
           role="tab"
+          aria-controls="transactions-panel"
           :aria-selected="tab === item.value"
           @click="tab = item.value"
         >
@@ -481,7 +483,10 @@ watch(
     </div>
 
     <div
+      id="transactions-panel"
       ref="listElement"
+      role="tabpanel"
+      :aria-labelledby="`transactions-tab-${tab}`"
       data-testid="transactions-list"
       class="content app-content transactions-list scroll"
     >
