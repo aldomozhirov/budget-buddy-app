@@ -14,6 +14,7 @@ import {
   type CoinCurrency,
   type NeedsCategoryRow,
 } from '@budget-buddy/shared';
+import { RouterLink } from 'vue-router';
 import BbButton from '../../components/BbButton.vue';
 import BbIcon from '../../components/BbIcon.vue';
 import BbListCard from '../../components/BbListCard.vue';
@@ -437,7 +438,7 @@ watch(
                 />
               </span>
             </button>
-            <span class="needs-text">
+            <RouterLink class="needs-text" :to="`/transactions/${line.row.id}`">
               <span class="needs-top">
                 <span class="needs-title">{{ line.title }}</span>
                 <span
@@ -447,7 +448,7 @@ watch(
                 >
               </span>
               <span class="t-sub needs-meta">{{ line.meta }}</span>
-            </span>
+            </RouterLink>
           </div>
           <div class="needs-chips">
             <button

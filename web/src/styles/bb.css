@@ -525,7 +525,7 @@
   font-weight: 600;
 }
 .bb .field {
-  /* editable row on a detail page; opens in place */
+  /* detail row: opens a sheet or a screen (UI-TXN-4) */
   width: 100%;
   box-sizing: content-box;
   min-height: calc(54px - 2 * var(--row-pad));
@@ -552,19 +552,18 @@
   text-overflow: ellipsis;
 }
 .bb .field::after {
+  /* right chevron: opens a sheet or a screen */
   content: '';
   flex: none;
   width: 7px;
   height: 7px;
-  margin: 0 4px 3px 2px;
+  margin: 0 4px 0 2px;
   border-right: 2px solid var(--muted);
   border-bottom: 2px solid var(--muted);
-  transform: rotate(45deg);
-  transition: transform 0.2s ease;
+  transform: rotate(-45deg);
 }
-.bb .field[aria-expanded='true']::after {
-  transform: rotate(-135deg);
-  margin-bottom: -3px;
+.bb .field:active {
+  background: var(--soft);
 }
 .bb .field-link::after {
   transform: rotate(-45deg);
