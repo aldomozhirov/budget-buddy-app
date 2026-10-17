@@ -160,7 +160,7 @@ test('the Home screen shows its placeholder navigation and fits the viewport', a
     page.getByRole('heading', { name: 'Everything', level: 2 }),
   ).toBeVisible();
   const everything = page.getByRole('navigation', { name: 'Everything' });
-  await expect(everything.getByRole('link')).toHaveCount(4);
+  await expect(everything.getByRole('link')).toHaveCount(7);
   expect(
     await everything.evaluate(
       (element) =>
@@ -238,7 +238,7 @@ test('Home remains usable in a desktop-width browser', async ({
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Hi, Alex' })).toBeVisible();
     const everything = page.getByRole('navigation', { name: 'Everything' });
-    await expect(everything.getByRole('link')).toHaveCount(4);
+    await expect(everything.getByRole('link')).toHaveCount(7);
     const content = await page.getByRole('main').boundingBox();
     expect(content?.width).toBeLessThanOrEqual(640);
     expect(
