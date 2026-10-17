@@ -38,6 +38,20 @@ const waiting = `t.status = 'confirmed' AND t.kind <> 'transfer'
   AND p.category_id IS NULL`;
 
 /**
+ * How many transactions wait for a category: the tab's count and Home's
+ * "Needs a category" row.
+ */
+export function needsCategoryCount(database: Database.Database): number {
+  const row = database
+    .prepare(
+      `SELECT COUNT(*) AS n FROM txn t
+         JOIN txn_part p ON p.txn_id = t.id WHERE ${waiting}`,
+    )
+    .get() as { n: bigint };
+  return Number(row.n);
+}
+
+/**
  * Registers `GET /api/transactions/needs-category` and
  * `POST /api/transactions/label` (CAT-7, UI-TXN-3; O7, O8): the
  * transactions without a category with a suggestion each, and labelling
@@ -62,16 +76,6 @@ export const needsCategoryRoutes: FastifyPluginAsync<{
       timeZone: row.time_zone,
       today: todayInTimeZone(clock.now(), row.time_zone),
     };
-  }
-
-  function waitingCount(): number {
-    const row = database
-      .prepare(
-        `SELECT COUNT(*) AS n FROM txn t
-           JOIN txn_part p ON p.txn_id = t.id WHERE ${waiting}`,
-      )
-      .get() as { n: bigint };
-    return Number(row.n);
   }
 
   app.get('/api/transactions/needs-category', async (request, reply) => {
@@ -157,7 +161,7 @@ export const needsCategoryRoutes: FastifyPluginAsync<{
       }),
       nextCursor:
         rows.length > pageSize && last ? `${last.date}:${last.id}` : null,
-      count: waitingCount(),
+      count: needsCategoryCount(database),
     });
   });
 
@@ -304,7 +308,7 @@ export const needsCategoryRoutes: FastifyPluginAsync<{
     return labelTransactionsResponseSchema.parse({
       labelled: outcome.labelled,
       skipped: outcome.skipped,
-      count: waitingCount(),
+      count: needsCategoryCount(database),
     });
   });
 };

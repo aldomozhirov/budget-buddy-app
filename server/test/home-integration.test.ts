@@ -144,6 +144,8 @@ describe('home and device routes', () => {
       hideAmounts: true,
       checkin: null,
       wealth: null,
+      spending: null,
+      needsCategory: 0,
       backupWarning: null,
     });
   });
@@ -322,6 +324,119 @@ describe('home and device routes', () => {
       lastCheckinDate: '2026-07-01',
       change: null,
     });
+  });
+
+  /** Creates an envelope and returns its id. */
+  async function envelope(
+    name: string,
+    monthlyAmount: string,
+    extra: object = {},
+  ): Promise<number> {
+    const response = await send('POST', '/api/envelopes', {
+      name,
+      currency: 'EUR',
+      monthlyAmount,
+      mode: 'reset',
+      startingBalance: monthlyAmount,
+      ...extra,
+    });
+    expect(response.statusCode, response.body).toBe(201);
+    return response.json().envelope.id;
+  }
+
+  async function spend(
+    accountId: number,
+    amount: string,
+    extra: object = {},
+  ): Promise<void> {
+    const response = await send('POST', '/api/transactions', {
+      kind: 'expense',
+      date: '2026-08-01',
+      accountId,
+      amount,
+      ...extra,
+    });
+    expect(response.statusCode, response.body).toBe(201);
+  }
+
+  it('shows no envelopes card without active envelopes', async () => {
+    const id = await envelope('Old', '10000');
+    await send('PATCH', `/api/envelopes/${id}`, { archived: true });
+    expect((await home()).spending).toBeNull();
+  });
+
+  it('gives each active envelope its share used, rounded down', async () => {
+    const { eur } = seedAccounts();
+    const groceries = await envelope('Groceries', '50000');
+    const fun = await envelope('Fun', '10000');
+    const full = await envelope('Rent', '20000');
+    const empty = await envelope('Spare', '5000');
+    const archived = await envelope('Gone', '1000');
+    await send('PATCH', `/api/envelopes/${archived}`, { archived: true });
+    await spend(eur, '31299', { envelopeId: groceries });
+    await spend(eur, '12000', { envelopeId: fun });
+    await spend(eur, '20000', { envelopeId: full });
+    await spend(eur, '999', { merchant: 'No envelope' });
+    const { spending } = await home();
+    expect(spending.spent).toBe('64298');
+    expect(spending.envelopes).toEqual([
+      expect.objectContaining({
+        name: 'Groceries',
+        available: '50000',
+        spent: '31299',
+        left: '18701',
+        share: 62,
+        over: false,
+      }),
+      expect.objectContaining({
+        name: 'Fun',
+        left: '-2000',
+        share: 100,
+        over: true,
+      }),
+      expect.objectContaining({ name: 'Rent', left: '0', share: 100 }),
+      expect.objectContaining({ name: 'Spare', spent: '0', share: 0 }),
+    ]);
+    expect(spending.envelopes[2].over).toBe(false);
+    expect(spending.envelopes.map(({ id }: { id: number }) => id)).toEqual([
+      groceries,
+      fun,
+      full,
+      empty,
+    ]);
+  });
+
+  it('sums the month in the common currency and ignores other months', async () => {
+    const { eur, usd } = seedAccounts();
+    await envelope('Groceries', '50000');
+    await spend(eur, '1000');
+    await spend(usd, '1250');
+    await spend(eur, '7777', { date: '2026-07-31' });
+    expect((await home()).spending.spent).toBe('2000');
+  });
+
+  it('leaves the month’s spending empty while a rate is missing', async () => {
+    seedAccounts();
+    await envelope('Groceries', '50000');
+    database
+      .prepare(
+        `INSERT INTO account (name, owner_member_id, type, currency,
+          created_by, created_at, updated_by, updated_at)
+         VALUES ('Rubles', 1, 'bank', 'RUB', 1, 1, 1, 1)`,
+      )
+      .run();
+    await spend(4, '10000');
+    const { spending } = await home();
+    expect(spending.spent).toBeNull();
+    expect(spending.envelopes).toHaveLength(1);
+  });
+
+  it('counts the transactions waiting for a category', async () => {
+    const { eur } = seedAccounts();
+    await spend(eur, '500');
+    await spend(eur, '600', { merchant: 'Shop' });
+    await spend(eur, '700', { categoryId: 1 });
+    expect((await home()).needsCategory).toBe(2);
   });
 
   it('warns once the last successful nightly backup is over two days old', async () => {

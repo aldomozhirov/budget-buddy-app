@@ -7,8 +7,11 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
-import { formatDate } from '@budget-buddy/shared';
+import { formatDate, todayInTimeZone } from '@budget-buddy/shared';
 
+/** The envelopes card is the region named after the month. */
+const monthName =
+  /^(January|February|March|April|May|June|July|August|September|October|November|December)$/u;
 const password = 'correct horse battery staple';
 const day = 86_400_000;
 
@@ -573,6 +576,135 @@ test('the profile sheet opens from the avatar and closes again', async ({
   await expect(page.getByRole('heading', { name: 'Hi, Alena' })).toBeVisible();
 });
 
+test('the envelopes card shows shares while hidden and balances when revealed', async ({
+  page,
+}, testInfo) => {
+  const seed = await seedFamily(page.context());
+  await seedSpending(page.context(), seed.trade);
+  const today = todayInTimeZone(new Date(), 'Europe/Berlin');
+  const [year = 0, month = 0, dayOfMonth = 0] = today.split('-').map(Number);
+  const length = new Date(Date.UTC(year, month, 0)).getUTCDate();
+
+  await page.clock.install();
+  await page.goto(`${origin}/`);
+  const card = page.getByRole('region', { name: monthName });
+  await expect(card).toContainText(`Day ${dayOfMonth} of ${length}`);
+  await expect(card).toContainText('€ • • • •');
+  await expect(card).toContainText('spent');
+  await expect(card.getByRole('link')).toHaveText([
+    /Groceries\s*62% used/u,
+    /Eating out\s*Over budget/u,
+    /Unexpected\s*11% used/u,
+  ]);
+  // The warn colour marks "Over budget" while hidden, and only that row.
+  await expect(card.getByText('Over budget', { exact: true })).toHaveClass(
+    /\bwarn\b/u,
+  );
+  await expect(card.getByText('62% used', { exact: true })).not.toHaveClass(
+    /\bwarn\b/u,
+  );
+  // No digit but the day, its month length and the shares.
+  const text = (await card.innerText())
+    .replace(/Day \d+ of \d+/u, '')
+    .replace(/\d+% used/gu, '');
+  expect(text).not.toMatch(/\d/u);
+  const html = await page.content();
+  for (const figure of ['310', '114', '190', '461', '1450', '31000']) {
+    expect(html).not.toContain(figure);
+  }
+  await expect(card.getByRole('progressbar').first()).toHaveAttribute(
+    'aria-valuetext',
+    '62% used',
+  );
+
+  if (testInfo.project.name === 'iphone') {
+    await mkdir('test-results/screens', { recursive: true });
+    await page.screenshot({
+      path: 'test-results/screens/Main-envelopes.png',
+      scale: 'css',
+    });
+  }
+
+  await page
+    .getByRole('button', { name: 'Show amounts for 30 seconds' })
+    .click();
+  await expect(card).toContainText('€461.50');
+  await expect(card.getByRole('link')).toHaveText([
+    /Groceries\s*€190\.00 left of €500\.00/u,
+    /Eating out\s*€14\.50 over/u,
+    /Unexpected\s*€178\.00 left of €200\.00/u,
+  ]);
+  await expect(card.getByText('€14.50 over', { exact: true })).toHaveClass(
+    /\bwarn\b/u,
+  );
+  await expect(card).not.toContainText('% used');
+  await expect(card).not.toContainText('Over budget');
+  if (testInfo.project.name === 'iphone') {
+    await page.screenshot({
+      path: 'test-results/screens/Main-envelopes-revealed.png',
+      scale: 'css',
+    });
+  }
+
+  await page.clock.runFor(30_000);
+  await expect(card).toContainText('€ • • • •');
+  await expect(card.getByRole('link').first()).toContainText('62% used');
+  await expect(card).not.toContainText('€461.50');
+});
+
+test('the envelopes card opens Envelopes and is gone without envelopes', async ({
+  page,
+}) => {
+  const seed = await seedFamily(page.context());
+  await page.goto(`${origin}/`);
+  await expect(page.getByRole('heading', { name: 'Hi, Alena' })).toBeVisible();
+  await expect(page.getByText(/^Day \d+ of \d+$/u)).toHaveCount(0);
+
+  await seedSpending(page.context(), seed.trade);
+  await page.reload();
+  await page
+    .getByRole('region', { name: monthName })
+    .getByRole('link', { name: /^Eating out/u })
+    .click();
+  await expect(page).toHaveURL(`${origin}/envelopes`);
+  await expect(
+    page.getByRole('heading', { name: 'Envelopes', level: 1 }),
+  ).toBeVisible();
+});
+
+test('“Needs a category” shows its count and opens that tab, and hides at zero', async ({
+  page,
+}) => {
+  const seed = await seedFamily(page.context());
+  await page.goto(`${origin}/`);
+  await expect(page.getByRole('heading', { name: 'Hi, Alena' })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: /^Needs a category/u }),
+  ).toHaveCount(0);
+
+  await seedSpending(page.context(), seed.trade);
+  await page.reload();
+  const row = page.getByRole('link', { name: 'Needs a category · 3' });
+  await expect(row).toHaveAttribute('href', '/transactions?tab=needs-category');
+  await expect(row).toContainText('Needs a category');
+  await row.click();
+  await expect(
+    page.getByRole('tab', { name: 'Needs a category · 3', selected: true }),
+  ).toBeVisible();
+
+  // Labelling them all removes the row.
+  withDatabase((database) =>
+    database
+      .prepare('UPDATE txn_part SET category_id = 1 WHERE category_id IS NULL')
+      .run(),
+  );
+  await page.goto(`${origin}/`);
+  await expect(page.getByRole('heading', { name: 'Hi, Alena' })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: /^Needs a category/u }),
+  ).toHaveCount(0);
+});
+
 /**
  * Fakes the page being backgrounded or returned to: WebKit offers no way to
  * do it for real, so the visibility state is overridden and the event sent.
@@ -687,6 +819,49 @@ function withDatabase(change: (database: TestDatabase) => unknown): void {
     change(database);
   } finally {
     database.close();
+  }
+}
+
+/**
+ * Three envelopes and this month's spending, all dated today: Groceries
+ * €500.00 with €310.00 spent (62%), Eating out €100.00 with €114.50 spent
+ * (over by €14.50) and Unexpected €200.00 with €22.00 spent (11%). Three
+ * more expenses of €5.00 have no category: spending is €461.50 in all.
+ */
+async function seedSpending(
+  context: BrowserContext,
+  account: number,
+): Promise<void> {
+  const today = todayInTimeZone(new Date(), 'Europe/Berlin');
+  const envelope = async (name: string, amount: string): Promise<number> =>
+    (
+      (await post(context, '/api/envelopes', {
+        name,
+        currency: 'EUR',
+        monthlyAmount: amount,
+        mode: 'reset',
+        startingBalance: amount,
+      })) as unknown as { envelope: { id: number } }
+    ).envelope.id;
+  const expense = (extra: Record<string, unknown>) =>
+    post(context, '/api/transactions', {
+      kind: 'expense',
+      date: today,
+      accountId: account,
+      ...extra,
+    });
+  const groceries = await envelope('Groceries', '50000');
+  const eatingOut = await envelope('Eating out', '10000');
+  const unexpected = await envelope('Unexpected', '20000');
+  for (const [envelopeId, amount] of [
+    [groceries, '31000'],
+    [eatingOut, '11450'],
+    [unexpected, '2200'],
+  ] as const) {
+    await expense({ envelopeId, amount, categoryId: 1 });
+  }
+  for (let count = 0; count < 3; count += 1) {
+    await expense({ amount: '500', merchant: `Kiosk ${count + 1}` });
   }
 }
 

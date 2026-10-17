@@ -114,17 +114,7 @@ export function listTransactions(
   const page = rows.slice(0, transactionPageSize);
   const last = page[page.length - 1];
 
-  const groups = database
-    .prepare(
-      withJoins(`SELECT t.date AS date, a.currency AS currency,
-         SUM(CASE WHEN t.kind = 'expense' THEN t.amount ELSE 0 END) AS spent,
-         SUM(CASE WHEN t.kind = 'income' THEN t.amount ELSE 0 END) AS income,
-         COUNT(*) AS count
-       FROM txn t
-       WHERE ${filter.where.join(' AND ')}
-       GROUP BY t.date, a.currency`),
-    )
-    .all(...filter.params) as GroupRow[];
+  const groups = dayGroups(database, filter);
   const totals = totalsOf(groups, valuation);
   const dates = new Set(page.map((row) => row.date));
   const days: DayTotal[] = [...dates]
@@ -145,6 +135,22 @@ export function listTransactions(
       currency: valuation.commonCurrency.code,
     },
   };
+}
+
+/**
+ * What was spent this month in the common currency: the "This month"
+ * summary of the list, with no other filter. `spent` is null while a rate
+ * is missing (COR-4), since a partial sum would read as the whole.
+ */
+export function monthSpent(
+  database: Database.Database,
+  valuation: Valuation,
+  today: string,
+): string | null {
+  const filter = buildFilter(database, valuation, {}, today);
+  const groups = dayGroups(database, filter);
+  const { all } = totalsOf(groups, valuation);
+  return all.incomplete ? null : all.spent;
 }
 
 /**
@@ -355,6 +361,21 @@ function totalsOf(groups: GroupRow[], valuation: Valuation) {
       incomplete,
     },
   };
+}
+
+/** The (day, currency) groups the filters match, for the totals. */
+function dayGroups(database: Database.Database, filter: Filter): GroupRow[] {
+  return database
+    .prepare(
+      withJoins(`SELECT t.date AS date, a.currency AS currency,
+         SUM(CASE WHEN t.kind = 'expense' THEN t.amount ELSE 0 END) AS spent,
+         SUM(CASE WHEN t.kind = 'income' THEN t.amount ELSE 0 END) AS income,
+         COUNT(*) AS count
+       FROM txn t
+       WHERE ${filter.where.join(' AND ')}
+       GROUP BY t.date, a.currency`),
+    )
+    .all(...filter.params) as GroupRow[];
 }
 
 /** The `WHERE` conditions of the filters, ANDed, and their values. */
