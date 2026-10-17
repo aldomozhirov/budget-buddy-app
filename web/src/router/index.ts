@@ -124,6 +124,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'Transactions' },
   },
   {
+    path: '/transactions/:id',
+    name: 'Transaction',
+    component: () => import('../screens/transactions/TransactionScreen.vue'),
+    meta: { title: 'Transaction' },
+  },
+  {
     path: '/settings',
     name: 'Settings',
     component: () => import('../screens/settings/SettingsScreen.vue'),
@@ -220,6 +226,7 @@ router.afterEach((to, from, failure) => {
 function naturalParent(path: string): string {
   if (path.startsWith('/accounts/')) return '/accounts';
   if (path.startsWith('/check-ins/')) return '/check-ins';
+  if (path.startsWith('/transactions/')) return '/transactions';
   const edited = /^\/envelopes\/(\d+)\/edit$/.exec(path);
   if (edited) return `/envelopes/${edited[1]}`;
   if (path.startsWith('/envelopes/')) return '/envelopes';
