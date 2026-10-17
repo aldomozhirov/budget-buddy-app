@@ -32,6 +32,37 @@ export const homeWealthSchema = z.object({
   change: minorStringSchema.nullable(),
 });
 
+/** One active envelope on Home's card (DSH-4). */
+export const homeEnvelopeSchema = z.object({
+  id: z.number().int().positive(),
+  name: z.string(),
+  currency: z.string(),
+  /** What the month had to spend: opening, top-up and adjustments. */
+  available: minorStringSchema,
+  /** Spent this month, in the envelope's currency. */
+  spent: minorStringSchema,
+  /** The balance now (`available − spent`); negative when overspent. */
+  left: minorStringSchema,
+  /**
+   * Whole percent of `available` spent, rounded down so 100 means all of
+   * it, and 100 when `over`. This is what shows while amounts are hidden.
+   */
+  share: z.number().int().min(0).max(100),
+  /** The balance is below zero. */
+  over: z.boolean(),
+});
+
+/** An envelope as Home's card shows it. */
+export type HomeEnvelope = z.infer<typeof homeEnvelopeSchema>;
+
+/** This month's spending: the envelopes card (DSH-4, UI-HOME-1). */
+export const homeSpendingSchema = z.object({
+  /** Spent this month in the common currency, as Transactions sums it. */
+  spent: minorStringSchema.nullable(),
+  /** Active envelopes in their order; never empty. */
+  envelopes: z.array(homeEnvelopeSchema).min(1),
+});
+
 /** What the Home screen needs in one call (DSH-1, NTF-1, BKP-4). */
 export const homeResponseSchema = z.object({
   /** Today in the family's time zone, YYYY-MM-DD. */
@@ -42,6 +73,10 @@ export const homeResponseSchema = z.object({
   checkin: homeCheckinSchema.nullable(),
   /** Null while no check-in has been closed. */
   wealth: homeWealthSchema.nullable(),
+  /** Null without active envelopes, which hides the card. */
+  spending: homeSpendingSchema.nullable(),
+  /** Transactions waiting for a category (CAT-7); 0 hides the row. */
+  needsCategory: z.number().int().nonnegative(),
   /** Set when the last successful backup is over two days old. */
   backupWarning: z.object({ daysAgo: z.number().int().min(2) }).nullable(),
 });

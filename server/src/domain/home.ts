@@ -1,7 +1,15 @@
 import type Database from 'better-sqlite3';
-import { toMinorString, type HomeResponse } from '@budget-buddy/shared';
+import {
+  monthOfDate,
+  toMinorString,
+  type HomeEnvelope,
+  type HomeResponse,
+} from '@budget-buddy/shared';
+import { monthSpent } from '../modules/transactions/list.js';
+import { needsCategoryCount } from '../modules/transactions/needsCategory.js';
 import { currencyTotalsAt } from './balance.js';
 import { getCheckin } from './checkin.js';
+import { listEnvelopeStates } from './envelopes.js';
 import { createValuation, type Valuation } from './valuation.js';
 
 const dayMs = 86_400_000;
@@ -22,7 +30,7 @@ export interface HomeOptions {
 }
 
 /**
- * Builds everything Home shows (DSH-1, NTF-1, BKP-4, O2). The banner part has
+ * Builds everything Home shows (DSH-1, DSH-4, NTF-1, BKP-4, O2). The banner has
  * no amounts. Wealth is the latest balances at the latest rates, with the
  * change against the latest closed check-in's equivalent at its own rates.
  * @throws {Error} if the family is not set up or an account has an unknown
@@ -43,6 +51,8 @@ export function getHome(
     hideAmounts: device === undefined || device.hide_home_amounts !== 0n,
     checkin: openCheckin(database, valuation, options),
     wealth: wealth(database, valuation, options.now),
+    spending: spending(database, valuation, options.now),
+    needsCategory: needsCategoryCount(database),
     backupWarning: backupWarning(database, options.now),
   };
 }
@@ -90,6 +100,42 @@ function cadenceName(family: FamilyRow): 'monthly' | 'weekly' | null {
     return 'weekly';
   }
   return null;
+}
+
+/**
+ * This month's envelopes card: the month's spending in the common currency
+ * and the active envelopes with the share used. Null without envelopes.
+ */
+function spending(
+  database: Database.Database,
+  valuation: Valuation,
+  now: number,
+): HomeResponse['spending'] {
+  const today = valuation.dateOf(now);
+  const envelopes = listEnvelopeStates(database, monthOfDate(today))
+    .filter(({ ledger, current }) => !ledger.archived && current)
+    .map(({ ledger, current }): HomeEnvelope => {
+      const { available, spent, closing } = current!;
+      const over = closing < 0n;
+      return {
+        id: ledger.id,
+        name: ledger.name,
+        currency: ledger.currency,
+        available: toMinorString(available),
+        spent: toMinorString(spent),
+        left: toMinorString(closing),
+        share: over ? 100 : shareUsed(spent, available),
+        over,
+      };
+    });
+  if (envelopes.length === 0) return null;
+  return { spent: monthSpent(database, valuation, today), envelopes };
+}
+
+/** Whole percent of `available` that `spent` is, rounded down; 0 to 100. */
+function shareUsed(spent: bigint, available: bigint): number {
+  if (spent <= 0n || available <= 0n) return 0;
+  return Number(spent >= available ? 100n : (spent * 100n) / available);
 }
 
 function wealth(

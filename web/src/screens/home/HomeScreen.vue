@@ -12,8 +12,10 @@ import {
 import BbAmount from '../../components/BbAmount.vue';
 import BbButton from '../../components/BbButton.vue';
 import BbIcon from '../../components/BbIcon.vue';
+import BbProgress from '../../components/BbProgress.vue';
 import ProfileSheet from './ProfileSheet.vue';
 import { authState, setAuthState } from '../../stores/auth.js';
+import { monthName } from '../envelopes/envelopeFormat.js';
 import {
   createMoneyFormatter,
   directionClass,
@@ -22,8 +24,9 @@ import {
 
 /**
  * Home: greeting, the eye button, the open check-in banner, the Income,
- * Transfer and Check-in tiles, the Family wealth card, the "Everything" grid
- * and the sticky "Add expense" button (UI-HOME-1 to 6, D2).
+ * Transfer and Check-in tiles, this month's envelopes card, "Needs a
+ * category", the Family wealth card, the "Everything" grid and the sticky
+ * "Add expense" button (UI-HOME-1 to 6, DSH-4, D2).
  * Amounts are hidden whenever the screen opens, unless this device's setting
  * says otherwise; the eye shows them for 30 s, counting the seconds down in
  * the note. Nothing here stores whether they are visible.
@@ -84,6 +87,48 @@ const dateLine = computed(() => {
     parts.find((entry) => entry.type === type)?.value ?? '';
   return `${part('weekday')}, ${part('day')} ${part('month')}`;
 });
+
+const spending = computed(() => home.value?.spending ?? null);
+const needsCategory = computed(() => home.value?.needsCategory ?? 0);
+/** "October" and "Day 13 of 31" for the envelopes card's heading. */
+const monthHeading = computed(() => {
+  const today = home.value?.today;
+  if (!today) return { month: '', day: '' };
+  const [year = 0, month = 0, day = 0] = today.split('-').map(Number);
+  const length = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return {
+    month: monthName(today.slice(0, 7)),
+    day: `Day ${day} of ${length}`,
+  };
+});
+/** The month's spending, or what stands in for it while hidden. */
+const spentAmount = computed(() => {
+  const spent = spending.value?.spent;
+  if (spent === undefined) return '';
+  return spent === null
+    ? 'Rate missing'
+    : formatter.value.money(spent, currency.value);
+});
+// The design draws four dots here, one fewer than the wealth card's five.
+const spentMask = computed(() =>
+  formatter.value.masked(currency.value).replace(/ •$/u, ''),
+);
+/** What each envelope row says: the share while hidden, else the balance. */
+const envelopeRows = computed(() =>
+  (spending.value?.envelopes ?? []).map((envelope) => {
+    const money = (minor: string) =>
+      formatter.value.money(minor, envelope.currency);
+    const hidden = envelope.over ? 'Over budget' : `${envelope.share}% used`;
+    const shown = envelope.over
+      ? `${money(String(-BigInt(envelope.left)))} over`
+      : `${money(envelope.left)} left of ${money(envelope.available)}`;
+    return {
+      envelope,
+      text: visible.value ? shown : hidden,
+      label: `${envelope.name}, ${visible.value ? shown : hidden}`,
+    };
+  }),
+);
 
 const eyeLabel = computed(() => {
   if (visible.value) return 'Hide amounts';
@@ -324,8 +369,71 @@ onBeforeUnmount(() => {
           </RouterLink>
         </nav>
 
-        <!-- Under the tiles: task 17's "Waiting to send" card, then task
-             16's envelopes card and "Needs a category" row. -->
+        <!-- Under the tiles: task 17's "Waiting to send" card goes here,
+             above this month's envelopes. -->
+
+        <section
+          v-if="spending"
+          class="home-month"
+          aria-labelledby="month-heading"
+        >
+          <div class="home-month-head">
+            <h2 id="month-heading" class="home-month-title">
+              {{ monthHeading.month }}
+            </h2>
+            <span class="t-sub">{{ monthHeading.day }}</span>
+          </div>
+          <div class="home-month-spent">
+            <span
+              v-if="visible && spending.spent === null"
+              class="num home-month-amount"
+            >
+              {{ spentAmount }}
+            </span>
+            <BbAmount
+              v-else
+              class="home-month-amount"
+              :value="spentAmount"
+              :visible="visible"
+              :masked-value="spentMask"
+            />
+            <span class="t-sub">spent</span>
+          </div>
+          <RouterLink
+            v-for="row in envelopeRows"
+            :key="row.envelope.id"
+            class="home-envelope"
+            to="/envelopes"
+          >
+            <span class="home-envelope-head">
+              <span class="home-envelope-name">{{ row.envelope.name }}</span>
+              <span
+                class="num t-sub"
+                :class="{ warn: visible && row.envelope.over }"
+              >
+                {{ row.text }}
+              </span>
+            </span>
+            <BbProgress
+              :value="row.envelope.share"
+              :over="row.envelope.over"
+              :label="`${row.envelope.name} used`"
+              :value-text="visible ? '' : row.text"
+            />
+          </RouterLink>
+        </section>
+
+        <RouterLink
+          v-if="needsCategory > 0"
+          class="home-needs"
+          to="/transactions?tab=needs-category"
+          :aria-label="`Needs a category · ${needsCategory}`"
+        >
+          <BbIcon name="tag" :size="22" />
+          <span class="home-needs-text">Needs a category</span>
+          <span class="badge" aria-hidden="true">{{ needsCategory }}</span>
+          <BbIcon name="forward" :size="18" class="chev" />
+        </RouterLink>
 
         <RouterLink class="home-wealth" :to="summaryLink">
           <span class="home-wealth-text">
@@ -523,6 +631,80 @@ onBeforeUnmount(() => {
 .home-tiles .tile {
   color: var(--ink);
   text-decoration: none;
+}
+
+.home-month {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 16px 8px;
+  border-radius: var(--r-hero);
+  background: var(--surface);
+}
+
+.home-month-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.home-month-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.home-month-spent {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 0 10px;
+}
+
+.home-month-amount {
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.home-envelope {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 44px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.home-envelope-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.home-envelope-name {
+  font-weight: 500;
+}
+
+.home-needs {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 14px 16px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.home-needs-text {
+  flex: 1;
+  font-weight: 500;
 }
 
 .home-wealth {
