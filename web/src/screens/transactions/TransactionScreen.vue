@@ -535,16 +535,21 @@ onMounted(() => void load());
             automatically. You can edit rules in Settings.</span
           >
           <div class="transaction-offer-buttons">
-            <BbButton
-              variant="secondary-sm"
-              needs-server
+            <button
+              class="chip chip-sm chip-on"
+              type="button"
               :disabled="saving"
               @click="saveRule"
-              >Save rule</BbButton
             >
-            <BbButton variant="secondary-sm" @click="offerCategoryId = null"
-              >Just this once</BbButton
+              Save rule
+            </button>
+            <button
+              class="chip chip-sm"
+              type="button"
+              @click="offerCategoryId = null"
             >
+              Just this once
+            </button>
           </div>
         </div>
         <p v-if="savedRule" class="banner transaction-saved" role="status">

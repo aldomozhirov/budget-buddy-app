@@ -379,7 +379,7 @@ test('the amount, merchant, date, payer and note are edited and recorded', async
       'Paid by changed to Max by Alena',
       'Note changed by Alena',
     ]) {
-      await expect(page.getByText(text)).toBeVisible();
+      await expect(page.getByText(text, { exact: true })).toBeVisible();
     }
     await expect(
       page.getByText(/^Date changed to Yesterday by Alena/u),
@@ -413,6 +413,10 @@ test('a transfer shows From, To, both amounts, Done by, Date and Note', async ({
 
     await page.getByRole('button', { name: /^Arrives/ }).click();
     const sheet = page.getByRole('dialog', { name: 'Amount that arrives' });
+    await sheet
+      .getByRole('group', { name: 'Amount keypad' })
+      .getByRole('button', { name: 'Clear' })
+      .click();
     await typeAmount(sheet, '22');
     await sheet.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('button', { name: /^Arrives/ })).toContainText(
@@ -491,7 +495,9 @@ test('Back returns to the list as it was, and to the envelope page', async ({
     await page.goto(`${family.origin}/envelopes/${ids.Groceries}`);
     await page.getByRole('link', { name: /REWE/ }).click();
     await expect(page).toHaveURL(new RegExp(`/transactions/${ids.rewe}$`));
-    await page.getByRole('button', { name: 'Back to envelope' }).click();
+    await page
+      .getByRole('button', { name: 'Back to envelope', exact: true })
+      .click();
     await expect(page).toHaveURL(new RegExp(`/envelopes/${ids.Groceries}$`));
   });
 });
