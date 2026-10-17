@@ -596,6 +596,13 @@ test('the envelopes card shows shares while hidden and balances when revealed', 
     /Eating out\s*Over budget/u,
     /Unexpected\s*11% used/u,
   ]);
+  // The warn colour marks "Over budget" while hidden, and only that row.
+  await expect(card.getByText('Over budget', { exact: true })).toHaveClass(
+    /\bwarn\b/u,
+  );
+  await expect(card.getByText('62% used', { exact: true })).not.toHaveClass(
+    /\bwarn\b/u,
+  );
   // No digit but the day, its month length and the shares.
   const text = (await card.innerText())
     .replace(/Day \d+ of \d+/u, '')
@@ -627,6 +634,9 @@ test('the envelopes card shows shares while hidden and balances when revealed', 
     /Eating out\s*€14\.50 over/u,
     /Unexpected\s*€178\.00 left of €200\.00/u,
   ]);
+  await expect(card.getByText('€14.50 over', { exact: true })).toHaveClass(
+    /\bwarn\b/u,
+  );
   await expect(card).not.toContainText('% used');
   await expect(card).not.toContainText('Over budget');
   if (testInfo.project.name === 'iphone') {

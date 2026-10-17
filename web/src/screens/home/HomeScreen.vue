@@ -409,7 +409,7 @@ onBeforeUnmount(() => {
               <span class="home-envelope-name">{{ row.envelope.name }}</span>
               <span
                 class="num t-sub"
-                :class="{ warn: visible && row.envelope.over }"
+                :class="{ warn: row.envelope.over }"
               >
                 {{ row.text }}
               </span>
