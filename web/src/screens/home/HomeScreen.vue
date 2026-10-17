@@ -21,8 +21,9 @@ import {
 } from '../summary/summaryFormat';
 
 /**
- * Home: greeting, the eye button, the open check-in banner, the Check-in
- * tile, the Family wealth card and the "Everything" grid (UI-HOME-1 to 6, D2).
+ * Home: greeting, the eye button, the open check-in banner, the Income,
+ * Transfer and Check-in tiles, the Family wealth card, the "Everything" grid
+ * and the sticky "Add expense" button (UI-HOME-1 to 6, D2).
  * Amounts are hidden whenever the screen opens, unless this device's setting
  * says otherwise; the eye shows them for 30 s, counting the seconds down in
  * the note. Nothing here stores whether they are visible.
@@ -246,7 +247,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="screen app-screen">
+  <main class="screen app-screen home-screen">
     <header class="topbar home-header">
       <div class="home-title">
         <span v-if="dateLine" class="t-sub home-date">{{ dateLine }}</span>
@@ -309,11 +310,22 @@ onBeforeUnmount(() => {
         </RouterLink>
 
         <nav class="home-tiles" aria-label="Quick actions">
+          <RouterLink class="tile" to="/add?kind=income">
+            <BbIcon name="income" :size="22" />
+            Income
+          </RouterLink>
+          <RouterLink class="tile" to="/add?kind=transfer">
+            <BbIcon name="transfer" :size="22" />
+            Transfer
+          </RouterLink>
           <RouterLink class="tile" :to="checkinTileLink">
             <BbIcon name="checkin" :size="22" />
             Check-in
           </RouterLink>
         </nav>
+
+        <!-- Under the tiles: task 17's "Waiting to send" card, then task
+             16's envelopes card and "Needs a category" row. -->
 
         <RouterLink class="home-wealth" :to="summaryLink">
           <span class="home-wealth-text">
@@ -345,6 +357,14 @@ onBeforeUnmount(() => {
             Everything
           </h2>
           <nav class="home-grid" aria-label="Everything">
+            <RouterLink class="home-grid-link" to="/transactions">
+              <BbIcon name="transactions" />
+              Transactions
+            </RouterLink>
+            <RouterLink class="home-grid-link" to="/envelopes">
+              <BbIcon name="envelope" />
+              Envelopes
+            </RouterLink>
             <RouterLink class="home-grid-link" to="/accounts">
               <BbIcon name="account" />
               Accounts
@@ -357,6 +377,10 @@ onBeforeUnmount(() => {
               <BbIcon name="chart" />
               Wealth history
             </RouterLink>
+            <RouterLink class="home-grid-link" to="/categories">
+              <BbIcon name="tag" />
+              Categories
+            </RouterLink>
             <RouterLink class="home-grid-link" to="/settings">
               <BbIcon name="settings" />
               Settings
@@ -365,11 +389,46 @@ onBeforeUnmount(() => {
         </section>
       </template>
     </div>
+
+    <footer class="bottombar home-bottombar">
+      <RouterLink class="primary home-add" to="/add">
+        <BbIcon name="plus" :size="22" :stroke-width="2.2" />
+        Add expense
+      </RouterLink>
+    </footer>
     <ProfileSheet v-if="profileSheetOpen" @close="profileSheetOpen = false" />
   </main>
 </template>
 
 <style scoped>
+/* The page content scrolls above a bottom bar that always stays in view. */
+.home-screen {
+  height: var(--app-h, 100dvh);
+  min-height: 0;
+}
+
+.home-content {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.home-content::-webkit-scrollbar {
+  display: none;
+}
+
+.bb .home-bottombar {
+  padding: 12px var(--gutter) max(16px, var(--safe-area-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.bb .home-add {
+  height: 60px;
+  border-radius: 18px;
+  text-decoration: none;
+}
+
 .home-title {
   display: flex;
   flex-direction: column;

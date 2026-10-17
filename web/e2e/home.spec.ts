@@ -370,9 +370,12 @@ test('the wealth card and Wealth history open the latest summary', async ({
   await page.goto(`${origin}/`);
   const everything = page.getByRole('navigation', { name: 'Everything' });
   await expect(everything.getByRole('link')).toHaveText([
+    'Transactions',
+    'Envelopes',
     'Accounts',
     'Check-ins',
     'Wealth history',
+    'Categories',
     'Settings',
   ]);
   await expect(
@@ -397,7 +400,11 @@ test('the greeting shows the date; with no check-in open the Check-in tile opens
     ),
   ).toBeVisible();
   const tiles = page.getByRole('navigation', { name: 'Quick actions' });
-  await expect(tiles.getByRole('link')).toHaveText(['Check-in']);
+  await expect(tiles.getByRole('link')).toHaveText([
+    'Income',
+    'Transfer',
+    'Check-in',
+  ]);
   await tiles.getByRole('link', { name: 'Check-in' }).click();
   await expect(page).toHaveURL(/\/check-ins$/u);
   await expect(
@@ -422,6 +429,109 @@ test('with a check-in open the Check-in tile opens the check-in', async ({
   await expect(page).toHaveURL(/\/check-in$/u);
   await page.getByRole('button', { name: 'Back to home' }).click();
   await expect(page).toHaveURL(`${origin}/`);
+});
+
+test('the Income and Transfer tiles open Add with their kind', async ({
+  page,
+}) => {
+  await seedFamily(page.context());
+  const tiles = page.getByRole('navigation', { name: 'Quick actions' });
+  for (const [name, kind] of [
+    ['Income', 'income'],
+    ['Transfer', 'transfer'],
+  ] as const) {
+    await page.goto(`${origin}/`);
+    await expect(
+      page.getByRole('heading', { name: 'Hi, Alena' }),
+    ).toBeVisible();
+    await expect(tiles.getByRole('link', { name })).toHaveAttribute(
+      'href',
+      `/add?kind=${kind}`,
+    );
+    await tiles.getByRole('link', { name }).click();
+    await expect(page).toHaveURL(`${origin}/add?kind=${kind}`);
+    await expect(
+      page.getByRole('radio', { name, checked: true }),
+    ).toBeVisible();
+  }
+});
+
+test('the Everything grid lists seven entries and each opens its screen', async ({
+  page,
+}) => {
+  const context = page.context();
+  const seed = await seedFamily(context);
+  const first = await closedCheckinThenRaiseIng(context, seed);
+  const entries = [
+    ['Transactions', '/transactions', 'Transactions'],
+    ['Envelopes', '/envelopes', 'Envelopes'],
+    ['Accounts', '/accounts', 'Accounts'],
+    ['Check-ins', '/check-ins', 'Check-ins'],
+    ['Wealth history', `/check-ins/${first}`, /^Check-in \d{2}\//u],
+    ['Categories', '/categories', 'Categories'],
+    ['Settings', '/settings', 'Settings'],
+  ] as const;
+  for (const [name, href, heading] of entries) {
+    await page.goto(`${origin}/`);
+    const everything = page.getByRole('navigation', { name: 'Everything' });
+    await expect(everything.getByRole('link')).toHaveText(
+      entries.map(([label]) => label),
+    );
+    await expect(everything.getByRole('link', { name })).toHaveAttribute(
+      'href',
+      href,
+    );
+    await everything.getByRole('link', { name }).click();
+    await expect(page).toHaveURL(`${origin}${href}`);
+    await expect(
+      page.getByRole('heading', { name: heading, level: 1 }),
+    ).toBeVisible();
+  }
+});
+
+test('the Add expense button stays in view, clear of the home indicator', async ({
+  page,
+}) => {
+  await seedFamily(page.context());
+  await page.goto(`${origin}/`);
+  await expect(page.getByRole('heading', { name: 'Hi, Alena' })).toBeVisible();
+  const button = page.getByRole('link', { name: 'Add expense' });
+  await expect(button).toHaveAttribute('href', '/add');
+  const height = page.viewportSize()!.height;
+
+  // A home indicator of 34 px, as on an iPhone in the installed app.
+  await page.evaluate(() => {
+    document.documentElement.style.setProperty('--inset-bottom', '34px');
+    document.documentElement.style.setProperty('--safe-area-bottom', '34px');
+  });
+  const inView = async (): Promise<void> => {
+    const box = (await button.boundingBox())!;
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height).toBeLessThanOrEqual(height - 34);
+  };
+  await inView();
+
+  // Scrolled to the end, the last grid link ends above the button.
+  const settings = page
+    .getByRole('navigation', { name: 'Everything' })
+    .getByRole('link', { name: 'Settings' });
+  await settings.scrollIntoViewIfNeeded();
+  await page.getByRole('main').evaluate((main) => {
+    for (const element of [main, ...main.querySelectorAll('div')]) {
+      element.scrollTop = element.scrollHeight;
+    }
+  });
+  await inView();
+  const link = (await settings.boundingBox())!;
+  const bar = (await button.boundingBox())!;
+  expect(link.y + link.height).toBeLessThanOrEqual(bar.y);
+
+  await button.click();
+  await expect(page).toHaveURL(`${origin}/add`);
+  await expect(
+    page.getByRole('radio', { name: 'Expense', checked: true }),
+  ).toBeVisible();
 });
 
 test('a backup older than two days shows a warning that opens Settings', async ({
