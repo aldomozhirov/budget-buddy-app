@@ -586,7 +586,7 @@ function settle(
 }
 
 /** Converts the envelope amount of a state anew (3.3). */
-function settleEnvelope(
+export function settleEnvelope(
   database: Database.Database,
   state: StoredTransaction,
   lookup: ReturnType<typeof createRateLookup>,
@@ -646,7 +646,8 @@ function insertTransaction(
   return id;
 }
 
-function updateTransaction(
+/** Stores an edited state and its one part; the caller writes the revision. */
+export function updateTransaction(
   database: Database.Database,
   state: StoredTransaction,
 ): void {
@@ -757,7 +758,8 @@ function memberExists(database: Database.Database, id: number): boolean {
   );
 }
 
-function findCategory(database: Database.Database, id: number) {
+/** Reads a category for the checks and the on-save fill. */
+export function findCategory(database: Database.Database, id: number) {
   const row = database
     .prepare(
       `SELECT kind, default_envelope_id AS defaultEnvelopeId,
@@ -780,7 +782,8 @@ function findCategory(database: Database.Database, id: number) {
     : undefined;
 }
 
-function findEnvelope(database: Database.Database, id: number) {
+/** Reads an envelope for the checks and the on-save fill. */
+export function findEnvelope(database: Database.Database, id: number) {
   const row = database
     .prepare(
       `SELECT currency, default_category_id AS defaultCategoryId,

@@ -151,6 +151,94 @@ export function suggestCategories(
   return result;
 }
 
+/** What the suggestion of a row in "Needs a category" reads of it. */
+export interface UncategorisedRow {
+  kind: 'expense' | 'income';
+  merchant: string | null;
+  accountId: number;
+  /** The payer. */
+  memberId: number;
+  envelopeId: number | null;
+}
+
+/**
+ * Makes the function that proposes one category for a transaction without
+ * one (CAT-7; Design 3.6, O8): a rule matching its merchant and account,
+ * else the category most used with the same merchant key, else the default
+ * category of its envelope, else the payer's most used on that account in
+ * the last 90 days, else the family's most used in the last 90 days, else
+ * the first active category of its kind. Only active categories of the
+ * row's kind are proposed, so every row gets one while any exists. Counts
+ * are read once per merchant key, payer and account, so a page of rows
+ * costs a few queries.
+ */
+export function createRowSuggester(
+  database: Database.Database,
+  context: { today: string; timeZone: string },
+): (row: UncategorisedRow) => number | null {
+  const active = activeCategories(database);
+  const since = recentSince(context.today, context.timeZone);
+  const ofKind = {
+    expense: active.filter((c) => c.kind === 'expense').map((c) => c.id),
+    income: active.filter((c) => c.kind === 'income').map((c) => c.id),
+  };
+  const counts = new Map<string, Map<number, number>>();
+  const counted = (
+    key: string,
+    where: string,
+    params: (string | number)[],
+  ): Map<number, number> => {
+    let found = counts.get(key);
+    if (!found) {
+      found = categoryCounts(database, where, params);
+      counts.set(key, found);
+    }
+    return found;
+  };
+  let rules: ReturnType<typeof loadRules> | undefined;
+  const envelopeDefault = database.prepare(
+    'SELECT default_category_id AS id FROM envelope WHERE id = ?',
+  );
+
+  return (row) => {
+    const candidates = ofKind[row.kind];
+    if (candidates.length === 0) return null;
+    const merchant = row.merchant?.trim() ?? '';
+    if (row.kind === 'expense' && merchant !== '') {
+      rules ??= loadRules(database);
+      const match = matchRule(merchant, row.accountId, rules);
+      if (match && candidates.includes(match.categoryId)) {
+        return match.categoryId;
+      }
+    }
+    const key = merchantKey(merchant);
+    if (key !== '') {
+      const used = byCount(
+        candidates,
+        counted(`m:${key}`, 't.merchant_key = ?', [key]),
+      );
+      if (used[0] !== undefined) return used[0];
+    }
+    if (row.envelopeId !== null) {
+      const fromEnvelope = envelopeDefault.get(row.envelopeId) as
+        { id: bigint | null } | undefined;
+      const id = fromEnvelope?.id ?? null;
+      if (id !== null && candidates.includes(Number(id))) return Number(id);
+    }
+    const own = byCount(
+      candidates,
+      counted(
+        `p:${row.memberId}:${row.accountId}`,
+        't.member_id = ? AND t.account_id = ? AND t.date >= ?',
+        [row.memberId, row.accountId, since],
+      ),
+    );
+    if (own[0] !== undefined) return own[0];
+    const family = byCount(candidates, counted('f', 't.date >= ?', [since]));
+    return family[0] ?? candidates[0] ?? null;
+  };
+}
+
 /** Sort rank of an account type: bank before cash before the rest. */
 function typeRank(type: string): number {
   return type === 'bank' ? 0 : type === 'cash' ? 1 : 2;
