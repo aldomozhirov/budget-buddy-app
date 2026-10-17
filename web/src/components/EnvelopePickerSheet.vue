@@ -22,7 +22,9 @@ import BbSheet from './BbSheet.vue';
  * Sheet behind an envelope chip row's "All…" (UI-NAV-7, UI-TXN-4): every
  * active envelope with its mode and what is left, and "None" to clear the
  * choice. The Add form knows no amounts (D3), so an envelope without
- * `current` shows its name only. One pick closes it.
+ * `current` shows its name only. One pick closes it. Slot `after`: more
+ * under the list, such as the transaction page's "Counts in the envelope
+ * as" keypad (UI-TXN-5), which also keeps the list short.
  */
 const props = defineProps<{
   /** The active envelopes, in the family's order. */
@@ -31,6 +33,8 @@ const props = defineProps<{
   coins: CoinSetting[];
   /** The id that is selected now, or null for none. */
   selectedId: number | null;
+  /** A line under the title, such as "Changing it never changes …". */
+  hint?: string;
 }>();
 
 const emit = defineEmits<{
@@ -52,7 +56,13 @@ function detail(envelope: T): string {
 
 <template>
   <BbSheet title="Envelope" @close="emit('close')">
-    <div class="picker-list scroll" role="radiogroup" aria-label="Envelope">
+    <p v-if="hint" class="t-sub picker-hint">{{ hint }}</p>
+    <div
+      class="picker-list scroll"
+      :class="{ 'picker-short': $slots.after }"
+      role="radiogroup"
+      aria-label="Envelope"
+    >
       <button
         class="opt"
         type="button"
@@ -82,6 +92,7 @@ function detail(envelope: T): string {
         <BbIcon v-if="envelope.id === selectedId" name="check" :size="18" />
       </button>
     </div>
+    <slot name="after" />
   </BbSheet>
 </template>
 
@@ -89,6 +100,12 @@ function detail(envelope: T): string {
 .picker-list {
   max-height: 55dvh;
   overflow-y: auto;
+}
+.picker-short {
+  max-height: 26dvh;
+}
+.picker-hint {
+  margin: -6px 0 0;
 }
 .picker-text {
   flex: 1;

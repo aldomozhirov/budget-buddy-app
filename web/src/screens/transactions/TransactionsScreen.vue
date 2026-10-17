@@ -30,6 +30,8 @@ import BbBackButton from '../../components/BbBackButton.vue';
 import BbIcon from '../../components/BbIcon.vue';
 import { ApiError, callApi } from '../../api/callApi.js';
 import { useBack } from '../../composables/useBack.js';
+import { screenTransitionClass } from '../../router/index.js';
+import { recallList, rememberList } from './listMemory.js';
 import NeedsCategoryTab from './NeedsCategoryTab.vue';
 import TransactionDay from './TransactionDay.vue';
 import TransactionRow from './TransactionRow.vue';
@@ -73,10 +75,18 @@ const FACETS: readonly { facet: TransactionFacet; title: string }[] = [
 const route = useRoute();
 const { label: backLabel, goBack } = useBack();
 
-const filters = reactive<TransactionFilters>(filtersFromQuery(route.query));
+// Back from a transaction opened out of the list finds it as it was left.
+// The route changes before this screen unmounts, so its address is kept.
+const listPath = route.fullPath;
+const recalled =
+  screenTransitionClass.value === 'enter-back' ? recallList(listPath) : null;
+const filters = reactive<TransactionFilters>(
+  recalled?.filters ?? filtersFromQuery(route.query),
+);
 const searchText = ref(filters.q);
 const tab = ref<Tab>(
-  route.query.tab === 'needs-category' ? 'needs-category' : 'all',
+  recalled?.tab ??
+    (route.query.tab === 'needs-category' ? 'needs-category' : 'all'),
 );
 
 const lookups = ref<FilterLookups>({
@@ -379,6 +389,7 @@ function observeEnd(): void {
 
 onMounted(() => void bootstrap());
 onBeforeUnmount(() => {
+  rememberList(listPath, { tab: tab.value, filters: { ...filters } });
   observer?.disconnect();
   clearTimeout(searchTimer);
 });
@@ -534,6 +545,7 @@ watch(
             :key="row.id"
             :row="row"
             :coins="coins"
+            :to="`/transactions/${row.id}`"
           />
         </TransactionDay>
         <p v-if="loadingMore" class="t-sub" role="status">Loading more…</p>
