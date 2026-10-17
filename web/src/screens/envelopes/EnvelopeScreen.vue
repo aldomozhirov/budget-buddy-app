@@ -125,6 +125,8 @@ interface MonthRow {
   value: string;
   tone: 'ink' | 'accent';
   adjustment?: EnvelopeAdjustment;
+  /** The transaction page of an expense row. */
+  to?: string;
 }
 
 const rows = computed<MonthRow[]>(() => {
@@ -148,6 +150,7 @@ const rows = computed<MonthRow[]>(() => {
         .join(' · '),
       value: formatMoney(BigInt(shown), envelopeCurrency(code, coins.value)),
       tone: 'ink',
+      to: `/transactions/${expense.transactionId}`,
     };
   });
   const adjustments = [...data.adjustments]
@@ -416,13 +419,18 @@ async function removeAdjustment(): Promise<void> {
                   >{{ row.value }}</span
                 >
               </button>
-              <div v-else class="row envelope-row">
+              <component
+                :is="row.to ? RouterLink : 'div'"
+                v-else
+                class="row envelope-row"
+                :to="row.to"
+              >
                 <span class="row-l">
                   <span class="envelope-row-title">{{ row.title }}</span>
                   <span class="t-sub">{{ row.meta }}</span>
                 </span>
                 <span class="num envelope-row-value">{{ row.value }}</span>
-              </div>
+              </component>
             </template>
           </div>
           <p v-else class="t-sub">Nothing charged to this envelope yet.</p>

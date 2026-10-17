@@ -183,6 +183,35 @@ test('the tab lists what waits, each with its suggestion and Other…', async ({
   });
 });
 
+test('a row opens its transaction, and Back returns to the tab', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    await seed(family);
+    await openTab(page, family);
+
+    await page.getByRole('link', { name: /PayPal \*Spotify/u }).click();
+    await expect(page).toHaveURL(/\/transactions\/\d+$/u);
+    await expect(page.getByRole('heading', { name: 'Expense' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /^Merchant/u }),
+    ).toContainText('PayPal *Spotify');
+
+    await page.getByRole('button', { name: 'Back to transactions' }).click();
+    await expect(page).toHaveURL(/\/transactions\?tab=needs-category$/u);
+    await expect(
+      page.getByRole('tab', { name: /^Needs a category/u }),
+    ).toHaveAttribute('aria-selected', 'true');
+    await expect(
+      page.getByRole('button', { name: 'Select PayPal *Spotify' }),
+    ).toBeVisible();
+
+    // The tick and the chips stay buttons, outside the link.
+    await page.getByRole('button', { name: 'Select PayPal *Spotify' }).click();
+    await expect(page).toHaveURL(/\/transactions\?tab=needs-category$/u);
+  });
+});
+
 test('a suggestion labels its row at once, and Undo brings it back', async ({
   page,
 }) => {
