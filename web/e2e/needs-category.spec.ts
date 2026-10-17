@@ -370,3 +370,86 @@ test('long names and the sheet do not scroll sideways', async ({ page }) => {
     await expectNoSidewaysScroll(page, 'Needs a category, category sheet');
   });
 });
+
+test('a failed next page keeps the rows and retries', async ({ page }) => {
+  await startFamily(page, async (family) => {
+    const { ids } = await seed(family);
+    for (let i = 0; i < 50; i += 1) {
+      await create(family, '/api/transactions', {
+        kind: 'expense',
+        accountId: ids['ING Visa'],
+        amount: '100',
+        merchant: `Bulk ${i}`,
+        date: '2026-01-01',
+      });
+    }
+    let failures = 1;
+    await page.route(/needs-category\?cursor=/u, (route) =>
+      failures-- > 0 ? route.abort('failed') : route.continue(),
+    );
+    await openTab(page, family);
+    await page
+      .getByRole('button', { name: 'Select Bulk 40', exact: true })
+      .click();
+    await page.getByTestId('transactions-list').evaluate((list) => {
+      list.scrollTop = list.scrollHeight;
+    });
+
+    const alert = page.getByRole('alert');
+    await expect(alert).toHaveText(
+      /Could not load more. Check your connection and try again./u,
+    );
+    // The rows and the apply bar stay on show beside the message.
+    await expect(page.getByRole('button', { name: /^Select / })).toHaveCount(
+      50,
+    );
+    await expect(
+      page.getByRole('button', { name: 'Apply suggestions to 1 selected' }),
+    ).toBeVisible();
+
+    await alert.getByRole('button', { name: 'Try again' }).click();
+    await expect(alert).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Select / })).toHaveCount(
+      53,
+    );
+  });
+});
+
+test('no "Everything is labelled" while the next page is still to come', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    const { ids } = await seed(family);
+    for (let i = 0; i < 51; i += 1) {
+      await create(family, '/api/transactions', {
+        kind: 'expense',
+        accountId: ids['ING Visa'],
+        amount: '100',
+        merchant: `Bulk ${i}`,
+        date: '2026-01-01',
+      });
+    }
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route(/needs-category\?cursor=/u, async (route) => {
+      await held;
+      await route.continue();
+    });
+    await openTab(page, family);
+    const selects = page.getByRole('button', { name: /^Select / });
+    await expect(selects).toHaveCount(50);
+    for (let i = 0; i < 50; i += 1) await selects.nth(i).click();
+    await page
+      .getByRole('button', { name: 'Apply suggestions to 50 selected' })
+      .click();
+
+    // Every loaded row is labelled, but four more wait on the server.
+    await expect(page.getByText('50 expenses labelled')).toBeVisible();
+    await expect(page.getByText('Everything is labelled')).toHaveCount(0);
+    release();
+    await expect(selects).toHaveCount(4);
+    await expect(page.getByText('Everything is labelled')).toHaveCount(0);
+  });
+});

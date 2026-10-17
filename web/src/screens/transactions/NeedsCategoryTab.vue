@@ -69,6 +69,8 @@ const total = ref(0);
 const loaded = ref(false);
 const loadingMore = ref(false);
 const loadError = ref('');
+/** A next page failed; the rows already loaded stay on show. */
+const moreError = ref('');
 const actionError = ref('');
 const busy = ref(false);
 const selected = ref(new Set<number>());
@@ -148,6 +150,7 @@ async function loadPage(cursor: string | null): Promise<void> {
 
 async function loadFirst(): Promise<void> {
   loadError.value = '';
+  moreError.value = '';
   try {
     rows.value = [];
     await loadPage(null);
@@ -160,14 +163,16 @@ async function loadFirst(): Promise<void> {
   }
 }
 
-async function loadMore(): Promise<void> {
+/** Loads the next page; `retry` is a tap on "Try again" after a failure. */
+async function loadMore(retry = false): Promise<void> {
   const cursor = nextCursor.value;
-  if (!cursor || loadingMore.value) return;
+  if (!cursor || loadingMore.value || (moreError.value && !retry)) return;
   loadingMore.value = true;
+  moreError.value = '';
   try {
     await loadPage(cursor);
   } catch (cause) {
-    loadError.value = errorText(
+    moreError.value = errorText(
       cause,
       'Could not load more. Check your connection and try again.',
     );
@@ -400,11 +405,7 @@ watch(
   <div class="needs-tab">
     <div v-if="loadError" role="alert">
       <p class="error">{{ loadError }}</p>
-      <button
-        class="text-btn"
-        type="button"
-        @click="rows.length ? loadMore() : loadFirst()"
-      >
+      <button class="text-btn" type="button" @click="loadFirst">
         Try again
       </button>
     </div>
@@ -473,9 +474,15 @@ watch(
         </div>
       </BbListCard>
       <p v-if="loadingMore" class="t-sub" role="status">Loading more…</p>
+      <div v-if="moreError" role="alert">
+        <p class="error">{{ moreError }}</p>
+        <button class="text-btn" type="button" @click="loadMore(true)">
+          Try again
+        </button>
+      </div>
       <div ref="sentinel" class="needs-end" aria-hidden="true" />
 
-      <div v-if="rows.length === 0" class="needs-empty">
+      <div v-if="rows.length === 0 && !nextCursor" class="needs-empty">
         <span class="needs-done success-icon">
           <BbIcon name="check" :size="26" />
         </span>
