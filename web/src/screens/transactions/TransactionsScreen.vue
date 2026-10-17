@@ -99,6 +99,8 @@ const loading = ref(false);
 const loadingMore = ref(false);
 const listError = ref('');
 const needsCount = ref<number | null>(null);
+/** Labelling changed rows the "All" list has already loaded. */
+const listStale = ref(false);
 
 const openFacet = ref<TransactionFacet | null>(null);
 const facetCounts = ref(new Map<string, number>());
@@ -383,6 +385,13 @@ onBeforeUnmount(() => {
   clearTimeout(searchTimer);
 });
 
+watch(tab, (value) => {
+  if (value === 'all' && listStale.value && bootstrapped.value) {
+    listStale.value = false;
+    void loadFirstPage();
+  }
+});
+
 watch(searchText, (text) => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => {
@@ -436,10 +445,12 @@ watch(
       <div class="segmented" role="tablist" aria-label="Show">
         <button
           v-for="item in tabs"
+          :id="`transactions-tab-${item.value}`"
           :key="item.value"
           class="seg"
           type="button"
           role="tab"
+          aria-controls="transactions-panel"
           :aria-selected="tab === item.value"
           @click="tab = item.value"
         >
@@ -472,7 +483,10 @@ watch(
     </div>
 
     <div
+      id="transactions-panel"
       ref="listElement"
+      role="tabpanel"
+      :aria-labelledby="`transactions-tab-${tab}`"
       data-testid="transactions-list"
       class="content app-content transactions-list scroll"
     >
@@ -484,7 +498,13 @@ watch(
       </div>
       <p v-else-if="!bootstrapped" role="status">Loading transactions…</p>
 
-      <NeedsCategoryTab v-else-if="tab === 'needs-category'" />
+      <NeedsCategoryTab
+        v-else-if="tab === 'needs-category'"
+        :coins="coins"
+        :today="today"
+        @count="needsCount = $event"
+        @changed="listStale = true"
+      />
 
       <template v-else>
         <div v-if="summary && !listError" class="num transactions-summary">
