@@ -620,7 +620,11 @@ onMounted(() => void load());
             <span class="field-l">Envelope</span>
             <span
               class="field-v num"
-              :class="{ 'is-empty': transaction.envelopeId === null }"
+              :class="{
+                'is-empty': transaction.envelopeId === null,
+                'is-wrapped': fx,
+              }"
+              data-testid="envelope-value"
               >{{ envelopeText }}</span
             >
           </button>
@@ -855,6 +859,13 @@ onMounted(() => void load());
 .is-empty {
   color: var(--muted);
   font-weight: 400;
+}
+/* The amount it counts as is the point of the row: it wraps, not clips. */
+.is-wrapped {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  padding: 8px 0;
 }
 .transaction-last {
   border-bottom: 0;

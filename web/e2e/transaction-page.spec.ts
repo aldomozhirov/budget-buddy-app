@@ -196,6 +196,17 @@ test('a foreign-currency expense shows what it counts as and keeps a typed value
     ).toHaveText('−$23.39');
     const row = page.getByRole('button', { name: /^Envelope/ });
     await expect(row).toContainText(/Groceries · counts as €\d/u);
+    // The whole value is shown, not cut off with an ellipsis.
+    const value = page.getByTestId('envelope-value');
+    await expect(value).toHaveText(/^Groceries · counts as €\d[\d,]*\.\d\d$/u);
+    await expect(value).toBeVisible();
+    expect(
+      await value.evaluate(
+        (element) =>
+          element.scrollWidth <= element.clientWidth &&
+          element.scrollHeight <= element.clientHeight,
+      ),
+    ).toBe(true);
     await shoot(page, testInfo, 'TransactionFx');
 
     await row.click();
