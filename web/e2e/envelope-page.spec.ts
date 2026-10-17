@@ -322,9 +322,12 @@ test('the month tab adjusts the balance and the cog opens the edit page', async 
       '€312.40 spent of €500.00 · 6 expenses · ',
     );
     await expect(hero).toContainText(' to go');
-    // The expense row names the day, the payer and the account; no link yet.
+    // The expense row names the day, the payer and the account, and opens
+    // the transaction page (task 15).
     await expect(page.getByText('Today · Alena · Joint')).toHaveCount(6);
-    await expect(page.getByRole('link', { name: /REWE/ })).toHaveCount(0);
+    await expect(
+      page.getByRole('link', { name: /REWE/ }).first(),
+    ).toHaveAttribute('href', /\/transactions\/\d+$/u);
 
     if (testInfo.project.name === 'iphone') {
       await page.waitForTimeout(1200);
