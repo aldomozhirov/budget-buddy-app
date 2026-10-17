@@ -144,6 +144,8 @@ describe('sign in again when the app is re-opened', () => {
       ['POST', '/api/transactions'],
       ['GET', '/api/transactions'],
       ['GET', '/api/transactions/facets?facet=member'],
+      ['GET', '/api/transactions/needs-category'],
+      ['POST', '/api/transactions/label'],
       ['GET', '/api/transactions/1'],
       ['PATCH', '/api/transactions/1'],
       ['DELETE', '/api/transactions/1'],
