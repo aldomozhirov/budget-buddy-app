@@ -14,7 +14,7 @@ import {
 } from '../src/offline/addOptions.js';
 import { deviceStore, resetDeviceDatabase } from '../src/offline/db.js';
 import { outbox, type OutboxItem } from '../src/offline/outbox.js';
-import { refreshAuthState } from '../src/stores/auth.js';
+import { authState, refreshAuthState } from '../src/stores/auth.js';
 import { FakeIndexedDb } from './support/fakeIndexedDb.js';
 
 /**
@@ -175,6 +175,23 @@ describe('deleting what the phone keeps', () => {
     await refreshAuthState();
     await new Promise((resolve) => setTimeout(resolve, 20));
     kept();
+  });
+
+  it('refresh when the signed-in profile changes', async () => {
+    const asMax = { ...options, profileId: 2 };
+    const fetch = vi.fn(async () => json(200, asMax));
+    vi.stubGlobal('fetch', fetch);
+    const as = (id: number) =>
+      ({ member: { id, name: 'X' } }) as unknown as typeof authState.value;
+    authState.value = as(1);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    authState.value = as(2);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(storedOptions.value).toEqual(asMax));
+    // A sign-out asks for nothing.
+    authState.value = null;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 
   it('refreshes from the server and keeps the old ones on a failure', async () => {

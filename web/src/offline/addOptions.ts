@@ -1,9 +1,9 @@
-import { shallowRef } from 'vue';
+import { shallowRef, watch } from 'vue';
 import {
   addOptionsResponseSchema,
   type AddOptionsResponse,
 } from '@budget-buddy/shared';
-import { onSessionEnded } from '../stores/auth.js';
+import { authState, onSessionEnded } from '../stores/auth.js';
 import { deviceStore, type RecordStore } from './db.js';
 import { outbox } from './outbox.js';
 
@@ -126,8 +126,22 @@ export async function wipeDeviceData(): Promise<void> {
   ]);
 }
 
-/** Loads the stored options and wipes the phone when a session ends. */
+let started = false;
+
+/**
+ * Loads the stored options, wipes the phone when a session ends, and
+ * refreshes the options when the signed-in profile changes, since their
+ * order and the payer on the offline form belong to the profile.
+ */
 export function startAddOptions(): void {
+  if (started) return;
+  started = true;
   void storedOptionsReady();
   onSessionEnded(() => void wipeDeviceData());
+  watch(
+    () => authState.value?.member?.id ?? null,
+    (id, previous) => {
+      if (id !== null && id !== previous) void refreshAddOptions();
+    },
+  );
 }
