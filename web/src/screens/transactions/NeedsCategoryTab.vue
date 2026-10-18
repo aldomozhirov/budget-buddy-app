@@ -25,11 +25,12 @@ import { dayHeading, money } from './transactionsFormat.js';
 
 /**
  * The "Needs a category" tab of Transactions (CAT-7, UI-TXN-3; O7, O8):
- * expenses and incomes saved without a category, each with its suggestion as
- * a one-tap chip and "Other…" (the Add form's category sheet). Several rows
- * can be ticked and labelled at once, and the last labelling can be undone
- * from a short message. Labelling an expense that has no envelope also gives
- * it the category's default envelope, which the message says.
+ * expenses and incomes saved without a category, with a one-tap chip when a
+ * rule or an earlier use of the merchant gives a suggestion, and "Other…"
+ * (the Add form's category sheet). Several rows can be ticked and labelled
+ * at once, and the last labelling can be undone from a short message.
+ * Labelling an expense that has no envelope also gives it the category's
+ * default envelope, which the message says.
  */
 const props = defineProps<{
   /** The family's own coins, to read the currency of an amount. */
