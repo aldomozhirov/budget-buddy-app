@@ -51,19 +51,21 @@ const json = (status: number, body: unknown) =>
 function fakeServer() {
   const rows = new Map<string, number>();
   let posts = 0;
-  const fetch = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
-    posts += 1;
-    const body = JSON.parse(String(init?.body)) as { clientId: string };
-    // Both tabs' requests are in flight before either is answered.
-    await new Promise((resolve) => setTimeout(resolve, 5));
-    const existing = rows.get(body.clientId);
-    if (existing !== undefined) {
-      return json(200, { transaction: { id: existing } });
-    }
-    const id = rows.size + 1;
-    rows.set(body.clientId, id);
-    return json(201, { transaction: { id }, filled: {} });
-  });
+  const fetch = vi.fn(
+    async (_url: string | URL | Request, init?: RequestInit) => {
+      posts += 1;
+      const body = JSON.parse(String(init?.body)) as { clientId: string };
+      // Both tabs' requests are in flight before either is answered.
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      const existing = rows.get(body.clientId);
+      if (existing !== undefined) {
+        return json(200, { transaction: { id: existing } });
+      }
+      const id = rows.size + 1;
+      rows.set(body.clientId, id);
+      return json(201, { transaction: { id }, filled: {} });
+    },
+  );
   return { rows, fetch, posts: () => posts };
 }
 
@@ -135,12 +137,16 @@ describe('outbox', () => {
   it('keeps an item on 401 unauthenticated until a sign-in', async () => {
     let signedIn = false;
     const server = fakeServer();
-    const fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) =>
-      signedIn
-        ? server.fetch(url, init)
-        : json(401, {
-            error: { code: 'unauthenticated', message: 'Sign in to continue.' },
-          }),
+    const fetch = vi.fn(
+      async (url: string | URL | Request, init?: RequestInit) =>
+        signedIn
+          ? server.fetch(url, init)
+          : json(401, {
+              error: {
+                code: 'unauthenticated',
+                message: 'Sign in to continue.',
+              },
+            }),
     );
     const { outbox } = setup({ fetch });
     await outbox.add(item('a'));
@@ -157,6 +163,46 @@ describe('outbox', () => {
     await outbox.flush();
     expect(outbox.items.value).toEqual([]);
     expect(server.rows.size).toBe(2);
+  });
+
+  it('keeps an item while the session has no profile yet', async () => {
+    let profile = false;
+    const server = fakeServer();
+    const fetch = vi.fn(
+      async (url: string | URL | Request, init?: RequestInit) =>
+        profile
+          ? server.fetch(url, init)
+          : json(403, {
+              error: {
+                code: 'profile_required',
+                message: 'Choose a profile first.',
+              },
+            }),
+    );
+    const { outbox } = setup({ fetch });
+    await outbox.add(item('a'));
+    expect((await outbox.flush()).get('a')).toEqual({
+      kind: 'waiting',
+      reason: 'auth',
+    });
+    expect(outbox.items.value).toEqual([item('a')]);
+
+    profile = true;
+    await outbox.flush();
+    expect(outbox.items.value).toEqual([]);
+    expect(server.rows.size).toBe(1);
+  });
+
+  it('marks any other 403 failed', async () => {
+    const fetch = vi.fn(async () =>
+      json(403, { error: { code: 'forbidden', message: 'Not allowed.' } }),
+    );
+    const { outbox } = setup({ fetch });
+    await outbox.add(item('a'));
+    expect((await outbox.flush()).get('a')).toEqual({
+      kind: 'failed',
+      message: 'Not allowed.',
+    });
   });
 
   it('marks an item failed on a 4xx refusal and never sends it again', async () => {

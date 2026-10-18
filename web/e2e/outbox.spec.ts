@@ -324,3 +324,44 @@ test('Delete takes a refused expense off the phone', async ({ page }) => {
     expect(await outboxRecords(page)).toBe(0);
   });
 });
+
+test('Settings’ sign-out asks too, and clears the phone', async ({ page }) => {
+  await startFamily(page, async (family) => {
+    const eatingOut = await seed(family);
+    await openAdd(page, family);
+    await page.context().setOffline(true);
+    await typeAmount(page, '12');
+    await page
+      .getByRole('radiogroup', { name: 'Envelope' })
+      .getByRole('radio', { name: 'Eating out' })
+      .click();
+    await page.getByRole('button', { name: 'Save €12.00' }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Expense saved on this phone' }),
+    ).toBeVisible();
+    await family.api.patch(`${family.origin}/api/envelopes/${eatingOut}`, {
+      headers: { Origin: family.origin },
+      data: { archived: true },
+    });
+    await page.context().setOffline(false);
+    await page.goto(`${family.origin}/settings`);
+    await expect.poll(() => outboxRecords(page)).toBe(1);
+
+    await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+    const question = page.getByRole('dialog', { name: 'Sign out?' });
+    await expect(question).toContainText(
+      '1 expense hasn’t been sent yet. Signing out deletes it from this phone.',
+    );
+    await question.getByRole('button', { name: 'Keep me signed in' }).click();
+    await expect(question).toHaveCount(0);
+    expect(await outboxRecords(page)).toBe(1);
+
+    await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await page
+      .getByRole('dialog', { name: 'Sign out?' })
+      .getByRole('button', { name: 'Sign out anyway' })
+      .click();
+    await expect(page).toHaveURL(/\/sign-in/);
+    expect(await outboxRecords(page)).toBe(0);
+  });
+});

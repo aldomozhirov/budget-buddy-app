@@ -231,6 +231,8 @@ async function removeItem(): Promise<void> {
   try {
     await outbox.remove(id);
     openItemId.value = null;
+  } catch {
+    // The device store failed; the item stays, and so does its sheet.
   } finally {
     removing.value = false;
   }

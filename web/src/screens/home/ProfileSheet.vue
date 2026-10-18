@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { forgetLastScreen } from '../../session/lock.js';
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { profileResponseSchema, type AuthMember } from '@budget-buddy/shared';
@@ -9,13 +8,9 @@ import BbIcon from '../../components/BbIcon.vue';
 import BbSheet from '../../components/BbSheet.vue';
 import BbSwitch from '../../components/BbSwitch.vue';
 import { deviceName } from '../../device.js';
-import { outbox } from '../../offline/outbox.js';
-import { unsentQuestion } from '../transactions/outboxRows.js';
-import {
-  authState,
-  refreshAuthState,
-  setAuthState,
-} from '../../stores/auth.js';
+import { sendBeforeSignOut, signOutDevice } from '../../offline/signOut.js';
+import SignOutQuestion from './SignOutQuestion.vue';
+import { authState, refreshAuthState } from '../../stores/auth.js';
 
 /**
  * Profile switcher for the signed-in Home avatar, with sign-out. Sign-out
@@ -114,9 +109,9 @@ async function trySignOut(): Promise<void> {
   if (busy.value) return;
   busy.value = true;
   formError.value = '';
-  await outbox.flush().catch(() => undefined);
+  const left = await sendBeforeSignOut();
   busy.value = false;
-  if (outbox.items.value.length > 0) askUnsent.value = true;
+  if (left > 0) askUnsent.value = true;
   else await signOut();
 }
 
@@ -125,16 +120,7 @@ async function signOut(): Promise<void> {
   busy.value = true;
   formError.value = '';
   try {
-    const response = await fetch('/api/auth/sign-out', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({}),
-    });
-    if (!response.ok) throw new Error('Sign-out failed.');
-    // Nothing stays on the phone after a sign-out (D3).
-    await outbox.clear().catch(() => undefined);
-    setAuthState(null);
-    forgetLastScreen();
+    await signOutDevice();
     emit('close');
     await router.replace('/sign-in');
   } catch {
@@ -149,21 +135,12 @@ async function signOut(): Promise<void> {
 
 <template>
   <!-- The question takes the sheet's place, as in the design. -->
-  <BbSheet v-if="askUnsent" title="Sign out?" @close="askUnsent = false">
-    <p class="t-sub profile-sheet-unsent">
-      {{ unsentQuestion(outbox.items.value) }}
-    </p>
-    <BbButton class="profile-sheet-anyway" :disabled="busy" @click="signOut">
-      Sign out anyway
-    </BbButton>
-    <BbButton
-      variant="secondary"
-      class="profile-sheet-keep"
-      @click="askUnsent = false"
-    >
-      Keep me signed in
-    </BbButton>
-  </BbSheet>
+  <SignOutQuestion
+    v-if="askUnsent"
+    :busy="busy"
+    @confirm="signOut"
+    @cancel="askUnsent = false"
+  />
   <BbSheet v-else title="Who’s using the app?" @close="emit('close')">
     <div
       class="card profile-sheet-list"
@@ -235,17 +212,3 @@ async function signOut(): Promise<void> {
     </BbButton>
   </BbSheet>
 </template>
-
-<style scoped>
-.profile-sheet-unsent {
-  margin: 0 0 10px;
-  font-size: 15px;
-}
-.bb .profile-sheet-anyway {
-  background: var(--warn);
-  color: var(--surface);
-}
-.bb .profile-sheet-keep {
-  background: var(--bg);
-}
-</style>

@@ -234,12 +234,20 @@ export async function postTransaction(
   if (response.status === 200 || response.status === 201) {
     return { kind: 'sent', id: idOf(payload), payload };
   }
-  // Locked or signed out: it waits for a sign-in (D2).
-  if (response.status === 401) return { kind: 'waiting', reason: 'auth' };
+  // Locked or signed out: it waits for a sign-in (D2). A session that has
+  // no profile yet waits for one to be chosen; the item is not at fault.
+  if (response.status === 401 || isProfileRequired(response, payload)) {
+    return { kind: 'waiting', reason: 'auth' };
+  }
   if (response.status >= 500 || TRANSIENT.has(response.status)) {
     return { kind: 'waiting', reason: 'server' };
   }
   return { kind: 'failed', message: refusalMessage(payload) };
+}
+
+function isProfileRequired(response: Response, payload: unknown): boolean {
+  const code = (payload as { error?: { code?: string } } | null)?.error?.code;
+  return response.status === 403 && code === 'profile_required';
 }
 
 function idOf(payload: unknown): number | null {
