@@ -402,3 +402,37 @@ test('a locked phone offline shows the limited Home, takes an expense, and sends
     expect(await serverRows(family, 'REWE')).toHaveLength(1);
   });
 });
+
+test.describe('without the worker', () => {
+  test.use({ serviceWorkers: 'block' });
+
+  test('a locked page offline leaves no data on screen when Home’s code is missing', async ({
+    page,
+    context,
+  }) => {
+    await startFamily(page, async (family) => {
+      await seed(family);
+      await page.goto(`${family.origin}/`);
+      await homeStored(page);
+
+      // A new load that never gets Home's code, as a worker still filling its
+      // cache would leave it, opens on Accounts.
+      await context.route('**/assets/HomeScreen-*', (route) => route.abort());
+      await page.clock.install();
+      await page.goto(`${family.origin}/accounts`);
+      await expect(
+        page.getByRole('heading', { name: 'Accounts' }),
+      ).toBeVisible();
+      await expect(page.getByText('Loading accounts…')).toHaveCount(0);
+
+      await hide(page);
+      await context.setOffline(true);
+      await page.clock.fastForward(7 * minute);
+      await setVisibility(page, 'visible');
+      await expect(page.getByRole('heading', { name: 'Accounts' })).toHaveCount(
+        0,
+      );
+      await expect(page.getByText('ING Visa')).toHaveCount(0);
+    });
+  });
+});

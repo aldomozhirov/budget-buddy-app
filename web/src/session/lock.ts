@@ -142,8 +142,12 @@ async function lock(): Promise<void> {
   await storedOptionsReady();
   if (lockedOffline()) {
     // The limited Home, or the Add form that is open, instead of sign-in.
-    if (router.currentRoute.value.path !== '/add') {
-      await router.replace('/').catch(() => undefined);
+    if (router.currentRoute.value.path === '/add') return;
+    await router.replace('/').catch(() => undefined);
+    if (router.currentRoute.value.path !== '/') {
+      // Home's code could not be loaded offline; a full load shows the
+      // cached shell instead of leaving the data on screen.
+      window.location.assign('/');
     }
     return;
   }
@@ -305,9 +309,10 @@ export function installSessionLock(appRouter: Router): void {
       // Every navigation refreshes the state; only a page that was signed out
       // starts over. A running timer and the last-alive mark are left alone.
       if (previous !== null) return;
-      // Sign-in must open without a connection when the app locks, so its
-      // code is loaded while there is one.
+      // Sign-in and Home must open without a connection when the app locks,
+      // so their code is loaded while there is one.
       void import('../screens/sign-in/SignInScreen.vue').catch(() => undefined);
+      void import('../screens/home/HomeScreen.vue').catch(() => undefined);
       lockedHere.value = false;
       awayNow = false;
       lastAliveAt = Date.now();
