@@ -1,6 +1,6 @@
 # Budget Buddy: product requirements
 
-Status: approved by the owner on 2026-10-05. Amended on 2026-10-06 after the prototype review: sign-in with a family password and profiles, the private home screen, and how category and envelope are filled in (section 3, MEM, DSH-1, DSH-4, CAT-1, CAT-5, SET-1, section 11). Amended on 2026-10-15 at the owner's request: the budget plan and the month review, which replace the family's planning spreadsheet and shared note (sections 1, 3, 4.1, 4.5, 4.7, 4.8, TXN-10, DSH-5, NTF-5, PLN, REV, COR-3, QUA-3, sections 8 to 11, appendix C). Specs 1 and 2 are unchanged by it. This document is the input for the `plan` agent. It is not a spec and contains no task list.
+Status: approved by the owner on 2026-10-05. Amended on 2026-10-06 after the prototype review: sign-in with a family password and profiles, the private home screen, and how category and envelope are filled in (section 3, MEM, DSH-1, DSH-4, CAT-1, CAT-5, SET-1, section 11). Amended on 2026-10-15 at the owner's request: the budget plan and the month review, which replace the family's planning spreadsheet and shared note (sections 1, 3, 4.1, 4.5, 4.7, 4.8, TXN-10, DSH-5, NTF-5, PLN, REV, COR-3, QUA-3, sections 8 to 11, appendix C). Specs 1 and 2 are unchanged by it. Amended on 2026-10-18 at the owner's request: "Needs a category" suggests a category only from a rule or an earlier transaction with the same merchant (CAT-7, spec 2 "Done when"). This document is the input for the `plan` agent. It is not a spec and contains no task list.
 
 ## How to use this document
 
@@ -369,7 +369,7 @@ How a record arrives depends on its source:
 - **CAT-4 (Could).** Categories can be merged, and grouped one level deep.
 - **CAT-5 (Must).** While a member enters an expense or an income, a rule that matches the merchant (CAT-6) pre-selects its category and envelope, in fields the member has not set by hand. Otherwise the app offers one-tap category suggestions: the categories used most often with the same merchant, with the chosen envelope, and by this member recently. During entry, category and envelope do not fill each other. On saving, an empty envelope takes the category's default envelope (CAT-1) and an empty category takes the envelope's default category (ENV-1), and the confirmation says what was filled in. The member can change either field or leave it empty; to keep an expense out of every envelope despite a default, the member clears the envelope on the saved transaction.
 - **CAT-6 (Must).** A rule maps a merchant text pattern, optionally limited to one account, to a category and an envelope. When a member sets or changes the category of a transaction that has a merchant, the app offers to save that as a rule. Rules can be listed, edited, ordered and deleted in settings.
-- **CAT-7 (Must).** Transactions without a category are collected in a list for later labelling. Each shows a suggested category that is applied with one tap, and several can be labelled at once.
+- **CAT-7 (Must).** Transactions without a category are collected in a list for later labelling. A row shows a suggested category, applied with one tap, only when a rule or an earlier transaction with the same merchant gives one; CAT-8's model later fills the rest. Several can be labelled at once.
 - **CAT-8 (Must, from spec 4).** When the local model is reachable, it suggests a category for every item that rules and earlier transactions could not label, using the merchant, the note and the receipt content. A model suggestion is applied only when a member accepts it.
 
 ### ENV: envelopes (spec 2)
@@ -605,7 +605,7 @@ Each entry leaves the app usable on its own. Cross-cutting requirements (section
 - **Goal:** replace Goodbudget.
 - **Scope:** TXN, CAT, ENV, DSH-4.
 - **Depends on:** spec 1.
-- **Done when:** the three envelopes exist with the balances taken over from Goodbudget; an expense typed without a connection arrives exactly once after reconnecting; a month change tops up one carry-over envelope and one reset envelope correctly, also when the server was off on the 1st; after that change both envelopes show the closed month's closing balance and whether it stayed within budget; an expense saved with only an amount is listed for labelling with a suggested category.
+- **Done when:** the three envelopes exist with the balances taken over from Goodbudget; an expense typed without a connection arrives exactly once after reconnecting; a month change tops up one carry-over envelope and one reset envelope correctly, also when the server was off on the 1st; after that change both envelopes show the closed month's closing balance and whether it stayed within budget; an expense saved with only an amount is listed for labelling.
 
 ### Spec 3: plan, reconciliation and reports
 

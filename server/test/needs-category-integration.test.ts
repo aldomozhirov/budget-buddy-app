@@ -158,7 +158,7 @@ describe('needs a category', () => {
     };
   }
 
-  it('lists an expense saved with only an amount, with a suggestion, on an empty history', async () => {
+  it('suggests nothing for an expense saved with only an amount', async () => {
     const bare = await expense({});
     const pay = await post('/api/transactions', {
       kind: 'income',
@@ -169,38 +169,30 @@ describe('needs a category', () => {
     expect(body.count).toBe(2);
     expect(body.nextCursor).toBeNull();
     const byId = new Map(body.transactions.map((row) => [row.id, row]));
-    // The first active category of the row's kind (3.6, last step).
-    expect(byId.get(bare)?.suggestion?.categoryName).toBe('Groceries');
-    expect(byId.get(pay)?.suggestion?.categoryName).toBe('Salary');
+    // No merchant: not sure of anything, even with history to count.
+    expect(byId.get(bare)?.suggestion).toBeNull();
+    expect(byId.get(pay)?.suggestion).toBeNull();
     expect(byId.get(bare)).toMatchObject({
       kind: 'expense',
       amount: '1000',
       merchant: null,
     });
-  });
-
-  it('skips archived categories and has none when a kind has no active one', async () => {
-    const bare = await expense({});
-    await call('PATCH', `/api/categories/${category('Groceries')}`, {
-      archived: true,
-    });
-    expect(await suggestionFor(bare)).toBe('Eating out');
-    for (const name of ['Salary', 'Other income']) {
-      await call('PATCH', `/api/categories/${category(name)}`, {
-        archived: true,
+    for (let i = 0; i < 3; i += 1) {
+      await expense({
+        categoryId: category('Groceries'),
+        merchant: `Shop ${i}`,
       });
     }
-    const pay = await post('/api/transactions', {
-      kind: 'income',
-      accountId: joint,
-      amount: '5000',
-    });
-    const row = (await waiting()).transactions.find((item) => item.id === pay);
-    expect(row?.suggestion).toBeNull();
+    expect(await suggestionFor(bare)).toBeUndefined();
   });
 
-  it('follows the chain of 3.6 step by step', async () => {
-    // Shell on the joint account, paid by Alex, into the Treats envelope.
+  it('suggests nothing for a merchant never labelled before', async () => {
+    await expense({ categoryId: category('Transport'), merchant: 'Metro' });
+    const fresh = await expense({ merchant: 'Kiosk' });
+    expect(await suggestionFor(fresh)).toBeUndefined();
+  });
+
+  it('does not suggest the default category of the envelope', async () => {
     const treats = await post('/api/envelopes', {
       name: 'Treats',
       currency: 'EUR',
@@ -209,77 +201,68 @@ describe('needs a category', () => {
       defaultCategoryId: category('Leisure'),
     });
     // Saving with an envelope would fill the category, so attach it after.
-    const target = await expense({ merchant: 'Shell', date: '2026-10-14' });
+    const target = await expense({ merchant: 'Cinema' });
     await call('PATCH', `/api/transactions/${target}`, { envelopeId: treats });
-    // 6. Nothing to go on but the list: the first active category.
-    // (Its envelope's default is step 3, so use a row without an envelope.)
-    const plain = await expense({ merchant: 'Kiosk', date: '2026-10-14' });
-    expect(await suggestionFor(plain)).toBe('Groceries');
+    expect(await suggestionFor(target)).toBeUndefined();
+  });
 
-    // 5. The family's most used in the last 90 days.
-    for (let i = 0; i < 3; i += 1) {
-      await expense({
-        accountId: cash,
-        memberId: 2,
-        categoryId: category('Transport'),
-        merchant: `Other ${i}`,
-      });
-    }
-    await expense({
-      accountId: cash,
-      memberId: 2,
-      categoryId: category('Health'),
-      merchant: 'Pharmacy',
-    });
-    expect(await suggestionFor(plain)).toBe('Transport');
-
-    // An old one is outside the window and counts for nothing.
-    for (let i = 0; i < 5; i += 1) {
-      await expense({
-        accountId: cash,
-        date: '2026-04-01',
-        categoryId: category('Shopping'),
-        merchant: `Old ${i}`,
-      });
-    }
-    expect(await suggestionFor(plain)).toBe('Transport');
-
-    // 4. The payer's most used on that account beats the family's.
-    for (let i = 0; i < 2; i += 1) {
-      await expense({
-        categoryId: category('Eating out'),
-        merchant: `Lunch ${i}`,
-      });
-    }
-    expect(await suggestionFor(plain)).toBe('Eating out');
-
-    // 3. The default category of its envelope beats the payer's habit.
-    expect(await suggestionFor(target)).toBe('Leisure');
-
-    // 2. The same merchant key (case and spaces folded) beats that.
-    await expense({
-      merchant: '  SHELL ',
-      categoryId: category('Travel'),
-      accountId: cash,
-    });
-    expect(await suggestionFor(target)).toBe('Travel');
-
-    // 1. A rule beats the history.
+  it('suggests the category a rule gives', async () => {
+    const shell = await expense({ merchant: 'Shell' });
     await post('/api/rules', {
       pattern: 'shell, esso',
+      categoryId: category('Transport'),
+    });
+    expect(await suggestionFor(shell)).toBe('Transport');
+
+    // A rule limited to another account does not match.
+    const limited = await expense({ merchant: 'Lidl' });
+    await post('/api/rules', {
+      pattern: 'lidl',
+      categoryId: category('Groceries'),
+      accountId: cash,
+    });
+    expect(await suggestionFor(limited)).toBeUndefined();
+  });
+
+  it('suggests the category most used with the same merchant key', async () => {
+    const target = await expense({ merchant: 'Shell', date: '2026-10-14' });
+    // The same key with other case and spaces; the rule-less history wins.
+    for (const [merchant, name] of [
+      ['  SHELL ', 'Travel'],
+      ['shell', 'Travel'],
+      ['Shell', 'Transport'],
+    ] as const) {
+      await expense({ merchant, categoryId: category(name), accountId: cash });
+    }
+    // Other merchants, however common, do not count.
+    for (let i = 0; i < 4; i += 1) {
+      await expense({
+        merchant: `Other ${i}`,
+        categoryId: category('Health'),
+      });
+    }
+    expect(await suggestionFor(target)).toBe('Travel');
+
+    // A rule beats the history.
+    await post('/api/rules', {
+      pattern: 'shell',
       categoryId: category('Fees and taxes'),
     });
     expect(await suggestionFor(target)).toBe('Fees and taxes');
+  });
 
-    // A rule limited to another account does not match.
-    const limited = await expense({ merchant: 'Esso', date: '2026-10-14' });
-    await post('/api/rules', {
-      pattern: 'esso',
-      categoryId: category('Gifts'),
+  it('proposes only active categories of the row kind', async () => {
+    const target = await expense({ merchant: 'Shell' });
+    await expense({
+      merchant: 'Shell',
+      categoryId: category('Transport'),
       accountId: cash,
-      placement: 'first',
     });
-    expect(await suggestionFor(limited)).toBe('Fees and taxes');
+    expect(await suggestionFor(target)).toBe('Transport');
+    await call('PATCH', `/api/categories/${category('Transport')}`, {
+      archived: true,
+    });
+    expect(await suggestionFor(target)).toBeUndefined();
   });
 
   it('counts confirmed transactions only and leaves out transfers', async () => {
@@ -320,7 +303,7 @@ describe('needs a category', () => {
     const body = await waiting();
     expect(body.count).toBe(1);
     expect(body.transactions.map((row) => row.id)).toEqual([plain]);
-    expect(await suggestionFor(plain)).toBe('Groceries');
+    expect(await suggestionFor(plain)).toBeUndefined();
   });
 
   it('pages by date and id, fifty at a time, with the whole count', async () => {

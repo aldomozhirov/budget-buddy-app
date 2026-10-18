@@ -20,7 +20,7 @@ export const categorySuggestionSchema = z.object({
   categoryName: z.string(),
 });
 
-/** One expense or income that waits for a category, with its suggestion. */
+/** One expense or income that waits for a category, maybe with a suggestion. */
 export const needsCategoryRowSchema = z.object({
   id: idSchema,
   kind: z.enum(['expense', 'income']),
@@ -33,7 +33,7 @@ export const needsCategoryRowSchema = z.object({
   memberId: idSchema,
   memberName: z.string(),
   merchant: z.string().nullable(),
-  /** Null only when no active category of the kind exists. */
+  /** Null unless a rule or an earlier use of the merchant gives one. */
   suggestion: categorySuggestionSchema.nullable(),
 });
 

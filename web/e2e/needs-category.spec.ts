@@ -29,9 +29,9 @@ function daysBefore(today: string, days: number): string {
 /**
  * Alena and Max, three accounts, the starter categories and a Groceries
  * envelope that is Groceries' default. Earlier labelled expenses give the
- * suggestions: Spotify and Shell by merchant, Cash € by the payer. Three
- * expenses of the design wait (Spotify, Shell and one without a merchant),
- * and "Edeka" waits with a merchant that points to Groceries.
+ * suggestions: Spotify and Shell by merchant. Three expenses of the design
+ * wait (Spotify, Shell and one without a merchant, which gets no
+ * suggestion), and "Edeka" waits with a merchant that points to Groceries.
  */
 async function seed(family: Family): Promise<Seeded> {
   const settings = (await (
@@ -97,6 +97,7 @@ async function seed(family: Family): Promise<Seeded> {
     merchant: 'Shell',
     categoryId: ids['category Transport'],
   });
+  // Payer history on the account: it must not suggest for the bare row.
   await add({
     accountId: ids['Cash €'],
     memberId: ids.Max,
@@ -152,7 +153,7 @@ async function transaction(family: Family, id: number) {
   };
 }
 
-test('the tab lists what waits, each with its suggestion and Other…', async ({
+test('the tab lists what waits, with a suggestion where one is sure and Other…', async ({
   page,
 }, testInfo) => {
   await startFamily(page, async (family) => {
@@ -173,13 +174,50 @@ test('the tab lists what waits, each with its suggestion and Other…', async ({
     await expect(page.getByText('No merchant')).toBeVisible();
     await expect(page.getByText('−€4.50')).toBeVisible();
     await expect(page.getByText(/ · Cash € · Max$/u)).toBeVisible();
-    for (const category of ['Subscriptions', 'Transport', 'Eating out']) {
+    for (const category of ['Subscriptions', 'Transport']) {
       await expect(page.getByRole('button', { name: category })).toBeVisible();
     }
+    // The row without a merchant has no chip, only Other….
+    await expect(page.getByRole('button', { name: 'Eating out' })).toHaveCount(
+      0,
+    );
     await expect(page.getByRole('button', { name: 'Other…' })).toHaveCount(3);
     await expect(page.getByRole('button', { name: /^Apply/u })).toHaveCount(0);
     await expectNoSidewaysScroll(page, 'Needs a category');
     await shoot(page, testInfo, 'ToLabel');
+  });
+});
+
+test('an expense saved with only an amount has no suggestion, and Other… labels it', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    const { waiting, ids } = await seed(family);
+    await openTab(page, family);
+
+    // The row is ticked alone: nothing to apply, so the button is disabled.
+    await page.getByRole('button', { name: 'Select No merchant' }).click();
+    await expect(
+      page.getByText('1 selected has no suggestion. Use Other… on it.'),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Apply suggestions', exact: true }),
+    ).toBeDisabled();
+    await page.getByRole('button', { name: 'Select No merchant' }).click();
+    await expect(page.getByText(/no suggestion/u)).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Other…' }).nth(2).click();
+    await page
+      .getByRole('dialog', { name: 'Category' })
+      .getByRole('radio', { name: 'Health' })
+      .click();
+    await expect(page.getByText('No merchant → Health')).toBeVisible();
+    expect(
+      (await transaction(family, waiting.bare)).transaction.categoryId,
+    ).toBe(ids['category Health']);
+    await expect(
+      page.getByRole('tab', { name: 'Needs a category · 2' }),
+    ).toBeVisible();
   });
 });
 
@@ -260,23 +298,34 @@ test('ticked rows are labelled together and Undo brings all of them back', async
     await expect(
       page.getByRole('button', { name: 'Select Shell' }),
     ).toHaveAttribute('aria-pressed', 'true');
+    // The row without a suggestion is ticked but not counted.
     const apply = page.getByRole('button', {
-      name: 'Apply suggestions to 3 selected',
+      name: 'Apply suggestions to 2 selected',
     });
     await expect(apply).toBeVisible();
+    await expect(
+      page.getByText('1 selected has no suggestion. Use Other… on it.'),
+    ).toBeVisible();
     await shoot(page, testInfo, 'ToLabel-selected');
 
     await apply.click();
-    await expect(page.getByText('3 expenses labelled')).toBeVisible();
-    await expect(page.getByText('Everything is labelled')).toBeVisible();
+    await expect(page.getByText('2 expenses labelled')).toBeVisible();
     await expect(
-      page.getByRole('tab', { name: 'Needs a category · 0' }),
+      page.getByRole('tab', { name: 'Needs a category · 1' }),
     ).toBeVisible();
-    await expect(apply).toHaveCount(0);
+    // The row without a suggestion stays, still ticked, and cannot apply.
+    await expect(
+      page.getByRole('button', { name: 'Select No merchant' }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    await expect(
+      page.getByRole('button', { name: 'Apply suggestions', exact: true }),
+    ).toBeDisabled();
+    expect(
+      (await transaction(family, waiting.bare)).transaction.categoryId,
+    ).toBeNull();
     await shoot(page, testInfo, 'ToLabel-applied');
 
     await page.getByRole('button', { name: 'Undo' }).click();
-    await expect(page.getByText('Everything is labelled')).toHaveCount(0);
     for (const name of ['PayPal *Spotify', 'Shell', 'No merchant']) {
       await expect(
         page.getByRole('button', { name: `Select ${name}` }),
@@ -370,9 +419,18 @@ test('the All list reloads after labelling, and an empty tab says so', async ({
     await expect(page.getByTestId('transaction-row').first()).toBeVisible();
     await expect(page.getByText(/^No category · ING Visa/u)).toBeVisible();
     await page.getByRole('tab', { name: 'Needs a category · 3' }).click();
-    for (const name of ['Subscriptions', 'Transport', 'Eating out']) {
+    for (const name of ['Subscriptions', 'Transport']) {
       await page.getByRole('button', { name }).click();
     }
+    await expect(
+      page.getByRole('tab', { name: 'Needs a category · 1' }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Other…' }).click();
+    await page
+      .getByRole('dialog', { name: 'Category' })
+      .getByRole('radio', { name: 'Eating out' })
+      .last()
+      .click();
     await expect(page.getByText('Everything is labelled')).toBeVisible();
     await page.getByRole('tab', { name: 'All' }).click();
     await expect(page.getByTestId('transaction-row').first()).toBeVisible();
@@ -412,6 +470,10 @@ test('a failed next page keeps the rows and retries', async ({ page }) => {
         date: '2026-01-01',
       });
     }
+    await create(family, '/api/rules', {
+      pattern: 'bulk',
+      categoryId: ids['category Transport'],
+    });
     let failures = 1;
     await page.route(/needs-category\?cursor=/u, (route) =>
       failures-- > 0 ? route.abort('failed') : route.continue(),
@@ -458,6 +520,10 @@ test('no "Everything is labelled" while the next page is still to come', async (
         date: '2026-01-01',
       });
     }
+    await create(family, '/api/rules', {
+      pattern: 'bulk',
+      categoryId: ids['category Transport'],
+    });
     let release = (): void => undefined;
     const held = new Promise<void>((resolve) => {
       release = resolve;
@@ -470,15 +536,16 @@ test('no "Everything is labelled" while the next page is still to come', async (
     const selects = page.getByRole('button', { name: /^Select / });
     await expect(selects).toHaveCount(50);
     for (let i = 0; i < 50; i += 1) await selects.nth(i).click();
+    // The row without a merchant has no suggestion, so 49 are applied.
     await page
-      .getByRole('button', { name: 'Apply suggestions to 50 selected' })
+      .getByRole('button', { name: 'Apply suggestions to 49 selected' })
       .click();
 
-    // Every loaded row is labelled, but four more wait on the server.
-    await expect(page.getByText('50 expenses labelled')).toBeVisible();
+    // Every suggested row is labelled; four more wait on the server.
+    await expect(page.getByText('49 expenses labelled')).toBeVisible();
     await expect(page.getByText('Everything is labelled')).toHaveCount(0);
     release();
-    await expect(selects).toHaveCount(4);
+    await expect(selects).toHaveCount(5);
     await expect(page.getByText('Everything is labelled')).toHaveCount(0);
   });
 });

@@ -106,11 +106,16 @@ const lines = computed(() =>
     };
   }),
 );
-const ticked = computed(
-  () =>
-    rows.value.filter((row) => selected.value.has(row.id) && row.suggestion)
-      .length,
+const chosen = computed(() =>
+  rows.value.filter((row) => selected.value.has(row.id)),
 );
+/** Ticked rows that have a suggestion; only these are applied together. */
+const ticked = computed(
+  () => chosen.value.filter((row) => row.suggestion).length,
+);
+/** Ticked rows without a suggestion, which "Other…" labels one by one. */
+const unsuggested = computed(() => chosen.value.length - ticked.value);
+const anySuggestion = computed(() => rows.value.some((row) => row.suggestion));
 const sheetCategories = computed(() =>
   categories.value
     .filter((category) => category.kind === sheetRow.value?.kind)
@@ -414,8 +419,12 @@ watch(
 
     <template v-else>
       <p v-if="rows.length" class="t-sub needs-intro">
-        These were saved without a category. Tap a suggestion, or tick several
-        and apply all.
+        These were saved without a category.
+        {{
+          anySuggestion
+            ? 'Tap a suggestion, or tick several and apply all.'
+            : 'Tap Other… to choose one.'
+        }}
       </p>
       <BbListCard v-if="rows.length" label="Waiting for a category">
         <div v-for="line in lines" :key="line.row.id" class="needs-item">
@@ -504,10 +513,22 @@ watch(
         </button>
       </div>
 
-      <div v-if="ticked > 0" class="needs-bar">
-        <BbButton :disabled="busy" needs-server @click="applySelected">
-          Apply suggestions to {{ ticked }} selected
+      <div v-if="chosen.length > 0" class="needs-bar">
+        <BbButton
+          :disabled="busy || ticked === 0"
+          needs-server
+          @click="applySelected"
+        >
+          {{
+            ticked > 0
+              ? `Apply suggestions to ${ticked} selected`
+              : 'Apply suggestions'
+          }}
         </BbButton>
+        <p v-if="unsuggested > 0" class="t-sub needs-bar-note">
+          {{ unsuggested }} selected {{ unsuggested === 1 ? 'has' : 'have' }} no
+          suggestion. Use Other… on {{ unsuggested === 1 ? 'it' : 'each' }}.
+        </p>
       </div>
     </template>
 
@@ -632,6 +653,10 @@ watch(
   padding: 0 8px;
   font-weight: 600;
   color: var(--on-ink);
+}
+.needs-bar-note {
+  margin: 8px 0 0;
+  text-align: center;
 }
 .needs-bar {
   position: sticky;

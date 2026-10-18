@@ -156,49 +156,27 @@ export interface UncategorisedRow {
   kind: 'expense' | 'income';
   merchant: string | null;
   accountId: number;
-  /** The payer. */
-  memberId: number;
-  envelopeId: number | null;
 }
 
 /**
  * Makes the function that proposes one category for a transaction without
- * one (CAT-7; Design 3.6, O8): a rule matching its merchant and account,
- * else the category most used with the same merchant key, else the default
- * category of its envelope, else the payer's most used on that account in
- * the last 90 days, else the family's most used in the last 90 days, else
- * the first active category of its kind. Only active categories of the
- * row's kind are proposed, so every row gets one while any exists. Counts
- * are read once per merchant key, payer and account, so a page of rows
- * costs a few queries.
+ * one (CAT-7; Design 3.6, O8), or null when it is not sure: a rule matching
+ * its merchant and account, else the category most used with the same
+ * merchant key. Only active categories of the row's kind are proposed. A row
+ * without a merchant, or with a merchant never labelled before, gets none.
+ * Counts are read once per merchant key, so a page of rows costs a few
+ * queries.
  */
 export function createRowSuggester(
   database: Database.Database,
-  context: { today: string; timeZone: string },
 ): (row: UncategorisedRow) => number | null {
   const active = activeCategories(database);
-  const since = recentSince(context.today, context.timeZone);
   const ofKind = {
     expense: active.filter((c) => c.kind === 'expense').map((c) => c.id),
     income: active.filter((c) => c.kind === 'income').map((c) => c.id),
   };
   const counts = new Map<string, Map<number, number>>();
-  const counted = (
-    key: string,
-    where: string,
-    params: (string | number)[],
-  ): Map<number, number> => {
-    let found = counts.get(key);
-    if (!found) {
-      found = categoryCounts(database, where, params);
-      counts.set(key, found);
-    }
-    return found;
-  };
   let rules: ReturnType<typeof loadRules> | undefined;
-  const envelopeDefault = database.prepare(
-    'SELECT default_category_id AS id FROM envelope WHERE id = ?',
-  );
 
   return (row) => {
     const candidates = ofKind[row.kind];
@@ -212,30 +190,13 @@ export function createRowSuggester(
       }
     }
     const key = merchantKey(merchant);
-    if (key !== '') {
-      const used = byCount(
-        candidates,
-        counted(`m:${key}`, 't.merchant_key = ?', [key]),
-      );
-      if (used[0] !== undefined) return used[0];
+    if (key === '') return null;
+    let found = counts.get(key);
+    if (!found) {
+      found = categoryCounts(database, 't.merchant_key = ?', [key]);
+      counts.set(key, found);
     }
-    if (row.envelopeId !== null) {
-      const fromEnvelope = envelopeDefault.get(row.envelopeId) as
-        { id: bigint | null } | undefined;
-      const id = fromEnvelope?.id ?? null;
-      if (id !== null && candidates.includes(Number(id))) return Number(id);
-    }
-    const own = byCount(
-      candidates,
-      counted(
-        `p:${row.memberId}:${row.accountId}`,
-        't.member_id = ? AND t.account_id = ? AND t.date >= ?',
-        [row.memberId, row.accountId, since],
-      ),
-    );
-    if (own[0] !== undefined) return own[0];
-    const family = byCount(candidates, counted('f', 't.date >= ?', [since]));
-    return family[0] ?? candidates[0] ?? null;
+    return byCount(candidates, found)[0] ?? null;
   };
 }
 
