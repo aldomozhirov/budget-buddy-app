@@ -33,8 +33,9 @@ import {
 /**
  * Home: greeting, the eye button, the open check-in banner, the Income,
  * Transfer and Check-in tiles, the "Waiting to send" card (UI-HOME-8), this
- * month's envelopes card, "Needs a category", the Family wealth card, the "Everything" grid and the sticky
- * "Add expense" button (UI-HOME-1 to 6, DSH-4, D2).
+ * month's envelopes card, "Needs a category", the Family wealth card, the
+ * "Everything" grid and the sticky "Add expense" button (UI-HOME-1 to 6,
+ * DSH-4, D2).
  * Amounts are hidden whenever the screen opens, unless this device's setting
  * says otherwise; the eye shows them for 30 s, counting the seconds down in
  * the note. Nothing here stores whether they are visible.

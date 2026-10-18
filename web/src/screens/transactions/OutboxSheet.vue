@@ -15,10 +15,13 @@ import { outboxTag, typedInText } from './outboxRows.js';
  * message and a hint. "Delete" takes it off the phone, "Keep it" closes.
  */
 const props = defineProps<{
+  /** The item shown. */
   item: OutboxItem;
+  /** The family's own coins, to read the currency of the amount. */
   coins: readonly CoinCurrency[];
   /** `YYYY-MM-DD` in the family time zone. */
   today: string;
+  /** The family time zone, for when it was typed. */
   timeZone: string;
   /** A delete is under way. */
   busy: boolean;
