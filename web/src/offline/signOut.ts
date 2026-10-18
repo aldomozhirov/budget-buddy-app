@@ -1,5 +1,6 @@
 import { forgetLastScreen } from '../session/lock.js';
 import { setAuthState } from '../stores/auth.js';
+import { wipeDeviceData } from './addOptions.js';
 import { outbox } from './outbox.js';
 
 /**
@@ -26,8 +27,9 @@ export async function sendBeforeSignOut(): Promise<number> {
 }
 
 /**
- * Ends the session on the server, then deletes the outbox, since nothing
- * stays on the phone after a sign-out (D3), and forgets the session here.
+ * Ends the session on the server, then deletes the outbox and the stored
+ * options, since nothing stays on the phone after a sign-out (D3), and
+ * forgets the session here.
  * @throws when the server cannot be reached or refuses.
  */
 export async function signOutDevice(): Promise<void> {
@@ -37,7 +39,7 @@ export async function signOutDevice(): Promise<void> {
     body: JSON.stringify({}),
   });
   if (!response.ok) throw new Error('Sign-out failed.');
-  await outbox.clear().catch(() => undefined);
+  await wipeDeviceData();
   setAuthState(null);
   forgetLastScreen();
 }

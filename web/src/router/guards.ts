@@ -1,6 +1,7 @@
 import type { Router } from 'vue-router';
 import { isOnline } from '../composables/useOnline.js';
-import { lockedHere, signInLocation } from '../session/lock.js';
+import { storedOptionsReady } from '../offline/addOptions.js';
+import { lockedHere, lockedOffline, signInLocation } from '../session/lock.js';
 import { refreshAuthState } from '../stores/auth.js';
 
 let setupNeeded: boolean | undefined;
@@ -27,6 +28,13 @@ export function installRouteGuards(router: Router): void {
 
     // A page that decided the device is locked (offline, where the server
     // cannot be asked) opens nothing but sign-in, also for a notification tap.
+    // With the add options on the phone and no connection it opens the
+    // limited Home instead, and the Add form (UI-HOME-7, Design 4).
+    if (lockedHere.value) await storedOptionsReady();
+    if (lockedOffline()) {
+      if (to.path === '/' || to.path === '/add') return;
+      return { path: '/' };
+    }
     if (lockedHere.value && to.path !== '/sign-in') {
       return signInLocation(to.fullPath);
     }

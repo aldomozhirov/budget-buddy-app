@@ -66,6 +66,23 @@ export function typedInText(
 }
 
 /**
+ * The line under an item's name on the limited Home: "Expense · today,
+ * 12:04". It has no amount, which stays on the phone (UI-HOME-7).
+ */
+export function waitingRowSub(
+  item: OutboxItem,
+  today: string,
+  timeZone: string,
+): string {
+  const kind = item.body.kind;
+  const word = kind.charAt(0).toLocaleUpperCase() + kind.slice(1);
+  const typed = typedInText(item, today, timeZone).replace(/ by .*$/u, '');
+  const [day = '', time = ''] = typed.split(', ');
+  const lower = day === 'Today' ? 'today' : day;
+  return `${word} · ${lower}, ${time}`;
+}
+
+/**
  * The line under "Waiting to send · N" on Home: why to open it when some
  * were refused, else that the rest sends itself.
  */

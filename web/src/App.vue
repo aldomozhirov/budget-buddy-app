@@ -3,6 +3,7 @@ import { RouterView } from 'vue-router';
 import OfflineNote from './components/OfflineNote.vue';
 import { isOnline } from './composables/useOnline';
 import { screenTransitionClass } from './router';
+import { limitedHomeShown } from './screens/home/dateLine';
 
 /** Routed app shell that retains the prior screen during navigation. */
 defineOptions({ name: 'AppShell' });
@@ -94,8 +95,12 @@ function onScreenLeave(element: Element, done: () => void) {
       v-if="route.name === 'ComponentsGallery'"
       :key="route.fullPath"
     />
-    <div v-else class="bb app-shell" :class="{ 'is-offline': !isOnline }">
-      <OfflineNote v-if="!isOnline" />
+    <div
+      v-else
+      class="bb app-shell"
+      :class="{ 'is-offline': !isOnline && !limitedHomeShown }"
+    >
+      <OfflineNote v-if="!isOnline && !limitedHomeShown" />
       <div class="app-view">
         <Transition
           :css="false"

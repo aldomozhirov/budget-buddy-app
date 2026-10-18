@@ -6,6 +6,8 @@ import {
   presencePath,
   reopenLockAfterMs,
 } from '@budget-buddy/shared';
+import { isOnline } from '../composables/useOnline.js';
+import { storedOptions, storedOptionsReady } from '../offline/addOptions.js';
 import { isAppPath } from '../push/payload.js';
 import {
   authState,
@@ -30,6 +32,15 @@ const lastScreenKey = 'bb.lastScreen';
  * Route guards read it, because offline the server cannot be asked.
  */
 export const lockedHere = ref(false);
+
+/**
+ * Whether a locked device shows the limited Home instead of sign-in: it has
+ * no connection, so nothing can be confirmed, and the add options are on
+ * the phone for the Add form (Design 4, UI-HOME-7).
+ */
+export function lockedOffline(): boolean {
+  return lockedHere.value && !isOnline.value && storedOptions.value !== null;
+}
 
 let router: Router | undefined;
 let timer: ReturnType<typeof setInterval> | undefined;
@@ -128,6 +139,18 @@ async function lock(): Promise<void> {
   lockedHere.value = true;
   signInReason.value = 'locked';
   setAuthState(null);
+  await storedOptionsReady();
+  if (lockedOffline()) {
+    // The limited Home, or the Add form that is open, instead of sign-in.
+    if (router.currentRoute.value.path === '/add') return;
+    await router.replace('/').catch(() => undefined);
+    if (router.currentRoute.value.path !== '/') {
+      // Home's code could not be loaded offline; a full load shows the
+      // cached shell instead of leaving the data on screen.
+      window.location.assign('/');
+    }
+    return;
+  }
   const location = signInLocation(here);
   await router.replace(location).catch(() => undefined);
   if (router.currentRoute.value.path !== '/sign-in') {
@@ -246,6 +269,18 @@ function onVisible(): void {
 }
 
 /**
+ * When the connection returns to a locked device that shows the limited
+ * Home, it goes to sign-in, as it would have without the limited Home. The
+ * Add form stays open so nothing typed is lost; saving leaves it.
+ */
+function leaveLimitedHome(): void {
+  if (!router || !lockedHere.value) return;
+  const here = router.currentRoute.value;
+  if (here.path === '/sign-in' || here.path === '/add') return;
+  void router.replace(signInLocation(here.fullPath)).catch(() => undefined);
+}
+
+/**
  * Starts the presence calls of a signed-in page: every 30 s while visible,
  * on leaving and returning to the foreground, and when the connection comes
  * back. Call once, after the router exists.
@@ -262,6 +297,7 @@ export function installSessionLock(appRouter: Router): void {
   });
   window.addEventListener('online', () => {
     if (document.visibilityState === 'visible') tick();
+    leaveLimitedHome();
   });
   watch(
     authState,
@@ -273,9 +309,10 @@ export function installSessionLock(appRouter: Router): void {
       // Every navigation refreshes the state; only a page that was signed out
       // starts over. A running timer and the last-alive mark are left alone.
       if (previous !== null) return;
-      // Sign-in must open without a connection when the app locks, so its
-      // code is loaded while there is one.
+      // Sign-in and Home must open without a connection when the app locks,
+      // so their code is loaded while there is one.
       void import('../screens/sign-in/SignInScreen.vue').catch(() => undefined);
+      void import('../screens/home/HomeScreen.vue').catch(() => undefined);
       lockedHere.value = false;
       awayNow = false;
       lastAliveAt = Date.now();

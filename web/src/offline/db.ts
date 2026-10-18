@@ -8,15 +8,15 @@
 export const DB_NAME = 'budget-buddy';
 
 /** Schema version; a new store raises it and is created on upgrade. */
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 /** The object stores and their key paths. */
-export const STORES = { outbox: 'clientId' } as const;
+export const STORES = { outbox: 'clientId', addOptions: 'key' } as const;
 
 /** Name of an object store of the device database. */
 export type StoreName = keyof typeof STORES;
 
-/** A key-value store of whole records, as the outbox needs it. */
+/** A key-value store of whole records, as the outbox and options need it. */
 export interface RecordStore<T> {
   /** Every record, in key order. */
   getAll(): Promise<T[]>;

@@ -33,6 +33,11 @@ import { ApiError, callApi } from '../../api/callApi.js';
 import { useBack } from '../../composables/useBack.js';
 import { isOnline } from '../../composables/useOnline.js';
 import {
+  storeAddOptions,
+  storedOptions,
+  storedOptionsReady,
+} from '../../offline/addOptions.js';
+import {
   outbox,
   postTransaction,
   type OutboxItem,
@@ -617,15 +622,36 @@ function resetForm(): void {
   pending = null;
 }
 
-async function load(): Promise<void> {
-  loading.value = true;
-  loadError.value = '';
+/**
+ * The options for the form: the server's, which are then kept on the phone,
+ * or those already on the phone when there is no connection (Design 4).
+ */
+async function fetchOptions(): Promise<AddOptionsResponse> {
+  await storedOptionsReady();
+  const stored = storedOptions.value;
+  // A copy: adding a category online changes the form's list, not the store.
+  if (!isOnline.value && stored) return { ...stored };
   try {
     const data = await callApi(
       'GET',
       '/api/add-options',
       addOptionsResponseSchema,
     );
+    void storeAddOptions(data);
+    return data;
+  } catch (cause) {
+    if (stored && cause instanceof ApiError && cause.status === 0) {
+      return { ...stored };
+    }
+    throw cause;
+  }
+}
+
+async function load(): Promise<void> {
+  loading.value = true;
+  loadError.value = '';
+  try {
+    const data = await fetchOptions();
     options.value = data;
     accountId.value = data.accounts[0]?.id ?? null;
     toAccountId.value = null;
