@@ -15,8 +15,10 @@ export type AuthRequirement = 'open' | 'session' | 'profile';
 /**
  * Whether a route lets the plugin refuse a locked session (SEC-9). Only the
  * presence call decides for itself, since it is how a session stays unlocked.
+ * `add` lets a session locked by time away only add a transaction (spec 2
+ * D2), so an expense typed offline is sent before the next sign-in.
  */
-export type LockCheck = 'enforce' | 'self';
+export type LockCheck = 'enforce' | 'self' | 'add';
 
 /** Authenticated session and optional active profile attached to a request. */
 export type AuthContext = {
@@ -28,6 +30,11 @@ export type AuthContext = {
   hasPasskey: boolean;
   /** Whether this device asks to sign in again when reopened (MEM-7). */
   lockOnReopen: boolean;
+  /**
+   * Whether the session is locked by time away and was let through by a
+   * `lockCheck: 'add'` route, which must then answer with the new id only.
+   */
+  locked: boolean;
 };
 
 declare module 'fastify' {
@@ -125,7 +132,12 @@ export async function installSessionPlugin(
       row.foreground_at,
       now,
     );
-    if (lapsed && request.routeOptions.config.lockCheck !== 'self') {
+    const lockCheck = request.routeOptions.config.lockCheck;
+    // The add-only exception (spec 2 D2) needs a profile to add as, and it
+    // neither marks nor refreshes the session: a sign-in is still needed.
+    const addWhileLocked =
+      lapsed && lockCheck === 'add' && row.member_id !== null;
+    if (lapsed && lockCheck !== 'self' && !addWhileLocked) {
       markSessionLocked(options.database, Number(row.session_id));
       return sendSessionLocked(reply);
     }
@@ -163,8 +175,11 @@ export async function installSessionPlugin(
         row.default_member_id === null ? null : Number(row.default_member_id),
       hasPasskey: row.has_passkey === 1n,
       lockOnReopen: row.lock_on_reopen === 1n,
+      locked: addWhileLocked,
     };
 
+    // Refreshed cookies would extend a locked session in the browser.
+    if (addWhileLocked) return;
     setSessionCookies(reply, {
       deviceId: deviceCookie,
       sessionToken,

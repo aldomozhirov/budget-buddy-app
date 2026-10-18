@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
-import type { LightMyRequestResponse } from 'fastify';
+import type { InjectOptions, LightMyRequestResponse } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   presenceIntervalMs,
@@ -12,6 +12,7 @@ import {
 } from '@budget-buddy/shared';
 import { createApp } from '../src/app.js';
 import { migrateDatabase } from '../src/db/migrate.js';
+import { apiRouteTable, openRoutes } from './routeTable.js';
 
 /**
  * Sign in again when the app is re-opened (MEM-7, SEC-9): the server locks a
@@ -75,12 +76,12 @@ describe('sign in again when the app is re-opened', () => {
 
   function call(
     cookie: string,
-    method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
+    method: string,
     url: string,
     payload?: object,
   ): Promise<LightMyRequestResponse> {
     return app.inject({
-      method,
+      method: method as NonNullable<InjectOptions['method']>,
       url,
       headers: { ...jsonHeaders, cookie },
       ...(payload === undefined ? {} : { payload }),
@@ -140,8 +141,6 @@ describe('sign in again when the app is re-opened', () => {
       ['PATCH', '/api/rules/1'],
       ['PUT', '/api/rules/order'],
       ['DELETE', '/api/rules/1'],
-      // The locked exception of spec 2 Design 4 waits for task 17.
-      ['POST', '/api/transactions'],
       ['GET', '/api/transactions'],
       ['GET', '/api/transactions/facets?facet=member'],
       ['GET', '/api/transactions/needs-category'],
@@ -159,6 +158,142 @@ describe('sign in again when the app is re-opened', () => {
       expect(response.statusCode, `${method} ${url}`).toBe(401);
       expect(response.json().error.code).toBe('session_locked');
     }
+  });
+
+  describe('adding a transaction while locked (spec 2 D2)', () => {
+    let accountId: number;
+
+    beforeEach(async () => {
+      const account = await call(alex, 'POST', '/api/accounts', {
+        name: 'Joint',
+        type: 'bank',
+        currency: 'EUR',
+      });
+      expect(account.statusCode, account.body).toBe(201);
+      accountId = account.json().account.id;
+    });
+
+    const expense = (clientId: string) => ({
+      clientId,
+      kind: 'expense',
+      accountId,
+      amount: '1250',
+    });
+    const clientId = '5b0f8f43-1d0b-4c43-9d55-9f8f1e1a2c01';
+    const sessionRow = () =>
+      database
+        .prepare('SELECT foreground_at, expires_at, last_used_at FROM session')
+        .get();
+
+    it('adds it, answers with the id only and leaves the session as it was', async () => {
+      now += reopenLockAfterMs + 1;
+      const before = sessionRow();
+      const response = await call(alex, 'POST', '/api/transactions', {
+        ...expense(clientId),
+      });
+      expect(response.statusCode, response.body).toBe(201);
+      const id = (
+        database.prepare('SELECT id FROM txn WHERE client_id = ?').get(
+          clientId,
+        ) as { id: bigint }
+      ).id;
+      expect(response.json()).toEqual({ id: Number(id) });
+      expect(response.headers['set-cookie']).toBeUndefined();
+      expect(sessionRow()).toEqual(before);
+      // Still locked everywhere else.
+      expect((await me(alex)).json().error.code).toBe('session_locked');
+      expect((await present(alex, 0)).statusCode).toBe(401);
+    });
+
+    it('answers a repeat with the same id and a changed body with a conflict', async () => {
+      now += reopenLockAfterMs + 1;
+      const first = await call(alex, 'POST', '/api/transactions', {
+        ...expense(clientId),
+      });
+      const again = await call(alex, 'POST', '/api/transactions', {
+        ...expense(clientId),
+      });
+      expect(again.statusCode).toBe(200);
+      expect(again.json()).toEqual(first.json());
+      const changed = await call(alex, 'POST', '/api/transactions', {
+        ...expense(clientId),
+        amount: '999',
+      });
+      expect(changed.statusCode).toBe(409);
+      const count = database
+        .prepare('SELECT COUNT(*) AS n FROM txn WHERE client_id = ?')
+        .get(clientId);
+      expect(count).toEqual({ n: 1n });
+    });
+
+    it('still lets it through after another route found the session locked', async () => {
+      now += reopenLockAfterMs + 1;
+      expect((await me(alex)).statusCode).toBe(401);
+      const response = await call(alex, 'POST', '/api/transactions', {
+        ...expense(clientId),
+      });
+      expect(response.statusCode, response.body).toBe(201);
+    });
+
+    it('refuses everything else in the route table with session_locked', async () => {
+      now += reopenLockAfterMs + 1;
+      const allowed = new Set([
+        'POST /api/transactions',
+        `POST ${presencePath}`,
+      ]);
+      const routes = apiRouteTable(app).filter(
+        (route) => route.method !== 'HEAD',
+      );
+      expect(routes.length).toBeGreaterThan(40);
+      let checked = 0;
+      for (const route of routes) {
+        const key = `${route.method} ${route.url}`;
+        if (allowed.has(key) || openRoutes.has(key)) continue;
+        const response = await call(alex, route.method, route.url, {});
+        expect(response.statusCode, key).toBe(401);
+        expect(response.json().error.code, key).toBe('session_locked');
+        checked += 1;
+      }
+      expect(checked).toBeGreaterThan(40);
+      expect(database.prepare('SELECT COUNT(*) AS n FROM txn').get()).toEqual(
+        { n: 0n },
+      );
+    });
+
+    it('refuses an expired session', async () => {
+      now += reopenLockAfterMs + 1;
+      database.prepare('UPDATE session SET expires_at = ?').run(now);
+      const response = await call(alex, 'POST', '/api/transactions', {
+        ...expense(clientId),
+      });
+      expect(response.statusCode).toBe(401);
+      expect(response.json().error.code).toBe('unauthenticated');
+    });
+
+    it('refuses a session from before a family password change', async () => {
+      const blair = await blairDevice();
+      const changed = await call(alex, 'PUT', '/api/family/password', {
+        currentPassword: password,
+        newPassword: 'a new family password',
+      });
+      expect(changed.statusCode, changed.body).toBe(200);
+      now += reopenLockAfterMs + 1;
+      const response = await call(blair, 'POST', '/api/transactions', {
+        ...expense(clientId),
+      });
+      expect(response.statusCode).toBe(401);
+      expect(response.json().error.code).toBe('unauthenticated');
+    });
+
+    it('refuses a locked session without a profile', async () => {
+      database.prepare('UPDATE session SET member_id = NULL').run();
+      now += reopenLockAfterMs + 1;
+      const response = await call(alex, 'POST', '/api/transactions', {
+        ...expense(clientId),
+      });
+      expect(response.statusCode).toBe(401);
+      expect(response.json().error.code).toBe('session_locked');
+    });
   });
 
   it('keeps refusing a locked session until the device signs in again', async () => {

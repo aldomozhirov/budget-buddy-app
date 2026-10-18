@@ -69,7 +69,10 @@ export const transactionRoutes: FastifyPluginAsync<{
     };
   }
 
-  app.post('/api/transactions', async (request, reply) => {
+  // The one route a session locked by time away may call (spec 2 D2).
+  const addWhileLocked = { config: { lockCheck: 'add' as const } };
+
+  app.post('/api/transactions', addWhileLocked, async (request, reply) => {
     const parsed = createTransactionRequestSchema.safeParse(request.body);
     if (!parsed.success) {
       return sendValidation(
@@ -146,9 +149,14 @@ export const transactionRoutes: FastifyPluginAsync<{
         .send({ error: { code: 'conflict', message: outcome.message } });
     }
     if (outcome.kind === 'created') rates?.requestBackfill();
+    const status = outcome.kind === 'created' ? 201 : 200;
+    // A locked session learns the new id and nothing else (D2).
+    if (request.authContext?.locked) {
+      return reply.code(status).send({ id: outcome.id });
+    }
     const stored = readTransaction(database, outcome.id);
     if (!stored) throw new Error('Saved transaction could not be reloaded.');
-    return reply.code(outcome.kind === 'created' ? 201 : 200).send(
+    return reply.code(status).send(
       createTransactionResponseSchema.parse({
         transaction: toTransactionResponse(stored, lookup),
         filled: outcome.filled,
