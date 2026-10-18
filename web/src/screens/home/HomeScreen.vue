@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { goToSignIn } from '../../session/lock.js';
+import { goToSignIn, lockedHere } from '../../session/lock.js';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import {
@@ -14,6 +14,12 @@ import BbButton from '../../components/BbButton.vue';
 import BbIcon from '../../components/BbIcon.vue';
 import BbProgress from '../../components/BbProgress.vue';
 import BbTag from '../../components/BbTag.vue';
+import { isOnline } from '../../composables/useOnline.js';
+import {
+  refreshAddOptions,
+  storedOptions,
+  storedOptionsReady,
+} from '../../offline/addOptions.js';
 import { outbox } from '../../offline/outbox.js';
 import {
   outboxRow,
@@ -21,6 +27,8 @@ import {
   waitingCardNote,
 } from '../transactions/outboxRows.js';
 import { describeRow } from '../transactions/transactionsFormat.js';
+import { formatDateLine } from './dateLine.js';
+import LimitedHome from './LimitedHome.vue';
 import ProfileSheet from './ProfileSheet.vue';
 import { authState, setAuthState } from '../../stores/auth.js';
 import { monthName } from '../envelopes/envelopeFormat.js';
@@ -84,18 +92,9 @@ const summaryLink = computed(() =>
 const checkinTileLink = computed(() =>
   checkin.value ? '/check-in' : '/check-ins',
 );
-const dateLine = computed(() => {
-  if (!home.value) return '';
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    timeZone: 'UTC',
-  }).formatToParts(new Date(`${home.value.today}T12:00:00Z`));
-  const part = (type: string) =>
-    parts.find((entry) => entry.type === type)?.value ?? '';
-  return `${part('weekday')}, ${part('day')} ${part('month')}`;
-});
+const dateLine = computed(() =>
+  home.value ? formatDateLine(home.value.today) : '',
+);
 
 const spending = computed(() => home.value?.spending ?? null);
 const needsCategory = computed(() => home.value?.needsCategory ?? 0);
@@ -257,6 +256,25 @@ function hideOnPageHide(): void {
   if (hideAt.value !== null) hideAmounts();
 }
 
+/**
+ * Offline, a locked device or a Home with nothing loaded shows the limited
+ * form from the options on the phone (UI-HOME-7); without them it shows
+ * sign-in or the can't-load state as before.
+ */
+const limited = computed(
+  () =>
+    !isOnline.value &&
+    storedOptions.value !== null &&
+    (lockedHere.value || home.value === null),
+);
+const storedName = computed(() => {
+  const options = storedOptions.value;
+  return (
+    options?.profiles.find((profile) => profile.id === options.profileId)
+      ?.name ?? ''
+  );
+});
+
 /** What waits on the phone, each named as in the list (UI-HOME-8). */
 const waiting = computed(() =>
   outbox.items.value.map((item) => ({
@@ -290,6 +308,8 @@ async function load(quiet = false): Promise<void> {
       ? currenciesResponseSchema.parse(await currenciesResponse.json()).coins
       : [];
     visible.value = !home.value.hideAmounts;
+    // The Add form's names stay as fresh as Home (Design 4).
+    void refreshAddOptions();
   } catch {
     if (!quiet || !home.value) {
       loadError.value =
@@ -303,9 +323,26 @@ async function load(quiet = false): Promise<void> {
 // What the outbox sent now counts in this month's spending.
 watch(outbox.sentCount, () => void load(true));
 
-onMounted(() => {
+// A device that locks leaves nothing of Home on screen.
+watch(lockedHere, (locked) => {
+  if (!locked) return;
+  hideAmounts();
+  home.value = null;
+});
+
+// The connection came back to a Home that showed the limited form.
+watch(isOnline, (online) => {
+  if (online && home.value === null && !lockedHere.value) void load();
+});
+
+onMounted(async () => {
   document.addEventListener('visibilitychange', hideWhenBackgrounded);
   window.addEventListener('pagehide', hideOnPageHide);
+  await storedOptionsReady();
+  if (limited.value) {
+    loading.value = false;
+    return;
+  }
   void load();
 });
 
@@ -318,7 +355,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="screen app-screen home-screen">
+  <LimitedHome
+    v-if="limited"
+    :name="storedName"
+    :time-zone="storedOptions?.timeZone ?? 'UTC'"
+    :locked="lockedHere"
+  />
+  <main v-else class="screen app-screen home-screen">
     <header class="topbar home-header">
       <div class="home-title">
         <span v-if="dateLine" class="t-sub home-date">{{ dateLine }}</span>

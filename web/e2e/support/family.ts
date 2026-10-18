@@ -11,6 +11,10 @@ import process from 'node:process';
 export interface Family {
   origin: string;
   api: APIRequestContext;
+  /** The server's data folder, for a test that moves the session's clock. */
+  dataDirectory: string;
+  /** Stops the server, as a phone without a connection to it would see. */
+  stop(): Promise<void>;
 }
 
 /**
@@ -56,7 +60,13 @@ export async function startFamily(
       },
     });
     expect(setup.status()).toBe(201);
-    await run({ origin, api });
+    const stop = async () => {
+      if (server.exitCode === null && server.signalCode === null) {
+        server.kill('SIGTERM');
+        await once(server, 'exit').catch(() => undefined);
+      }
+    };
+    await run({ origin, api, dataDirectory, stop });
   } finally {
     if (server.exitCode === null && server.signalCode === null) {
       server.kill('SIGTERM');

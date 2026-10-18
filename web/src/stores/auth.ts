@@ -15,6 +15,18 @@ export const authState = shallowRef<AuthMeResponse | null>(null);
  */
 export const signInReason = shallowRef<'locked' | null>(null);
 
+const endedListeners = new Set<() => void>();
+
+/**
+ * Calls `listener` whenever the server says the session has ended for good
+ * (`unauthenticated`: signed out, expired or the family password changed),
+ * not for a lock by time away (`session_locked`). The device store uses it
+ * to delete what the phone kept (D3).
+ */
+export function onSessionEnded(listener: () => void): void {
+  endedListeners.add(listener);
+}
+
 /** Whether a 401 body is the server's "locked by time away" answer. */
 export async function isLockedAnswer(response: Response): Promise<boolean> {
   if (response.status !== 401) return false;
@@ -33,7 +45,11 @@ export async function refreshAuthState(): Promise<AuthMeResponse | null> {
   const response = await fetch('/api/auth/me');
   if (response.status === 401) {
     authState.value = null;
-    if (await isLockedAnswer(response)) signInReason.value = 'locked';
+    if (await isLockedAnswer(response)) {
+      signInReason.value = 'locked';
+    } else {
+      for (const listener of endedListeners) listener();
+    }
     return null;
   }
   if (!response.ok) throw new Error('Could not check the sign-in state.');

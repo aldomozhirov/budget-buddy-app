@@ -17,6 +17,7 @@ import {
   Eye,
   EyeOff,
   FileChartColumnIncreasing,
+  Info,
   List,
   Mail,
   Plus,
@@ -66,6 +67,7 @@ const icons = {
   download: ArrowDownToLine,
   upload: CloudUpload,
   alert: CircleAlert,
+  info: Info,
 } satisfies Record<Exclude<BbIconName, 'wallet'>, Component>;
 
 /** Names of the icons available to BbIcon. */
@@ -101,6 +103,7 @@ export type BbIconName =
   | 'download'
   | 'upload'
   | 'alert'
+  | 'info'
   | 'wallet';
 
 /**

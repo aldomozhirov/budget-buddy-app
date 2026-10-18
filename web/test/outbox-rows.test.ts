@@ -7,6 +7,7 @@ import {
   typedInText,
   unsentQuestion,
   waitingCardNote,
+  waitingRowSub,
 } from '../src/screens/transactions/outboxRows.js';
 import { emptyFilters } from '../src/screens/transactions/transactionsFormat.js';
 
@@ -77,6 +78,15 @@ describe('outbox rows', () => {
     expect(typedInText(item(), '2026-10-20', 'Europe/Berlin')).toMatch(
       /^Sun 18 Oct, 13:30 by Alena$/,
     );
+  });
+
+  it('words a limited Home row by kind, day and time, with no amount', () => {
+    expect(waitingRowSub(item(), '2026-10-18', 'Europe/Berlin')).toBe(
+      'Expense · today, 13:30',
+    );
+    expect(
+      waitingRowSub(item({ kind: 'income' }), '2026-10-20', 'Europe/Berlin'),
+    ).toBe('Income · Sun 18 Oct, 13:30');
   });
 
   it('words the Home card by what failed', () => {
