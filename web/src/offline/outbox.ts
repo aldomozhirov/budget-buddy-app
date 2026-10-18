@@ -137,30 +137,6 @@ export function createOutbox(options: {
     channel?.post({ sent });
   }
 
-  async function sendItem(item: OutboxItem): Promise<SendOutcome> {
-    if (!isOnline()) return { kind: 'waiting', reason: 'offline' };
-    let response: Response;
-    try {
-      response = await send('/api/transactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(item.body),
-      });
-    } catch {
-      return { kind: 'waiting', reason: 'network' };
-    }
-    const payload: unknown = await response.json().catch(() => null);
-    if (response.status === 200 || response.status === 201) {
-      return { kind: 'sent', id: idOf(payload), payload };
-    }
-    // Locked or signed out: it waits for a sign-in (D2).
-    if (response.status === 401) return { kind: 'waiting', reason: 'auth' };
-    if (response.status >= 500 || TRANSIENT.has(response.status)) {
-      return { kind: 'waiting', reason: 'server' };
-    }
-    return { kind: 'failed', message: refusalMessage(payload) };
-  }
-
   async function runFlush(): Promise<ReadonlyMap<string, SendOutcome>> {
     let tried = false;
     const waiting = (await store.getAll())
@@ -171,7 +147,10 @@ export function createOutbox(options: {
       // Another tab may have sent or deleted it since the list was read.
       const item = await store.get(listed.clientId);
       if (!item || item.state !== 'waiting') continue;
-      const outcome = await sendItem(item);
+      const outcome = await postTransaction(item.body, {
+        fetch: send,
+        isOnline,
+      });
       latest.set(item.clientId, outcome);
       tried = true;
       if (outcome.kind === 'sent') {
@@ -227,6 +206,40 @@ export function createOutbox(options: {
       });
     },
   };
+}
+
+/**
+ * One try to send a transaction, sorted by the outbox's rules: 200 or 201
+ * is sent; no connection, a 5xx, a 401 (locked or signed out) or a "try
+ * later" status waits; any other 4xx is a refusal with the server's reason.
+ */
+export async function postTransaction(
+  body: OutboxBody,
+  deps: { fetch?: typeof fetch; isOnline?: () => boolean } = {},
+): Promise<SendOutcome> {
+  const isOnline = deps.isOnline ?? (() => navigator.onLine);
+  if (!isOnline()) return { kind: 'waiting', reason: 'offline' };
+  const send = deps.fetch ?? ((...args) => fetch(...args));
+  let response: Response;
+  try {
+    response = await send('/api/transactions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    return { kind: 'waiting', reason: 'network' };
+  }
+  const payload: unknown = await response.json().catch(() => null);
+  if (response.status === 200 || response.status === 201) {
+    return { kind: 'sent', id: idOf(payload), payload };
+  }
+  // Locked or signed out: it waits for a sign-in (D2).
+  if (response.status === 401) return { kind: 'waiting', reason: 'auth' };
+  if (response.status >= 500 || TRANSIENT.has(response.status)) {
+    return { kind: 'waiting', reason: 'server' };
+  }
+  return { kind: 'failed', message: refusalMessage(payload) };
 }
 
 function idOf(payload: unknown): number | null {

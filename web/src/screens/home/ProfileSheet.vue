@@ -4,18 +4,25 @@ import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { profileResponseSchema, type AuthMember } from '@budget-buddy/shared';
 import BbButton from '../../components/BbButton.vue';
+import BbConfirmSheet from '../../components/BbConfirmSheet.vue';
 import { isOnline } from '../../composables/useOnline.js';
 import BbIcon from '../../components/BbIcon.vue';
 import BbSheet from '../../components/BbSheet.vue';
 import BbSwitch from '../../components/BbSwitch.vue';
 import { deviceName } from '../../device.js';
+import { outbox } from '../../offline/outbox.js';
+import { unsentQuestion } from '../transactions/outboxRows.js';
 import {
   authState,
   refreshAuthState,
   setAuthState,
 } from '../../stores/auth.js';
 
-/** Profile switcher for the signed-in Home avatar. */
+/**
+ * Profile switcher for the signed-in Home avatar, with sign-out. Sign-out
+ * first sends what waits on the phone and asks before deleting the rest
+ * (UI-HOME-8).
+ */
 defineOptions({ name: 'ProfileSheet' });
 
 const emit = defineEmits<{
@@ -26,6 +33,8 @@ const emit = defineEmits<{
 const router = useRouter();
 const busy = ref(false);
 const formError = ref('');
+/** The question about unsent items is open. */
+const askUnsent = ref(false);
 const deviceLabel = deviceName();
 const profiles = computed(() => authState.value?.profiles ?? []);
 const currentMember = computed(() => authState.value?.member ?? null);
@@ -101,7 +110,19 @@ async function updateProfile(
   }
 }
 
+/** Sends what waits, then signs out or asks about what is left. */
+async function trySignOut(): Promise<void> {
+  if (busy.value) return;
+  busy.value = true;
+  formError.value = '';
+  await outbox.flush().catch(() => undefined);
+  busy.value = false;
+  if (outbox.items.value.length > 0) askUnsent.value = true;
+  else await signOut();
+}
+
 async function signOut(): Promise<void> {
+  askUnsent.value = false;
   if (busy.value) return;
   busy.value = true;
   formError.value = '';
@@ -112,6 +133,8 @@ async function signOut(): Promise<void> {
       body: JSON.stringify({}),
     });
     if (!response.ok) throw new Error('Sign-out failed.');
+    // Nothing stays on the phone after a sign-out (D3).
+    await outbox.clear().catch(() => undefined);
     setAuthState(null);
     forgetLastScreen();
     emit('close');
@@ -191,9 +214,19 @@ async function signOut(): Promise<void> {
       class="danger profile-sheet-signout"
       needs-server
       :disabled="busy"
-      @click="signOut"
+      @click="trySignOut"
     >
       Sign out
     </BbButton>
+    <BbConfirmSheet
+      v-if="askUnsent"
+      title="Sign out?"
+      :message="unsentQuestion(outbox.items.value)"
+      confirm-label="Sign out anyway"
+      cancel-label="Keep me signed in"
+      danger
+      @confirm="signOut"
+      @cancel="askUnsent = false"
+    />
   </BbSheet>
 </template>

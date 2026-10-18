@@ -28,11 +28,15 @@ import {
 } from '@budget-buddy/shared';
 import BbBackButton from '../../components/BbBackButton.vue';
 import BbIcon from '../../components/BbIcon.vue';
+import BbTag from '../../components/BbTag.vue';
 import { ApiError, callApi } from '../../api/callApi.js';
 import { useBack } from '../../composables/useBack.js';
+import { outbox, type OutboxItem } from '../../offline/outbox.js';
 import { screenTransitionClass } from '../../router/index.js';
 import { recallList, rememberList } from './listMemory.js';
 import NeedsCategoryTab from './NeedsCategoryTab.vue';
+import OutboxSheet from './OutboxSheet.vue';
+import { outboxMatches, outboxRow, outboxTag } from './outboxRows.js';
 import TransactionDay from './TransactionDay.vue';
 import TransactionRow from './TransactionRow.vue';
 import TransactionsFilterSheet from './TransactionsFilterSheet.vue';
@@ -57,7 +61,8 @@ import {
  * Transactions (TXN-6, UI-TXN-1, UI-TXN-2): search, the "All" and "Needs a
  * category" tabs, filter chips with their sheets, a summary line and the rows
  * by day, fifty at a time. `?tab=needs-category` opens the second tab and
- * `?account=3&period=all` the list of one account (UI-NAV-5, O14).
+ * `?account=3&period=all` the list of one account (UI-NAV-5, O14). Items
+ * still on the phone head their day, outside its total (UI-TXN-9).
  */
 defineOptions({ name: 'TransactionsScreen' });
 
@@ -98,6 +103,7 @@ const lookups = ref<FilterLookups>({
 const coins = ref<CoinSetting[]>([]);
 const commonCurrency = ref('');
 const today = ref('');
+const timeZone = ref('UTC');
 const bootstrapped = ref(false);
 const bootError = ref('');
 
@@ -111,6 +117,10 @@ const listError = ref('');
 const needsCount = ref<number | null>(null);
 /** Labelling changed rows the "All" list has already loaded. */
 const listStale = ref(false);
+
+/** The client id of the outbox item whose sheet is open. */
+const openItemId = ref<string | null>(null);
+const removing = ref(false);
 
 const openFacet = ref<TransactionFacet | null>(null);
 const facetCounts = ref(new Map<string, number>());
@@ -150,13 +160,38 @@ const tabs = computed(() => [
   },
 ]);
 
+/** The outbox items the list's filters let through, newest first. */
+const phoneItems = computed(() =>
+  bootstrapped.value
+    ? outbox.items.value
+        .filter((item) => outboxMatches(item, filters, today.value))
+        .reverse()
+    : [],
+);
+const openItem = computed(() =>
+  outbox.items.value.find((item) => item.clientId === openItemId.value),
+);
+
 const days = computed(() => {
-  const groups: { date: string; rows: ListedTransaction[] }[] = [];
+  const groups: {
+    date: string;
+    rows: ListedTransaction[];
+    phone: OutboxItem[];
+  }[] = [];
   for (const row of rows.value) {
     const last = groups.at(-1);
     if (last && last.date === row.date) last.rows.push(row);
-    else groups.push({ date: row.date, rows: [row] });
+    else groups.push({ date: row.date, rows: [row], phone: [] });
   }
+  // An item of a day the pages have not reached yet waits for that page.
+  const oldest = nextCursor.value ? (rows.value.at(-1)?.date ?? '') : '';
+  for (const item of phoneItems.value) {
+    const date = item.body.date;
+    const group = groups.find((entry) => entry.date === date);
+    if (group) group.phone.push(item);
+    else if (date >= oldest) groups.push({ date, rows: [], phone: [item] });
+  }
+  groups.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   return groups.map((group) => {
     const total = dayTotals.value.get(group.date);
     return {
@@ -187,6 +222,18 @@ function errorText(cause: unknown, fallback: string): string {
   return cause instanceof ApiError && cause.status !== 0
     ? cause.message
     : fallback;
+}
+
+async function removeItem(): Promise<void> {
+  const id = openItemId.value;
+  if (id === null || removing.value) return;
+  removing.value = true;
+  try {
+    await outbox.remove(id);
+    openItemId.value = null;
+  } finally {
+    removing.value = false;
+  }
 }
 
 async function bootstrap(): Promise<void> {
@@ -231,6 +278,7 @@ async function bootstrap(): Promise<void> {
     coins.value = money.coins;
     commonCurrency.value = settings.commonCurrency;
     today.value = todayInTimeZone(new Date(), settings.timeZone);
+    timeZone.value = settings.timeZone;
     bootstrapped.value = true;
     void loadFirstPage();
     void loadNeedsCount();
@@ -396,6 +444,10 @@ onBeforeUnmount(() => {
   clearTimeout(searchTimer);
 });
 
+// What the outbox sent is on the server now, as a row of its own.
+watch(outbox.sentCount, () => {
+  if (bootstrapped.value && tab.value === 'all') void loadFirstPage();
+});
 watch(tab, (value) => {
   if (value === 'all' && listStale.value && bootstrapped.value) {
     listStale.value = false;
@@ -534,7 +586,9 @@ watch(
           </button>
         </div>
         <div
-          v-else-if="!loading && summary && summary.count === 0"
+          v-else-if="
+            !loading && summary && summary.count === 0 && !phoneItems.length
+          "
           class="transactions-empty"
         >
           <p class="t-sub">
@@ -560,6 +614,22 @@ watch(
           :heading="day.heading"
           :total="day.total"
         >
+          <template #top>
+            <TransactionRow
+              v-for="item in day.phone"
+              :key="item.clientId"
+              :row="outboxRow(item)"
+              :coins="coins"
+              on-phone
+              @open="openItemId = item.clientId"
+            >
+              <template #tags>
+                <BbTag :tone="item.state === 'failed' ? 'warn' : 'neutral'">{{
+                  outboxTag(item)
+                }}</BbTag>
+              </template>
+            </TransactionRow>
+          </template>
           <TransactionRow
             v-for="row in day.rows"
             :key="row.id"
@@ -568,11 +638,24 @@ watch(
             :to="`/transactions/${row.id}`"
           />
         </TransactionDay>
+        <p v-if="phoneItems.length" class="t-sub transactions-phone-note">
+          Items still on this phone are not in the day totals.
+        </p>
         <p v-if="loadingMore" class="t-sub" role="status">Loading more…</p>
         <div ref="sentinel" class="transactions-end" aria-hidden="true" />
       </template>
     </div>
 
+    <OutboxSheet
+      v-if="openItem"
+      :item="openItem"
+      :coins="coins"
+      :today="today"
+      :time-zone="timeZone"
+      :busy="removing"
+      @delete="removeItem"
+      @close="openItemId = null"
+    />
     <TransactionsFilterSheet
       v-if="sheetFacet"
       :title="sheetFacet.title"
@@ -636,6 +719,10 @@ watch(
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+}
+.transactions-phone-note {
+  margin: 0 4px;
+  font-size: 13px;
 }
 .transactions-end {
   height: 1px;

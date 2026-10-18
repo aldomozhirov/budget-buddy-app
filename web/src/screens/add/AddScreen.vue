@@ -17,7 +17,6 @@ import {
   type AddOptionsAccount,
   type AddOptionsResponse,
   type DatedRate,
-  type Transaction,
 } from '@budget-buddy/shared';
 import AccountPickerSheet from '../../components/AccountPickerSheet.vue';
 import BbButton from '../../components/BbButton.vue';
@@ -32,6 +31,13 @@ import CategoryPickerSheet from '../../components/CategoryPickerSheet.vue';
 import EnvelopePickerSheet from '../../components/EnvelopePickerSheet.vue';
 import { ApiError, callApi } from '../../api/callApi.js';
 import { useBack } from '../../composables/useBack.js';
+import { isOnline } from '../../composables/useOnline.js';
+import {
+  outbox,
+  postTransaction,
+  type OutboxItem,
+  type SendOutcome,
+} from '../../offline/outbox.js';
 import DateSheet from './DateSheet.vue';
 import MerchantSheet, { type MerchantOption } from './MerchantSheet.vue';
 import NoteSheet from './NoteSheet.vue';
@@ -127,7 +133,11 @@ const rateLoading = ref(false);
 const saving = ref(false);
 const saveError = ref('');
 const saved = ref<{
-  transaction: Transaction;
+  /** The server's id; null while it is on the phone. */
+  id: number | null;
+  clientId: string;
+  /** It waits in the outbox: "Expense saved on this phone" (UI-ADD-13). */
+  onPhone: boolean;
   /** "Expense", "Income" or "Transfer", for the title. */
   noun: string;
   summary: string;
@@ -749,55 +759,148 @@ async function save(): Promise<void> {
   }
   saving.value = true;
   saveError.value = '';
+  const item = outboxItem({
+    ...form,
+    clientId: pending.clientId,
+    enteredAt: pending.enteredAt,
+  });
   try {
-    const { transaction, filled } = await callApi(
-      'POST',
-      '/api/transactions',
-      createTransactionResponseSchema,
-      { ...form, clientId: pending.clientId, enteredAt: pending.enteredAt },
-    );
+    const outcome = await keepAndSend(item);
+    if (outcome.kind === 'failed') {
+      // Refused on the spot: the member fixes it here, so it does not wait
+      // on the phone as "Couldn't send".
+      await outbox.remove(item.clientId).catch(() => undefined);
+      saveError.value = outcome.message;
+      return;
+    }
     pending = null;
-    const categoryName = categoryById(transaction.categoryId)?.name ?? null;
-    const envelopeName = envelopeById(transaction.envelopeId)?.name ?? null;
-    const sent = formatMoney(BigInt(transaction.amount), currency.value);
-    saved.value = {
-      transaction,
-      noun: words.value.noun,
-      summary: savedSummary({
-        amount:
-          transaction.toAmount !== null &&
-          transaction.toCurrency !== transaction.currency
-            ? `${sent} → ${formatMoney(BigInt(transaction.toAmount), toCurrency.value)}`
-            : sent,
-        merchant: transaction.merchant,
-        date:
-          transaction.date === today.value
-            ? null
-            : dayLabel(transaction.date, today.value),
-        payer:
-          transaction.memberId === profileId.value ? null : payerName.value,
-        payerLabel: words.value.payerLabel,
-        account:
-          transaction.kind === 'transfer'
-            ? `${accountLabel.value} → ${toLabel.value}`
-            : accountLabel.value,
-        envelope: envelopeName,
-        category: categoryName,
-      }),
-      filled: filledText(filled, categoryName, envelopeName),
-      noCategory:
-        transaction.kind !== 'transfer' && transaction.categoryId === null,
-    };
+    const answer =
+      outcome.kind === 'sent'
+        ? createTransactionResponseSchema.safeParse(outcome.payload)
+        : null;
+    if (answer?.success) {
+      const { transaction, filled } = answer.data;
+      const categoryName = categoryById(transaction.categoryId)?.name ?? null;
+      const envelopeName = envelopeById(transaction.envelopeId)?.name ?? null;
+      const sent = formatMoney(BigInt(transaction.amount), currency.value);
+      saved.value = {
+        id: transaction.id,
+        clientId: item.clientId,
+        onPhone: false,
+        noun: words.value.noun,
+        summary: summaryOf({
+          amount:
+            transaction.toAmount !== null &&
+            transaction.toCurrency !== transaction.currency
+              ? `${sent} → ${formatMoney(BigInt(transaction.toAmount), toCurrency.value)}`
+              : sent,
+          merchant: transaction.merchant,
+          date: transaction.date,
+          memberId: transaction.memberId,
+          envelope: envelopeName,
+          category: categoryName,
+        }),
+        filled: filledText(filled, categoryName, envelopeName),
+        noCategory:
+          transaction.kind !== 'transfer' && transaction.categoryId === null,
+      };
+    } else {
+      // On the phone, or sent by a locked session that only learns the id:
+      // the summary comes from the form.
+      const sent = formatMoney(BigInt(item.body.amount), currency.value);
+      saved.value = {
+        id: outcome.kind === 'sent' ? outcome.id : null,
+        clientId: item.clientId,
+        onPhone: outcome.kind === 'waiting',
+        noun: words.value.noun,
+        summary: summaryOf({
+          amount:
+            item.body.toAmount != null && fx.value
+              ? `${sent} → ${formatMoney(BigInt(item.body.toAmount), toCurrency.value)}`
+              : sent,
+          merchant: item.body.merchant ?? null,
+          date: item.body.date,
+          memberId: item.body.memberId ?? profileId.value,
+          envelope: item.names.envelope,
+          category: item.names.category,
+        }),
+        filled: '',
+        noCategory:
+          item.body.kind !== 'transfer' && item.body.categoryId == null,
+      };
+    }
     undoError.value = '';
     focusAfter(savedHeading);
-  } catch (cause) {
-    saveError.value =
-      cause instanceof ApiError
-        ? cause.message
-        : `Could not save the ${words.value.noun.toLowerCase()}. Try again.`;
+  } catch {
+    saveError.value = `Could not save the ${words.value.noun.toLowerCase()}. Try again.`;
   } finally {
     saving.value = false;
   }
+}
+
+/** The outbox record of what the form is about to save (Design 4). */
+function outboxItem(body: OutboxItem['body']): OutboxItem {
+  const profileName =
+    options.value?.profiles.find((item) => item.id === profileId.value)?.name ??
+    '';
+  return {
+    clientId: body.clientId,
+    body,
+    profileId: profileId.value,
+    profileName,
+    enteredAt: body.enteredAt,
+    names: {
+      account: account.value?.name ?? accountLabel.value,
+      currency: currency.value.code,
+      toAccount:
+        body.kind === 'transfer' ? (toAccount.value?.name ?? null) : null,
+      toCurrency:
+        body.kind === 'transfer' ? (toAccount.value?.currency ?? null) : null,
+      category: categoryById(body.categoryId ?? null)?.name ?? null,
+      envelope: envelopeById(body.envelopeId ?? null)?.name ?? null,
+      member: payerName.value,
+    },
+    state: 'waiting',
+    error: null,
+  };
+}
+
+/**
+ * Writes the item to the outbox, then sends what waits (Design 4). Without
+ * a device store (IndexedDB refused) it is sent straight away, as before.
+ */
+async function keepAndSend(item: OutboxItem): Promise<SendOutcome> {
+  try {
+    await outbox.add(item);
+  } catch {
+    return postTransaction(item.body);
+  }
+  const outcomes = await outbox.flush();
+  return outcomes.get(item.clientId) ?? { kind: 'waiting', reason: 'offline' };
+}
+
+/** The saved screen's line, with the date and payer only when they differ. */
+function summaryOf(parts: {
+  amount: string;
+  merchant: string | null;
+  date: string;
+  memberId: number;
+  envelope: string | null;
+  category: string | null;
+}): string {
+  return savedSummary({
+    amount: parts.amount,
+    merchant: parts.merchant,
+    date: parts.date === today.value ? null : dayLabel(parts.date, today.value),
+    payer: parts.memberId === profileId.value ? null : payerName.value,
+    payerLabel: words.value.payerLabel,
+    account:
+      kind.value === 'transfer'
+        ? `${accountLabel.value} → ${toLabel.value}`
+        : accountLabel.value,
+    envelope: parts.envelope,
+    category: parts.category,
+  });
 }
 
 /** Deletes the saved expense and returns to the form as it was. */
@@ -807,11 +910,22 @@ async function undo(): Promise<void> {
   undoing.value = true;
   undoError.value = '';
   try {
-    await callApi(
-      'DELETE',
-      `/api/transactions/${current.transaction.id}`,
-      deleteTransactionResponseSchema,
-    );
+    let id = current.id;
+    if (current.onPhone) {
+      const result = await outbox.remove(current.clientId);
+      // It may have been sent in the meantime: then it is deleted there.
+      id = result.removed ? null : result.sentId;
+      if (!result.removed && id === null) {
+        throw new ApiError('It was sent already. Delete it from the list.', 0);
+      }
+    }
+    if (id !== null) {
+      await callApi(
+        'DELETE',
+        `/api/transactions/${id}`,
+        deleteTransactionResponseSchema,
+      );
+    }
     saved.value = null;
     focusAfter(amountGroup);
   } catch (cause) {
@@ -873,6 +987,26 @@ function addAnother(): void {
           @update:model-value="setKind($event as FormKind)"
         />
       </header>
+
+      <p v-if="!isOnline" class="add-offline" role="status">
+        <!-- The design's slashed cloud, as in OfflineNote. -->
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M3 3l18 18" />
+          <path d="M9 19h8a4 4 0 0 0 1.6-7.7" />
+          <path d="M6 9.6A5 5 0 0 0 7 19" />
+        </svg>
+        Offline. It stays on this phone and sends itself later.
+      </p>
 
       <div
         ref="amountGroup"
@@ -1109,7 +1243,7 @@ function addAnother(): void {
         @change="onArriveChange"
       />
       <p v-if="saveError" class="error" role="alert">{{ saveError }}</p>
-      <BbButton class="num" needs-server :disabled="!canSave" @click="save">{{
+      <BbButton class="num" :disabled="!canSave" @click="save">{{
         saveLabel
       }}</BbButton>
     </div>
@@ -1123,7 +1257,7 @@ function addAnother(): void {
         class="add-saved-title"
         tabindex="-1"
       >
-        {{ saved.noun }} saved
+        {{ saved.noun }} saved{{ saved.onPhone ? ' on this phone' : '' }}
       </h2>
       <p class="num add-saved-summary">{{ saved.summary }}</p>
       <p v-if="saved.noCategory" class="add-saved-note">
@@ -1137,7 +1271,11 @@ function addAnother(): void {
       <div class="add-saved-actions">
         <BbButton @click="goBack">Done</BbButton>
         <BbButton variant="secondary" @click="addAnother">Add another</BbButton>
-        <BbButton variant="text" needs-server :disabled="undoing" @click="undo"
+        <BbButton
+          variant="text"
+          :needs-server="!saved.onPhone"
+          :disabled="undoing"
+          @click="undo"
           >Undo</BbButton
         >
       </div>
@@ -1248,6 +1386,21 @@ function addAnother(): void {
   gap: 12px;
 }
 .add-close {
+  flex: none;
+}
+.add-offline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: 13px;
+  font-weight: 500;
+}
+.add-offline svg {
   flex: none;
 }
 .add-kind {
