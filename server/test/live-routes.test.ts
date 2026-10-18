@@ -35,6 +35,7 @@ describe('live stream route, lifecycle edge cases', () => {
         defaultMemberId: null,
         hasPasskey: false,
         lockOnReopen: true,
+        locked: false,
       };
       await options.beforeHandler?.(request.raw);
     });

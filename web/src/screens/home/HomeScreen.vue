@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { goToSignIn } from '../../session/lock.js';
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import {
   currenciesResponseSchema,
@@ -13,6 +13,14 @@ import BbAmount from '../../components/BbAmount.vue';
 import BbButton from '../../components/BbButton.vue';
 import BbIcon from '../../components/BbIcon.vue';
 import BbProgress from '../../components/BbProgress.vue';
+import BbTag from '../../components/BbTag.vue';
+import { outbox } from '../../offline/outbox.js';
+import {
+  outboxRow,
+  outboxTag,
+  waitingCardNote,
+} from '../transactions/outboxRows.js';
+import { describeRow } from '../transactions/transactionsFormat.js';
 import ProfileSheet from './ProfileSheet.vue';
 import { authState, setAuthState } from '../../stores/auth.js';
 import { monthName } from '../envelopes/envelopeFormat.js';
@@ -24,9 +32,10 @@ import {
 
 /**
  * Home: greeting, the eye button, the open check-in banner, the Income,
- * Transfer and Check-in tiles, this month's envelopes card, "Needs a
- * category", the Family wealth card, the "Everything" grid and the sticky
- * "Add expense" button (UI-HOME-1 to 6, DSH-4, D2).
+ * Transfer and Check-in tiles, the "Waiting to send" card (UI-HOME-8), this
+ * month's envelopes card, "Needs a category", the Family wealth card, the
+ * "Everything" grid and the sticky "Add expense" button (UI-HOME-1 to 6,
+ * DSH-4, D2).
  * Amounts are hidden whenever the screen opens, unless this device's setting
  * says otherwise; the eye shows them for 30 s, counting the seconds down in
  * the note. Nothing here stores whether they are visible.
@@ -248,8 +257,20 @@ function hideOnPageHide(): void {
   if (hideAt.value !== null) hideAmounts();
 }
 
-async function load(): Promise<void> {
-  loading.value = true;
+/** What waits on the phone, each named as in the list (UI-HOME-8). */
+const waiting = computed(() =>
+  outbox.items.value.map((item) => ({
+    item,
+    title: describeRow(outboxRow(item), coins.value).title,
+  })),
+);
+
+/**
+ * Loads Home. `quiet` keeps what is shown while it reloads (after the
+ * outbox sent something) and keeps it on a failure.
+ */
+async function load(quiet = false): Promise<void> {
+  if (!quiet) loading.value = true;
   loadError.value = '';
   try {
     const [homeResponse, currenciesResponse] = await Promise.all([
@@ -270,12 +291,17 @@ async function load(): Promise<void> {
       : [];
     visible.value = !home.value.hideAmounts;
   } catch {
-    loadError.value =
-      'Could not load Home. Check your connection and try again.';
+    if (!quiet || !home.value) {
+      loadError.value =
+        'Could not load Home. Check your connection and try again.';
+    }
   } finally {
     loading.value = false;
   }
 }
+
+// What the outbox sent now counts in this month's spending.
+watch(outbox.sentCount, () => void load(true));
 
 onMounted(() => {
   document.addEventListener('visibilitychange', hideWhenBackgrounded);
@@ -330,7 +356,7 @@ onBeforeUnmount(() => {
       <p v-if="loading" class="home-state" role="status">Loading…</p>
       <div v-else-if="loadError" class="home-state home-error">
         <p role="alert">{{ loadError }}</p>
-        <BbButton variant="secondary" @click="load">Try again</BbButton>
+        <BbButton variant="secondary" @click="load()">Try again</BbButton>
       </div>
 
       <template v-else-if="home">
@@ -369,8 +395,32 @@ onBeforeUnmount(() => {
           </RouterLink>
         </nav>
 
-        <!-- Under the tiles: task 17's "Waiting to send" card goes here,
-             above this month's envelopes. -->
+        <RouterLink
+          v-if="waiting.length"
+          class="home-waiting"
+          to="/transactions"
+        >
+          <span class="home-waiting-head">
+            <BbIcon name="upload" :size="20" />
+            <span class="home-waiting-title"
+              >Waiting to send · {{ waiting.length }}</span
+            >
+            <BbIcon name="forward" :size="18" class="chev" />
+          </span>
+          <span class="t-sub home-waiting-note">{{
+            waitingCardNote(outbox.items.value)
+          }}</span>
+          <span
+            v-for="entry in waiting"
+            :key="entry.item.clientId"
+            class="home-waiting-row"
+          >
+            <span class="home-waiting-name">{{ entry.title }}</span>
+            <BbTag :tone="entry.item.state === 'failed' ? 'warn' : 'neutral'">{{
+              outboxTag(entry.item)
+            }}</BbTag>
+          </span>
+        </RouterLink>
 
         <section
           v-if="spending"
@@ -407,10 +457,7 @@ onBeforeUnmount(() => {
           >
             <span class="home-envelope-head">
               <span class="home-envelope-name">{{ row.envelope.name }}</span>
-              <span
-                class="num t-sub"
-                :class="{ warn: row.envelope.over }"
-              >
+              <span class="num t-sub" :class="{ warn: row.envelope.over }">
                 {{ row.text }}
               </span>
             </span>
@@ -631,6 +678,51 @@ onBeforeUnmount(() => {
 .home-tiles .tile {
   color: var(--ink);
   text-decoration: none;
+}
+
+.home-waiting {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 16px 6px;
+  border-radius: var(--r-hero);
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.home-waiting-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.home-waiting-title {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.home-waiting-note {
+  padding: 2px 0 6px 30px;
+  font-size: 13px;
+}
+
+.home-waiting-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  border-top: 1px solid var(--line);
+}
+
+.home-waiting-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .home-month {

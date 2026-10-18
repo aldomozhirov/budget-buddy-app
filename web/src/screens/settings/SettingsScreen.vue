@@ -23,7 +23,7 @@ import {
   envelopesResponseSchema,
   rulesResponseSchema,
 } from '@budget-buddy/shared';
-import { forgetLastScreen, goToSignIn } from '../../session/lock.js';
+import { goToSignIn } from '../../session/lock.js';
 import BbBackButton from '../../components/BbBackButton.vue';
 import BbButton from '../../components/BbButton.vue';
 import BbListCard from '../../components/BbListCard.vue';
@@ -47,6 +47,8 @@ import { deviceName } from '../../device.js';
 import { callApi } from '../../api/callApi.js';
 import { useBack } from '../../composables/useBack.js';
 import { isOnline } from '../../composables/useOnline.js';
+import { sendBeforeSignOut, signOutDevice } from '../../offline/signOut.js';
+import SignOutQuestion from '../home/SignOutQuestion.vue';
 import {
   disablePush,
   readPushState,
@@ -82,6 +84,8 @@ const passwordError = ref('');
 const passwordChanged = ref(false);
 const passwordBusy = ref(false);
 const signOutBusy = ref(false);
+/** The question about unsent items is open (UI-HOME-8). */
+const askUnsent = ref(false);
 const moneySettingsLoading = ref(true);
 const moneySettingsError = ref('');
 const commonCurrency = ref('EUR');
@@ -589,21 +593,26 @@ async function changePassword(): Promise<void> {
   }
 }
 
+/** Sends what waits, then signs out or asks about what is left. */
+async function trySignOut(): Promise<void> {
+  if (signOutBusy.value) return;
+  signOutBusy.value = true;
+  screenError.value = '';
+  const left = await sendBeforeSignOut();
+  signOutBusy.value = false;
+  if (left > 0) askUnsent.value = true;
+  else await signOut();
+}
+
 async function signOut(): Promise<void> {
   if (signOutBusy.value) return;
   signOutBusy.value = true;
   screenError.value = '';
   try {
-    const response = await fetch('/api/auth/sign-out', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({}),
-    });
-    if (!response.ok) throw new Error('Sign-out failed.');
-    setAuthState(null);
-    forgetLastScreen();
+    await signOutDevice();
     await router.replace('/sign-in');
   } catch {
+    askUnsent.value = false;
     screenError.value =
       'Could not sign out. Check your connection and try again.';
   } finally {
@@ -860,7 +869,7 @@ async function readApiError(response: Response): Promise<{
             title="Sign out"
             interactive
             :disabled="signOutBusy || !isOnline"
-            @click="signOut"
+            @click="trySignOut"
           />
         </BbListCard>
         <p v-if="notificationsError" class="error" role="alert">
@@ -1098,6 +1107,12 @@ async function readApiError(response: Response): Promise<{
       :time-zone="timeZone"
       @saved="saveSchedule"
       @close="scheduleSheetOpen = false"
+    />
+    <SignOutQuestion
+      v-if="askUnsent"
+      :busy="signOutBusy"
+      @confirm="signOut"
+      @cancel="askUnsent = false"
     />
   </main>
 </template>

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { forgetLastScreen } from '../../session/lock.js';
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { profileResponseSchema, type AuthMember } from '@budget-buddy/shared';
@@ -9,13 +8,15 @@ import BbIcon from '../../components/BbIcon.vue';
 import BbSheet from '../../components/BbSheet.vue';
 import BbSwitch from '../../components/BbSwitch.vue';
 import { deviceName } from '../../device.js';
-import {
-  authState,
-  refreshAuthState,
-  setAuthState,
-} from '../../stores/auth.js';
+import { sendBeforeSignOut, signOutDevice } from '../../offline/signOut.js';
+import SignOutQuestion from './SignOutQuestion.vue';
+import { authState, refreshAuthState } from '../../stores/auth.js';
 
-/** Profile switcher for the signed-in Home avatar. */
+/**
+ * Profile switcher for the signed-in Home avatar, with sign-out. Sign-out
+ * first sends what waits on the phone and asks before deleting the rest
+ * (UI-HOME-8).
+ */
 defineOptions({ name: 'ProfileSheet' });
 
 const emit = defineEmits<{
@@ -26,6 +27,8 @@ const emit = defineEmits<{
 const router = useRouter();
 const busy = ref(false);
 const formError = ref('');
+/** The question about unsent items is open. */
+const askUnsent = ref(false);
 const deviceLabel = deviceName();
 const profiles = computed(() => authState.value?.profiles ?? []);
 const currentMember = computed(() => authState.value?.member ?? null);
@@ -101,22 +104,27 @@ async function updateProfile(
   }
 }
 
+/** Sends what waits, then signs out or asks about what is left. */
+async function trySignOut(): Promise<void> {
+  if (busy.value) return;
+  busy.value = true;
+  formError.value = '';
+  const left = await sendBeforeSignOut();
+  busy.value = false;
+  if (left > 0) askUnsent.value = true;
+  else await signOut();
+}
+
 async function signOut(): Promise<void> {
   if (busy.value) return;
   busy.value = true;
   formError.value = '';
   try {
-    const response = await fetch('/api/auth/sign-out', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({}),
-    });
-    if (!response.ok) throw new Error('Sign-out failed.');
-    setAuthState(null);
-    forgetLastScreen();
+    await signOutDevice();
     emit('close');
     await router.replace('/sign-in');
   } catch {
+    askUnsent.value = false;
     formError.value =
       'Could not sign out. Check your connection and try again.';
   } finally {
@@ -126,7 +134,14 @@ async function signOut(): Promise<void> {
 </script>
 
 <template>
-  <BbSheet title="Who’s using the app?" @close="emit('close')">
+  <!-- The question takes the sheet's place, as in the design. -->
+  <SignOutQuestion
+    v-if="askUnsent"
+    :busy="busy"
+    @confirm="signOut"
+    @cancel="askUnsent = false"
+  />
+  <BbSheet v-else title="Who’s using the app?" @close="emit('close')">
     <div
       class="card profile-sheet-list"
       role="radiogroup"
@@ -191,7 +206,7 @@ async function signOut(): Promise<void> {
       class="danger profile-sheet-signout"
       needs-server
       :disabled="busy"
-      @click="signOut"
+      @click="trySignOut"
     >
       Sign out
     </BbButton>

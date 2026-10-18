@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
 import { migrateDatabase } from '../src/db/migrate.js';
 import { turnOffReopenLock } from './reopenLock.js';
+import { apiRouteTable, openRoutes } from './routeTable.js';
 
 const migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url));
 const origin = 'https://budget-buddy.test';
@@ -15,18 +16,6 @@ const jsonHeaders = {
   origin,
   'content-type': 'application/json',
 };
-const openRoutes = new Set([
-  'GET /api/health',
-  'HEAD /api/health',
-  'GET /api/setup',
-  'HEAD /api/setup',
-  'POST /api/setup',
-  'GET /api/auth/device',
-  'HEAD /api/auth/device',
-  'POST /api/auth/sign-in',
-  'POST /api/auth/passkey/authenticate/options',
-  'POST /api/auth/passkey/authenticate/verify',
-]);
 
 describe('authentication integration', () => {
   let app: Awaited<ReturnType<typeof createApp>>;
@@ -53,7 +42,7 @@ describe('authentication integration', () => {
   });
 
   it('requires a session on every protected route in the API route table', async () => {
-    const routes = apiRouteTable();
+    const routes = apiRouteTable(app);
     expect(routes).not.toHaveLength(0);
     for (const route of routes) {
       const isOpen = openRoutes.has(`${route.method} ${route.url}`);
@@ -275,18 +264,6 @@ describe('authentication integration', () => {
       ...(stateChanging ? { headers: jsonHeaders, payload: {} } : {}),
     };
     return app.inject(options);
-  }
-
-  function apiRouteTable(): Array<{ method: string; url: string }> {
-    return app
-      .printRoutes({ commonPrefix: false })
-      .split('\n')
-      .flatMap((line) => {
-        const match = line.trim().match(/^[├└]── (\/api\/\S+) \(([^)]+)\)$/u);
-        if (!match) return [];
-        const [, url, methods] = match;
-        return methods!.split(', ').map((method) => ({ url: url!, method }));
-      });
   }
 });
 

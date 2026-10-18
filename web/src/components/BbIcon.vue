@@ -11,7 +11,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  CircleAlert,
   CircleDot,
+  CloudUpload,
   Eye,
   EyeOff,
   FileChartColumnIncreasing,
@@ -62,6 +64,8 @@ const icons = {
   receipt: Receipt,
   faceid: ScanFace,
   download: ArrowDownToLine,
+  upload: CloudUpload,
+  alert: CircleAlert,
 } satisfies Record<Exclude<BbIconName, 'wallet'>, Component>;
 
 /** Names of the icons available to BbIcon. */
@@ -95,6 +99,8 @@ export type BbIconName =
   | 'receipt'
   | 'faceid'
   | 'download'
+  | 'upload'
+  | 'alert'
   | 'wallet';
 
 /**
