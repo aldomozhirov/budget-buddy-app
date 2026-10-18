@@ -87,7 +87,7 @@ const rows = computed(() => {
 
 <style scoped>
 .outbox-sub {
-  margin: -10px 0 0;
+  margin: -14px 0 0;
   font-size: 13px;
 }
 .outbox-error {

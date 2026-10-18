@@ -4,7 +4,6 @@ import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { profileResponseSchema, type AuthMember } from '@budget-buddy/shared';
 import BbButton from '../../components/BbButton.vue';
-import BbConfirmSheet from '../../components/BbConfirmSheet.vue';
 import { isOnline } from '../../composables/useOnline.js';
 import BbIcon from '../../components/BbIcon.vue';
 import BbSheet from '../../components/BbSheet.vue';
@@ -122,7 +121,6 @@ async function trySignOut(): Promise<void> {
 }
 
 async function signOut(): Promise<void> {
-  askUnsent.value = false;
   if (busy.value) return;
   busy.value = true;
   formError.value = '';
@@ -140,6 +138,7 @@ async function signOut(): Promise<void> {
     emit('close');
     await router.replace('/sign-in');
   } catch {
+    askUnsent.value = false;
     formError.value =
       'Could not sign out. Check your connection and try again.';
   } finally {
@@ -149,7 +148,23 @@ async function signOut(): Promise<void> {
 </script>
 
 <template>
-  <BbSheet title="Who’s using the app?" @close="emit('close')">
+  <!-- The question takes the sheet's place, as in the design. -->
+  <BbSheet v-if="askUnsent" title="Sign out?" @close="askUnsent = false">
+    <p class="t-sub profile-sheet-unsent">
+      {{ unsentQuestion(outbox.items.value) }}
+    </p>
+    <BbButton class="profile-sheet-anyway" :disabled="busy" @click="signOut">
+      Sign out anyway
+    </BbButton>
+    <BbButton
+      variant="secondary"
+      class="profile-sheet-keep"
+      @click="askUnsent = false"
+    >
+      Keep me signed in
+    </BbButton>
+  </BbSheet>
+  <BbSheet v-else title="Who’s using the app?" @close="emit('close')">
     <div
       class="card profile-sheet-list"
       role="radiogroup"
@@ -218,15 +233,19 @@ async function signOut(): Promise<void> {
     >
       Sign out
     </BbButton>
-    <BbConfirmSheet
-      v-if="askUnsent"
-      title="Sign out?"
-      :message="unsentQuestion(outbox.items.value)"
-      confirm-label="Sign out anyway"
-      cancel-label="Keep me signed in"
-      danger
-      @confirm="signOut"
-      @cancel="askUnsent = false"
-    />
   </BbSheet>
 </template>
+
+<style scoped>
+.profile-sheet-unsent {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+.bb .profile-sheet-anyway {
+  background: var(--warn);
+  color: var(--surface);
+}
+.bb .profile-sheet-keep {
+  background: var(--bg);
+}
+</style>
