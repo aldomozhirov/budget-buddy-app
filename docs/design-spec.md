@@ -113,7 +113,7 @@ Other screens that list money totals put the same eye button in their header. Th
 
 ### 5.3 After saving
 
-- **UI-ADD-13 (Must).** The saved screen shows "Expense saved" (or "Expense saved on this phone" when offline), a one-line summary ("€23.80 · REWE · ING Visa · Groceries"), and the buttons "Done", "Add another" and "Undo". An expense saved without a category adds "No category yet. It waits in Needs a category, with a suggestion.", where "Needs a category" is a link.
+- **UI-ADD-13 (Must).** The saved screen shows "Expense saved" (or "Expense saved on this phone" when offline), a one-line summary ("€23.80 · REWE · ING Visa · Groceries"), and the buttons "Done", "Add another" and "Undo". An expense saved without a category adds "No category yet. It waits in Needs a category.", where "Needs a category" is a link.
 - **UI-ADD-14 (Must).** Offline, the note "Offline. It stays on this phone and sends itself later." is shown and saving works (TXN-7). Until it is sent, the transaction carries the tag "Waiting to send" in lists.
 - **UI-ADD-15 (Must).** A transfer between accounts in two currencies (TXN-4, spec 02 O11) shows a second line under the amount, "Arrives as $21.86", filled from the date's rate. A tap moves the keypad to it (the first amount dims; a tap on it moves back). Without a rate it reads "Type what arrives in Wise $" in the warning colour and Save stays disabled. Save reads "Save €20.00 → $21.86". Prototype: `AddTransferFx.dc.html`.
 

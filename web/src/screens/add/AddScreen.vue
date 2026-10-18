@@ -1130,7 +1130,7 @@ function addAnother(): void {
         No category yet. It waits in
         <RouterLink class="add-saved-link" to="/transactions?tab=needs-category"
           >Needs a category</RouterLink
-        >, with a suggestion.
+        >.
       </p>
       <p v-if="saved.filled" class="add-saved-note">{{ saved.filled }}</p>
       <p v-if="undoError" class="error" role="alert">{{ undoError }}</p>

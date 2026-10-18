@@ -7,7 +7,6 @@ import {
   needsCategoryQuerySchema,
   needsCategoryResponseSchema,
   toMinorString,
-  todayInTimeZone,
   type NeedsCategoryRow,
 } from '@budget-buddy/shared';
 import { systemClock, type Clock } from '../../clock.js';
@@ -67,17 +66,6 @@ export const needsCategoryRoutes: FastifyPluginAsync<{
   const { database, rates } = options;
   const clock = options.clock ?? systemClock;
 
-  function family(): { timeZone: string; today: string } {
-    const row = database
-      .prepare('SELECT time_zone FROM family WHERE id = 1')
-      .get() as { time_zone: string } | undefined;
-    if (!row) throw new Error('The family has not been set up.');
-    return {
-      timeZone: row.time_zone,
-      today: todayInTimeZone(clock.now(), row.time_zone),
-    };
-  }
-
   app.get('/api/transactions/needs-category', async (request, reply) => {
     const parsed = needsCategoryQuerySchema.safeParse(request.query);
     if (!parsed.success) {
@@ -85,7 +73,6 @@ export const needsCategoryRoutes: FastifyPluginAsync<{
         cursor: parsed.error.issues[0]?.message ?? 'Use the cursor given.',
       });
     }
-    const { timeZone, today } = family();
     const params: (string | number)[] = [];
     let after = '';
     if (parsed.data.cursor !== undefined) {
@@ -97,8 +84,7 @@ export const needsCategoryRoutes: FastifyPluginAsync<{
       .prepare(
         `SELECT t.id, t.kind, t.date, t.account_id AS accountId,
                 a.name AS accountName, a.currency, t.amount,
-                t.member_id AS memberId, m.name AS memberName, t.merchant,
-                p.envelope_id AS envelopeId
+                t.member_id AS memberId, m.name AS memberName, t.merchant
            FROM txn t
            JOIN txn_part p ON p.txn_id = t.id
            JOIN account a ON a.id = t.account_id
@@ -117,10 +103,9 @@ export const needsCategoryRoutes: FastifyPluginAsync<{
       memberId: bigint;
       memberName: string;
       merchant: string | null;
-      envelopeId: bigint | null;
     }>;
     const page = rows.slice(0, pageSize);
-    const suggest = createRowSuggester(database, { today, timeZone });
+    const suggest = createRowSuggester(database);
     const names = new Map(
       (
         database.prepare('SELECT id, name FROM category').all() as Array<{
@@ -136,8 +121,6 @@ export const needsCategoryRoutes: FastifyPluginAsync<{
           kind: row.kind,
           merchant: row.merchant,
           accountId: Number(row.accountId),
-          memberId: Number(row.memberId),
-          envelopeId: row.envelopeId === null ? null : Number(row.envelopeId),
         });
         return {
           id: Number(row.id),

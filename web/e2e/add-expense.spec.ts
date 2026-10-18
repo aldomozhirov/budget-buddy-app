@@ -143,9 +143,7 @@ test('an expense with only an amount saves and fits the screen', async ({
       page.getByText('€23.80 · ING Visa', { exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByText(
-        'No category yet. It waits in Needs a category, with a suggestion.',
-      ),
+      page.getByText('No category yet. It waits in Needs a category.'),
     ).toBeVisible();
     await expect(
       page.getByRole('link', { name: 'Needs a category' }),
