@@ -3,8 +3,8 @@
 #
 #   scripts/deploy.sh
 #
-# Run it in the owner's checkout after a merge to main has been pulled (see
-# AGENTS.md). It
+# Run it by hand in the checkout the app runs from, once it is on the commit
+# you want (README.md, "Update"). It
 #   1. skips, changing nothing, when the container settings (BB_APP_ORIGIN in
 #      .env) are absent or when no container of this compose project exists:
 #      it never creates the family's deployment,

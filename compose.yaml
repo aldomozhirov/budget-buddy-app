@@ -2,8 +2,8 @@
 #
 #   docker compose up -d
 #
-# The family's app runs from the owner's development checkout, next to
-# `pnpm dev`, and both read the same `.env`. Compose reads ONLY the names that
+# The app runs from a checkout of this repository, which may also run
+# `pnpm dev`; both read that folder's `.env`. Compose reads ONLY the names that
 # start with BB_ from it (BB_APP_ORIGIN, BB_HOST_PORT, BB_UID, BB_GID,
 # BB_RATES_FEED, BB_VAPID_SUBJECT, BB_PUSH_ALLOWED_HOSTS). The plain names
 # (APP_ORIGIN, PORT, DATA_DIR, RATES_FEED ...) are `pnpm dev`'s and never

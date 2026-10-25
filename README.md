@@ -45,8 +45,7 @@ Two things run from the same checkout and the same `.env`:
 development address can never reach the container and the container's address
 can never reach `pnpm dev`. Without `BB_APP_ORIGIN`, any `docker compose`
 command stops with "BB_APP_ORIGIN is not set" and no container is started.
-Every change merged to `main` reaches the container by itself (see
-[Update](#update)).
+A merge to `main` does not update a running container; see [Update](#update).
 
 ## Requirements
 
@@ -226,18 +225,10 @@ Open the app's https address in Safari on the phone, in the tailnet, and:
 
 ## Update
 
-Updates happen by themselves. After each pull request is merged to `main`, the
-session that owned it fast-forwards this checkout and runs
-`scripts/deploy.sh`, which rebuilds the image, replaces the container and waits
-until `/api/health` answers `"status":"ok"` with the right `migrationVersion`
-(the number of files in `server/drizzle/`). The family's app shows the change
-a minute or so later. The rules the session follows are in `AGENTS.md`: it
-skips the step and says so when `BB_APP_ORIGIN` is not set or this project has
-no container, it leaves the running container alone when the build fails, and
-it reports (and does nothing else) when the new container does not come up.
-
-To do one by hand, in this folder, with the checkout on `main` and no
-uncommitted changes (the image is built from the working folder):
+Updates are made by hand, when you decide: a merge to `main` changes nothing
+in a running container. In the folder the app runs from, with the checkout on
+the commit you want and no uncommitted changes (the image is built from the
+working folder):
 
 ```sh
 git pull --ff-only
@@ -251,9 +242,9 @@ are `docker compose build` and `docker compose up -d`; `up -d` replaces the
 container only when the image changed.
 
 The database is migrated when the new version starts, after a copy named
-`backups/pre_migration-<time>.sqlite` has been taken and checked, so a merge
-that carries a migration reaches the family's data with that backup already in
-place; a migration that fails stops the start and leaves the data as it was
+`backups/pre_migration-<time>.sqlite` has been taken and checked, so an
+update that carries a migration reaches the family's data with that backup
+already in place; a migration that fails stops the start and leaves the data as it was
 (`deploy.sh` then prints the container's last log lines and exits with 12).
 Nothing rolls back by itself. If the new version is wrong, `git checkout` the
 previous version, run `scripts/deploy.sh` again and, if a migration changed the
