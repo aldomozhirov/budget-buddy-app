@@ -18,18 +18,29 @@ From a fresh clone, run `pnpm install --frozen-lockfile`. Copy `.env.example` to
 
 Work is done by Claude Code sessions run by AO (Agent Orchestrator, the `ao` CLI), from Milestone D of spec 1.
 
-- A planning session writes a spec with a task list to `docs/specs/<nn>-<slug>.md`. It does not write application code. Model: Claude Opus 5.5 (`claude-opus-5-5`).
-- An orchestrator session coordinates: it spawns one AO worker per spec task, relays decisions and watches progress. It does not implement tasks.
-- An AO worker implements one task from the spec, writes its tests, runs the verification commands and opens one pull request against `main`. Model: Claude Sonnet 5.5 (`claude-sonnet-5-5`), the project default.
+- A planning session writes a spec to `docs/specs/<nn>-<slug>.md` (goal, decisions, design) and creates its tasks in Backlog.md (next section). It does not write application code. Model: Claude Opus 5.5 (`claude-opus-5-5`).
+- An orchestrator session coordinates: it spawns one AO worker per Backlog.md task, relays decisions and watches progress. It does not implement tasks.
+- An AO worker implements one Backlog.md task, writes its tests, runs the verification commands and opens one pull request against `main`. Model: Claude Sonnet 5.5 (`claude-sonnet-5-5`), the project default.
 - AO's native reviewer (`ao review trigger`) gives the independent review of the pull request. Model: Claude Opus 5.5.
 - Merging is automatic once two gates pass: the AO reviewer approves (`ao review ls`), and the required GitHub check `verify` (typecheck, lint and tests, `.github/workflows/ci.yml`) passes. The owner can still merge or close any pull request. An AO approval is not a GitHub approval and does not merge by itself.
 - Searching code and reading documentation needs no strong model. Where a lookup is done by a separate read-only session rather than by the worker itself, use Claude Haiku 5.5 (`claude-haiku-5-5`).
-- The spec file is the shared state. Tick tasks off in it and update it when the design changes.
+- Backlog.md (`backlog/`) is the shared state of the work: what is to do, who is on it, the plan, the notes and what is done. The spec holds the design; update it when the design changes. The task lists in specs 1 and 2 are kept as the record of what was built; their open tasks moved to Backlog.md on 2026-10-26.
+
+## Tasks in Backlog.md
+
+Tasks are Markdown files in `backlog/tasks/`, changed only through the `backlog` CLI (installed globally on this machine), never by hand. Run `backlog instructions overview` once per session. Read output with `--plain`. The repository is public, so a task holds nothing a spec would not.
+
+- Planning: one task per pull request, created with `backlog task create "<title>" -d "<what and why>" --ac "<criterion>" --ac "…" -l spec-<nn> --ref docs/specs/<nn>-<slug>.md --dep TASK-<id>`. Put the refs, files and the model (when a task should start on Opus) in the description, as spec 2 did. A task needing the owner (a trial on the family's devices) is labelled `owner`.
+- Finding work: `backlog task list -s "To Do" --plain`; take the lowest-numbered task whose dependencies are Done.
+- A worker, at the start: `backlog task edit TASK-<id> -s "In Progress" -a @<worker-name>`, then writes its plan with `--plan` before coding, as the first commit on its branch.
+- While building: `--check-ac <n>` as each criterion is shown to hold, `--append-notes` for decisions where the task was silent and for deviations from the design.
+- Before review: `-s Done --final-summary "<what was built, how it was verified, what was not>"`, committed in the same pull request, so the task becomes Done when it merges. A task blocked on a decision stays In Progress with a note, and the worker reports `--needs-input`.
+- `backlog board` and `backlog browser` show the board; they read the files and change nothing unless used to edit.
 
 ## Agent tooling
 
-- One worker builds one task. Spawn a new worker for the next task, so context and cost stay small. Name it after the task and give it the spec path and task number:
-  `ao spawn --harness claude-code --model claude-sonnet-5-5 --name "task-<n>-<slug>" --prompt "Build task <n> of docs/specs/<nn>-<slug>.md."`
+- One worker builds one task. Spawn a new worker for the next task, so context and cost stay small. Name it after the task and give it the task ID:
+  `ao spawn --harness claude-code --model claude-sonnet-5-5 --name "task-<id>-<slug>" --prompt "Build Backlog.md task TASK-<id> (backlog task TASK-<id> --plain)."`
 - Tasks run one at a time: Playwright binds the fixed port 4174 (`web/playwright.config.ts`), so two workers cannot run `pnpm e2e` together.
 - For a hard task, start the worker on Opus: `--model claude-opus-5-5`.
 - A worker may not use the agent runtime's own subagents. There is no separate tester, explorer or reviewer inside a worker session: the worker searches the code, writes the tests and runs typecheck, lint, unit and end-to-end tests itself. The independent check is the AO reviewer, which is a separate session.
@@ -51,7 +62,7 @@ Work is done by Claude Code sessions run by AO (Agent Orchestrator, the `ao` CLI
 
 A task is done when all of these hold:
 
-1. Its acceptance criteria in the spec are met.
+1. Its acceptance criteria in its Backlog.md task are met and ticked, and the task is Done with a final summary.
 2. Typecheck, lint and tests pass, with the output to show it, and the `verify` check passes on the pull request.
 3. The AO reviewer reports no blocking findings.
 4. The change is committed with a message naming the task, pushed, and open as a pull request against `main`.
@@ -70,3 +81,27 @@ A task is done when all of these hold:
 - Add `@param` only when a parameter's meaning or units are not obvious, `@returns` only when the result needs explaining, and `@throws` whenever the code throws. Add `@example` only for parsing and formatting, and check it against the code.
 - Use inline `//` comments only for lines that are not obvious, such as workarounds, focus or accessibility handling, and subtle invariants. Never narrate the code.
 - Keep comment lines at 80 characters or less, and update comments in the same change as the code they describe. `server/src/app.ts` and `shared/src/money/` show the style.
+
+<!-- BACKLOG.MD GUIDELINES START -->
+<!-- backlog.md-instructions-version: 1.55.3 -->
+<CRITICAL_INSTRUCTION>
+
+## Backlog.md Workflow
+
+This project uses Backlog.md for task and project management.
+
+**At the beginning of each conversation in this project, run `backlog instructions overview` before answering or taking action. Re-read it only if you have not read it yet in the current conversation.**
+
+Use the overview to decide whether to search, read, create, or update Backlog tasks.
+
+Before task lifecycle actions, read the matching detailed guide:
+- `backlog instructions task-creation` before creating or splitting tasks
+- `backlog instructions task-execution` before planning, changing status or assignee, adding a plan or implementation notes, or implementing task work
+- `backlog instructions task-finalization` before checking acceptance criteria, writing final summaries, or moving tasks to terminal statuses
+
+Use `backlog <command> --help` before running unfamiliar commands. Help shows options, fields, and examples.
+
+Do not edit Backlog task, draft, document, decision, or milestone markdown files directly. Use the `backlog` CLI so metadata, relationships, and history stay consistent.
+
+</CRITICAL_INSTRUCTION>
+<!-- BACKLOG.MD GUIDELINES END -->
