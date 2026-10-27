@@ -266,7 +266,7 @@ Since spec 2 (task 18): when the add options are stored on the phone, the locked
 
 ## Tasks
 
-Open tasks moved to Backlog.md on 2026-10-26 (`backlog/tasks/`): task 25 is TASK-1, task 30 is TASK-2 and task 31 is TASK-3. The list below is kept as the record of what was built and is no longer ticked here.
+Open tasks moved to the task board on 2026-10-26 (`AGENTS.md`, Tasks): task 25 is TASK-1, task 30 is TASK-2 and task 31 is TASK-3. The list below is kept as the record of what was built and is no longer ticked here.
 
 How to read a task: **Refs** are requirement and design IDs. **Depends** lists tasks that must be done first. **Parallel** names tasks that may be built at the same time. **Files** are the expected places; build may add files nearby. Every task must also meet the definition of done in `AGENTS.md`. "E2E" means a Playwright test in `web/e2e/` that runs on WebKit at both iPhone and iPad sizes.
 

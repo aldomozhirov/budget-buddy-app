@@ -234,7 +234,7 @@ Back labels (UI-NAV-2): "Back to transactions", "Back to transaction", "Back to 
 
 ## Tasks
 
-Open tasks moved to Backlog.md on 2026-10-26 (`backlog/tasks/`): task 19 is TASK-4. The list below is kept as the record of what was built and is no longer ticked here.
+Open tasks moved to the task board on 2026-10-26 (`AGENTS.md`, Tasks): task 19 is TASK-4. The list below is kept as the record of what was built and is no longer ticked here.
 
 How to read a task: as in spec 1. **Refs** are requirement and design IDs. **Depends** lists tasks that must be merged first. **Files** are the expected places. **Model** is named when a task should start on Opus (`--model claude-opus-5-5`); otherwise the project default. Every task meets the definition of done in `AGENTS.md`. "E2E" means a Playwright test in `web/e2e/` on WebKit at iPhone and iPad sizes; read the `webkit-e2e` skill first.
 

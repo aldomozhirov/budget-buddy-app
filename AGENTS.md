@@ -24,23 +24,38 @@ Work is done by Claude Code sessions run by AO (Agent Orchestrator, the `ao` CLI
 - AO's native reviewer (`ao review trigger`) gives the independent review of the pull request. Model: Claude Opus 5.5.
 - Merging is automatic once two gates pass: the AO reviewer approves (`ao review ls`), and the required GitHub check `verify` (typecheck, lint and tests, `.github/workflows/ci.yml`) passes. The owner can still merge or close any pull request. An AO approval is not a GitHub approval and does not merge by itself.
 - Searching code and reading documentation needs no strong model. Where a lookup is done by a separate read-only session rather than by the worker itself, use Claude Haiku 5.5 (`claude-haiku-5-5`).
-- Backlog.md (`backlog/`) is the shared state of the work: what is to do, who is on it, the plan, the notes and what is done. The spec holds the design; update it when the design changes. The task lists in specs 1 and 2 are kept as the record of what was built; their open tasks moved to Backlog.md on 2026-10-26.
+- The task board is the shared state of the work: what is to do, who is on it, the plan, the notes and what is done. The spec holds the design; update it when the design changes. The task lists in specs 1 and 2 are kept as the record of what was built; their open tasks moved to the board on 2026-10-26.
 
-## Tasks in Backlog.md
+## Tasks
 
-Tasks are Markdown files in `backlog/tasks/`, changed only through the `backlog` CLI (installed globally on this machine), never by hand. Run `backlog instructions overview` once per session. Read output with `--plain`. The repository is public, so a task holds nothing a spec would not.
+Tasks are kept in Backlog.md on a board outside this repository, private to this machine. Reach it only with `bbtask`, which runs the `backlog` CLI on that board from any folder; never look for its files or edit them by hand. Each change is saved on the board at once: nothing about a task is committed, pushed or put in a pull request. Run `bbtask instructions overview` once per session, and read output with `--plain`.
 
-- Planning: one task per pull request, created with `backlog task create "<title>" -d "<what and why>" --ac "<criterion>" --ac "…" -l spec-<nn> --ref docs/specs/<nn>-<slug>.md --dep TASK-<id>`. Put the refs, files and the model (when a task should start on Opus) in the description, as spec 2 did. A task needing the owner (a trial on the family's devices) is labelled `owner`.
-- Finding work: `backlog task list -s "To Do" --plain`; take the lowest-numbered task whose dependencies are Done.
-- A worker, at the start: `backlog task edit TASK-<id> -s "In Progress" -a @<worker-name>`, then writes its plan with `--plan` before coding, as the first commit on its branch.
+Statuses: To Do, In Progress, In Review, Done.
+
+- Planning: one task per pull request, created with `bbtask task create "<title>" -d "<what and why>" --ac "<criterion>" --ac "…" -l spec-<nn> --ref docs/specs/<nn>-<slug>.md --dep TASK-<id>`. Put the refs, files and the model (when a task should start on Opus) in the description, as spec 2 did. A task needing the owner (a trial on the family's devices) is labelled `owner`.
+- Finding work: `bbtask task list -s "To Do" --plain`. Bugs labelled `bug` with priority high come first; otherwise take the lowest-numbered task whose dependencies are Done.
+- A worker, at the start: `bbtask task edit TASK-<id> -s "In Progress" -a @<worker-name>`, then writes its plan with `--plan` before coding.
 - While building: `--check-ac <n>` as each criterion is shown to hold, `--append-notes` for decisions where the task was silent and for deviations from the design.
-- Before review: `-s Done --final-summary "<what was built, how it was verified, what was not>"`, committed in the same pull request, so the task becomes Done when it merges. A task blocked on a decision stays In Progress with a note, and the worker reports `--needs-input`.
-- `backlog board` and `backlog browser` show the board; they read the files and change nothing unless used to edit.
+- When the pull request is open: `-s "In Review"` and `--append-notes "PR: <url>"`. After it merges: `-s Done --final-summary "<what was built, how it was verified, what was not>"`. A pull request that is closed unmerged puts the task back to To Do with a note. A task blocked on a decision stays In Progress with a note, and the worker reports `--needs-input`.
+- The pull request and its commits name the task (`TASK-<id>`) but do not copy its text: the board is private and this repository is public.
+- `bbtask board` and `bbtask browser` show the board.
+
+### Bugs
+
+A bug is a task labelled `bug`, titled `Bug: <what goes wrong>`. The owner reports one in `bbtask browser`, with the command below, or by describing it to any session, which then creates it.
+
+`bbtask task create "Bug: <what goes wrong>" -l bug --priority <high|medium|low> -d "<report>"`
+
+- The description has these lines, each left out when unknown: **Where** (screen or path, such as `/transactions`), **Device** (iPhone or iPad, iOS version, Home Screen app or Safari), **Version** (the commit the copy runs, when known), **Steps**, **Expected**, **Actual**, **Since** (date first seen, or the change suspected).
+- Priority: **high** when data is wrong or lost, money is shown wrongly, or something can't be done at all; **medium** when a feature is broken but there is a way around it; **low** for looks and copy.
+- A report may hold real details, since the board is private. Never copy them into code, tests, fixtures, commits or pull requests: reproduce the bug with made-up values of the same shape (currency, decimals, dates).
+- The worker first reproduces the bug in a test that fails, and adds the acceptance criteria if the report has none: "A test reproduces the bug and fails before the fix" and "The test passes after the fix". It records the cause with `--append-notes`. A bug it cannot reproduce stays In Progress with a note of what was tried, and the worker reports `--needs-input`.
+- A bug found while building another task becomes its own `bug` task, unless the fix belongs in the task at hand.
 
 ## Agent tooling
 
 - One worker builds one task. Spawn a new worker for the next task, so context and cost stay small. Name it after the task and give it the task ID:
-  `ao spawn --harness claude-code --model claude-sonnet-5-5 --name "task-<id>-<slug>" --prompt "Build Backlog.md task TASK-<id> (backlog task TASK-<id> --plain)."`
+  `ao spawn --harness claude-code --model claude-sonnet-5-5 --name "task-<id>-<slug>" --prompt "Build task TASK-<id> (bbtask task TASK-<id> --plain)."`
 - Tasks run one at a time: Playwright binds the fixed port 4174 (`web/playwright.config.ts`), so two workers cannot run `pnpm e2e` together.
 - For a hard task, start the worker on Opus: `--model claude-opus-5-5`.
 - A worker may not use the agent runtime's own subagents. There is no separate tester, explorer or reviewer inside a worker session: the worker searches the code, writes the tests and runs typecheck, lint, unit and end-to-end tests itself. The independent check is the AO reviewer, which is a separate session.
@@ -62,7 +77,7 @@ Tasks are Markdown files in `backlog/tasks/`, changed only through the `backlog`
 
 A task is done when all of these hold:
 
-1. Its acceptance criteria in its Backlog.md task are met and ticked, and the task is Done with a final summary.
+1. Its acceptance criteria on its task are met and ticked; the task is In Review while the pull request is open and Done with a final summary after the merge.
 2. Typecheck, lint and tests pass, with the output to show it, and the `verify` check passes on the pull request.
 3. The AO reviewer reports no blocking findings.
 4. The change is committed with a message naming the task, pushed, and open as a pull request against `main`.
@@ -81,27 +96,3 @@ A task is done when all of these hold:
 - Add `@param` only when a parameter's meaning or units are not obvious, `@returns` only when the result needs explaining, and `@throws` whenever the code throws. Add `@example` only for parsing and formatting, and check it against the code.
 - Use inline `//` comments only for lines that are not obvious, such as workarounds, focus or accessibility handling, and subtle invariants. Never narrate the code.
 - Keep comment lines at 80 characters or less, and update comments in the same change as the code they describe. `server/src/app.ts` and `shared/src/money/` show the style.
-
-<!-- BACKLOG.MD GUIDELINES START -->
-<!-- backlog.md-instructions-version: 1.55.3 -->
-<CRITICAL_INSTRUCTION>
-
-## Backlog.md Workflow
-
-This project uses Backlog.md for task and project management.
-
-**At the beginning of each conversation in this project, run `backlog instructions overview` before answering or taking action. Re-read it only if you have not read it yet in the current conversation.**
-
-Use the overview to decide whether to search, read, create, or update Backlog tasks.
-
-Before task lifecycle actions, read the matching detailed guide:
-- `backlog instructions task-creation` before creating or splitting tasks
-- `backlog instructions task-execution` before planning, changing status or assignee, adding a plan or implementation notes, or implementing task work
-- `backlog instructions task-finalization` before checking acceptance criteria, writing final summaries, or moving tasks to terminal statuses
-
-Use `backlog <command> --help` before running unfamiliar commands. Help shows options, fields, and examples.
-
-Do not edit Backlog task, draft, document, decision, or milestone markdown files directly. Use the `backlog` CLI so metadata, relationships, and history stay consistent.
-
-</CRITICAL_INSTRUCTION>
-<!-- BACKLOG.MD GUIDELINES END -->
