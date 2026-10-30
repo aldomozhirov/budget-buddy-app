@@ -1,0 +1,7 @@
+# Codex settings for this project. Codex loads .codex/ (this file, agents/
+# and rules/) only once you trust the project.
+
+# Library documentation for the explore agent; opencode.json and
+# .claude/agents/explore.md set up the same server.
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"
