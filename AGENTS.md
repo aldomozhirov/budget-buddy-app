@@ -16,14 +16,20 @@ From a fresh clone, run `pnpm install --frozen-lockfile`. Copy `.env.example` to
 
 ## How the team works
 
-Work is done by Claude Code sessions run by AO (Agent Orchestrator, the `ao` CLI), from Milestone D of spec 1.
+Work is done by coding-agent sessions run by AO (Agent Orchestrator, the `ao` CLI), from Milestone D of spec 1. The project is set up for three agent harnesses: Claude Code (the default), Codex and OpenCode. Each role has a model per harness:
 
-- A planning session writes a spec to `docs/specs/<nn>-<slug>.md` (goal, decisions, design) and creates its tasks in Backlog.md (next section). It does not write application code. Model: Claude Opus 5.5 (`claude-opus-5-5`).
+| Role | Claude Code | Codex | OpenCode |
+| --- | --- | --- | --- |
+| Planning, review | `claude-opus-5-5` | `gpt-6.1-sol` | `openai/gpt-6.1-sol` |
+| Worker (build), tests | `claude-sonnet-5-5` | `gpt-6-luna` | `openai/gpt-6-luna` |
+| Lookups (explore) | `claude-haiku-5-5` | `gpt-6-luna`, low effort | `openai/gpt-6-luna`, low effort |
+
+- A planning session writes a spec to `docs/specs/<nn>-<slug>.md` (goal, decisions, design) and creates its tasks in Backlog.md (next section). It does not write application code.
 - An orchestrator session coordinates: it spawns one AO worker per Backlog.md task, relays decisions and watches progress. It does not implement tasks.
-- An AO worker implements one Backlog.md task, writes its tests, runs the verification commands and opens one pull request against `main`. Model: Claude Sonnet 5.5 (`claude-sonnet-5-5`), the project default.
-- AO's native reviewer (`ao review trigger`) gives the independent review of the pull request. Model: Claude Opus 5.5.
+- An AO worker implements one Backlog.md task, writes its tests, runs the verification commands and opens one pull request against `main`. AO's project default is Claude Code on `claude-sonnet-5-5`.
+- AO's native reviewer (`ao review trigger`) gives the independent review of the pull request, on `claude-opus-5-5` whichever harness the worker used.
 - Merging is automatic once two gates pass: the AO reviewer approves (`ao review ls`), and the required GitHub check `verify` (typecheck, lint and tests, `.github/workflows/ci.yml`) passes. The owner can still merge or close any pull request. An AO approval is not a GitHub approval and does not merge by itself.
-- Searching code and reading documentation needs no strong model. Where a lookup is done by a separate read-only session rather than by the worker itself, use Claude Haiku 5.5 (`claude-haiku-5-5`).
+- Searching code and reading documentation needs no strong model. Where a lookup is done by a separate read-only session rather than by the worker itself, use the lookup model of the table.
 - The task board is the shared state of the work: what is to do, who is on it, the plan, the notes and what is done. The spec holds the design; update it when the design changes. The task lists in specs 1 and 2 are kept as the record of what was built; their open tasks moved to the board on 2026-10-26.
 
 ## Tasks
@@ -56,10 +62,11 @@ A bug is a task labelled `bug`, titled `Bug: <what goes wrong>`. The owner repor
 
 - One worker builds one task. Spawn a new worker for the next task, so context and cost stay small. Name it after the task and give it the task ID:
   `ao spawn --harness claude-code --model claude-sonnet-5-5 --name "task-<id>-<slug>" --prompt "Build task TASK-<id> (bbtask task TASK-<id> --plain)."`
+  For a Codex worker, use `--harness codex --model gpt-6-luna`; for OpenCode, `--harness opencode-v2 --model openai/gpt-6-luna`. The rest of this section holds for every harness.
 - Tasks run one at a time: Playwright binds the fixed port 4174 (`web/playwright.config.ts`), so two workers cannot run `pnpm e2e` together.
-- For a hard task, start the worker on Opus: `--model claude-opus-5-5`.
+- For a hard task, start the worker on the planning model: `--model claude-opus-5-5`, or `gpt-6.1-sol` on Codex.
 - A worker may not use the agent runtime's own subagents. There is no separate tester, explorer or reviewer inside a worker session: the worker searches the code, writes the tests and runs typecheck, lint, unit and end-to-end tests itself. The independent check is the AO reviewer, which is a separate session.
-- When the pull request is pushed and the local checks pass, the worker runs `ao review trigger --pr <url> --model claude-opus-5-5`. Without `--model` the reviewer uses the project's default worker model (Sonnet). Findings arrive as pull request comments; the worker fixes them, pushes and triggers again for the new commit. An approval adds no comments, so check the verdict with `ao review ls`.
+- When the pull request is pushed and the local checks pass, the worker runs `ao review trigger --pr <url> --agent claude-code --model claude-opus-5-5`, whichever harness it runs on. Without `--model` the reviewer uses the project's default worker model (Sonnet). Findings arrive as pull request comments; the worker fixes them, pushes and triggers again for the new commit. An approval adds no comments, so check the verdict with `ao review ls`.
 - Only after the AO reviewer approves, the worker runs `gh pr merge --auto --squash <url>`. GitHub then squash-merges the pull request when `verify` passes, and deletes the branch. Never enable auto-merge before that approval.
 - Branch protection requires the branch to be up to date with `main`, and GitHub does not update it by itself. When the pull request is behind `main`, the worker runs `git fetch origin && git merge origin/main` (never a rebase, since force-pushing is forbidden), fixes any conflicts, re-runs the local checks, pushes, and runs `ao review trigger` for the new commit. It enables auto-merge again after that approval if GitHub turned it off.
 - After the pull request merges into `main`, the worker that owned it updates the owner's local checkout and checks that it runs. Find it with `main=$(git worktree list --porcelain | sed -n '1s/^worktree //p')`, the first entry of `git worktree list`; act only if it is on `main` with a clean working tree (`git -C "$main" branch --show-current`, `git -C "$main" status --porcelain`), otherwise change nothing and report that to the owner. Then run `git -C "$main" pull --ff-only`, `pnpm -C "$main" install --frozen-lockfile` and `pnpm -C "$main" --filter @budget-buddy/shared build` and check that the development server runs (next point).
@@ -67,11 +74,15 @@ A bug is a task labelled `bug`, titled `Bug: <what goes wrong>`. The owner repor
 - Deployments of the app on this machine are managed outside this repository, and a merge does not deploy anything. Agents do not run `scripts/deploy.sh`, and do not build, start, stop, restart or remove any app container other than their own test containers (below). Never `docker compose down -v`, never delete or move a `data` or `backups` folder, never `docker volume`/`system prune`, no `tailscale`, no `sudo`.
 - Never commit, stash, reset or otherwise change files in the owner's checkout beyond that pull, install and build. Do not create or edit its `.env`. Report the result with `ao report`.
 - Report with `ao report`: `--checkpoint` at milestones, `--needs-input` when blocked on a decision, and `--done --pr-created <url>` when finished.
-- Skills in `.opencode/skills/` hold rules that only some tasks need. They are plain Markdown and any agent can read them. Read `design-system` before any markup or styling, `build-a-screen` for a screen task, `money-rules` before code that touches amounts, rates or dates, and `webkit-e2e` before a Playwright test.
+- Skills in `.agents/skills/` hold rules that only some tasks need. Codex and OpenCode find them there, and Claude Code through the links in `.claude/skills/`; they are plain Markdown, so any agent can also read them. Read `design-system` before any markup or styling, `build-a-screen` for a screen task, `money-rules` before code that touches amounts, rates or dates, and `webkit-e2e` before a Playwright test.
 - A worker pushes its own session branch with a plain `git push` and opens the pull request against `main`. It never force-pushes, deletes a remote branch, pushes to `main`, or merges around the required check (no `--admin`, no changing branch protection). It does not run `tailscale`, `sudo` or destructive git and Docker commands. This machine is also the deployment host; the app's deployments are managed outside this repository and never run from a worker's worktree. A worker's own Docker tests (`scripts/restore-test.sh`, a compose trial) use an explicit unique project name (`docker compose -p bb-test-<random>`, or `COMPOSE_PROJECT_NAME`), a free port, temporary settings and folders, and remove only what they created; a worker never stops, rebuilds or touches another project's containers, and never prunes. Docker is Rancher Desktop's, in `~/.rd/bin`.
 - Playwright's WebKit is installed on this machine (`npx playwright install webkit`; checked on macOS 27 with Playwright 1.63).
 - Playwright is the project's test runner (`pnpm e2e`) and needs no MCP server.
-- `.opencode/agents/`, `opencode.json` and `scripts/build-tasks` are the earlier OpenCode setup on OpenAI models. They are kept for reference and the AO workflow does not use them.
+- For sessions the owner runs outside AO, five role agents are defined for each harness, with the same instructions: `plan` (a spec and its tasks), `build` (one task, then a pull request), `explore` (read-only lookups), `tester` and `reviewer`. They are in `.claude/agents/`, `.codex/agents/` and `.opencode/agents/`, and AO workers do not use them. Start a planning or build session with `claude --agent plan`, or pick the agent with Tab in OpenCode. In Codex, ask the session to hand the work to the agent ("use the plan agent").
+- context7 (library documentation) is set up for `explore` in `.claude/agents/explore.md` and `opencode.json`, and for every Codex session in `.codex/config.toml`.
+- The commands above that no agent runs are also blocked by each harness: `permissions.deny` in `.claude/settings.json`, `.codex/rules/guardrails.rules`, and the `build` agent's permissions in `.opencode/agents/build.md`. Codex rules match only the start of a command, so they catch fewer forms.
+- Codex reads `.codex/` (agents, rules, MCP) only in a project the owner has trusted in Codex; AGENTS.md and the skills load either way.
+- When you change a role, a guardrail or the MCP setup, change it for all three harnesses in the same pull request.
 
 ## Definition of done
 
