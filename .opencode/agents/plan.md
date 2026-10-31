@@ -29,7 +29,7 @@ Workflow:
    - Design: data model, routes or components touched, key decisions and why.
    - Verification: the exact commands that must pass for the whole spec.
 4. Create the tasks on the board, one per pull request, as AGENTS.md ("Tasks", Planning) describes. Each task is small enough for one session, names the files it is expected to touch, and has acceptance criteria that a command or a concrete observation can check. Give dependencies with `--dep`, so that tasks without one can be built in any order.
-5. Stop and report the spec path and the task IDs. Workers build the tasks.
+5. Stop and report the spec path and the task IDs. A `build` session builds each task.
 
 Rules:
 - Edit only files under `docs/specs/`.
