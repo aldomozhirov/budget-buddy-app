@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { goToSignIn } from '../../session/lock.js';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import {
   accountResponseSchema,
@@ -28,6 +28,8 @@ import BbButton from '../../components/BbButton.vue';
 import BbIcon from '../../components/BbIcon.vue';
 import BbSheet from '../../components/BbSheet.vue';
 import BbTag from '../../components/BbTag.vue';
+import DateSheet from '../add/DateSheet.vue';
+import { dayLabel } from '../add/addForm.js';
 import LineChart from '../../components/charts/LineChart.vue';
 import { useBack } from '../../composables/useBack.js';
 import { consumeAccountAddedNotice } from '../../stores/account-creation.js';
@@ -38,7 +40,6 @@ defineOptions({ name: 'AccountScreen' });
 
 type Sheet =
   | 'balance'
-  | 'balance-date'
   | 'correction'
   | 'settings'
   | 'deactivate'
@@ -85,8 +86,8 @@ const relabelPending = ref(false);
 const showAccountAdded = ref(false);
 const previewing = ref(false);
 const saving = ref(false);
-const balanceDateChoice = ref<HTMLButtonElement>();
-const balanceDateInput = ref<HTMLInputElement>();
+/** Which sheet's date the calendar, open over that sheet, is picking. */
+const datePicking = ref<'balance' | 'correction' | null>(null);
 
 const currency = computed(() =>
   getCurrency(account.value?.currency ?? currencyCode.value, coins.value),
@@ -284,33 +285,31 @@ function openBalance(): void {
   sheet.value = 'balance';
 }
 
-function openBalanceDate(): void {
-  refreshClock();
-  sheet.value = 'balance-date';
-  void nextTick(() => balanceDateInput.value?.focus());
+/** The day a snapshot was taken, in the family time zone. */
+function snapshotDate(snapshot: Snapshot): string {
+  return todayInTimeZone(new Date(snapshot.takenAt), timeZone.value);
 }
 
-function returnToBalance(): void {
+/**
+ * Opens the month calendar over Set balance or Correct balance; the sheet
+ * below stays open, so an amount typed there is kept.
+ */
+function openDatePicker(target: 'balance' | 'correction'): void {
   refreshClock();
-  if (!balanceDate.value || balanceDate.value > today.value) {
-    balanceDate.value = today.value;
-  }
-  sheet.value = 'balance';
-  void nextTick(() => balanceDateChoice.value?.focus());
+  datePicking.value = target;
 }
 
-function closeBalanceSheet(): void {
-  if (sheet.value === 'balance-date') {
-    returnToBalance();
-  } else {
-    sheet.value = null;
-  }
-}
-
-function chooseTodayForBalance(): void {
+/**
+ * Takes the calendar's pick. The day it showed as today means today, also
+ * when midnight passed while it was open.
+ */
+function pickDate(picked: string): void {
+  const shownToday = today.value;
   refreshClock();
-  balanceDate.value = today.value;
-  returnToBalance();
+  const date = picked === shownToday ? today.value : picked;
+  if (datePicking.value === 'balance') balanceDate.value = date;
+  if (datePicking.value === 'correction') correctionDate.value = date;
+  datePicking.value = null;
 }
 
 async function saveBalance(amount: bigint): Promise<void> {
@@ -353,20 +352,14 @@ async function saveBalance(amount: bigint): Promise<void> {
 async function openCorrection(snapshot: Snapshot): Promise<void> {
   refreshClock();
   selectedSnapshot.value = snapshot;
-  correctionDate.value = todayInTimeZone(
-    new Date(snapshot.takenAt),
-    timeZone.value,
-  );
+  correctionDate.value = snapshotDate(snapshot);
   actionError.value = '';
   sheet.value = 'correction';
 }
 
 async function saveCorrection(amount: bigint): Promise<void> {
   if (!selectedSnapshot.value || saving.value) return;
-  const originalDate = todayInTimeZone(
-    new Date(selectedSnapshot.value.takenAt),
-    timeZone.value,
-  );
+  const originalDate = snapshotDate(selectedSnapshot.value);
   saving.value = true;
   actionError.value = '';
   try {
@@ -752,62 +745,36 @@ function goHome(): void {
     </div>
 
     <BbSheet
-      v-if="(sheet === 'balance' || sheet === 'balance-date') && currency"
-      :title="sheet === 'balance' ? 'Set balance' : 'Balance date'"
-      @close="closeBalanceSheet"
+      v-if="sheet === 'balance' && currency"
+      title="Set balance"
+      @close="sheet = null"
     >
       <div class="account-sheet-body">
-        <div
-          v-show="sheet === 'balance'"
-          :aria-hidden="sheet === 'balance-date' ? 'true' : undefined"
-          :inert="sheet === 'balance-date'"
+        <button
+          class="meta"
+          :class="{ 'meta-set': balanceDate !== today }"
+          type="button"
+          :aria-label="`Date: ${dayLabel(balanceDate, today)}. Change`"
+          @click="openDatePicker('balance')"
         >
-          <button
-            ref="balanceDateChoice"
-            class="account-date-choice"
-            type="button"
-            @click="openBalanceDate"
-          >
-            {{
-              !balanceDate || balanceDate === today
-                ? 'Today'
-                : formatDate(balanceDate, timeZone)
-            }}
-            · Change date
-          </button>
-          <BbAmountInput
-            :currency="currency"
-            :allow-negative="true"
-            :last-amount="account ? BigInt(account.balance) : null"
-            :saving="saving"
-            label="Account balance"
-            save-label="Save balance"
-            needs-server
-            @save="saveBalance"
-          />
-          <p v-if="actionError" class="error" role="alert">
-            {{ actionError }}
-          </p>
-        </div>
-        <div v-if="sheet === 'balance-date'" class="account-date-editor">
-          <button
-            class="account-date-choice"
-            type="button"
-            @click="chooseTodayForBalance"
-          >
-            Today
-          </button>
-          <label class="lbl" for="balance-date">Earlier date…</label>
-          <input
-            id="balance-date"
-            ref="balanceDateInput"
-            v-model="balanceDate"
-            class="text"
-            type="date"
-            :max="today"
-          />
-          <BbButton @click="returnToBalance">Done</BbButton>
-        </div>
+          <span class="meta-l"><BbIcon name="calendar" :size="13" />Date</span>
+          <span class="meta-v"
+            >{{ dayLabel(balanceDate, today) }}<BbIcon name="down" :size="14"
+          /></span>
+        </button>
+        <BbAmountInput
+          :currency="currency"
+          :allow-negative="true"
+          :last-amount="account ? BigInt(account.balance) : null"
+          :saving="saving"
+          label="Account balance"
+          save-label="Save balance"
+          needs-server
+          @save="saveBalance"
+        />
+        <p v-if="actionError" class="error" role="alert">
+          {{ actionError }}
+        </p>
       </div>
     </BbSheet>
 
@@ -821,14 +788,21 @@ function goHome(): void {
           {{ sourceLabels[selectedSnapshot.source] }} ·
           {{ selectedSnapshot.updatedByName }}
         </p>
-        <label class="lbl" for="correction-date">Date</label>
-        <input
-          id="correction-date"
-          v-model="correctionDate"
-          class="text"
-          type="date"
-          :max="today"
-        />
+        <button
+          class="meta"
+          :class="{
+            'meta-set': correctionDate !== snapshotDate(selectedSnapshot),
+          }"
+          type="button"
+          :aria-label="`Date: ${dayLabel(correctionDate, today)}. Change`"
+          @click="openDatePicker('correction')"
+        >
+          <span class="meta-l"><BbIcon name="calendar" :size="13" />Date</span>
+          <span class="meta-v"
+            >{{ dayLabel(correctionDate, today)
+            }}<BbIcon name="down" :size="14"
+          /></span>
+        </button>
         <BbAmountInput
           :key="selectedSnapshot.id"
           :currency="currency"
@@ -853,6 +827,16 @@ function goHome(): void {
         <p v-if="actionError" class="error" role="alert">{{ actionError }}</p>
       </div>
     </BbSheet>
+    <DateSheet
+      v-if="
+        (datePicking === 'balance' && sheet === 'balance') ||
+        (datePicking === 'correction' && sheet === 'correction')
+      "
+      :date="datePicking === 'balance' ? balanceDate : correctionDate"
+      :today="today"
+      @pick="pickDate"
+      @close="datePicking = null"
+    />
 
     <BbSheet
       v-if="sheet === 'settings'"
@@ -1161,14 +1145,6 @@ function goHome(): void {
   gap: 12px;
   overflow-y: auto;
   padding: 0 16px max(24px, var(--safe-area-bottom));
-}
-.account-date-choice {
-  min-height: 48px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-field);
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
 }
 .account-sheet-body .lbl {
   margin-bottom: -8px;
