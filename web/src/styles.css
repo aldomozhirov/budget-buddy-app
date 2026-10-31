@@ -735,6 +735,13 @@ body,
   border: 0;
 }
 
+/* Each open sheet is its own layer, so a sheet opened over another dims it
+   with its own scrim instead of sliding under the sheet below. */
+.bb.sheet-layer {
+  position: relative;
+  z-index: 100;
+}
+
 .bb .scrim {
   appearance: none;
   z-index: 100;

@@ -87,6 +87,43 @@ async function expectInsideWidth(page: Page, inner: Locator): Promise<void> {
   expect(box!.x + box!.width).toBeLessThanOrEqual(width);
 }
 
+/**
+ * Fails unless the sheet holding `covered` is drawn dimmed: a sheet opened
+ * over another dims it, as it dims the page. The sheet below is inert, so
+ * hit testing cannot see what covers it; this reads the screenshot's pixel
+ * just left of `covered`, on the sheet's background.
+ */
+async function expectDimmed(page: Page, covered: Locator): Promise<void> {
+  const box = (await covered.boundingBox())!;
+  const shot = await page.screenshot({ scale: 'css', animations: 'disabled' });
+  const [red, green, blue] = await page.evaluate(
+    async ([png, x, y]) => {
+      const image = new Image();
+      image.src = `data:image/png;base64,${png}`;
+      await image.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = image.width;
+      canvas.height = image.height;
+      const context = canvas.getContext('2d')!;
+      context.drawImage(image, 0, 0);
+      return Array.from(context.getImageData(x, y, 1, 1).data);
+    },
+    [
+      shot.toString('base64'),
+      Math.round(box.x / 2),
+      Math.round(box.y + box.height / 2),
+    ] as const,
+  );
+  const surface = await covered.evaluate(
+    (element) => getComputedStyle(element.closest('.sheet')!).backgroundColor,
+  );
+  const [r, g, b] = surface.match(/\d+/gu)!.map(Number);
+  expect(
+    red! + green! + blue!,
+    `sheet pixel rgb(${red}, ${green}, ${blue}) vs surface ${surface}`,
+  ).toBeLessThan((r! + g! + b!) * 0.85);
+}
+
 test('Set balance picks an earlier date in the calendar and keeps the amount', async ({
   page,
 }) => {
@@ -115,6 +152,10 @@ test('Set balance picks an earlier date in the calendar and keeps the amount', a
     const calendar = page.getByRole('dialog', { name: 'Date' });
     await expect(calendar).toBeVisible();
     await expectInsideWidth(page, calendar);
+    await expectDimmed(
+      page,
+      sheet.getByRole('heading', { name: 'Set balance' }),
+    );
     const day = lastMonth(today, 10);
     await pickLastMonth(page, day);
 
@@ -156,6 +197,10 @@ test('Correct balance moves a balance to an earlier date and keeps the amount', 
     await sheet.getByRole('button', { name: 'Date: Today. Change' }).click();
     const calendar = page.getByRole('dialog', { name: 'Date' });
     await expectInsideWidth(page, calendar);
+    await expectDimmed(
+      page,
+      sheet.getByRole('heading', { name: 'Correct balance' }),
+    );
     const day = lastMonth(today, 10);
     await pickLastMonth(page, day);
     await expect(sheet.getByText('€42.00', { exact: true })).toBeVisible();
