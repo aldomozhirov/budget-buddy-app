@@ -5,9 +5,11 @@ import {
   evaluateExpression,
   formatMoney,
   lastCompleteValue,
+  parsePastedAmount,
   type Currency,
 } from '@budget-buddy/shared';
 import BbKeypad from './BbKeypad.vue';
+import { canReadClipboard } from '../composables/useClipboard';
 import { isOnline } from '../composables/useOnline';
 
 /**
@@ -41,6 +43,11 @@ const props = withDefaults(
     hint?: string;
     /** Shows `hint` in the warning colour. */
     hintWarn?: boolean;
+    /**
+     * Drops the minus of a pasted amount even where negatives are allowed:
+     * banking apps show money spent as "−12.30", which is not a refund.
+     */
+    dropPastedSign?: boolean;
   }>(),
   {
     allowNegative: false,
@@ -53,6 +60,7 @@ const props = withDefaults(
     bare: false,
     hint: '',
     hintWarn: false,
+    dropPastedSign: false,
   },
 );
 
@@ -71,6 +79,12 @@ export interface AmountChange {
 }
 
 const offline = computed(() => props.needsServer && !isOnline.value);
+
+/** Shown when pasted text is not one amount (UI-AMT-5). */
+const PASTE_ERROR = 'Can’t paste that. Copy just the amount.';
+const canPaste = canReadClipboard();
+/** Why the last paste was not taken; cleared by the next edit. */
+const pasteError = ref('');
 
 /**
  * Emits the valid amount as it changes, or when the caller saves it. `change`
@@ -121,6 +135,7 @@ const error = computed(() => {
   }
   return 'Can’t calculate that.';
 });
+const shownError = computed(() => pasteError.value || error.value);
 const canSave = computed(() => evaluation.value?.ok === true);
 const minusDisabled = computed(() => {
   const trimmed = expression.value.trimEnd();
@@ -156,28 +171,70 @@ function toExpression(amount: bigint, currency: Currency): string {
   return `${sign}${whole}.${fraction}`;
 }
 
-/** Updates the expression and publishes its currently calculable amount. */
-function setExpression(next: string): void {
-  expression.value = next;
-  const result = next.trim()
-    ? evaluateExpression(next, props.currency)
-    : undefined;
-  emit('update:amount', result?.ok ? result.value : null);
-  const shown = result?.ok
-    ? result.value
-    : next.trim()
-      ? lastCompleteValue(next, props.currency)
-      : undefined;
-  emit('change', {
+/** What `change` reports for the expression now shown. */
+function currentChange(): AmountChange {
+  const next = expression.value;
+  const result = evaluation.value;
+  return {
     amount: result?.ok ? result.value : null,
     empty: !next.trim(),
     valid: !next.trim() || result?.ok === true,
     text: /[+−\-×÷*/%]/.test(next)
       ? next
-      : formatMoney(shown ?? 0n, props.currency),
+      : formatMoney(preview.value ?? 0n, props.currency),
     error: error.value,
-  });
+  };
 }
+
+/** Updates the expression and publishes its currently calculable amount. */
+function setExpression(next: string): void {
+  expression.value = next;
+  pasteError.value = '';
+  const change = currentChange();
+  emit('update:amount', change.amount);
+  emit('change', change);
+}
+
+/**
+ * Replaces the expression with the amount in pasted text, or shows why it
+ * cannot (UI-AMT-5). The minus is dropped where it is not wanted.
+ * @returns Whether the text was read as an amount.
+ */
+function pasteText(text: string): boolean {
+  const pasted = parsePastedAmount(text, props.currency);
+  if (!pasted.ok) {
+    pasteError.value = PASTE_ERROR;
+    emit('change', { ...currentChange(), error: PASTE_ERROR });
+    return false;
+  }
+  const dropSign = !props.allowNegative || props.dropPastedSign;
+  setExpression(
+    dropSign ? pasted.expression.replace(/^−/u, '') : pasted.expression,
+  );
+  return true;
+}
+
+/** Reads the clipboard after a tap; a dismissed Paste bubble does nothing. */
+async function paste(): Promise<void> {
+  let text: string;
+  try {
+    text = await navigator.clipboard.readText();
+  } catch {
+    return;
+  }
+  pasteText(text);
+}
+
+/** Takes Cmd+V or a paste from the system menu on any part of the editor. */
+function onPaste(event: ClipboardEvent): void {
+  const text = event.clipboardData?.getData('text/plain');
+  if (text === undefined) return;
+  event.preventDefault();
+  pasteText(text);
+}
+
+/** For a bare keypad, whose caller shows its own Paste button. */
+defineExpose({ paste, pasteText });
 
 /** Applies a keypad or hardware-keyboard token to the expression. */
 function press(key: string): void {
@@ -266,7 +323,7 @@ function onKeydown(event: KeyboardEvent): void {
 </script>
 
 <template>
-  <div class="amount-entry" @keydown="onKeydown">
+  <div class="amount-entry" @keydown="onKeydown" @paste="onPaste">
     <div
       v-if="!bare"
       class="amount-entry-display"
@@ -288,19 +345,27 @@ function onKeydown(event: KeyboardEvent): void {
       <div v-if="hint" class="amount-entry-hint" :class="{ warn: hintWarn }">
         {{ hint }}
       </div>
-      <div v-if="error" class="error" role="alert">
-        {{ error }}
+      <div v-if="shownError" class="error" role="alert">
+        {{ shownError }}
       </div>
     </div>
 
-    <button
-      v-if="hasLastAmount && !bare"
-      class="text-btn amount-entry-start-last"
-      type="button"
-      @click="startFromLast"
+    <div
+      v-if="!bare && (hasLastAmount || canPaste)"
+      class="amount-entry-actions"
     >
-      Start from last
-    </button>
+      <button
+        v-if="hasLastAmount"
+        class="text-btn amount-entry-start-last"
+        type="button"
+        @click="startFromLast"
+      >
+        Start from last
+      </button>
+      <button v-if="canPaste" class="text-btn" type="button" @click="paste">
+        Paste
+      </button>
+    </div>
 
     <BbKeypad :minus-disabled="minusDisabled" @press="press" />
 

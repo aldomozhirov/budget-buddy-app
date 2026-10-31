@@ -27,6 +27,7 @@ import BbChip from '../../components/BbChip.vue';
 import BbChipGroup from '../../components/BbChipGroup.vue';
 import BbIcon from '../../components/BbIcon.vue';
 import BbSegmented from '../../components/BbSegmented.vue';
+import { canReadClipboard } from '../../composables/useClipboard.js';
 import CategoryPickerSheet from '../../components/CategoryPickerSheet.vue';
 import EnvelopePickerSheet from '../../components/EnvelopePickerSheet.vue';
 import { ApiError, callApi } from '../../api/callApi.js';
@@ -152,6 +153,9 @@ const saved = ref<{
 const undoing = ref(false);
 const savedHeading = ref<HTMLElement>();
 const amountGroup = ref<HTMLElement>();
+const amountKeypad = ref<InstanceType<typeof BbAmountInput>>();
+const arriveKeypad = ref<InstanceType<typeof BbAmountInput>>();
+const canPaste = canReadClipboard();
 
 /**
  * Moves focus into the saved view or back to the form: the side that is
@@ -700,6 +704,11 @@ function editArrive(): void {
   arriveEdit.value = true;
 }
 
+/** Pastes into the amount the keypad is typing (UI-AMT-5). */
+function pasteAmount(): void {
+  void (arriveEdit.value ? arriveKeypad : amountKeypad).value?.paste();
+}
+
 function pickMerchant(value: string): void {
   sheet.value = null;
   merchant.value = value;
@@ -1065,6 +1074,15 @@ function addAnother(): void {
             >{{ shownAmount }}</component
           >
           <span class="add-currency">{{ currency.code }}</span>
+          <button
+            v-if="canPaste"
+            class="text-btn add-paste"
+            type="button"
+            :aria-label="arriveEdit ? 'Paste what arrives' : 'Paste amount'"
+            @click="pasteAmount"
+          >
+            Paste
+          </button>
         </div>
         <button
           v-if="fx"
@@ -1251,10 +1269,12 @@ function addAnother(): void {
 
       <BbAmountInput
         v-show="!arriveEdit"
+        ref="amountKeypad"
         :key="keypadKey"
         v-model:amount="amount"
         bare
         :allow-negative="kind === 'expense'"
+        drop-pasted-sign
         :currency="currency"
         label="Amount"
         @change="onAmountChange"
@@ -1262,6 +1282,7 @@ function addAnother(): void {
       <BbAmountInput
         v-if="fx"
         v-show="arriveEdit"
+        ref="arriveKeypad"
         :key="`arrive-${arriveKey}`"
         bare
         :currency="toCurrency"
@@ -1503,6 +1524,12 @@ function addAnother(): void {
   background: var(--soft);
   font-size: 13px;
   font-weight: 600;
+}
+.add-paste {
+  /* A full touch target that does not make the amount line taller. */
+  margin: -7px 0;
+  padding: 0 4px;
+  font-size: 13px;
 }
 .add-error {
   height: 16px;
