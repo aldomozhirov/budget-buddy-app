@@ -78,10 +78,12 @@ async function seed(family: Family): Promise<Seeded> {
   );
   expect(patch.status()).toBe(200);
 
+  // The labelled history is in an earlier month on any day, and inside the
+  // 90 days suggestions use, so this month's list has one Spotify payment.
   const add = (data: Record<string, unknown>) =>
     create(family, '/api/transactions', {
       kind: 'expense',
-      date: daysBefore(today, 20),
+      date: daysBefore(`${today.slice(0, 8)}01`, 10),
       ...data,
     });
   await add({

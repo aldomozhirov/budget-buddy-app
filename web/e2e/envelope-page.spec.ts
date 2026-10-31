@@ -240,6 +240,17 @@ async function seedGroceries(family: Family): Promise<number> {
   return id;
 }
 
+/**
+ * What the hero says about the rest of the month: "N days to go", or "last
+ * day of the month" on its last day.
+ */
+function daysLeft(today: string): string {
+  const [year, month, day] = today.split('-').map(Number);
+  const left = new Date(Date.UTC(year!, month!, 0)).getUTCDate() - day!;
+  if (left === 0) return 'last day of the month';
+  return `${left} ${left === 1 ? 'day' : 'days'} to go`;
+}
+
 function monthName(month: string): string {
   return MONTHS[Number(month.slice(5)) - 1]!;
 }
@@ -319,9 +330,8 @@ test('the month tab adjusts the balance and the cog opens the edit page', async 
     const hero = page.getByRole('region', { name: 'This month' });
     await expect(hero).toContainText('€187.60');
     await expect(hero).toContainText(
-      '€312.40 spent of €500.00 · 6 expenses · ',
+      `€312.40 spent of €500.00 · 6 expenses · ${daysLeft(family.today)}`,
     );
-    await expect(hero).toContainText(' to go');
     // The expense row names the day, the payer and the account, and opens
     // the transaction page (task 15).
     await expect(page.getByText('Today · Alena · Joint')).toHaveCount(6);

@@ -383,6 +383,12 @@ test('offline, a device that was away is locked on the page and cannot sign in u
   page,
   context,
 }) => {
+  // With the Add form's options on the phone, a locked device offline shows
+  // the limited Home instead (UI-AUTH-9; offline-home.spec.ts). This phone
+  // never got them, so it shows sign-in.
+  await page.route('**/api/add-options', (route) =>
+    route.fulfill({ status: 503 }),
+  );
   await page.clock.install();
   await openAccounts(page);
   await hide(page);
