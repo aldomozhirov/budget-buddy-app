@@ -844,8 +844,18 @@ function goHome(): void {
       @close="sheet = null"
     >
       <div class="account-sheet-body scroll">
-        <label class="lbl" for="account-name">Name</label>
-        <input id="account-name" v-model="name" class="text" />
+        <label class="lbl" for="account-label">Name</label>
+        <!-- iOS offers a saved username for a field whose id or name says
+             "name" or "user", even with autocomplete off. -->
+        <input
+          id="account-label"
+          v-model="name"
+          name="account-label"
+          class="text"
+          autocomplete="off"
+          autocapitalize="words"
+          spellcheck="false"
+        />
         <label class="lbl" for="account-owner">Owner</label>
         <select id="account-owner" v-model="ownerMemberId" class="text">
           <option :value="null">Shared</option>
