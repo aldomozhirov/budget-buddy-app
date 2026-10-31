@@ -211,12 +211,17 @@ async function saveAccount(): Promise<void> {
       <p v-if="loading" role="status">Loading account options…</p>
       <template v-else>
         <div class="new-account-field">
-          <label class="lbl" for="account-name">Name</label>
+          <label class="lbl" for="account-label">Name</label>
+          <!-- iOS offers a saved username for a field whose id or name says
+               "name" or "user", even with autocomplete off. -->
           <input
-            id="account-name"
+            id="account-label"
             v-model="name"
+            name="account-label"
             class="text"
             autocomplete="off"
+            autocapitalize="words"
+            spellcheck="false"
             placeholder="e.g. ING Girokonto"
             :aria-invalid="Boolean(nameError)"
           />
