@@ -1144,7 +1144,16 @@ function goHome(): void {
   flex-direction: column;
   gap: 12px;
   overflow-y: auto;
-  padding: 0 16px max(24px, var(--safe-area-bottom));
+  /* The sheet has the side gutter already; the 4px keeps focus rings,
+     drawn outside a field, from being clipped by this scroll box. */
+  margin: 0 -4px;
+  padding: 0 4px max(24px, var(--safe-area-bottom));
+}
+/* iOS sizes a native select by its longest option; keep every field and
+   button to the sheet's width instead. */
+.account-sheet-body > * {
+  min-width: 0;
+  max-width: 100%;
 }
 .account-sheet-body .lbl {
   margin-bottom: -8px;
