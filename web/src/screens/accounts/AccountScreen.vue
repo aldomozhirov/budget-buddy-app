@@ -5,6 +5,8 @@ import { RouterLink, useRoute, useRouter } from 'vue-router';
 import {
   accountResponseSchema,
   currenciesResponseSchema,
+  deleteAccountResponseSchema,
+  deleteSnapshotResponseSchema,
   formatChange,
   formatDate,
   formatMoney,
@@ -19,6 +21,7 @@ import {
   type ManagedMember,
   type Snapshot,
 } from '@budget-buddy/shared';
+import { ApiError, callApi } from '../../api/callApi.js';
 import BbAmountInput from '../../components/BbAmountInput.vue';
 import BbBackButton from '../../components/BbBackButton.vue';
 import BbButton from '../../components/BbButton.vue';
@@ -236,6 +239,16 @@ async function load(): Promise<void> {
   }
 }
 
+/**
+ * The server's reason for a refused write, or `offline` when the server
+ * could not be reached at all.
+ */
+function refusalMessage(cause: unknown, offline: string): string {
+  return cause instanceof ApiError && cause.status !== 0
+    ? cause.message
+    : offline;
+}
+
 function copySettings(): void {
   if (!account.value) return;
   name.value = account.value.name;
@@ -390,18 +403,19 @@ async function deleteSnapshot(): Promise<void> {
   saving.value = true;
   actionError.value = '';
   try {
-    const response = await request(
+    await callApi(
+      'DELETE',
       `/api/snapshots/${selectedSnapshot.value.id}`,
-      { method: 'DELETE' },
+      deleteSnapshotResponseSchema,
     );
-    if (!response.ok)
-      throw new Error('Could not delete this balance. Try again.');
     sheet.value = null;
     selectedSnapshot.value = null;
     await load();
-  } catch {
-    actionError.value =
-      'Could not delete this balance. Check your connection and try again.';
+  } catch (cause) {
+    actionError.value = refusalMessage(
+      cause,
+      'Could not delete this balance. Check your connection and try again.',
+    );
   } finally {
     saving.value = false;
   }
@@ -545,17 +559,18 @@ async function setActive(active: boolean): Promise<void> {
   saving.value = true;
   actionError.value = '';
   try {
-    const response = await request(
+    const response = await callApi(
+      'POST',
       `/api/accounts/${accountId.value}/${active ? 'reactivate' : 'deactivate'}`,
-      { method: 'POST' },
+      accountResponseSchema,
     );
-    if (!response.ok)
-      throw new Error('Could not update this account. Try again.');
-    account.value = accountResponseSchema.parse(await response.json()).account;
+    account.value = response.account;
     sheet.value = null;
-  } catch {
-    actionError.value =
-      'Could not update this account. Check your connection and try again.';
+  } catch (cause) {
+    actionError.value = refusalMessage(
+      cause,
+      'Could not update this account. Check your connection and try again.',
+    );
   } finally {
     saving.value = false;
   }
@@ -566,15 +581,17 @@ async function deleteAccount(): Promise<void> {
   saving.value = true;
   actionError.value = '';
   try {
-    const response = await request(`/api/accounts/${accountId.value}`, {
-      method: 'DELETE',
-    });
-    if (!response.ok)
-      throw new Error('Could not delete this account. Try again.');
+    await callApi(
+      'DELETE',
+      `/api/accounts/${accountId.value}`,
+      deleteAccountResponseSchema,
+    );
     await router.replace('/accounts');
-  } catch {
-    actionError.value =
-      'Could not delete this account. Check your connection and try again.';
+  } catch (cause) {
+    actionError.value = refusalMessage(
+      cause,
+      'Could not delete this account. Check your connection and try again.',
+    );
   } finally {
     saving.value = false;
   }
