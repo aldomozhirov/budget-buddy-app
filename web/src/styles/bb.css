@@ -595,6 +595,11 @@
   font-size: 17px;
   padding-right: 52px;
 } /* with show/hide button */
+/* WebKit stretches its 17px Caps Lock icon to the field's inner height */
+.bb input::-webkit-caps-lock-indicator {
+  align-self: center;
+  height: 17px;
+}
 .bb .sheet .text,
 .bb .sheet .search {
   background: var(--bg);
