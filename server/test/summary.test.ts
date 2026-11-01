@@ -930,3 +930,407 @@ describe('summary edge cases', () => {
     ]);
   });
 });
+
+/*
+ * The Start point (SUM-4). Europe/Berlin is UTC+2 in summer, so the end of a
+ * local day is 21:59:59.999 UTC. Check-ins close on 2026-07-01 and 2026-08-01.
+ *
+ *   Main  EUR  opening 1,000.00 at the end of 10/06; C1 1,100.00; C2 1,200.00
+ *   Wise  USD  opening   550.00 at the end of 20/06 (the latest opening, so
+ *              the Start); C1 600.00; C2 650.00
+ *
+ * Start at 20/06's rate (EUR->USD 1.1): 1,000.00 + 550/1.1 (500.00)
+ *   = 1,500.00. At today's rate (1.6): 1,000.00 + 343.75 = 1,343.75.
+ */
+describe('the Start point of the wealth series', () => {
+  let family: FamilyDatabase;
+  const mainOpening = Date.parse('2026-06-10T21:59:59.999Z');
+  const wiseOpening = Date.parse('2026-06-20T21:59:59.999Z');
+
+  afterEach(async () => {
+    await family.close();
+  });
+
+  async function familyWithOpenings() {
+    family = await createFamilyDatabase();
+    const main = family.account({
+      name: 'Main',
+      owner: 'Alex',
+      type: 'bank',
+      currency: 'EUR',
+    });
+    const wise = family.account({
+      name: 'Wise',
+      owner: 'Blair',
+      type: 'bank',
+      currency: 'USD',
+    });
+    family.snapshot({
+      accountId: main,
+      takenAt: mainOpening,
+      amount: 100_000n,
+      source: 'opening',
+    });
+    family.snapshot({
+      accountId: wise,
+      takenAt: wiseOpening,
+      amount: 55_000n,
+      source: 'opening',
+    });
+    return { main, wise };
+  }
+
+  function closeCheckins(values: { accountId: number; amounts: bigint[] }[]) {
+    return [closed1, closed2].map((closedAt, index) => {
+      const id = family.checkin({ openedAt: closedAt - hour, closedAt });
+      for (const { accountId, amounts } of values) {
+        const amount = amounts[index];
+        if (amount === undefined) continue;
+        family.snapshot({
+          accountId,
+          takenAt: closedAt - hour,
+          amount,
+          source: 'checkin',
+          checkinId: id,
+        });
+      }
+      return id;
+    });
+  }
+
+  function series(options: {
+    view: 'equivalent' | 'currency';
+    currency?: string;
+    rates: 'dated' | 'today';
+  }) {
+    const result = getWealthSeries(family.database, { ...options, now });
+    if (result.status !== 'ok') throw new Error(result.status);
+    return result.series;
+  }
+
+  function rates() {
+    family.rate('EUR', 'USD', '2026-06-20', '1.1');
+    family.rate('EUR', 'USD', '2026-07-01', '1.2');
+    family.rate('EUR', 'USD', '2026-10-08', '1.6');
+  }
+
+  it('starts at the latest opening before the first check-in, at its own rates', async () => {
+    const { main, wise } = await familyWithOpenings();
+    const [c1, c2] = closeCheckins([
+      { accountId: main, amounts: [110_000n, 120_000n] },
+      { accountId: wise, amounts: [60_000n, 65_000n] },
+    ]);
+    rates();
+    const result = series({ view: 'equivalent', rates: 'dated' });
+    expect(result.incomplete).toBe(false);
+    // C1: 1,100.00 + 600/1.2 (500.00); C2: 1,200.00 + 650/1.2 (541.67).
+    expect(result.points).toEqual([
+      {
+        checkinId: null,
+        closedAt: wiseOpening,
+        date: '2026-06-20',
+        amount: '150000',
+      },
+      {
+        checkinId: c1,
+        closedAt: closed1,
+        date: '2026-07-01',
+        amount: '160000',
+      },
+      {
+        checkinId: c2,
+        closedAt: closed2,
+        date: '2026-08-01',
+        amount: '174167',
+      },
+    ]);
+  });
+
+  it("values the Start at today's rates, like every point", async () => {
+    const { main, wise } = await familyWithOpenings();
+    closeCheckins([
+      { accountId: main, amounts: [110_000n, 120_000n] },
+      { accountId: wise, amounts: [60_000n, 65_000n] },
+    ]);
+    rates();
+    expect(
+      series({ view: 'equivalent', rates: 'today' }).points[0],
+    ).toMatchObject({ checkinId: null, amount: '134375' });
+  });
+
+  it('shows the openings of one currency in its own unit', async () => {
+    const { main, wise } = await familyWithOpenings();
+    closeCheckins([
+      { accountId: main, amounts: [110_000n, 120_000n] },
+      { accountId: wise, amounts: [60_000n, 65_000n] },
+    ]);
+    const usd = series({ view: 'currency', currency: 'USD', rates: 'dated' });
+    expect(usd.points.map((point) => point.amount)).toEqual([
+      '55000',
+      '60000',
+      '65000',
+    ]);
+    expect(usd.points[0]?.checkinId).toBeNull();
+    expect(
+      series({ view: 'currency', currency: 'EUR', rates: 'today' }).points.map(
+        (point) => point.amount,
+      ),
+    ).toEqual(['100000', '110000', '120000']);
+  });
+
+  it('leaves out an account opened after the first check-in', async () => {
+    const { main, wise } = await familyWithOpenings();
+    const later = family.account({
+      name: 'Later',
+      owner: 'Alex',
+      type: 'cash',
+      currency: 'EUR',
+    });
+    family.snapshot({
+      accountId: later,
+      takenAt: Date.parse('2026-07-15T10:00:00Z'),
+      amount: 77_700n,
+      source: 'opening',
+    });
+    closeCheckins([
+      { accountId: main, amounts: [110_000n, 120_000n] },
+      { accountId: wise, amounts: [60_000n, 65_000n] },
+    ]);
+    const eur = series({ view: 'currency', currency: 'EUR', rates: 'dated' });
+    expect(eur.points[0]).toMatchObject({
+      checkinId: null,
+      closedAt: wiseOpening,
+      amount: '100000',
+    });
+    // The later account counts from its own opening, so from C2 on.
+    expect(eur.points.map((point) => point.amount)).toEqual([
+      '100000',
+      '110000',
+      '197700',
+    ]);
+  });
+
+  it('has no points without a closed check-in', async () => {
+    await familyWithOpenings();
+    family.checkin({ openedAt: closed1, closedAt: null });
+    expect(series({ view: 'equivalent', rates: 'dated' }).points).toEqual([]);
+  });
+
+  it('has no Start without an opening before the first check-in', async () => {
+    family = await createFamilyDatabase();
+    const main = family.account({
+      name: 'Main',
+      owner: 'Alex',
+      type: 'bank',
+      currency: 'EUR',
+    });
+    const [c1] = closeCheckins([
+      { accountId: main, amounts: [110_000n, 120_000n] },
+    ]);
+    family.snapshot({
+      accountId: main,
+      takenAt: Date.parse('2026-07-10T10:00:00Z'),
+      amount: 115_000n,
+      source: 'opening',
+    });
+    const points = series({ view: 'equivalent', rates: 'dated' }).points;
+    expect(points).toHaveLength(2);
+    expect(points[0]?.checkinId).toBe(c1);
+  });
+
+  it("has no Start when the latest opening is on the first check-in's day", async () => {
+    const { main, wise } = await familyWithOpenings();
+    const cash = family.account({
+      name: 'Cash',
+      owner: 'Alex',
+      type: 'cash',
+      currency: 'EUR',
+    });
+    // 01:30 in Berlin on 01/07, the day C1 closes, though still 30/06 in UTC.
+    family.snapshot({
+      accountId: cash,
+      takenAt: Date.parse('2026-06-30T23:30:00Z'),
+      amount: 2_000n,
+      source: 'opening',
+    });
+    const [c1, c2] = closeCheckins([
+      { accountId: main, amounts: [110_000n, 120_000n] },
+      { accountId: wise, amounts: [60_000n, 65_000n] },
+    ]);
+    rates();
+    const points = series({ view: 'equivalent', rates: 'dated' }).points;
+    expect(points.map((point) => point.checkinId)).toEqual([c1, c2]);
+  });
+
+  it('starts on the day before when the opening is late that day in Berlin', async () => {
+    const { main, wise } = await familyWithOpenings();
+    const cash = family.account({
+      name: 'Cash',
+      owner: 'Alex',
+      type: 'cash',
+      currency: 'EUR',
+    });
+    // 23:30 in Berlin on 30/06, a day before C1.
+    const lateOpening = Date.parse('2026-06-30T21:30:00Z');
+    family.snapshot({
+      accountId: cash,
+      takenAt: lateOpening,
+      amount: 2_000n,
+      source: 'opening',
+    });
+    closeCheckins([
+      { accountId: main, amounts: [110_000n, 120_000n] },
+      { accountId: wise, amounts: [60_000n, 65_000n] },
+    ]);
+    // 1,000.00 + 20.00 + 550/1.1 at the nearest earlier rate (20/06).
+    rates();
+    expect(series({ view: 'equivalent', rates: 'dated' }).points[0]).toEqual({
+      checkinId: null,
+      closedAt: lateOpening,
+      date: '2026-06-30',
+      amount: '152000',
+    });
+  });
+
+  it('makes the Start null and the series incomplete when its rate is missing', async () => {
+    const { main, wise } = await familyWithOpenings();
+    closeCheckins([
+      { accountId: main, amounts: [110_000n, 120_000n] },
+      { accountId: wise, amounts: [60_000n, 65_000n] },
+    ]);
+    // No rate on or before 20/06.
+    family.rate('EUR', 'USD', '2026-07-01', '1.2');
+    const result = series({ view: 'equivalent', rates: 'dated' });
+    expect(result.incomplete).toBe(true);
+    expect(result.points.map((point) => point.amount)).toEqual([
+      null,
+      '160000',
+      '174167',
+    ]);
+    expect(result.points[0]?.checkinId).toBeNull();
+  });
+
+  it('has no Start when only other sources precede the first check-in', async () => {
+    family = await createFamilyDatabase();
+    const main = family.account({
+      name: 'Main',
+      owner: 'Alex',
+      type: 'bank',
+      currency: 'EUR',
+    });
+    family.snapshot({
+      accountId: main,
+      takenAt: Date.parse('2026-06-10T10:00:00Z'),
+      amount: 100_000n,
+      source: 'manual',
+    });
+    const [c1, c2] = closeCheckins([
+      { accountId: main, amounts: [110_000n, 120_000n] },
+    ]);
+    const points = series({ view: 'equivalent', rates: 'dated' }).points;
+    expect(points.map((point) => point.checkinId)).toEqual([c1, c2]);
+  });
+
+  it('keeps an opening above 2^53 exact in the Start', async () => {
+    family = await createFamilyDatabase();
+    const main = family.account({
+      name: 'Main',
+      owner: 'Alex',
+      type: 'bank',
+      currency: 'EUR',
+    });
+    family.snapshot({
+      accountId: main,
+      takenAt: mainOpening,
+      amount: 9_007_199_254_740_993n,
+      source: 'opening',
+    });
+    closeCheckins([
+      { accountId: main, amounts: [9_007_199_254_740_995n, 100n] },
+    ]);
+    for (const view of ['equivalent', 'currency'] as const) {
+      const points = series({ view, currency: 'EUR', rates: 'dated' }).points;
+      expect(points.map((point) => point.amount)).toEqual([
+        '9007199254740993',
+        '9007199254740995',
+        '100',
+      ]);
+    }
+  });
+
+  /*
+   * Berlin's day is 23 hours long on 29/03/2026 (UTC+1 until 01:00 UTC, then
+   * UTC+2) and 25 hours long on 25/10/2026 (UTC+2 until 01:00 UTC, then
+   * UTC+1). The Start and the first check-in share a day only if both fall
+   * inside the same local day, whatever the offset at each instant.
+   */
+  it.each([
+    {
+      name: 'spring: 23:59:59 on 28/03 (UTC+1) is the day before',
+      opening: '2026-03-28T22:59:59Z',
+      close: '2026-03-29T21:59:00Z',
+      start: '2026-03-28',
+    },
+    {
+      name: 'spring: 00:00 on 29/03 (UTC+1) is the check-in day at 23:59',
+      opening: '2026-03-28T23:00:00Z',
+      close: '2026-03-29T21:59:00Z',
+      start: undefined,
+    },
+    {
+      name: 'autumn: 23:59:59 on 24/10 (UTC+2) is the day before',
+      opening: '2026-10-24T21:59:59Z',
+      close: '2026-10-25T22:30:00Z',
+      start: '2026-10-24',
+    },
+    {
+      name: 'autumn: 00:00 on 25/10 (UTC+2) is the check-in day at 23:30',
+      opening: '2026-10-24T22:00:00Z',
+      close: '2026-10-25T22:30:00Z',
+      start: undefined,
+    },
+  ])(
+    'puts the Start on the right day across daylight saving, $name',
+    async ({ opening, close, start }) => {
+      family = await createFamilyDatabase();
+      const main = family.account({
+        name: 'Main',
+        owner: 'Alex',
+        type: 'bank',
+        currency: 'EUR',
+      });
+      const takenAt = Date.parse(opening);
+      family.snapshot({
+        accountId: main,
+        takenAt,
+        amount: 100_000n,
+        source: 'opening',
+      });
+      const closedAt = Date.parse(close);
+      const id = family.checkin({ openedAt: closedAt - hour, closedAt });
+      family.snapshot({
+        accountId: main,
+        takenAt: closedAt - hour,
+        amount: 110_000n,
+        source: 'checkin',
+        checkinId: id,
+      });
+      const points = series({
+        view: 'currency',
+        currency: 'EUR',
+        rates: 'dated',
+      }).points;
+      if (start === undefined) {
+        expect(points.map((point) => point.checkinId)).toEqual([id]);
+      } else {
+        expect(points[0]).toEqual({
+          checkinId: null,
+          closedAt: takenAt,
+          date: start,
+          amount: '100000',
+        });
+        expect(points).toHaveLength(2);
+      }
+    },
+  );
+});

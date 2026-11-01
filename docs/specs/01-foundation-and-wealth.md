@@ -177,7 +177,7 @@ For the closed check-in `C` (closed at `T1`, rates of the date `d1` in the confi
 6. **Biggest changes**: the five accounts with the largest `|a|`. Each opens its account (UI-SUM-4).
 7. **Also in this check-in**: accounts whose value at `C` is `carried_forward` ("wasn't changed"), accounts whose first snapshot is after `T0` (added), and accounts deactivated between `T0` and `T1`.
 8. **The first check-in** has no `P`. It shows the totals with "First check-in" and leaves out every comparison.
-9. **Chart series** (SUM-4, CUR-6): one point per closed check-in. In "All in EUR" each point is `E` at its own date's rates, or with "Today's rates" every point is converted at the latest stored rates. A single currency shows `C_cur` in its own unit.
+9. **Chart series** (SUM-4, CUR-6): one point per closed check-in, after a Start point at the opening balances (owner's decision, 2026-11-01): the balances at the latest `opening` snapshot taken before the first closed check-in, with `checkinId: null`. There is no Start without such a snapshot, or when it falls on the first check-in's date in the family time zone. In "All in EUR" each point is `E` at its own date's rates, or with "Today's rates" every point is converted at the latest stored rates. A single currency shows `C_cur` in its own unit.
 
 The summary is always computed from stored data, never stored (SUM-1). At PRF-1 volume (40 accounts, about 120 check-ins over 10 years) one query per check-in boundary is cheap, but the chart series must use one batched query, not one per point.
 
