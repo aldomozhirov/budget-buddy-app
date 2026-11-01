@@ -1,5 +1,6 @@
 import { mkdir } from 'node:fs/promises';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { expectCapsLockIconKeepsShape } from './support/caps-lock';
 
 const initialProfiles = [
   { id: 1, name: 'Alena', active: true },
@@ -607,6 +608,23 @@ test('family password sheet explains the change and validates both passwords', a
   await expect(dialog).toBeHidden();
   await expect(page.getByRole('status')).toHaveText('Family password changed.');
   expect(passwordRequests).toBe(2);
+  expect(externalRequests).toEqual([]);
+});
+
+test('the Caps Lock icon keeps its shape in the family password sheet', async ({
+  page,
+}, testInfo) => {
+  const { externalRequests } = await installSettingsApi(page, testInfo);
+  await page.goto('/settings');
+  await page.getByRole('button', { name: 'Family password' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Change family password' });
+
+  await expectCapsLockIconKeepsShape(
+    dialog.getByRole('textbox', { name: 'Current password' }),
+  );
+  await expectCapsLockIconKeepsShape(
+    dialog.getByRole('textbox', { name: 'New password' }),
+  );
   expect(externalRequests).toEqual([]);
 });
 
