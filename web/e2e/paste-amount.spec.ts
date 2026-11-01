@@ -1,9 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 import { create, startFamily, type Family } from './support/family.js';
 
-// "Paste" reads the clipboard after a tap (UI-AMT-5). iOS asks with its own
-// Paste bubble first; here `navigator.clipboard.readText` is replaced, and
-// `copy(page, null)` stands for a dismissed bubble.
+// A tap on the amount reads the clipboard (UI-AMT-5). iOS asks with its own
+// Paste bubble; here `navigator.clipboard.readText` is replaced, and
+// `copy(page, null)` stands for a dismissed bubble. `reads` counts the calls.
 
 const PASTE_ERROR = 'Can’t paste that. Copy just the amount.';
 
@@ -11,7 +11,9 @@ const PASTE_ERROR = 'Can’t paste that. Copy just the amount.';
 async function stubClipboard(page: Page): Promise<void> {
   await page.addInitScript(() => {
     const read = async () => {
-      const text = (window as { copied?: string | null }).copied;
+      const win = window as { copied?: string | null; reads?: number };
+      win.reads = (win.reads ?? 0) + 1;
+      const text = win.copied;
       if (text === null || text === undefined) {
         throw new DOMException(
           'The Paste bubble was dismissed.',
@@ -32,6 +34,11 @@ async function copy(page: Page, text: string | null): Promise<void> {
   await page.evaluate((value) => {
     (window as { copied?: string | null }).copied = value;
   }, text);
+}
+
+/** How many times the page has read the clipboard. */
+async function reads(page: Page): Promise<number> {
+  return page.evaluate(() => (window as { reads?: number }).reads ?? 0);
 }
 
 /**
@@ -72,15 +79,16 @@ test('Set balance pastes an amount, keeps its minus and explains a bad paste', a
     await page.getByRole('button', { name: 'Set balance' }).click();
     const sheet = page.getByRole('dialog', { name: 'Set balance' });
     const amount = sheet.getByRole('group', { name: 'Account balance' });
-    const paste = sheet.getByRole('button', { name: 'Paste', exact: true });
+    await expect(sheet.getByRole('button', { name: 'Paste' })).toHaveCount(0);
+    await expect(amount).toHaveAccessibleDescription('Tap to paste an amount');
 
     // An overdrawn balance keeps its minus.
     await copy(page, '−1.234,56 €');
-    await paste.click();
+    await amount.click();
     await expect(amount).toContainText('−€1,234.56');
 
     await copy(page, 'Total: 5');
-    await paste.click();
+    await amount.click();
     await expect(sheet.getByRole('alert')).toHaveText(PASTE_ERROR);
     await expect(amount).toContainText('−€1,234.56');
     // The next key clears the message.
@@ -89,7 +97,7 @@ test('Set balance pastes an amount, keeps its minus and explains a bad paste', a
 
     // A dismissed Paste bubble changes nothing and says nothing.
     await copy(page, null);
-    await paste.click();
+    await amount.click();
     await expect(sheet.getByRole('alert')).toHaveCount(0);
     await expect(amount).toContainText('€0.00');
 
@@ -110,7 +118,7 @@ test('Set balance pastes an amount, keeps its minus and explains a bad paste', a
     // What was typed is replaced, not added to.
     await sheet.getByRole('button', { name: '7', exact: true }).click();
     await copy(page, '€1,234.56');
-    await paste.click();
+    await amount.click();
     await expect(amount).toContainText('€1,234.56');
     await sheet.getByRole('button', { name: 'Save balance' }).click();
     await expect(sheet).toHaveCount(0);
@@ -131,8 +139,21 @@ test('Add expense pastes without the bank’s minus and still fits', async ({
   await startFamily(page, async (family) => {
     await seed(family);
     await page.goto(`${family.origin}/add`);
-    const paste = page.getByRole('button', { name: 'Paste amount' });
-    await expect(paste).toBeVisible();
+    const amount = page.getByRole('button', { name: /^€/u });
+    await expect(amount).toBeVisible();
+    await expect(amount).toHaveAccessibleDescription('Tap to paste an amount');
+    await expect(page.getByRole('button', { name: 'Paste' })).toHaveCount(0);
+
+    // An empty amount is still the muted colour although it is a button.
+    const muted = await amount.evaluate((element) => {
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--muted)';
+      element.parentElement!.append(probe);
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      return color;
+    });
+    await expect(amount).toHaveCSS('color', muted);
 
     // The whole form still fits without scrolling (UI-ADD-1).
     const save = page.getByRole('button', { name: 'Enter an amount' });
@@ -145,12 +166,12 @@ test('Add expense pastes without the bank’s minus and still fits', async ({
     ).toBeLessThanOrEqual(0);
 
     await copy(page, 'Groceries');
-    await paste.click();
+    await amount.click();
     await expect(page.getByRole('alert')).toHaveText(PASTE_ERROR);
 
     // Banking apps show money spent as "−12,30 €"; it is not a refund.
     await copy(page, '−12,30 €');
-    await paste.click();
+    await amount.click();
     await expect(page.getByRole('alert')).toHaveCount(0);
     await page.getByRole('button', { name: 'Save €12.30' }).click();
     await expect(
@@ -181,17 +202,33 @@ test('a two-currency transfer pastes the amount that arrives', async ({
       .getByRole('radiogroup', { name: 'To', exact: true })
       .getByRole('radio', { name: /^Wise/u })
       .click();
+    const first = page.getByRole('button', { name: /^Amount €/u });
+    const arrives = page.getByRole('button', { name: /^Arrives as \$/u });
     await copy(page, '20,00 €');
-    await page.getByRole('button', { name: 'Paste amount' }).click();
+    await first.click();
+    await expect(first).toHaveAccessibleName('Amount €20.00');
+    expect(await reads(page)).toBe(1);
 
-    await page.getByRole('button', { name: /^Arrives as \$/u }).click();
+    // The first tap on "Arrives as" only selects it; the next one pastes.
+    await arrives.click();
+    await expect(arrives).toHaveAttribute('aria-pressed', 'true');
+    await expect(arrives).toHaveAccessibleDescription(
+      'Tap to paste what arrives',
+    );
+    expect(await reads(page)).toBe(1);
     await copy(page, '$21.86');
-    await page.getByRole('button', { name: 'Paste what arrives' }).click();
-    await expect(
-      page.getByRole('button', { name: 'Arrives as $21.86. Change' }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'Amount €20.00. Type it again' }),
-    ).toBeVisible();
+    await arrives.click();
+    await expect(arrives).toHaveAccessibleName('Arrives as $21.86. Change');
+    expect(await reads(page)).toBe(2);
+
+    // A tap on the dimmed amount only switches back and reads nothing.
+    await first.click();
+    await expect(arrives).toHaveAttribute('aria-pressed', 'false');
+    expect(await reads(page)).toBe(2);
+    // Now the amount is selected, and a tap on it pastes.
+    await copy(page, '30,00');
+    await first.click();
+    await expect(first).toHaveAccessibleName('Amount €30.00');
+    expect(await reads(page)).toBe(3);
   });
 });

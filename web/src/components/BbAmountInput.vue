@@ -214,7 +214,10 @@ function pasteText(text: string): boolean {
   return true;
 }
 
-/** Reads the clipboard after a tap; a dismissed Paste bubble does nothing. */
+/**
+ * Reads the clipboard; on iOS this shows the system Paste bubble where it
+ * was called from a tap. A dismissed bubble does nothing.
+ */
 async function paste(): Promise<void> {
   let text: string;
   try {
@@ -233,7 +236,12 @@ function onPaste(event: ClipboardEvent): void {
   pasteText(text);
 }
 
-/** For a bare keypad, whose caller shows its own Paste button. */
+/** A tap on the amount pastes, when the browser can read the clipboard. */
+function onDisplayTap(): void {
+  if (canPaste) void paste();
+}
+
+/** For a bare keypad, whose caller pastes on a tap on its own amount. */
 defineExpose({ paste, pasteText });
 
 /** Applies a keypad or hardware-keyboard token to the expression. */
@@ -327,9 +335,12 @@ function onKeydown(event: KeyboardEvent): void {
     <div
       v-if="!bare"
       class="amount-entry-display"
+      :class="{ 'can-paste': canPaste }"
       role="group"
       :aria-label="label"
+      :aria-description="canPaste ? 'Tap to paste an amount' : undefined"
       tabindex="0"
+      @click="onDisplayTap"
     >
       <div v-if="hasOperator" class="amount-expr">
         {{ expression }}
@@ -350,22 +361,14 @@ function onKeydown(event: KeyboardEvent): void {
       </div>
     </div>
 
-    <div
-      v-if="!bare && (hasLastAmount || canPaste)"
-      class="amount-entry-actions"
+    <button
+      v-if="hasLastAmount && !bare"
+      class="text-btn amount-entry-start-last"
+      type="button"
+      @click="startFromLast"
     >
-      <button
-        v-if="hasLastAmount"
-        class="text-btn amount-entry-start-last"
-        type="button"
-        @click="startFromLast"
-      >
-        Start from last
-      </button>
-      <button v-if="canPaste" class="text-btn" type="button" @click="paste">
-        Paste
-      </button>
-    </div>
+      Start from last
+    </button>
 
     <BbKeypad :minus-disabled="minusDisabled" @press="press" />
 
