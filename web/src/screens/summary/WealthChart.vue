@@ -12,9 +12,9 @@ import {
 } from './summaryFormat';
 
 /**
- * "Over time" card of the summary (SUM-4, CUR-6, UI-SUM-3): the wealth of
- * every closed check-in, in the common currency or in one currency's own
- * unit, valued at each date's rates or at today's.
+ * "Over time" card of the summary (SUM-4, CUR-6, UI-SUM-3): the wealth at
+ * the opening balances and at every closed check-in, in the common currency
+ * or in one currency's own unit, valued at each date's rates or at today's.
  */
 defineOptions({ name: 'WealthChart' });
 
@@ -67,6 +67,7 @@ const summary = computed(() => {
   return wealthChartSummary(
     name,
     points.value.map((point) => point.date),
+    points.value[0]?.start ?? false,
   );
 });
 const caption = computed(() =>
