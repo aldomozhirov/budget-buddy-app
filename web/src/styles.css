@@ -789,11 +789,10 @@ body,
   }
 }
 
-/* "Start from last" and "Paste" share one row under the amount. */
-.bb .amount-entry-actions {
-  display: flex;
-  justify-content: center;
-  gap: 24px;
+/* A tap on the amount pastes (UI-AMT-5); the pointer also makes iOS
+   deliver the tap as a click. */
+.bb .amount-entry-display.can-paste {
+  cursor: pointer;
 }
 
 /* The line under the amount in a sheet, e.g. what an envelope has left. */

@@ -441,6 +441,21 @@ const arriveText = computed(() => {
   }
   return `Type what arrives in ${toLabel.value}`;
 });
+/** The amount is a button when a tap does something: switch back or paste. */
+const amountTappable = computed(() => fx.value || canPaste);
+const amountLabel = computed(() => {
+  if (!fx.value) return undefined;
+  return arriveEdit.value
+    ? `Amount ${shownAmount.value}. Type it again`
+    : `Amount ${shownAmount.value}`;
+});
+/** Tells screen readers that a tap on the selected amount pastes. */
+const amountHint = computed(() =>
+  canPaste && !arriveEdit.value ? 'Tap to paste an amount' : undefined,
+);
+const arriveHint = computed(() =>
+  canPaste && arriveEdit.value ? 'Tap to paste what arrives' : undefined,
+);
 /** The pill is in the warning colour while the member has to type it. */
 const arriveWarn = computed(
   () => !arriveOk.value && !arriveEdit.value && !rateLoading.value,
@@ -704,9 +719,26 @@ function editArrive(): void {
   arriveEdit.value = true;
 }
 
-/** Pastes into the amount the keypad is typing (UI-AMT-5). */
-function pasteAmount(): void {
-  void (arriveEdit.value ? arriveKeypad : amountKeypad).value?.paste();
+/**
+ * A tap on the amount the keypad is typing pastes into it (UI-AMT-5); a tap
+ * on the other amount only moves the keypad there, so it never reads the
+ * clipboard.
+ */
+function tapAmount(): void {
+  if (arriveEdit.value) {
+    arriveEdit.value = false;
+    return;
+  }
+  if (canPaste) void amountKeypad.value?.paste();
+}
+
+/** The same for "Arrives as": the first tap selects it, the next pastes. */
+function tapArrive(): void {
+  if (!arriveEdit.value) {
+    editArrive();
+    return;
+  }
+  if (canPaste) void arriveKeypad.value?.paste();
 }
 
 function pickMerchant(value: string): void {
@@ -1053,36 +1085,22 @@ function addAnother(): void {
         <span class="num amount-expr add-expr">{{ expression }}</span>
         <div class="add-amount-line">
           <component
-            :is="fx ? 'button' : 'span'"
+            :is="amountTappable ? 'button' : 'span'"
             class="num amount"
             :class="{
               'add-amount-empty': typed === null || typed.empty,
               'add-amount-dim': arriveEdit,
-              'add-amount-btn': fx,
+              'add-amount-btn': amountTappable,
             }"
-            :type="fx ? 'button' : undefined"
-            :aria-label="
-              fx
-                ? arriveEdit
-                  ? `Amount ${shownAmount}. Type it again`
-                  : `Amount ${shownAmount}`
-                : undefined
-            "
+            :type="amountTappable ? 'button' : undefined"
+            :aria-label="amountLabel"
+            :aria-description="amountHint"
             aria-live="polite"
             aria-atomic="true"
-            @click="arriveEdit = false"
+            @click="tapAmount"
             >{{ shownAmount }}</component
           >
           <span class="add-currency">{{ currency.code }}</span>
-          <button
-            v-if="canPaste"
-            class="text-btn add-paste"
-            type="button"
-            :aria-label="arriveEdit ? 'Paste what arrives' : 'Paste amount'"
-            @click="pasteAmount"
-          >
-            Paste
-          </button>
         </div>
         <button
           v-if="fx"
@@ -1094,7 +1112,8 @@ function addAnother(): void {
           type="button"
           :aria-pressed="arriveEdit"
           :aria-label="`${arriveText}. Change`"
-          @click="editArrive"
+          :aria-description="arriveHint"
+          @click="tapArrive"
         >
           <span class="add-arrive-t">{{ arriveText }}</span>
           <svg
@@ -1468,12 +1487,6 @@ function addAnother(): void {
   align-items: baseline;
   gap: 8px;
 }
-.add-amount-empty {
-  color: var(--muted);
-}
-.add-amount-dim {
-  opacity: 0.45;
-}
 .add-amount-btn {
   padding: 0;
   border: 0;
@@ -1481,6 +1494,12 @@ function addAnother(): void {
   color: inherit;
   font-family: inherit;
   cursor: pointer;
+}
+.add-amount-empty {
+  color: var(--muted);
+}
+.add-amount-dim {
+  opacity: 0.45;
 }
 .add-arrive {
   max-width: 100%;
@@ -1524,12 +1543,6 @@ function addAnother(): void {
   background: var(--soft);
   font-size: 13px;
   font-weight: 600;
-}
-.add-paste {
-  /* A full touch target that does not make the amount line taller. */
-  margin: -7px 0;
-  padding: 0 4px;
-  font-size: 13px;
 }
 .add-error {
   height: 16px;
