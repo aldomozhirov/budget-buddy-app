@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
+import { expectCapsLockIconKeepsShape } from './support/caps-lock';
 
 test('a fresh install completes setup and offers the next steps', async ({
   page,
@@ -140,6 +141,34 @@ test('a failed setup check retries before exposing the setup flow', async ({
     page.getByRole('heading', { name: 'Set up Budget Buddy' }),
   ).toBeVisible();
   expect(statusChecks).toBe(2);
+});
+
+test('the Caps Lock icon keeps its shape in both setup password fields', async ({
+  page,
+}, testInfo) => {
+  const externalRequests: string[] = [];
+  const origin = new URL(testInfo.project.use.baseURL as string).origin;
+  page.on('request', (request) => {
+    if (new URL(request.url()).origin !== origin) {
+      externalRequests.push(request.url());
+    }
+  });
+  await page.route('**/api/setup', (route) =>
+    route.fulfill({ json: { needed: true } }),
+  );
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/setup$/);
+
+  await expectCapsLockIconKeepsShape(
+    page.getByRole('textbox', { name: 'Family password', exact: true }),
+  );
+  await expectCapsLockIconKeepsShape(
+    page.getByRole('textbox', {
+      name: 'Repeat family password',
+      exact: true,
+    }),
+  );
+  expect(externalRequests).toEqual([]);
 });
 
 test('a CSRF rejection does not complete a fresh setup', async ({
