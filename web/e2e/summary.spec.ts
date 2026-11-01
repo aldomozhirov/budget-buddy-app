@@ -323,6 +323,111 @@ test('a first check-in chart says there are not enough check-ins', async ({
   await expect(page.getByText(/over 1 check-ins/u)).toHaveCount(0);
 });
 
+test('one closed check-in draws the chart from the opening balances', async ({
+  page,
+}) => {
+  const context = page.context();
+  await post(context, '/api/setup', {
+    password,
+    passwordConfirmation: password,
+    profiles: ['Alena', 'Max'],
+  });
+  await post(context, '/api/auth/profile', { memberId: 1, remember: true });
+  // Twenty days ago in UTC is an earlier day in any time zone.
+  const openingDate = new Date(Date.now() - 20 * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  const accounts: number[] = [];
+  for (const [name, type, openingBalance] of [
+    ['ING Extra-Konto', 'bank', '100000'],
+    ['Cash', 'cash', '2000'],
+  ] as const) {
+    const created = await post(context, '/api/accounts', {
+      name,
+      ownerMemberId: 1,
+      type,
+      currency: 'EUR',
+      openingBalance,
+      openingDate,
+    });
+    accounts.push(created.account.id);
+  }
+  const first = await startCheckin(context);
+  for (const id of accounts) {
+    await put(context, `/api/checkins/${first}/values/${id}`, { same: true });
+  }
+  await post(context, `/api/checkins/${first}/close`, {});
+  const series = wealthSeriesSchema.parse(
+    await (await context.request.get(`${origin}/api/wealth/series`)).json(),
+  );
+  expect(
+    series.points.map((point) => [point.checkinId, point.date, point.amount]),
+  ).toEqual([
+    [null, openingDate, '102000'],
+    [first, expect.any(String), '102000'],
+  ]);
+
+  await page.goto(`${origin}/check-ins/${first}`);
+  // The summary itself still compares with nothing.
+  await expect(page.getByText('First check-in')).toHaveCount(2);
+  const [year, month, day] = openingDate.split('-');
+  await expect(
+    page.getByRole('img', {
+      name: new RegExp(
+        `^All in EUR from the opening balances over 1 check-in, from ${day}/${month}/${year} to `,
+        'u',
+      ),
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Not enough check-ins to chart yet.'),
+  ).toHaveCount(0);
+
+  // The Check-ins list has no row for the Start point.
+  await page.goto(`${origin}/check-ins`);
+  await page.getByRole('button', { name: 'Show amounts' }).click();
+  const rows = page.locator('.closed-checkin-row');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.nth(0)).toContainText('€1,020.00');
+  await expect(rows.nth(0)).toContainText('Start');
+});
+
+test('one closed check-in on the opening day has no Start and no chart', async ({
+  page,
+}) => {
+  const context = page.context();
+  await post(context, '/api/setup', {
+    password,
+    passwordConfirmation: password,
+    profiles: ['Alena', 'Max'],
+  });
+  await post(context, '/api/auth/profile', { memberId: 1, remember: true });
+  // The opening date defaults to today, the day the check-in closes.
+  const created = await post(context, '/api/accounts', {
+    name: 'ING Extra-Konto',
+    ownerMemberId: 1,
+    type: 'bank',
+    currency: 'EUR',
+    openingBalance: '100000',
+  });
+  const first = await startCheckin(context);
+  await put(context, `/api/checkins/${first}/values/${created.account.id}`, {
+    same: true,
+  });
+  await post(context, `/api/checkins/${first}/close`, {});
+  const series = wealthSeriesSchema.parse(
+    await (await context.request.get(`${origin}/api/wealth/series`)).json(),
+  );
+  expect(series.points.map((point) => point.checkinId)).toEqual([first]);
+
+  await page.goto(`${origin}/check-ins/${first}`);
+  await expect(page.getByText('First check-in')).toHaveCount(2);
+  await expect(
+    page.getByText('Not enough check-ins to chart yet.'),
+  ).toBeVisible();
+  await expect(page.getByText(/opening balances over/u)).toHaveCount(0);
+});
+
 test('a Biggest changes row opens its account', async ({ page }) => {
   const seed = await seedFamily(page.context());
   await page.goto(`${origin}/check-ins/${seed.second}`);
