@@ -101,6 +101,37 @@ test('coming back after more than 5 minutes asks to sign in and returns to the s
   await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
 });
 
+test('after a lock and sign-in, Back on the screen still names and opens the one before it', async ({
+  page,
+}) => {
+  await page.clock.install();
+  await page.goto(`${origin}/`);
+  await homeLoaded(page);
+  await page.getByRole('link', { name: 'Accounts' }).click();
+  await accountsLoaded(page);
+  await expect(
+    page.getByRole('button', { name: 'Back to home' }),
+  ).toBeVisible();
+  const length = await page.evaluate(() => history.length);
+
+  await away(page, 6 * minute);
+  await expect(page).toHaveURL(`${origin}/sign-in?next=/accounts`);
+  await page.getByRole('textbox', { name: 'Family password' }).fill(password);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(`${origin}/accounts`);
+  await accountsLoaded(page);
+
+  // The lock and the sign-in replaced the screen: no entry was added, and
+  // Back is not "Back to sign in".
+  expect(await page.evaluate(() => history.length)).toBe(length);
+  await expect(
+    page.getByRole('button', { name: 'Back to sign in' }),
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Back to home' }).click();
+  await expect(page).toHaveURL(`${origin}/`);
+  await homeLoaded(page);
+});
+
 test('events that arrive with a return send one presence call, and a lock holds through them and a reload', async ({
   page,
 }) => {

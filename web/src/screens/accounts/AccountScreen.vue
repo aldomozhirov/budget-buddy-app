@@ -32,6 +32,7 @@ import DateSheet from '../add/DateSheet.vue';
 import { dayLabel } from '../add/addForm.js';
 import LineChart from '../../components/charts/LineChart.vue';
 import { useBack } from '../../composables/useBack.js';
+import { replaceScreen, returnHome } from '../../router/index.js';
 import { consumeAccountAddedNotice } from '../../stores/account-creation.js';
 import { setAuthState } from '../../stores/auth.js';
 
@@ -600,12 +601,14 @@ function historyChange(index: number): string {
   );
 }
 
+// Replaces this page, so Back after any number of accounts returns to the
+// screen that opened the first form (UI-ACC-2).
 function addAnotherAccount(): void {
-  void router.push('/accounts/new');
+  void replaceScreen('/accounts/new');
 }
 
 function goHome(): void {
-  void router.push('/');
+  void returnHome();
 }
 </script>
 
