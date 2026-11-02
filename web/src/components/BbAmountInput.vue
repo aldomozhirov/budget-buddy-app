@@ -359,6 +359,9 @@ function onKeydown(event: KeyboardEvent): void {
       <div v-if="shownError" class="error" role="alert">
         {{ shownError }}
       </div>
+      <div v-else-if="canPaste" class="amount-entry-hint" aria-hidden="true">
+        Tap to paste
+      </div>
     </div>
 
     <button
