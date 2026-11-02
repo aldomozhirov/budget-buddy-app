@@ -9,7 +9,7 @@ import {
   type Currency,
 } from '@budget-buddy/shared';
 import BbKeypad from './BbKeypad.vue';
-import { canReadClipboard } from '../composables/useClipboard';
+import { canReadClipboard, createDoubleTap } from '../composables/useClipboard';
 import { isOnline } from '../composables/useOnline';
 
 /**
@@ -236,12 +236,17 @@ function onPaste(event: ClipboardEvent): void {
   pasteText(text);
 }
 
-/** A tap on the amount pastes, when the browser can read the clipboard. */
+const isDoubleTap = createDoubleTap();
+
+/**
+ * A double tap on the amount pastes, when the browser can read the
+ * clipboard; a single tap does nothing, so a stray touch shows no bubble.
+ */
 function onDisplayTap(): void {
-  if (canPaste) void paste();
+  if (canPaste && isDoubleTap()) void paste();
 }
 
-/** For a bare keypad, whose caller pastes on a tap on its own amount. */
+/** For a bare keypad, whose caller pastes on a double tap on its amount. */
 defineExpose({ paste, pasteText });
 
 /** Applies a keypad or hardware-keyboard token to the expression. */
@@ -338,7 +343,7 @@ function onKeydown(event: KeyboardEvent): void {
       :class="{ 'can-paste': canPaste }"
       role="group"
       :aria-label="label"
-      :aria-description="canPaste ? 'Tap to paste an amount' : undefined"
+      :aria-description="canPaste ? 'Double-tap to paste an amount' : undefined"
       tabindex="0"
       @click="onDisplayTap"
     >
@@ -360,7 +365,7 @@ function onKeydown(event: KeyboardEvent): void {
         {{ shownError }}
       </div>
       <div v-else-if="canPaste" class="amount-entry-hint" aria-hidden="true">
-        Tap to paste
+        Double-tap to paste
       </div>
     </div>
 

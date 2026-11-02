@@ -27,7 +27,10 @@ import BbChip from '../../components/BbChip.vue';
 import BbChipGroup from '../../components/BbChipGroup.vue';
 import BbIcon from '../../components/BbIcon.vue';
 import BbSegmented from '../../components/BbSegmented.vue';
-import { canReadClipboard } from '../../composables/useClipboard.js';
+import {
+  canReadClipboard,
+  createDoubleTap,
+} from '../../composables/useClipboard.js';
 import CategoryPickerSheet from '../../components/CategoryPickerSheet.vue';
 import EnvelopePickerSheet from '../../components/EnvelopePickerSheet.vue';
 import { ApiError, callApi } from '../../api/callApi.js';
@@ -441,7 +444,7 @@ const arriveText = computed(() => {
   }
   return `Type what arrives in ${toLabel.value}`;
 });
-/** The amount is a button when a tap does something: switch back or paste. */
+/** The amount is a button when a tap does something: switch or paste. */
 const amountTappable = computed(() => fx.value || canPaste);
 const amountLabel = computed(() => {
   if (!fx.value) return undefined;
@@ -449,12 +452,12 @@ const amountLabel = computed(() => {
     ? `Amount ${shownAmount.value}. Type it again`
     : `Amount ${shownAmount.value}`;
 });
-/** Tells screen readers that a tap on the selected amount pastes. */
+/** Tells screen readers that a double tap pastes. */
 const amountHint = computed(() =>
-  canPaste && !arriveEdit.value ? 'Tap to paste an amount' : undefined,
+  canPaste ? 'Double-tap to paste an amount' : undefined,
 );
 const arriveHint = computed(() =>
-  canPaste && arriveEdit.value ? 'Tap to paste what arrives' : undefined,
+  canPaste ? 'Double-tap to paste what arrives' : undefined,
 );
 /** The pill is in the warning colour while the member has to type it. */
 const arriveWarn = computed(
@@ -719,32 +722,29 @@ function editArrive(): void {
   arriveEdit.value = true;
 }
 
+/** One tracker for all three, so taps on two of them never pair up. */
+const isDoubleTap = createDoubleTap();
+
 /**
- * A tap on the amount the keypad is typing pastes into it (UI-AMT-5); a tap
- * on the other amount only moves the keypad there, so it never reads the
- * clipboard.
+ * A tap on the amount moves the keypad to it; a double tap also pastes into
+ * it (UI-AMT-5). A single tap never reads the clipboard.
  */
 function tapAmount(): void {
-  if (arriveEdit.value) {
-    arriveEdit.value = false;
-    return;
-  }
-  if (canPaste) void amountKeypad.value?.paste();
+  arriveEdit.value = false;
+  if (canPaste && isDoubleTap('amount')) void amountKeypad.value?.paste();
 }
 
-/** The same for "Arrives as": the first tap selects it, the next pastes. */
+/** The same for "Arrives as". */
 function tapArrive(): void {
-  if (!arriveEdit.value) {
-    editArrive();
-    return;
-  }
-  if (canPaste) void arriveKeypad.value?.paste();
+  editArrive();
+  if (canPaste && isDoubleTap('arrive')) void arriveKeypad.value?.paste();
 }
 
-/** A tap on the hint's words pastes into the selected amount, as it says. */
+/** A double tap on the hint's words pastes into the selected amount. */
 function tapHint(): void {
-  if (arriveEdit.value) tapArrive();
-  else tapAmount();
+  if (!canPaste || !isDoubleTap('hint')) return;
+  const keypad = arriveEdit.value ? arriveKeypad : amountKeypad;
+  void keypad.value?.paste();
 }
 
 function pickMerchant(value: string): void {
@@ -1145,7 +1145,7 @@ function addAnother(): void {
             class="add-paste-hint"
             aria-hidden="true"
             @click="tapHint"
-            >{{ fx ? 'Tap selected amount to paste' : 'Tap to paste' }}</span
+            >Double-tap to paste</span
           >
         </span>
       </div>
@@ -1502,6 +1502,9 @@ function addAnother(): void {
 }
 .add-amount-btn {
   padding: 0;
+  /* A double tap pastes (UI-AMT-5); it must not select the text. */
+  -webkit-user-select: none;
+  user-select: none;
   border: 0;
   background: none;
   color: inherit;
@@ -1564,11 +1567,13 @@ function addAnother(): void {
 .add-error .error {
   font-size: 12px;
 }
-/* Says that a tap on the amount pastes (UI-AMT-5). With one currency it
-   takes the line kept for errors, so the screen does not grow. */
+/* Says that a double tap on the amount pastes (UI-AMT-5). With one
+   currency it takes the line kept for errors, so the screen does not grow. */
 .add-paste-hint {
   color: var(--muted);
   cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
 }
 .add-field {
   display: flex;
