@@ -652,7 +652,7 @@ test('the envelopes card shows shares while hidden and balances when revealed', 
   await expect(card).not.toContainText('€461.50');
 });
 
-test('the envelopes card opens Envelopes and is gone without envelopes', async ({
+test('an envelope row opens that envelope, Back returns Home, and the card is gone without envelopes', async ({
   page,
 }) => {
   const seed = await seedFamily(page.context());
@@ -660,12 +660,29 @@ test('the envelopes card opens Envelopes and is gone without envelopes', async (
   await expect(page.getByRole('heading', { name: 'Hi, Alena' })).toBeVisible();
   await expect(page.getByText(/^Day \d+ of \d+$/u)).toHaveCount(0);
 
-  await seedSpending(page.context(), seed.trade);
+  const envelopes = await seedSpending(page.context(), seed.trade);
   await page.reload();
-  await page
-    .getByRole('region', { name: monthName })
-    .getByRole('link', { name: /^Eating out/u })
-    .click();
+  const card = page.getByRole('region', { name: monthName });
+  for (const [name, id] of [
+    ['Eating out', envelopes.eatingOut],
+    ['Groceries', envelopes.groceries],
+  ] as const) {
+    await card.getByRole('link', { name: new RegExp(`^${name}`, 'u') }).click();
+    await expect(page).toHaveURL(`${origin}/envelopes/${id}`);
+    await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
+    await page.getByRole('button', { name: 'Back to home' }).click();
+    await expect(page).toHaveURL(`${origin}/`);
+    await expect(card).toBeVisible();
+  }
+});
+
+test('the Everything grid’s Envelopes entry still opens the list', async ({
+  page,
+}) => {
+  const seed = await seedFamily(page.context());
+  await seedSpending(page.context(), seed.trade);
+  await page.goto(`${origin}/`);
+  await page.getByRole('link', { name: 'Envelopes', exact: true }).click();
   await expect(page).toHaveURL(`${origin}/envelopes`);
   await expect(
     page.getByRole('heading', { name: 'Envelopes', level: 1 }),
@@ -831,7 +848,7 @@ function withDatabase(change: (database: TestDatabase) => unknown): void {
 async function seedSpending(
   context: BrowserContext,
   account: number,
-): Promise<void> {
+): Promise<{ groceries: number; eatingOut: number; unexpected: number }> {
   const today = todayInTimeZone(new Date(), 'Europe/Berlin');
   const envelope = async (name: string, amount: string): Promise<number> =>
     (
@@ -863,6 +880,7 @@ async function seedSpending(
   for (let count = 0; count < 3; count += 1) {
     await expense({ amount: '500', merchant: `Kiosk ${count + 1}` });
   }
+  return { groceries, eatingOut, unexpected };
 }
 
 async function post(
