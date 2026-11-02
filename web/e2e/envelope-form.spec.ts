@@ -259,6 +259,8 @@ test('a used envelope can only be archived and keeps its currency', async ({
 test('editing the amount or mode says when it applies and saves only what changed', async ({
   page,
 }) => {
+  // The screen names the month after today's, so the date must not move.
+  await page.clock.setFixedTime(new Date('2026-10-14T10:00:00Z'));
   const writes: Write[] = [];
   await mockApi(page, writes);
   await page.goto('/envelopes/7/edit');
