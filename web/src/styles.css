@@ -789,10 +789,13 @@ body,
   }
 }
 
-/* A tap on the amount pastes (UI-AMT-5); the pointer also makes iOS
-   deliver the tap as a click. */
+/* A double tap on the amount pastes (UI-AMT-5); the pointer makes iOS
+   deliver each tap as a click. */
 .bb .amount-entry-display.can-paste {
   cursor: pointer;
+  /* A double tap pastes; it must not select the amount's text. */
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* The line under the amount in a sheet, e.g. what an envelope has left. */
