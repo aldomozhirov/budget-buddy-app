@@ -496,7 +496,7 @@ onBeforeUnmount(() => {
             v-for="row in envelopeRows"
             :key="row.envelope.id"
             class="home-envelope"
-            to="/envelopes"
+            :to="`/envelopes/${row.envelope.id}`"
           >
             <span class="home-envelope-head">
               <span class="home-envelope-name">{{ row.envelope.name }}</span>
