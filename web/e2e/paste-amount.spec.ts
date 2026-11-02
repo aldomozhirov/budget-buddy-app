@@ -6,6 +6,7 @@ import { create, startFamily, type Family } from './support/family.js';
 // `copy(page, null)` stands for a dismissed bubble. `reads` counts the calls.
 
 const PASTE_ERROR = 'Can’t paste that. Copy just the amount.';
+const HINT = 'Tap to paste';
 
 /** Replaces the clipboard with one that gives what `copy` put on it. */
 async function stubClipboard(page: Page): Promise<void> {
@@ -81,6 +82,11 @@ test('Set balance pastes an amount, keeps its minus and explains a bad paste', a
     const amount = sheet.getByRole('group', { name: 'Account balance' });
     await expect(sheet.getByRole('button', { name: 'Paste' })).toHaveCount(0);
     await expect(amount).toHaveAccessibleDescription('Tap to paste an amount');
+    // The hint under the number is for sight; screen readers have the
+    // description above.
+    const hint = amount.getByText(HINT, { exact: true });
+    await expect(hint).toBeVisible();
+    await expect(hint).toHaveAttribute('aria-hidden', 'true');
 
     // An overdrawn balance keeps its minus.
     await copy(page, '−1.234,56 €');
@@ -91,9 +97,12 @@ test('Set balance pastes an amount, keeps its minus and explains a bad paste', a
     await amount.click();
     await expect(sheet.getByRole('alert')).toHaveText(PASTE_ERROR);
     await expect(amount).toContainText('−€1,234.56');
+    // The message takes the hint's place.
+    await expect(hint).toHaveCount(0);
     // The next key clears the message.
     await sheet.getByRole('button', { name: 'Clear' }).click();
     await expect(sheet.getByRole('alert')).toHaveCount(0);
+    await expect(hint).toBeVisible();
 
     // A dismissed Paste bubble changes nothing and says nothing.
     await copy(page, null);
@@ -120,6 +129,8 @@ test('Set balance pastes an amount, keeps its minus and explains a bad paste', a
     await copy(page, '€1,234.56');
     await amount.click();
     await expect(amount).toContainText('€1,234.56');
+    // The hint stays once there is an amount: a paste replaces it.
+    await expect(hint).toBeVisible();
     await sheet.getByRole('button', { name: 'Save balance' }).click();
     await expect(sheet).toHaveCount(0);
 
@@ -143,6 +154,9 @@ test('Add expense pastes without the bank’s minus and still fits', async ({
     await expect(amount).toBeVisible();
     await expect(amount).toHaveAccessibleDescription('Tap to paste an amount');
     await expect(page.getByRole('button', { name: 'Paste' })).toHaveCount(0);
+    const hint = page.getByText(HINT, { exact: true });
+    await expect(hint).toBeVisible();
+    await expect(hint).toHaveAttribute('aria-hidden', 'true');
 
     // An empty amount is still the muted colour although it is a button.
     const muted = await amount.evaluate((element) => {
@@ -165,14 +179,23 @@ test('Add expense pastes without the bank’s minus and still fits', async ({
       ),
     ).toBeLessThanOrEqual(0);
 
+    // A tap on the hint's own words pastes too.
+    await copy(page, '3,20');
+    await hint.click();
+    await expect(
+      page.getByRole('button', { name: 'Save €3.20' }),
+    ).toBeVisible();
+
     await copy(page, 'Groceries');
     await amount.click();
     await expect(page.getByRole('alert')).toHaveText(PASTE_ERROR);
+    await expect(hint).toHaveCount(0);
 
     // Banking apps show money spent as "−12,30 €"; it is not a refund.
     await copy(page, '−12,30 €');
     await amount.click();
     await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(hint).toBeVisible();
     await page.getByRole('button', { name: 'Save €12.30' }).click();
     await expect(
       page.getByRole('heading', { name: 'Expense saved' }),
@@ -204,6 +227,26 @@ test('a two-currency transfer pastes the amount that arrives', async ({
       .click();
     const first = page.getByRole('button', { name: /^Amount €/u });
     const arrives = page.getByRole('button', { name: /^Arrives as \$/u });
+    // With two amounts the hint says which one a tap pastes into.
+    const hint = page.getByText('Tap selected amount to paste', {
+      exact: true,
+    });
+    await expect(hint).toBeVisible();
+    await expect(page.getByText(HINT, { exact: true })).toHaveCount(0);
+    // The hint's line still leaves the form on one screen (UI-ADD-1); the
+    // app shell, not the document, is what would scroll.
+    const save = page.getByRole('button', {
+      name: 'Enter an amount',
+      exact: true,
+    });
+    const box = (await save.boundingBox())!;
+    expect(box.y + box.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+    expect(
+      await page.evaluate(() => {
+        const main = document.querySelector('main')!;
+        return main.scrollHeight - main.clientHeight;
+      }),
+    ).toBeLessThanOrEqual(0);
     await copy(page, '20,00 €');
     await first.click();
     await expect(first).toHaveAccessibleName('Amount €20.00');
@@ -230,5 +273,33 @@ test('a two-currency transfer pastes the amount that arrives', async ({
     await first.click();
     await expect(first).toHaveAccessibleName('Amount €30.00');
     expect(await reads(page)).toBe(3);
+  });
+});
+
+test('without clipboard access there is no hint and a tap reads nothing', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: undefined,
+    });
+  });
+  await startFamily(page, async (family) => {
+    const id = await seed(family);
+    await page.goto(`${family.origin}/accounts/${id}`);
+    await page.getByRole('button', { name: 'Set balance' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Set balance' });
+    const amount = sheet.getByRole('group', { name: 'Account balance' });
+    await expect(amount).toBeVisible();
+    await expect(amount.getByText(HINT, { exact: true })).toHaveCount(0);
+    await expect(amount).not.toHaveAttribute('aria-description');
+    await amount.click();
+    await expect(sheet.getByRole('alert')).toHaveCount(0);
+
+    await page.goto(`${family.origin}/add`);
+    const group = page.getByRole('group', { name: 'Amount', exact: true });
+    await expect(group).toContainText('€');
+    await expect(page.getByText(HINT, { exact: true })).toHaveCount(0);
   });
 });

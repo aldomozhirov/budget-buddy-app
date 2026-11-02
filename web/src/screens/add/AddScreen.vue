@@ -741,6 +741,12 @@ function tapArrive(): void {
   if (canPaste) void arriveKeypad.value?.paste();
 }
 
+/** A tap on the hint's words pastes into the selected amount, as it says. */
+function tapHint(): void {
+  if (arriveEdit.value) tapArrive();
+  else tapAmount();
+}
+
 function pickMerchant(value: string): void {
   sheet.value = null;
   merchant.value = value;
@@ -1130,10 +1136,17 @@ function addAnother(): void {
             <path d="M4 20h4L19 9l-4-4L4 16v4z" />
           </svg>
         </button>
-        <span v-if="!fx || keypadError" class="add-error">
+        <span v-if="!fx || keypadError || canPaste" class="add-error">
           <span v-if="keypadError" class="error" role="alert">{{
             keypadError
           }}</span>
+          <span
+            v-else-if="canPaste"
+            class="add-paste-hint"
+            aria-hidden="true"
+            @click="tapHint"
+            >{{ fx ? 'Tap selected amount to paste' : 'Tap to paste' }}</span
+          >
         </span>
       </div>
 
@@ -1550,6 +1563,12 @@ function addAnother(): void {
 }
 .add-error .error {
   font-size: 12px;
+}
+/* Says that a tap on the amount pastes (UI-AMT-5). With one currency it
+   takes the line kept for errors, so the screen does not grow. */
+.add-paste-hint {
+  color: var(--muted);
+  cursor: pointer;
 }
 .add-field {
   display: flex;
