@@ -2,7 +2,7 @@
 
 Rules: UI-TXN-4, UI-TXN-5, UI-NAV-7
 
-On a transaction page each field is a row, in the order of the Add form. Every row ends in a right chevron and opens a sheet: the same searchable list, calendar or text box that Add expense uses. Paid from opens the account.
+On a transaction page each field is a row, in the order of the Add form. Every row ends in a right chevron and opens a sheet: the same searchable list, calendar or text box that Add expense uses. Paid from opens the account sheet, so the account can be changed.
 
 | Class or state | Meaning |
 |---|---|
@@ -19,7 +19,7 @@ On a transaction page each field is a row, in the order of the Add form. Every r
 
 ```html
 <div class="card">
-  <a class="field field-link" href="#"><span class="field-l">Paid from</span><span class="field-v">ING Visa · EUR</span></a>
+  <button class="field" aria-haspopup="dialog"><span class="field-l">Paid from</span><span class="field-v">ING Visa · EUR</span></button>
   <button class="field" aria-haspopup="dialog"><span class="field-l">Merchant</span><span class="field-v">REWE</span></button>
   <button class="field" aria-haspopup="dialog"><span class="field-l">Category</span><span class="field-v">Groceries</span></button>
   <button class="field" aria-haspopup="dialog"><span class="field-l">Envelope</span><span class="field-v num">Groceries · counts as €21.40</span></button>

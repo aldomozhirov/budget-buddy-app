@@ -496,9 +496,9 @@ body { margin: 0; min-height: 100vh; }
     &lt;button class="meta"&gt;&lt;span class="meta-l"&gt;&lt;svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M4 20h4L19 9l-4-4L4 16v4z"/&gt;&lt;/svg&gt;Note&lt;/span&gt;&lt;span class="meta-v"&gt;Add &lt;svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M6 9l6 6 6-6"/&gt;&lt;/svg&gt;&lt;/span&gt;&lt;/button&gt;
   &lt;/div&gt;
 &lt;/div&gt;</code></pre></div></div></section>
-<section id="detail-fields"><h2>Detail rows</h2><span class="sg-spec">UI-TXN-4, UI-TXN-5, UI-NAV-7</span><p>On a transaction page each field is a row, in the order of the Add form. Every row ends in a right chevron and opens a sheet: the same searchable list, calendar or text box that Add expense uses. Paid from opens the account.</p>
+<section id="detail-fields"><h2>Detail rows</h2><span class="sg-spec">UI-TXN-4, UI-TXN-5, UI-NAV-7</span><p>On a transaction page each field is a row, in the order of the Add form. Every row ends in a right chevron and opens a sheet: the same searchable list, calendar or text box that Add expense uses. Paid from opens the account sheet, so the account can be changed.</p>
 <div class="sg-demo"><div class="sg-stage"><div class="card">
-  <a class="field field-link" href="#"><span class="field-l">Paid from</span><span class="field-v">ING Visa · EUR</span></a>
+  <button class="field" aria-haspopup="dialog"><span class="field-l">Paid from</span><span class="field-v">ING Visa · EUR</span></button>
   <button class="field" aria-haspopup="dialog"><span class="field-l">Merchant</span><span class="field-v">REWE</span></button>
   <button class="field" aria-haspopup="dialog"><span class="field-l">Category</span><span class="field-v">Groceries</span></button>
   <button class="field" aria-haspopup="dialog"><span class="field-l">Envelope</span><span class="field-v num">Groceries · counts as €21.40</span></button>
@@ -510,7 +510,7 @@ body { margin: 0; min-height: 100vh; }
 <tr><td><code>.field-link</code></td><td>Opens another screen.</td></tr>
 </table><div class="sg-dd"><div class="do"><b>Do</b><ul><li>Open the same sheet the Add form uses for that field, and save each change as it is made, logged in the Record (MEM-5).</li></ul></div><div class="dont"><b>Don’t</b><ul><li>Open chips in place under the row, or send the member to a separate edit screen.</li></ul></div></div></div>
 <div class="sg-code"><button class="sg-copy" type="button">Copy</button><pre><code>&lt;div class="card"&gt;
-  &lt;a class="field field-link" href="#"&gt;&lt;span class="field-l"&gt;Paid from&lt;/span&gt;&lt;span class="field-v"&gt;ING Visa · EUR&lt;/span&gt;&lt;/a&gt;
+  &lt;button class="field" aria-haspopup="dialog"&gt;&lt;span class="field-l"&gt;Paid from&lt;/span&gt;&lt;span class="field-v"&gt;ING Visa · EUR&lt;/span&gt;&lt;/button&gt;
   &lt;button class="field" aria-haspopup="dialog"&gt;&lt;span class="field-l"&gt;Merchant&lt;/span&gt;&lt;span class="field-v"&gt;REWE&lt;/span&gt;&lt;/button&gt;
   &lt;button class="field" aria-haspopup="dialog"&gt;&lt;span class="field-l"&gt;Category&lt;/span&gt;&lt;span class="field-v"&gt;Groceries&lt;/span&gt;&lt;/button&gt;
   &lt;button class="field" aria-haspopup="dialog"&gt;&lt;span class="field-l"&gt;Envelope&lt;/span&gt;&lt;span class="field-v num"&gt;Groceries · counts as €21.40&lt;/span&gt;&lt;/button&gt;

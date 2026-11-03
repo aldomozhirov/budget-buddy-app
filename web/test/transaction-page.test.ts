@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Transaction, TransactionRevision } from '@budget-buddy/shared';
 import {
+  amountsToRetype,
+  carryAmount,
   countsHint,
   deleteText,
   envelopeRowText,
@@ -227,5 +229,69 @@ describe('the record', () => {
     expect(before.map((line) => line.text)).toContain(
       'Amount changed to $23.39 by Alena',
     );
+  });
+});
+
+describe('amountsToRetype', () => {
+  const expense = {
+    kind: 'expense',
+    currency: 'EUR',
+    toCurrency: null,
+  } as const;
+  const transfer = {
+    kind: 'transfer',
+    currency: 'EUR',
+    toCurrency: 'USD',
+  } as const;
+  const oneCurrency = {
+    kind: 'transfer',
+    currency: 'EUR',
+    toCurrency: 'EUR',
+  } as const;
+
+  it('asks nothing for an account of the same currency', () => {
+    expect(amountsToRetype(expense, 'from', 'EUR')).toEqual([]);
+    expect(amountsToRetype(transfer, 'from', 'EUR')).toEqual([]);
+    expect(amountsToRetype(transfer, 'to', 'USD')).toEqual([]);
+  });
+
+  it('asks for the amount when an expense or income changes currency', () => {
+    expect(amountsToRetype(expense, 'from', 'USD')).toEqual(['amount']);
+    expect(
+      amountsToRetype({ ...expense, kind: 'income' }, 'from', 'JPY'),
+    ).toEqual(['amount']);
+  });
+
+  it('asks for what arrives when a transfer gets a new pair', () => {
+    expect(amountsToRetype(oneCurrency, 'to', 'USD')).toEqual(['toAmount']);
+    expect(amountsToRetype(transfer, 'to', 'GBP')).toEqual(['toAmount']);
+    expect(amountsToRetype(transfer, 'from', 'GBP')).toEqual([
+      'amount',
+      'toAmount',
+    ]);
+    expect(amountsToRetype(oneCurrency, 'from', 'USD')).toEqual([
+      'amount',
+      'toAmount',
+    ]);
+  });
+
+  it('leaves what arrives to the server within one currency', () => {
+    expect(amountsToRetype(transfer, 'to', 'EUR')).toEqual([]);
+    expect(amountsToRetype(transfer, 'from', 'USD')).toEqual(['amount']);
+  });
+});
+
+describe('carryAmount', () => {
+  it('keeps the number across decimals, rounding half away from zero', () => {
+    expect(carryAmount(6420n, 2, 2)).toBe(6420n);
+    expect(carryAmount(6420n, 2, 0)).toBe(64n);
+    expect(carryAmount(6450n, 2, 0)).toBe(65n);
+    expect(carryAmount(-6450n, 2, 0)).toBe(-65n);
+    expect(carryAmount(6420n, 2, 3)).toBe(64200n);
+    expect(carryAmount(1n, 8, 2)).toBe(0n);
+  });
+
+  it('is exact above 2^53', () => {
+    expect(carryAmount(9007199254740993n, 0, 2)).toBe(900719925474099300n);
   });
 });
