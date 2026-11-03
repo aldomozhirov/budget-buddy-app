@@ -34,10 +34,10 @@ Work is done by coding-agent sessions that the owner starts with one of the role
 
 Tasks are kept in Backlog.md on a board outside this repository, private to this machine. Reach it only with `bbtask`, which runs the `backlog` CLI on that board from any folder; never look for its files or edit them by hand. Each change is saved on the board at once: nothing about a task is committed, pushed or put in a pull request. Run `bbtask instructions overview` once per session, and read output with `--plain`.
 
-Statuses: To Do, In Progress, In Review, Done.
+Statuses: To Plan, To Do, In Progress, In Review, Done. To Plan holds the owner's rough tasks; they are planned outside this repository and then move to To Do.
 
 - Planning: one task per pull request, created with `bbtask task create "<title>" -d "<what and why>" --ac "<criterion>" --ac "…" -l spec-<nn> --ref docs/specs/<nn>-<slug>.md --dep TASK-<id>`. Put the refs, files and the model (when a task should start on Opus) in the description, as spec 2 did. A task needing the owner (a trial on the family's devices) is labelled `owner`.
-- Finding work: `bbtask task list -s "To Do" --plain`. Bugs labelled `bug` with priority high come first; otherwise take the lowest-numbered task whose dependencies are Done.
+- Finding work: `bbtask task list -s "To Do" --plain`. Bugs labelled `bug` with priority high come first; otherwise take the lowest-numbered task whose dependencies are Done. Skip tasks labelled `questions`: they wait for the owner's answers in their comments.
 - A build session, at the start: `bbtask task edit TASK-<id> -s "In Progress" -a @<harness>` (`@claude`, `@codex` or `@opencode`), then writes its plan with `--plan` before coding.
 - While building: `--check-ac <n>` as each criterion is shown to hold, `--append-notes` for decisions where the task was silent and for deviations from the design.
 - When the pull request is open: `-s "In Review"` and `--append-notes "PR: <url>"`. After it merges: `-s Done --final-summary "<what was built, how it was verified, what was not>"`. A pull request that is closed unmerged puts the task back to To Do with a note. A task blocked on a decision stays In Progress with a note, and the session asks the owner.
