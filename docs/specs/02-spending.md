@@ -228,7 +228,7 @@ Back labels (UI-NAV-2): "Back to transactions", "Back to transaction", "Back to 
 
 **Styling classes** (`docs/design/html/bb.css`, regenerated on 2026-10-14). Builders use these and invent no CSS of their own for the same thing (read `design-system` first):
 - `.t-group`: the uppercase group heading inside a sheet list ("Recent", "All categories", "In use", "Most used"; UI-VIS-9). Never style a heading like a row.
-- `.field` with `.field-l` (96 px label) and `.field-v` (right-aligned value): the detail row, at least 54 px high with a right chevron (`::after`); it opens a sheet or a screen, never in place. `.field-link` marks a row that opens another screen ("Paid from" opens the account); `.field-btn` is the Merchant row on Add expense. Used by the transaction page (task 15) and the Add form (tasks 10, 11).
+- `.field` with `.field-l` (96 px label) and `.field-v` (right-aligned value): the detail row, at least 54 px high with a right chevron (`::after`); it opens a sheet or a screen, never in place. `.field-link` marks a row that opens another screen (the account rows open the account sheet instead, changed by the owner on 2026-11-03); `.field-btn` is the Merchant row on Add expense. Used by the transaction page (task 15) and the Add form (tasks 10, 11).
 - `.cal`, `.cal-wd`, `.day`: the date sheet's month calendar, Monday first, `.day[aria-pressed="true"]` selected, `.day:disabled` for future days. Used wherever a date is picked (tasks 10, 11, 15).
 - `.opt`: one choice row in a picker sheet; the selected one shows a check (`docs/design/styleguide/sheets.md`).
 
