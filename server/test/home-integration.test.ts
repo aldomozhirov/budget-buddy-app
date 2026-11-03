@@ -137,13 +137,13 @@ describe('home and device routes', () => {
     expect((await get('/api/devices/current', {})).statusCode).toBe(401);
   });
 
-  it('answers a fresh family with no banner, no wealth and no warning', async () => {
+  it('answers a fresh family with no banner, no check-in and no warning', async () => {
     expect(await home()).toEqual({
       today: '2026-08-01',
       commonCurrency: 'EUR',
       hideAmounts: true,
       checkin: null,
-      wealth: null,
+      lastClosedCheckinId: null,
       spending: null,
       needsCategory: 0,
       backupWarning: null,
@@ -166,6 +166,8 @@ describe('home and device routes', () => {
     expect((await home()).checkin.accountsLeft).toBe(1);
     await saveValue(id, usd, '50000');
     expect((await home()).checkin.accountsLeft).toBe(0);
+    // Still open: nothing is closed, so Wealth history has no summary to open.
+    expect((await home()).lastClosedCheckinId).toBeNull();
   });
 
   it('says whether the signed-in profile is the one who started it', async () => {
@@ -221,7 +223,7 @@ describe('home and device routes', () => {
     expect(JSON.stringify(banner)).not.toContain('123456');
   });
 
-  it('values current wealth at the latest rates against the last check-in', async () => {
+  it('names the closed check-in and sends no wealth amount or change', async () => {
     const { eur, usd, blair } = seedAccounts();
     now = Date.parse('2026-07-01T10:00:00Z');
     const id = await startCheckin();
@@ -229,101 +231,27 @@ describe('home and device routes', () => {
     await saveValue(id, usd, '50000');
     await saveValue(id, blair, '0');
     await closeCheckin(id);
-    // At the check-in: EUR 1,000.00 + USD 500.00 / 1.25 = EUR 1,400.00.
-    expect((await home()).wealth).toEqual({
-      checkinId: id,
-      amount: '140000',
-      lastCheckinDate: '2026-07-01',
-      change: '0',
-    });
-
-    // Later the EUR account holds 1,200.00 and the dollar is dearer:
-    // USD 500.00 / 1.60 = EUR 312.50, so wealth is 1,512.50 and the change
-    // against the check-in's 1,400.00 is +112.50.
-    now = Date.parse('2026-08-05T10:00:00Z');
-    database
-      .prepare(
-        `INSERT INTO rate (base, quote, date, rate, source, fetched_at)
-         VALUES ('EUR', 'USD', '2026-08-05', '1.60', 'test', 1)`,
-      )
-      .run();
-    database
-      .prepare(
-        `INSERT INTO snapshot (account_id, taken_at, amount, source,
-          created_by, created_at, updated_by, updated_at)
-         VALUES (?, ?, 120000, 'manual', 1, 1, 1, 1)`,
-      )
-      .run(eur, now - day);
-    expect((await home()).wealth).toEqual({
-      checkinId: id,
-      amount: '151250',
-      lastCheckinDate: '2026-07-01',
-      change: '11250',
-    });
+    const body = await home();
+    expect(body.lastClosedCheckinId).toBe(id);
+    expect(body).not.toHaveProperty('wealth');
+    // EUR 1,000.00 + USD 500.00 / 1.25 = EUR 1,400.00 must not leak.
+    expect(JSON.stringify(body)).not.toMatch(/140000|"amount"|"change"/u);
   });
 
-  it('reports a negative change and uses the latest closed check-in', async () => {
+  it('points at the latest closed check-in', async () => {
     const { eur, usd, blair } = seedAccounts();
     now = Date.parse('2026-07-01T10:00:00Z');
+    const ids: number[] = [];
     for (const amount of ['100000', '90000']) {
       const id = await startCheckin();
       await saveValue(id, eur, amount);
       await saveValue(id, usd, '0');
       await saveValue(id, blair, '0');
       await closeCheckin(id);
+      ids.push(id);
       now += day;
     }
-    const latest = (await get('/api/checkins'))
-      .json()
-      .checkins.find(
-        (checkin: { closedAt: number }) =>
-          checkin.closedAt === Date.parse('2026-07-02T10:00:00Z'),
-      ).id as number;
-    now = Date.parse('2026-07-03T10:00:00Z');
-    database
-      .prepare(
-        `INSERT INTO snapshot (account_id, taken_at, amount, source,
-          created_by, created_at, updated_by, updated_at)
-         VALUES (?, ?, 85000, 'manual', 1, 1, 1, 1)`,
-      )
-      .run(eur, now - 1000);
-    expect((await home()).wealth).toEqual({
-      checkinId: latest,
-      amount: '85000',
-      lastCheckinDate: '2026-07-02',
-      change: '-5000',
-    });
-  });
-
-  it('leaves the amount and change empty while a rate is missing', async () => {
-    const { eur, usd, blair } = seedAccounts();
-    now = Date.parse('2026-07-01T10:00:00Z');
-    const id = await startCheckin();
-    await saveValue(id, eur, '100000');
-    await saveValue(id, usd, '50000');
-    await saveValue(id, blair, '0');
-    await closeCheckin(id);
-    database
-      .prepare(
-        `INSERT INTO account (name, owner_member_id, type, currency,
-          created_by, created_at, updated_by, updated_at)
-         VALUES ('Rubles', 1, 'bank', 'RUB', 1, 1, 1, 1)`,
-      )
-      .run();
-    database
-      .prepare(
-        `INSERT INTO snapshot (account_id, taken_at, amount, source,
-          created_by, created_at, updated_by, updated_at)
-         VALUES (4, ?, 700000, 'manual', 1, 1, 1, 1)`,
-      )
-      .run(now + 1000);
-    now += day;
-    expect((await home()).wealth).toEqual({
-      checkinId: id,
-      amount: null,
-      lastCheckinDate: '2026-07-01',
-      change: null,
-    });
+    expect((await home()).lastClosedCheckinId).toBe(ids[1]);
   });
 
   /** Creates an envelope and returns its id. */

@@ -7,7 +7,6 @@ import {
 } from '@budget-buddy/shared';
 import { monthSpent } from '../modules/transactions/list.js';
 import { needsCategoryCount } from '../modules/transactions/needsCategory.js';
-import { currencyTotalsAt } from './balance.js';
 import { getCheckin } from './checkin.js';
 import { listEnvelopeStates } from './envelopes.js';
 import { createValuation, type Valuation } from './valuation.js';
@@ -30,9 +29,9 @@ export interface HomeOptions {
 }
 
 /**
- * Builds everything Home shows (DSH-1, DSH-4, NTF-1, BKP-4, O2). The banner has
- * no amounts. Wealth is the latest balances at the latest rates, with the
- * change against the latest closed check-in's equivalent at its own rates.
+ * Builds everything Home shows (DSH-1, DSH-4, NTF-1, BKP-4). The banner has
+ * no amounts, and no wealth figure is sent: Home links to the latest closed
+ * check-in's summary instead.
  * @throws {Error} if the family is not set up or an account has an unknown
  * currency.
  */
@@ -50,7 +49,7 @@ export function getHome(
     // An unknown device gets the safe default.
     hideAmounts: device === undefined || device.hide_home_amounts !== 0n,
     checkin: openCheckin(database, valuation, options),
-    wealth: wealth(database, valuation, options.now),
+    lastClosedCheckinId: lastClosedCheckinId(database),
     spending: spending(database, valuation, options.now),
     needsCategory: needsCategoryCount(database),
     backupWarning: backupWarning(database, options.now),
@@ -138,49 +137,17 @@ function shareUsed(spent: bigint, available: bigint): number {
   return Number(spent >= available ? 100n : (spent * 100n) / available);
 }
 
-function wealth(
+/** The latest closed check-in, which Wealth history opens (DSH-1). */
+function lastClosedCheckinId(
   database: Database.Database,
-  valuation: Valuation,
-  now: number,
-): HomeResponse['wealth'] {
+): HomeResponse['lastClosedCheckinId'] {
   const last = database
     .prepare(
-      `SELECT id, closed_at FROM checkin WHERE closed_at IS NOT NULL
+      `SELECT id FROM checkin WHERE closed_at IS NOT NULL
        ORDER BY closed_at DESC, id DESC LIMIT 1`,
     )
-    .get() as { id: bigint; closed_at: bigint } | undefined;
-  if (!last) return null;
-  const closedAt = Number(last.closed_at);
-  const [atCheckin, current] = currencyTotalsAt(database, [closedAt, now]) as [
-    Map<string, bigint>,
-    Map<string, bigint>,
-  ];
-  const before = equivalent(valuation, atCheckin, valuation.dateOf(closedAt));
-  const amount = equivalent(valuation, current, valuation.dateOf(now));
-  return {
-    checkinId: Number(last.id),
-    amount: amount === null ? null : toMinorString(amount),
-    lastCheckinDate: valuation.dateOf(closedAt),
-    change:
-      amount === null || before === null
-        ? null
-        : toMinorString(amount - before),
-  };
-}
-
-/** Sums currency totals in the common currency; null when a rate is missing. */
-function equivalent(
-  valuation: Valuation,
-  totals: Map<string, bigint>,
-  date: string,
-): bigint | null {
-  let sum = 0n;
-  for (const [code, total] of totals) {
-    const value = valuation.toCommon(total, code, date);
-    if (value === undefined) return null;
-    sum += value;
-  }
-  return sum;
+    .get() as { id: bigint } | undefined;
+  return last ? Number(last.id) : null;
 }
 
 /**
