@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
-import { formatDate, todayInTimeZone } from '@budget-buddy/shared';
+import { todayInTimeZone } from '@budget-buddy/shared';
 
 /** The envelopes card is the region named after the month. */
 const monthName =
@@ -74,18 +74,17 @@ test('amounts are hidden after a reload, and the eye shows them for 30 s', async
 }, testInfo) => {
   const seed = await seedFamily(page.context());
   await closedCheckinThenRaiseIng(page.context(), seed);
-  const date = formatDate(new Date(), 'Europe/Berlin');
+  await seedSpending(page.context(), seed.trade);
 
   // Fake timers, so the 30 s need no real waiting.
   await page.clock.install();
   await page.goto(`${origin}/`);
   await expect(page.getByRole('heading', { name: 'Hi, Alena' })).toBeVisible();
 
-  const wealth = page.getByRole('link', { name: /^Family wealth/u });
-  await expect(wealth).toContainText('Family wealth · EUR');
-  await expect(wealth).toContainText('€ • • • • •');
-  await expect(wealth).toContainText('Amount hidden');
-  await expect(wealth).toContainText(`Hidden · last check-in ${date}`);
+  const card = page.getByRole('region', { name: monthName });
+  await expect(card).toContainText('€ • • • •');
+  await expect(card).toContainText('62% used');
+  await expectNoWealthCard(page);
   const eye = page.getByRole('button', { name: 'Show amounts for 30 seconds' });
   await expect(eye).toHaveAttribute('aria-pressed', 'false');
   await expectNoAmounts(page);
@@ -99,15 +98,15 @@ test('amounts are hidden after a reload, and the eye shows them for 30 s', async
   }
 
   await eye.click();
-  await expect(wealth).toContainText('€3,272.00');
-  await expect(wealth).toContainText(`+€1,742.00 since check-in of ${date}`);
+  await expect(card).toContainText('€461.50');
+  await expect(card).toContainText('€190.00 left of €500.00');
   if (testInfo.project.name === 'iphone') {
     await page.screenshot({
       path: 'test-results/screens/Main-revealed.png',
       scale: 'css',
     });
   }
-  await expect(wealth).not.toContainText('€ • • • • •');
+  await expect(card).not.toContainText('€ • • • •');
   await expect(
     page.getByText('Amounts visible · hiding again in 30 s', { exact: true }),
   ).toBeVisible();
@@ -122,10 +121,10 @@ test('amounts are hidden after a reload, and the eye shows them for 30 s', async
   await expect(
     page.getByText('Amounts visible · hiding again in 1 s', { exact: true }),
   ).toBeVisible();
-  await expect(wealth).toContainText('€3,272.00');
+  await expect(card).toContainText('€461.50');
   await page.clock.runFor(1_000);
-  await expect(wealth).toContainText('€ • • • • •');
-  await expect(wealth).toContainText(`Hidden · last check-in ${date}`);
+  await expect(card).toContainText('€ • • • •');
+  await expect(card).toContainText('62% used');
   await expect(page.getByText(/Amounts visible/u)).toHaveCount(0);
   await expectNoAmounts(page);
   await expect(eye).toHaveAttribute('aria-pressed', 'false');
@@ -136,15 +135,16 @@ test('a second tap hides the amounts at once, and nothing is stored', async ({
 }) => {
   const seed = await seedFamily(page.context());
   await closedCheckinThenRaiseIng(page.context(), seed);
+  await seedSpending(page.context(), seed.trade);
   await page.clock.install();
   await page.goto(`${origin}/`);
-  const wealth = page.getByRole('link', { name: /^Family wealth/u });
-  await expect(wealth).toContainText('€ • • • • •');
+  const card = page.getByRole('region', { name: monthName });
+  await expect(card).toContainText('€ • • • •');
 
   await page
     .getByRole('button', { name: 'Show amounts for 30 seconds' })
     .click();
-  await expect(wealth).toContainText('€3,272.00');
+  await expect(card).toContainText('€461.50');
   expect(
     await page.evaluate(() => [
       localStorage.length,
@@ -154,21 +154,21 @@ test('a second tap hides the amounts at once, and nothing is stored', async ({
   ).toEqual([0, 0, '']);
 
   await page.getByRole('button', { name: 'Hide amounts' }).click();
-  await expect(wealth).toContainText('€ • • • • •');
+  await expect(card).toContainText('€ • • • •');
   await expect(page.getByText(/Amounts visible/u)).toHaveCount(0);
   await expectNoAmounts(page);
   await page.clock.runFor(31_000);
-  await expect(wealth).toContainText('€ • • • • •');
+  await expect(card).toContainText('€ • • • •');
 
   // Revealing again and leaving the screen: the next visit starts hidden.
   await page
     .getByRole('button', { name: 'Show amounts for 30 seconds' })
     .click();
-  await expect(wealth).toContainText('€3,272.00');
+  await expect(card).toContainText('€461.50');
   await page.reload();
-  await expect(
-    page.getByRole('link', { name: /^Family wealth/u }),
-  ).toContainText('€ • • • • •');
+  await expect(page.getByRole('region', { name: monthName })).toContainText(
+    '€ • • • •',
+  );
   await expectNoAmounts(page);
 });
 
@@ -177,18 +177,19 @@ test('backgrounding the page hides revealed amounts at once, and they stay hidde
 }) => {
   const seed = await seedFamily(page.context());
   await closedCheckinThenRaiseIng(page.context(), seed);
+  await seedSpending(page.context(), seed.trade);
   await page.clock.install();
   await page.goto(`${origin}/`);
-  const wealth = page.getByRole('link', { name: /^Family wealth/u });
+  const card = page.getByRole('region', { name: monthName });
   await page
     .getByRole('button', { name: 'Show amounts for 30 seconds' })
     .click();
-  await expect(wealth).toContainText('€3,272.00');
+  await expect(card).toContainText('€461.50');
   await page.clock.runFor(5_000);
 
   // Safari backgrounding: the page becomes hidden, well inside the 30 s.
   await setVisibility(page, 'hidden');
-  await expect(wealth).toContainText('€ • • • • •');
+  await expect(card).toContainText('€ • • • •');
   await expect(page.getByText(/Amounts visible/u)).toHaveCount(0);
   await expectNoAmounts(page);
   await expect(
@@ -198,14 +199,14 @@ test('backgrounding the page hides revealed amounts at once, and they stay hidde
   // Returning within 30 s shows nothing; the eye still reveals again.
   await page.clock.runFor(5_000);
   await setVisibility(page, 'visible');
-  await expect(wealth).toContainText('€ • • • • •');
+  await expect(card).toContainText('€ • • • •');
   await expectNoAmounts(page);
   await page
     .getByRole('button', { name: 'Show amounts for 30 seconds' })
     .click();
-  await expect(wealth).toContainText('€3,272.00');
+  await expect(card).toContainText('€461.50');
   await page.clock.runFor(30_000);
-  await expect(wealth).toContainText('€ • • • • •');
+  await expect(card).toContainText('€ • • • •');
 });
 
 test('pagehide hides revealed amounts before the app switcher snapshot', async ({
@@ -213,16 +214,17 @@ test('pagehide hides revealed amounts before the app switcher snapshot', async (
 }) => {
   const seed = await seedFamily(page.context());
   await closedCheckinThenRaiseIng(page.context(), seed);
+  await seedSpending(page.context(), seed.trade);
   await page.clock.install();
   await page.goto(`${origin}/`);
-  const wealth = page.getByRole('link', { name: /^Family wealth/u });
+  const card = page.getByRole('region', { name: monthName });
   await page
     .getByRole('button', { name: 'Show amounts for 30 seconds' })
     .click();
-  await expect(wealth).toContainText('€3,272.00');
+  await expect(card).toContainText('€461.50');
 
   await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
-  await expect(wealth).toContainText('€ • • • • •');
+  await expect(card).toContainText('€ • • • •');
   await expectNoAmounts(page);
 });
 
@@ -231,7 +233,7 @@ test('with “Hide amounts on Home” off, Home shows the amount after a reload'
 }) => {
   const seed = await seedFamily(page.context());
   await closedCheckinThenRaiseIng(page.context(), seed);
-  const date = formatDate(new Date(), 'Europe/Berlin');
+  await seedSpending(page.context(), seed.trade);
 
   await page.goto(`${origin}/settings`);
   const hideSwitch = page.getByRole('switch', { name: 'Hide amounts on Home' });
@@ -241,27 +243,27 @@ test('with “Hide amounts on Home” off, Home shows the amount after a reload'
   await expect(hideSwitch).toHaveAttribute('aria-checked', 'false');
 
   await page.goto(`${origin}/`);
-  const wealth = page.getByRole('link', { name: /^Family wealth/u });
-  await expect(wealth).toContainText('€3,272.00');
-  await expect(wealth).toContainText(`+€1,742.00 since check-in of ${date}`);
+  const card = page.getByRole('region', { name: monthName });
+  await expect(card).toContainText('€461.50');
+  await expect(card).toContainText('€190.00 left of €500.00');
   await page.reload();
-  await expect(wealth).toContainText('€3,272.00');
+  await expect(card).toContainText('€461.50');
   await expect(page.getByText(/Amounts visible/u)).toHaveCount(0);
 
   // The eye still hides them for the rest of the visit.
   await page.getByRole('button', { name: 'Hide amounts' }).click();
-  await expect(wealth).toContainText('€ • • • • •');
+  await expect(card).toContainText('€ • • • •');
   await expectNoAmounts(page);
   await page.getByRole('button', { name: 'Show amounts' }).click();
-  await expect(wealth).toContainText('€3,272.00');
+  await expect(card).toContainText('€461.50');
 
   // Turning it back on hides them again on the next start.
   await page.goto(`${origin}/settings`);
   await page.getByRole('switch', { name: 'Hide amounts on Home' }).click();
   await page.goto(`${origin}/`);
-  await expect(
-    page.getByRole('link', { name: /^Family wealth/u }),
-  ).toContainText('€ • • • • •');
+  await expect(page.getByRole('region', { name: monthName })).toContainText(
+    '€ • • • •',
+  );
 });
 
 test('the banner for a scheduled check-in has no amounts and one number', async ({
@@ -348,23 +350,24 @@ test('the banner says “You” for your own check-in and names another member',
   expect(((await banner.innerText()).match(/\d/gu) ?? []).join('')).toBe('2');
 });
 
-test('with no closed check-in the wealth card says so and opens Check-ins', async ({
+test('with no closed check-in there is no wealth card and Wealth history opens Check-ins', async ({
   page,
 }) => {
   await seedFamily(page.context());
   await page.goto(`${origin}/`);
-  const wealth = page.getByRole('link', { name: /^Family wealth/u });
-  await expect(wealth).toContainText('Family wealth · EUR');
-  await expect(wealth).toContainText('No check-in yet');
-  await expect(wealth).not.toContainText('•');
+  await expect(page.getByRole('heading', { name: 'Hi, Alena' })).toBeVisible();
+  await expectNoWealthCard(page);
   await expect(
     page.getByRole('link', { name: /check-in is open/iu }),
   ).toHaveCount(0);
-  await wealth.click();
+  await page
+    .getByRole('navigation', { name: 'Everything' })
+    .getByRole('link', { name: 'Wealth history' })
+    .click();
   await expect(page).toHaveURL(/\/check-ins$/u);
 });
 
-test('the wealth card and Wealth history open the latest summary', async ({
+test('Home shows no wealth card, hidden or revealed, and Wealth history opens the latest summary', async ({
   page,
 }) => {
   const context = page.context();
@@ -381,10 +384,16 @@ test('the wealth card and Wealth history open the latest summary', async ({
     'Categories',
     'Settings',
   ]);
+  await expectNoWealthCard(page);
+  await page
+    .getByRole('button', { name: 'Show amounts for 30 seconds' })
+    .click();
+  await expect(page.getByText(/Amounts visible/u)).toBeVisible();
+  await expectNoWealthCard(page);
   await expect(
     everything.getByRole('link', { name: 'Wealth history' }),
   ).toHaveAttribute('href', `/check-ins/${first}`);
-  await page.getByRole('link', { name: /^Family wealth/u }).click();
+  await everything.getByRole('link', { name: 'Wealth history' }).click();
   await expect(page).toHaveURL(new RegExp(`/check-ins/${first}$`, 'u'));
   await expect(
     page.getByRole('heading', { name: /^Check-in \d{2}\/\d{2}\/\d{4}$/u }),
@@ -739,13 +748,34 @@ async function setVisibility(
   }, state);
 }
 
+/** Home has no Family wealth card, and no wealth figure or change. */
+async function expectNoWealthCard(page: Page): Promise<void> {
+  await expect(page.getByRole('link', { name: /Family wealth/u })).toHaveCount(
+    0,
+  );
+  const text = await page.getByRole('main').innerText();
+  expect(text).not.toMatch(/Family wealth|since check-in|last check-in/iu);
+  for (const figure of ['3,272', '1,742']) {
+    expect(text).not.toContain(figure);
+  }
+}
+
 /** No amount, whole or partial, in the page text, its tree or its labels. */
 async function expectNoAmounts(page: Page): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Hi, Alena' })).toBeVisible();
   const text = await page.locator('body').innerText();
   expect(text).not.toMatch(/[€$₽₿]\s?\d/u);
   const html = await page.content();
-  for (const figure of ['3,272', '1,742', '1,530', '327200', '174200']) {
+  for (const figure of [
+    '3,272',
+    '1,742',
+    '1,530',
+    '327200',
+    '174200',
+    '461.50',
+    '46150',
+    '31000',
+  ]) {
     expect(html).not.toContain(figure);
   }
   const tree = await page.getByRole('main').ariaSnapshot();
