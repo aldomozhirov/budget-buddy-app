@@ -209,7 +209,7 @@ This replaces per-member logins (MEM-2 and MEM-3 as amended).
   - **Send** is disabled until the text has at least 3 characters other than spaces. Sending closes the sheet, clears it, and shows the toast "Thanks! Your feedback is sent." (`.toast`, `role="status"`) for 4 seconds. There is no thank-you screen and no list of earlier reports.
   - **Close** or a tap on the dimmed page closes the sheet and keeps what was typed until the app is closed.
   - **Offline.** Send stays enabled. The feedback waits on the phone like an offline expense and is sent when the connection returns; the toast reads "Saved. It sends itself when you’re back online."
-  - **Not decided.** Where feedback is stored and who reads it. `docs/requirements.md` has no entry for it yet; one is needed before this is built.
+  - **Where it goes.** Decided 2026-11-04 (owner): the server writes each report as files in a feedback folder, and the owner's own tooling on the host reads it. The app shows no history (FBK-1 to FBK-5, `docs/specs/08-feedback.md`).
 
 ## 15. Visual system
 
@@ -320,7 +320,7 @@ The prototype review settled these. `docs/requirements.md` has been amended to m
 | Sign-in | One family password and one profile per person, with a default profile per device. No per-member passwords and no invitations. | Section 2, section 4.1, MEM-1, MEM-2, MEM-3, SET-1, section 11 |
 | Home | Home hides amounts by default. It shows no wealth figure (removed 2026-11-02); wealth and per-currency totals live on the check-in summary, reached from Wealth history. | DSH-1 |
 | Sign in again | A device asks to sign in again when opened fresh or returned to after more than 5 minutes away; on by default, with a per-device switch in Settings (owner, 2026-10-12). | MEM-2, MEM-7, SEC-9 |
-| Feedback (2026-11-04) | Feedback is a bottom sheet from Settings → Help: a problem or an idea, free text, an optional screenshot. Device details always go with it; no separate screen, no thank-you screen, no history of earlier reports (UI-SET-6). | None yet: needs a requirement before it is built |
+| Feedback (2026-11-04) | Feedback is a bottom sheet from Settings → Help: a problem or an idea, free text, an optional screenshot. Device details always go with it; no separate screen, no thank-you screen, no history of earlier reports (UI-SET-6). | FBK-1 to FBK-5 |
 | Pickers (2026-10-14) | Long lists, calendars and text open in sheets with search; chips only for a few one-tap choices, followed by "All…" or "Other…". The transaction page's rows open these sheets in the Add form's order. Settings is a cog everywhere. | None (design only) |
 | Category and envelope | Merchant rules pre-select both while typing. Category and envelope fill each other only on save, and only into an empty field. There is no "No envelope" choice on the add form. | CAT-1, CAT-5, TXN-1 |
 
