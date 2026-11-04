@@ -496,9 +496,9 @@ body { margin: 0; min-height: 100vh; }
     &lt;button class="meta"&gt;&lt;span class="meta-l"&gt;&lt;svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M4 20h4L19 9l-4-4L4 16v4z"/&gt;&lt;/svg&gt;Note&lt;/span&gt;&lt;span class="meta-v"&gt;Add &lt;svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M6 9l6 6 6-6"/&gt;&lt;/svg&gt;&lt;/span&gt;&lt;/button&gt;
   &lt;/div&gt;
 &lt;/div&gt;</code></pre></div></div></section>
-<section id="detail-fields"><h2>Detail rows</h2><span class="sg-spec">UI-TXN-4, UI-TXN-5, UI-NAV-7</span><p>On a transaction page each field is a row, in the order of the Add form. Every row ends in a right chevron and opens a sheet: the same searchable list, calendar or text box that Add expense uses. Paid from opens the account.</p>
+<section id="detail-fields"><h2>Detail rows</h2><span class="sg-spec">UI-TXN-4, UI-TXN-5, UI-NAV-7</span><p>On a transaction page each field is a row, in the order of the Add form. Every row ends in a right chevron and opens a sheet: the same searchable list, calendar or text box that Add expense uses. Paid from opens the account sheet, so the account can be changed.</p>
 <div class="sg-demo"><div class="sg-stage"><div class="card">
-  <a class="field field-link" href="#"><span class="field-l">Paid from</span><span class="field-v">ING Visa · EUR</span></a>
+  <button class="field" aria-haspopup="dialog"><span class="field-l">Paid from</span><span class="field-v">ING Visa · EUR</span></button>
   <button class="field" aria-haspopup="dialog"><span class="field-l">Merchant</span><span class="field-v">REWE</span></button>
   <button class="field" aria-haspopup="dialog"><span class="field-l">Category</span><span class="field-v">Groceries</span></button>
   <button class="field" aria-haspopup="dialog"><span class="field-l">Envelope</span><span class="field-v num">Groceries · counts as €21.40</span></button>
@@ -510,7 +510,7 @@ body { margin: 0; min-height: 100vh; }
 <tr><td><code>.field-link</code></td><td>Opens another screen.</td></tr>
 </table><div class="sg-dd"><div class="do"><b>Do</b><ul><li>Open the same sheet the Add form uses for that field, and save each change as it is made, logged in the Record (MEM-5).</li></ul></div><div class="dont"><b>Don’t</b><ul><li>Open chips in place under the row, or send the member to a separate edit screen.</li></ul></div></div></div>
 <div class="sg-code"><button class="sg-copy" type="button">Copy</button><pre><code>&lt;div class="card"&gt;
-  &lt;a class="field field-link" href="#"&gt;&lt;span class="field-l"&gt;Paid from&lt;/span&gt;&lt;span class="field-v"&gt;ING Visa · EUR&lt;/span&gt;&lt;/a&gt;
+  &lt;button class="field" aria-haspopup="dialog"&gt;&lt;span class="field-l"&gt;Paid from&lt;/span&gt;&lt;span class="field-v"&gt;ING Visa · EUR&lt;/span&gt;&lt;/button&gt;
   &lt;button class="field" aria-haspopup="dialog"&gt;&lt;span class="field-l"&gt;Merchant&lt;/span&gt;&lt;span class="field-v"&gt;REWE&lt;/span&gt;&lt;/button&gt;
   &lt;button class="field" aria-haspopup="dialog"&gt;&lt;span class="field-l"&gt;Category&lt;/span&gt;&lt;span class="field-v"&gt;Groceries&lt;/span&gt;&lt;/button&gt;
   &lt;button class="field" aria-haspopup="dialog"&gt;&lt;span class="field-l"&gt;Envelope&lt;/span&gt;&lt;span class="field-v num"&gt;Groceries · counts as €21.40&lt;/span&gt;&lt;/button&gt;
@@ -518,7 +518,7 @@ body { margin: 0; min-height: 100vh; }
   &lt;button class="field" aria-haspopup="dialog"&gt;&lt;span class="field-l"&gt;Paid by&lt;/span&gt;&lt;span class="field-v"&gt;Alena&lt;/span&gt;&lt;/button&gt;
   &lt;button class="field" aria-haspopup="dialog" style="border-bottom: 0"&gt;&lt;span class="field-l"&gt;Note&lt;/span&gt;&lt;span class="field-v muted"&gt;Add a note&lt;/span&gt;&lt;/button&gt;
 &lt;/div&gt;</code></pre></div></div></section>
-<section id="text-inputs"><h2>Text, search and password</h2><span class="sg-spec">UI-AUTH-3, UI-TXN-1</span><p>Text inputs are 52 high (password 56). Inside a sheet they use the bg fill. An error turns the border warn and shows a message announced to screen readers.</p>
+<section id="text-inputs"><h2>Text, search and password</h2><span class="sg-spec">UI-AUTH-3, UI-TXN-1</span><p>Text inputs are 52 high (password 56). Inside a sheet they use the bg fill. An error turns the border warn and shows a message announced to screen readers. Free text uses <code>.noteinput</code> (96 high), or <code>.noteinput-tall</code> (140 high) for feedback; an attached file shows as an <code>.attach-tag</code> that removes it on tap.</p>
 <div class="sg-demo"><div class="sg-stage"><div class="stack">
   <div class="input-wrap"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><input class="search" type="search" placeholder="Search merchant, note, amount" aria-label="Search transactions"></div>
   <input class="text" placeholder="Name the account" aria-label="Name">
@@ -730,7 +730,7 @@ body { margin: 0; min-height: 100vh; }
 <tr><td>Saved</td><td>Confirmation says what was filled: “Groceries envelope added from the Groceries category.”</td></tr>
 </table></div></div></section>
 <section id="p-confirm"><h2>Pattern: confirm and undo</h2><span class="sg-spec">UI-NAV-4, UI-ADD-13, UI-TXN-3</span>
-<p>Destructive or far-reaching actions are confirmed in a sheet that states the consequence. Quick, reversible actions are not confirmed; they offer Undo instead (saved expense, labelling in Needs a category).</p></section>
+<p>Destructive or far-reaching actions are confirmed in a sheet that states the consequence. Quick, reversible actions are not confirmed; they offer Undo instead (saved expense, labelling in Needs a category). A short confirmation that needs no screen of its own is a <code>.toast</code> with <code>role="status"</code> at the bottom of the page, such as “Thanks! Your feedback is sent.” after the feedback sheet closes (UI-SET-6).</p></section>
 <section id="p-empty"><h2>Pattern: empty, offline and error states</h2><span class="sg-spec">UI-ADD-14, UI-TXN-3, CHK-12</span>
 <table class="sg-table"><tr><th>State</th><th>Copy</th></tr>
 <tr><td>Offline on Add expense</td><td>“Offline. It stays on this phone and sends itself later.” Row tag “Waiting to send”.</td></tr>

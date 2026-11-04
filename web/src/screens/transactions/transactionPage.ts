@@ -1,5 +1,7 @@
 import {
+  formatMinorDecimal,
   getCurrency,
+  roundHalfAwayFromZero,
   todayInTimeZone,
   type CoinCurrency,
   type Transaction,
@@ -38,6 +40,8 @@ export const PAGE_WORDS: Readonly<
       payerHint: string;
       /** Label of the first account row. */
       fromLabel: string;
+      /** Title of the first account row's sheet, as on Add. */
+      fromSheet: string;
       /** Name of the thing for "Delete this …?". */
       noun: string;
     }
@@ -49,6 +53,7 @@ export const PAGE_WORDS: Readonly<
     payerLabel: 'Paid by',
     payerHint: 'Who paid. The account stays as picked.',
     fromLabel: 'Paid from',
+    fromSheet: 'Paid from',
     noun: 'expense',
   },
   income: {
@@ -57,6 +62,7 @@ export const PAGE_WORDS: Readonly<
     payerLabel: 'Received by',
     payerHint: 'Who received the money.',
     fromLabel: 'Paid into',
+    fromSheet: 'Paid into',
     noun: 'income',
   },
   transfer: {
@@ -65,6 +71,7 @@ export const PAGE_WORDS: Readonly<
     payerLabel: 'Done by',
     payerHint: 'Who moved the money. The accounts stay as picked.',
     fromLabel: 'From',
+    fromSheet: 'Transfer from',
     noun: 'transfer',
   },
 };
@@ -405,4 +412,51 @@ export function recordLines(
     );
   }
   return lines;
+}
+
+/** An amount the page asks for again after an account change. */
+export type RetypedAmount = 'amount' | 'toAmount';
+
+/**
+ * The amounts to type before a new account is saved (TXN-6; owner,
+ * 2026-11-03): the amount when the account's currency changes, and for a
+ * transfer the amount that arrives when the pair becomes a new one of two
+ * currencies. Within one currency the server sets what arrives itself.
+ * @param side `from` for Paid from, Paid into and From; `to` for To.
+ * @param currency The currency of the picked account.
+ */
+export function amountsToRetype(
+  transaction: Pick<Transaction, 'kind' | 'currency' | 'toCurrency'>,
+  side: 'from' | 'to',
+  currency: string,
+): RetypedAmount[] {
+  const from = side === 'from' ? currency : transaction.currency;
+  const to = side === 'to' ? currency : transaction.toCurrency;
+  const steps: RetypedAmount[] = [];
+  if (from !== transaction.currency) steps.push('amount');
+  if (
+    transaction.kind === 'transfer' &&
+    from !== to &&
+    (from !== transaction.currency || to !== transaction.toCurrency)
+  ) {
+    steps.push('toAmount');
+  }
+  return steps;
+}
+
+/**
+ * The same number in a currency of other decimals, to fill the keypad when
+ * the account's currency changes: `6420n` at 2 decimals is `64n` at 0.
+ * Rounds half away from zero.
+ * @example carryAmount(6420n, 2, 3) // 64200n
+ */
+export function carryAmount(
+  amount: bigint,
+  fromDecimals: number,
+  toDecimals: number,
+): bigint {
+  return roundHalfAwayFromZero(
+    formatMinorDecimal(amount, fromDecimals),
+    toDecimals,
+  );
 }

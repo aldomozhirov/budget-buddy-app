@@ -126,7 +126,7 @@ async function fieldLabels(page: Page): Promise<string[]> {
     );
 }
 
-test('every row but Paid from opens a sheet, in the order of the Add form', async ({
+test('every row opens a sheet, in the order of the Add form', async ({
   page,
 }, testInfo) => {
   await startFamily(page, async (family) => {
@@ -147,12 +147,8 @@ test('every row but Paid from opens a sheet, in the order of the Add form', asyn
       'Paid by',
       'Note',
     ]);
-    // Paid from opens the account page, never a sheet.
-    await expect(
-      page.getByRole('link', { name: /^Paid from/ }),
-    ).toHaveAttribute('href', `/accounts/${ids['ING Visa']}`);
-
     for (const [label, title] of [
+      ['Paid from', 'Paid from'],
       ['Merchant', 'Merchant'],
       ['Category', 'Category'],
       ['Envelope', 'Envelope'],
@@ -182,6 +178,255 @@ test('every row but Paid from opens a sheet, in the order of the Add form', asyn
 
     await expectNoSidewaysScroll(page, 'Transaction');
     await shoot(page, testInfo, 'TransactionDetail');
+  });
+});
+
+test('Paid from opens the account sheet; another account of the currency is saved', async ({
+  page,
+}, testInfo) => {
+  await startFamily(page, async (family) => {
+    const { ids } = await seed(family);
+    await page.goto(`${family.origin}/transactions/${ids.rewe}`);
+    const row = page.getByRole('button', { name: /^Paid from/ });
+    await expect(row).toContainText('ING Visa · EUR');
+    await expect(row).toHaveAttribute('aria-haspopup', 'dialog');
+
+    await row.click();
+    const sheet = page.getByRole('dialog', { name: 'Paid from' });
+    await expect(
+      sheet.getByLabel('Search: bank, person, currency'),
+    ).toBeVisible();
+    await expect(
+      sheet.getByRole('radio', { name: /^ING Visa · EUR/ }),
+    ).toHaveAttribute('aria-checked', 'true');
+    await shoot(page, testInfo, 'TransactionAccount');
+    // The current account closes the sheet and sends nothing.
+    await sheet.getByRole('radio', { name: /^ING Visa · EUR/ }).click();
+    await expect(sheet).toHaveCount(0);
+    await expect(page.getByText(/^Account changed/u)).toHaveCount(0);
+
+    await row.click();
+    await sheet.getByRole('radio', { name: /^Cash € · EUR/ }).click();
+    await expect(sheet).toHaveCount(0);
+    await expect(row).toContainText('Cash € · EUR');
+    await expect(
+      page.getByRole('button', { name: 'Change amount' }),
+    ).toHaveText('−€64.20');
+    await expect(
+      page.getByText('Account changed to Cash € by Alena', { exact: true }),
+    ).toBeVisible();
+
+    await page.goto(`${family.origin}/transactions`);
+    await expect(
+      page.getByTestId('transaction-row').filter({ hasText: 'REWE' }),
+    ).toContainText('Cash €');
+  });
+});
+
+test('an account in another currency asks for the amount in it first', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    const { ids } = await seed(family);
+    await page.goto(`${family.origin}/transactions/${ids.rewe}`);
+    const row = page.getByRole('button', { name: /^Paid from/ });
+
+    // Closing the amount sheet changes nothing.
+    await row.click();
+    await page
+      .getByRole('dialog', { name: 'Paid from' })
+      .getByRole('radio', { name: /^Wise \$ · USD/ })
+      .click();
+    const amount = page.getByRole('dialog', { name: 'Amount' });
+    await expect(amount).toContainText('$');
+    await expect(amount).toContainText('64.20');
+    await amount.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(amount).toHaveCount(0);
+    await expect(row).toContainText('ING Visa · EUR');
+    await page.reload();
+    await expect(row).toContainText('ING Visa · EUR');
+    await expect(
+      page.getByRole('button', { name: 'Change amount' }),
+    ).toHaveText('−€64.20');
+
+    // Save stores the account and the amount together.
+    await row.click();
+    await page
+      .getByRole('dialog', { name: 'Paid from' })
+      .getByRole('radio', { name: /^Wise \$ · USD/ })
+      .click();
+    await amount
+      .getByRole('group', { name: 'Amount keypad' })
+      .getByRole('button', { name: 'Clear' })
+      .click();
+    await typeAmount(amount, '70');
+    await amount.getByRole('button', { name: 'Save' }).click();
+    await expect(amount).toHaveCount(0);
+    await expect(row).toContainText('Wise $ · USD');
+    await expect(
+      page.getByRole('button', { name: 'Change amount' }),
+    ).toHaveText('−$70.00');
+    for (const text of [
+      'Amount changed to $70.00 by Alena',
+      'Account changed to Wise $ by Alena',
+    ]) {
+      await expect(page.getByText(text, { exact: true })).toBeVisible();
+    }
+    // The EUR envelope now counts the dollars at the date's rate.
+    await expect(page.getByRole('button', { name: /^Envelope/ })).toContainText(
+      /Groceries · counts as €\d/u,
+    );
+  });
+});
+
+test('income and transfers open the account sheet; a transfer’s To is changed', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    const { ids } = await seed(family);
+    const income = await create(family, '/api/transactions', {
+      kind: 'income',
+      accountId: ids['ING Visa'],
+      amount: '150000',
+      categoryId: ids['category Salary'],
+    });
+    await page.goto(`${family.origin}/transactions/${income}`);
+    await page.getByRole('button', { name: /^Paid into/ }).click();
+    const into = page.getByRole('dialog', { name: 'Paid into' });
+    await expect(
+      into.getByRole('radio', { name: /^ING Visa · EUR/ }),
+    ).toHaveAttribute('aria-checked', 'true');
+    await into.getByRole('button', { name: 'Close', exact: true }).click();
+
+    // Each side's sheet leaves out the other side's account.
+    await page.goto(`${family.origin}/transactions/${ids.cashOut}`);
+    await page.getByRole('button', { name: /^From/ }).click();
+    const from = page.getByRole('dialog', { name: 'Transfer from' });
+    await expect(
+      from.getByRole('radio', { name: /^ING Visa · EUR/ }),
+    ).toHaveAttribute('aria-checked', 'true');
+    await expect(from.getByRole('radio', { name: /^Cash €/ })).toHaveCount(0);
+    await from.getByRole('button', { name: 'Close', exact: true }).click();
+    const toRow = page.getByRole('button', { name: /^To/ });
+    await toRow.click();
+    const to = page.getByRole('dialog', { name: 'Transfer to' });
+    await expect(
+      to.getByRole('radio', { name: /^Cash € · EUR/ }),
+    ).toHaveAttribute('aria-checked', 'true');
+    await expect(to.getByRole('radio', { name: /^ING Visa/ })).toHaveCount(0);
+
+    // A new pair of currencies asks for the amount that arrives.
+    await to.getByRole('radio', { name: /^Wise \$ · USD/ }).click();
+    const arrives = page.getByRole('dialog', { name: 'Amount that arrives' });
+    await arrives
+      .getByRole('group', { name: 'Amount keypad' })
+      .getByRole('button', { name: 'Clear' })
+      .click();
+    await typeAmount(arrives, '218.6');
+    await arrives.getByRole('button', { name: 'Save' }).click();
+    await expect(toRow).toContainText('Wise $ · USD');
+    await expect(page.getByRole('button', { name: /^Arrives/ })).toContainText(
+      '$218.60',
+    );
+    await expect(
+      page.getByText('To account changed to Wise $ by Alena', { exact: true }),
+    ).toBeVisible();
+
+    // Back to one currency: saved at once, and no second amount.
+    await toRow.click();
+    await to.getByRole('radio', { name: /^Cash € · EUR/ }).click();
+    await expect(to).toHaveCount(0);
+    await expect(toRow).toContainText('Cash € · EUR');
+    expect(await fieldLabels(page)).not.toContain('Arrives');
+  });
+});
+
+test('a transfer’s From in a new currency asks the amount sent, then what arrives', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    const { ids } = await seed(family);
+    await create(family, '/api/accounts', {
+      name: 'Monzo £',
+      ownerMemberId: 1,
+      type: 'bank',
+      currency: 'GBP',
+      openingBalance: '100000',
+    });
+    await page.goto(`${family.origin}/transactions/${ids.toWise}`);
+    await page.getByRole('button', { name: /^From/ }).click();
+    await page
+      .getByRole('dialog', { name: 'Transfer from' })
+      .getByRole('radio', { name: /^Monzo £ · GBP/ })
+      .click();
+
+    const amount = page.getByRole('dialog', { name: 'Amount' });
+    await expect(amount).toContainText('20.00');
+    await amount
+      .getByRole('group', { name: 'Amount keypad' })
+      .getByRole('button', { name: 'Clear' })
+      .click();
+    await typeAmount(amount, '17');
+    await amount.getByRole('button', { name: 'Save' }).click();
+    const arrives = page.getByRole('dialog', { name: 'Amount that arrives' });
+    await expect(arrives).toContainText('21.86');
+    // Nothing is saved until the last amount.
+    await expect(page.getByRole('button', { name: /^From/ })).toContainText(
+      'ING Visa · EUR',
+    );
+    await arrives
+      .getByRole('group', { name: 'Amount keypad' })
+      .getByRole('button', { name: 'Clear' })
+      .click();
+    await typeAmount(arrives, '21.5');
+    await arrives.getByRole('button', { name: 'Save' }).click();
+
+    await expect(page.getByRole('button', { name: /^From/ })).toContainText(
+      'Monzo £ · GBP',
+    );
+    await expect(page.getByRole('button', { name: /^Amount/ })).toContainText(
+      '£17.00',
+    );
+    await expect(page.getByRole('button', { name: /^Arrives/ })).toContainText(
+      '$21.50',
+    );
+    await expect(
+      page.getByText('Account changed to Monzo £ by Alena', { exact: true }),
+    ).toBeVisible();
+  });
+});
+
+test('a refused account change shows the server’s message and keeps the transaction', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    const { ids } = await seed(family);
+    await page.route(`**/api/transactions/${ids.rewe}`, (route) =>
+      route.request().method() === 'PATCH'
+        ? route.fulfill({
+            status: 400,
+            json: {
+              error: { message: 'This account was closed before that date.' },
+            },
+          })
+        : route.continue(),
+    );
+    await page.goto(`${family.origin}/transactions/${ids.rewe}`);
+    const row = page.getByRole('button', { name: /^Paid from/ });
+    await row.click();
+    await page
+      .getByRole('dialog', { name: 'Paid from' })
+      .getByRole('radio', { name: /^Cash € · EUR/ })
+      .click();
+    await expect(page.getByRole('alert')).toHaveText(
+      'This account was closed before that date.',
+    );
+    await expect(row).toContainText('ING Visa · EUR');
+
+    await page.unroute(`**/api/transactions/${ids.rewe}`);
+    await page.reload();
+    await expect(row).toContainText('ING Visa · EUR');
+    await expect(page.getByText(/^Account changed/u)).toHaveCount(0);
   });
 });
 
@@ -414,7 +659,7 @@ test('a transfer shows From, To, both amounts, Done by, Date and Note', async ({
       'Date',
       'Note',
     ]);
-    await expect(page.getByRole('link', { name: /^To/ })).toContainText(
+    await expect(page.getByRole('button', { name: /^To/ })).toContainText(
       'Wise $ · USD',
     );
     await expect(page.getByRole('button', { name: /^Arrives/ })).toContainText(

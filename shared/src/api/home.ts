@@ -20,18 +20,6 @@ export const homeCheckinSchema = z.object({
   accountsLeft: z.number().int().nonnegative(),
 });
 
-/** Current wealth against the latest closed check-in (DSH-1, O2). */
-export const homeWealthSchema = z.object({
-  /** The latest closed check-in, which the wealth card opens. */
-  checkinId: z.number().int().positive(),
-  /** Latest balances at the latest rates; null when a rate is missing. */
-  amount: minorStringSchema.nullable(),
-  /** The latest closed check-in's date, YYYY-MM-DD. */
-  lastCheckinDate: dateSchema,
-  /** `amount` minus that check-in's equivalent; null when either is null. */
-  change: minorStringSchema.nullable(),
-});
-
 /** One active envelope on Home's card (DSH-4). */
 export const homeEnvelopeSchema = z.object({
   id: z.number().int().positive(),
@@ -71,8 +59,8 @@ export const homeResponseSchema = z.object({
   /** The device's "Hide amounts on Home" setting (UI-HOME-4). */
   hideAmounts: z.boolean(),
   checkin: homeCheckinSchema.nullable(),
-  /** Null while no check-in has been closed. */
-  wealth: homeWealthSchema.nullable(),
+  /** The latest closed check-in, which Wealth history opens; else null. */
+  lastClosedCheckinId: z.number().int().positive().nullable(),
   /** Null without active envelopes, which hides the card. */
   spending: homeSpendingSchema.nullable(),
   /** Transactions waiting for a category (CAT-7); 0 hides the row. */

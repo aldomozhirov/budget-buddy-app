@@ -531,7 +531,7 @@ async function accountsLoaded(page: Page): Promise<void> {
 /** Waits until Home shows its data. See `accountsLoaded`. */
 async function homeLoaded(page: Page): Promise<void> {
   await expect(
-    page.getByRole('link', { name: /Family wealth/u }),
+    page.getByRole('link', { name: 'Wealth history' }),
   ).toBeVisible();
   await expect(page.getByText('Loading…', { exact: true })).toHaveCount(0);
 }
