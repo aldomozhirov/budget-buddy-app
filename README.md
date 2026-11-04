@@ -17,6 +17,7 @@ every other command here was run as it is shown.
 - [Update](#update)
 - [Restore](#restore)
 - [Reset the family password](#reset-the-family-password)
+- [Feedback](#feedback)
 - [Settings](#settings)
 - [Day to day and troubleshooting](#day-to-day-and-troubleshooting)
 
@@ -33,15 +34,15 @@ every other command here was run as it is shown.
 
 Two things run from the same checkout and the same `.env`:
 
-|                   | `pnpm dev` (development)                                                                                                     | `docker compose` (the family's app)                                                                                                                     |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Reads from `.env` | the plain names: `APP_ORIGIN`, `HOST`, `PORT`, `DATA_DIR`, `BACKUP_DIR`, `RATES_FEED`, `VAPID_SUBJECT`, `PUSH_ALLOWED_HOSTS` | only the names that start with `BB_`: `BB_APP_ORIGIN`, `BB_UID`, `BB_GID`, `BB_HOST_PORT`, `BB_RATES_FEED`, `BB_VAPID_SUBJECT`, `BB_PUSH_ALLOWED_HOSTS` |
-| Address           | `http://127.0.0.1:5173` (the web app), API on port 3000                                                                      | `https://<host>.<tailnet>.ts.net` through Tailscale Serve, forwarded from `127.0.0.1:8080`                                                              |
-| Data              | `.data` and `.backups`                                                                                                       | `./data` and `./backups`                                                                                                                                |
-| Rates             | made-up (fixture)                                                                                                            | the real feeds                                                                                                                                          |
+|                   | `pnpm dev` (development)                                                                                                                                   | `docker compose` (the family's app)                                                                                                                                      |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Reads from `.env` | the plain names: `APP_ORIGIN`, `HOST`, `PORT`, `DATA_DIR`, `BACKUP_DIR`, `FEEDBACK_DIR`, `APP_COMMIT`, `RATES_FEED`, `VAPID_SUBJECT`, `PUSH_ALLOWED_HOSTS` | only the names that start with `BB_`: `BB_APP_ORIGIN`, `BB_UID`, `BB_GID`, `BB_HOST_PORT`, `BB_RATES_FEED`, `BB_VAPID_SUBJECT`, `BB_PUSH_ALLOWED_HOSTS`, `BB_APP_COMMIT` |
+| Address           | `http://127.0.0.1:5173` (the web app), API on port 3000                                                                                                    | `https://<host>.<tailnet>.ts.net` through Tailscale Serve, forwarded from `127.0.0.1:8080`                                                                               |
+| Data              | `.data` and `.backups`                                                                                                                                     | `./data` and `./backups`                                                                                                                                                 |
+| Rates             | made-up (fixture)                                                                                                                                          | the real feeds                                                                                                                                                           |
 
-`compose.yaml` fixes the container's own `HOST`, `PORT`, `DATA_DIR` and
-`BACKUP_DIR`, and takes its address from `BB_APP_ORIGIN` only, so the
+`compose.yaml` fixes the container's own `HOST`, `PORT`, `DATA_DIR`,
+`BACKUP_DIR` and `FEEDBACK_DIR`, and takes its address from `BB_APP_ORIGIN` only, so the
 development address can never reach the container and the container's address
 can never reach `pnpm dev`. Without `BB_APP_ORIGIN`, any `docker compose`
 command stops with "BB_APP_ORIGIN is not set" and no container is started.
@@ -112,17 +113,20 @@ Run these in the development checkout (the folder with `compose.yaml`).
    printf 'BB_UID=%s\nBB_GID=%s\n' "$(id -u)" "$(id -g)" >> .env
    ```
 
-3. Make the two folders that hold everything the app keeps, as yourself.
+3. Make the two folders that hold everything the app keeps, and the folder
+   feedback reports are written to ([Feedback](#feedback)), as yourself.
    Docker would otherwise create them as root:
 
    ```sh
-   mkdir data backups
+   mkdir data backups feedback
    ```
 
-4. Build the image and start the app:
+4. Build the image and start the app. `BB_APP_COMMIT` names the commit the
+   image is built from, which `/api/health` and feedback reports show;
+   `scripts/deploy.sh` sets it by itself for every later update:
 
    ```sh
-   docker compose build
+   BB_APP_COMMIT="$(git rev-parse HEAD)" docker compose build
    docker compose up -d
    ```
 
@@ -135,7 +139,8 @@ Run these in the development checkout (the folder with `compose.yaml`).
    curl -fsS http://127.0.0.1:8080/api/health
    ```
 
-   The answer is `{"status":"ok","migrationVersion":...,"appVersion":...}`.
+   The answer is
+   `{"status":"ok","migrationVersion":...,"appVersion":...,"commit":...}`.
 
 The app now runs, but only on the Mac mini itself: the port is bound to
 `127.0.0.1` (requirements DEP-6). To see that it is not reachable from the
@@ -238,8 +243,9 @@ scripts/deploy.sh
 The last line starts with `deploy:` and says what happened: `DEPLOYED`,
 `SKIPPED` (nothing is changed), `BUILD FAILED` (the running container was not
 touched) or `UNHEALTHY` (with the last log lines). The same two steps by hand
-are `docker compose build` and `docker compose up -d`; `up -d` replaces the
-container only when the image changed.
+are `BB_APP_COMMIT="$(git rev-parse HEAD)" docker compose build` and
+`docker compose up -d`; `up -d` replaces the container only when the image
+changed. `deploy.sh` also makes `feedback/` if it is missing.
 
 The database is migrated when the new version starts, after a copy named
 `backups/pre_migration-<time>.sqlite` has been taken and checked, so an
@@ -356,6 +362,64 @@ then:
 Profiles, accounts and all the data stay. It prints how many of each it
 removed, and nothing else about the password.
 
+## Feedback
+
+A member sends feedback from Settings → Help → "Send feedback". Each report
+becomes a folder of files in `./feedback` (`FEEDBACK_DIR`, mounted as
+`/feedback`; `pnpm dev` uses `<DATA_DIR>/feedback`). The app keeps nothing
+else about a report and sends it nowhere: what reads the folder, and what it
+does with a report, is up to whoever runs this copy.
+
+```
+feedback/
+  <id>/               one report, named by its id (a UUID)
+    report.json
+    screenshot.jpg    only when one was attached (.png is allowed too)
+  archive/            reports a reader has dealt with
+  .tmp/               the server's work area
+```
+
+- A folder named `<id>` is always complete: the server writes the files in
+  `.tmp/` and renames the folder into place. Ignore every name that starts
+  with a dot.
+- To mark a report read, add files to its folder or move the whole folder to
+  `archive/<id>`. Do not delete or rename it in place: the server looks for
+  `<id>` and `archive/<id>` to tell a report sent twice from a new one.
+- The folder is not app state: it is not in the backups or the export, and
+  losing it loses only reports nobody has read. The server creates it, with
+  `.tmp/`, on the first report.
+
+`report.json`, version 1 (a change to its shape raises `version`):
+
+```json
+{
+  "version": 1,
+  "id": "3f0c…",
+  "kind": "problem",
+  "text": "What the member typed, trimmed",
+  "writtenAt": "2026-11-04T18:12:03.120Z",
+  "receivedAt": "2026-11-04T18:20:41.002Z",
+  "profile": { "id": 2, "name": "Profile name" },
+  "app": { "version": "0.1.0", "commit": "4bc9837…" },
+  "device": {
+    "type": "iPhone",
+    "os": "iOS 26.1",
+    "display": "standalone",
+    "fromScreen": "/transactions/412",
+    "userAgent": "Mozilla/5.0 (iPhone; …)"
+  },
+  "screenshot": "screenshot.jpg"
+}
+```
+
+`kind` is `problem` or `idea`. `writtenAt` is the device's clock when the
+report was sent from the sheet; `receivedAt` is the server's when it arrived,
+later if the phone was offline. `device.type` is `iPhone`, `iPad` or `other`;
+`os` is `null` when it cannot be read; `display` is `standalone` (Home Screen
+app) or `browser`; `fromScreen` is the path of the screen open before Settings,
+or `null`. `screenshot` is `null` without one. `app.commit` is `BB_APP_COMMIT`,
+or `unknown`.
+
 ## Settings
 
 All settings are in `.env`, next to `compose.yaml`; `.env.example` lists every
@@ -371,6 +435,7 @@ change, run `docker compose up -d`.
 | `BB_RATES_FEED`         | Left out: the real price feeds (ECB, Bank of Russia, Coinbase). `fixture` gives made-up rates, for trying the app offline.                                                                             |
 | `BB_VAPID_SUBJECT`      | Left out: the app's https address is the contact the push service sees. Set a `mailto:` or `https:` URL only if Apple's push service refuses the default.                                              |
 | `BB_PUSH_ALLOWED_HOSTS` | Leave at its default, Apple's push service, the only place the app may send a push (requirement SEC-8).                                                                                                |
+| `BB_APP_COMMIT`         | The commit the image is built from, shown by `/api/health` and written into feedback reports. `scripts/deploy.sh` sets it to the checked-out commit; set it only to override that. Default `unknown`.  |
 
 The plain names in the same file (`APP_ORIGIN`, `PORT`, `DATA_DIR`,
 `RATES_FEED` ...) belong to `pnpm dev` and do nothing to the container.

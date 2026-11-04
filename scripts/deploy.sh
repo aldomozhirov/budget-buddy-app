@@ -8,8 +8,11 @@
 #   1. skips, changing nothing, when the container settings (BB_APP_ORIGIN in
 #      .env) are absent or when no container of this compose project exists:
 #      it never creates the family's deployment,
-#   2. builds the image (`docker compose build`); a failed build leaves the
-#      running container as it is,
+#   2. makes feedback/ beside data/ if it is missing, as the user running the
+#      script (Docker would make it owned by root), and builds the image
+#      (`docker compose build`) with BB_APP_COMMIT set to the checked-out
+#      commit unless it is set already; a failed build leaves the running
+#      container as it is,
 #   3. replaces the container (`docker compose up -d`), and
 #   4. waits for /api/health on the published port to answer "ok" with a
 #      migrationVersion equal to the number of server/drizzle/*.sql files.
@@ -23,7 +26,8 @@
 #   10  skipped: no container settings, or no container of this project
 #   11  the build failed; the running container was not touched
 #   12  the new container did not become healthy (last log lines printed)
-#   13  could not run: Docker is not reachable or the settings are invalid
+#   13  could not run: Docker is not reachable, the settings are invalid or
+#       feedback/ cannot be made
 #
 # Settings (environment): BB_DEPLOY_TIMEOUT is how many seconds to wait for
 # health (default 90). COMPOSE_PROJECT_NAME picks another compose project, for
@@ -45,11 +49,15 @@ finish() {
   exit "$code"
 }
 
+# The value of a BB_ setting in .env, as compose reads it; empty if absent.
+from_env_file() {
+  [ -f .env ] || return 0
+  sed -n "s/^[[:space:]]*\(export[[:space:]]\{1,\}\)\{0,1\}$1=//p" .env | tail -n 1 | sed "s/[[:space:]]*#.*//; s/^[\"']//; s/[\"']\$//"
+}
+
 # The value compose will use: the shell wins over .env, as it does for compose.
 origin="${BB_APP_ORIGIN:-}"
-if [ -z "$origin" ] && [ -f .env ]; then
-  origin="$(sed -n 's/^[[:space:]]*\(export[[:space:]]\{1,\}\)\{0,1\}BB_APP_ORIGIN=//p' .env | tail -n 1 | sed "s/[[:space:]]*#.*//; s/^[\"']//; s/[\"']\$//")"
-fi
+[ -n "$origin" ] || origin="$(from_env_file BB_APP_ORIGIN)"
 [ -n "$origin" ] ||
   finish 10 "SKIPPED. BB_APP_ORIGIN is not set in .env, so this checkout has no container settings. Nothing was built or started."
 case "$origin" in
@@ -73,6 +81,18 @@ before="$(ls backups 2>/dev/null | grep -c '^pre_migration-' || true)"
 
 log="$(mktemp)"
 trap 'rm -f "$log"' EXIT
+
+# Made as this user before compose starts, or Docker makes it owned by root.
+mkdir -p feedback ||
+  finish 13 "NOT RUN. Could not make the folder feedback/ beside data/. Nothing was built or started."
+
+# The commit the image reports; a value in the shell or in .env wins.
+if [ -z "${BB_APP_COMMIT:-}" ] && [ -z "$(from_env_file BB_APP_COMMIT)" ]; then
+  BB_APP_COMMIT="$(git rev-parse HEAD 2>/dev/null || true)"
+  [ -n "$BB_APP_COMMIT" ] || BB_APP_COMMIT=unknown
+  export BB_APP_COMMIT
+fi
+say "Commit: ${BB_APP_COMMIT:-$(from_env_file BB_APP_COMMIT)}."
 
 say "Building the image ..."
 if ! docker compose build >"$log" 2>&1; then

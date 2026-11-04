@@ -13,6 +13,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { stat } from 'node:fs/promises';
 
 const run = promisify(execFile);
 const script = fileURLToPath(
@@ -80,6 +81,7 @@ describe('scripts/deploy.sh with a fake docker', () => {
       join(directory, 'bin', 'docker'),
       `#!/bin/sh
 printf '%s\\n' "$*" >> "${calls}"
+case "$*" in "compose build") printf '%s\\n' "$BB_APP_COMMIT" > "${directory}/commit.log" ;; esac
 case "$*" in
   "info") exit 0 ;;
   "compose ps -a -q") [ -n "$FAKE_CONTAINER" ] && echo abc123; exit 0 ;;
@@ -153,6 +155,98 @@ exit 0
       'compose up -d',
       'compose port app 8080',
     ]);
+  });
+
+  describe('feedback folder and build commit', () => {
+    // Without the GIT_* variables of a hook that runs the tests (GIT_DIR,
+    // GIT_INDEX_FILE ...), which would point git at the checkout instead.
+    const gitEnv = Object.fromEntries(
+      Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_')),
+    );
+    const git = (...args: string[]) =>
+      run('git', args, { cwd: directory, env: gitEnv });
+    const commitSeen = async () =>
+      (await readFile(join(directory, 'commit.log'), 'utf8')).trim();
+    const exists = (path: string) =>
+      stat(join(directory, path)).then(
+        () => true,
+        () => false,
+      );
+    let head: string;
+
+    beforeEach(async () => {
+      await git('init', '-q');
+      await git(
+        '-c',
+        'user.name=Test',
+        '-c',
+        'user.email=test@example.test',
+        'commit',
+        '-q',
+        '--allow-empty',
+        '-m',
+        'first',
+      );
+      head = (await git('rev-parse', 'HEAD')).stdout.trim();
+    });
+
+    it('makes feedback/ beside data/ and builds with the checked-out commit', async () => {
+      await settings('BB_APP_ORIGIN=https://mac.tailnet.ts.net');
+
+      const result = await deploy();
+
+      expect(result.code).toBe(0);
+      expect(await exists('feedback')).toBe(true);
+      expect(await commitSeen()).toMatch(/^[0-9a-f]{40}$/u);
+      expect(await commitSeen()).toBe(head);
+    });
+
+    it('keeps a feedback/ folder that exists, with its files', async () => {
+      await settings('BB_APP_ORIGIN=https://mac.tailnet.ts.net');
+      await mkdir(join(directory, 'feedback'));
+      await writeFile(join(directory, 'feedback', 'keep.txt'), 'x');
+
+      expect((await deploy()).code).toBe(0);
+      expect(await exists('feedback/keep.txt')).toBe(true);
+    });
+
+    it('keeps BB_APP_COMMIT from the shell', async () => {
+      await settings('BB_APP_ORIGIN=https://mac.tailnet.ts.net');
+
+      await deploy({ BB_APP_COMMIT: 'from-the-shell' });
+
+      expect(await commitSeen()).toBe('from-the-shell');
+    });
+
+    it('leaves BB_APP_COMMIT from .env to compose', async () => {
+      await settings(
+        'BB_APP_ORIGIN=https://mac.tailnet.ts.net\nBB_APP_COMMIT=from-env-file',
+      );
+
+      await deploy();
+
+      // Not exported by the script, so compose reads the .env value itself.
+      expect(await commitSeen()).not.toBe(head);
+    });
+
+    it('uses unknown when the folder is not a git checkout', async () => {
+      await settings('BB_APP_ORIGIN=https://mac.tailnet.ts.net');
+      await rm(join(directory, '.git'), { recursive: true, force: true });
+
+      expect((await deploy()).code).toBe(0);
+      expect(await commitSeen()).toBe('unknown');
+    });
+
+    it('makes no feedback/ when it skips', async () => {
+      const noSettings = await deploy();
+      expect(noSettings.code).toBe(10);
+      await settings('BB_APP_ORIGIN=https://mac.tailnet.ts.net');
+      const noContainer = await deploy({ FAKE_CONTAINER: '' });
+      expect(noContainer.code).toBe(10);
+
+      expect(await exists('feedback')).toBe(false);
+      expect(await exists('commit.log')).toBe(false);
+    });
   });
 
   it('leaves the running container alone when the build fails', async () => {
