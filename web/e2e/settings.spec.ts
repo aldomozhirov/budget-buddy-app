@@ -45,6 +45,7 @@ test('Settings shows every section in order and matches the screen copy', async 
     'Spending',
     'This device',
     'Data',
+    'Help',
   ]);
   for (const label of [
     'Family password',
@@ -62,6 +63,7 @@ test('Settings shows every section in order and matches the screen copy', async 
     'Sign out',
     'Backup',
     'Export all data',
+    'Send feedback',
   ]) {
     await expect(page.getByText(label)).toBeVisible();
   }
