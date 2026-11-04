@@ -83,8 +83,8 @@ Writing: the server makes `.tmp/<id>-<random>/`, writes the files, then renames 
 ### 2. Settings and build information
 
 - `FEEDBACK_DIR` (`server/src/config.ts`): optional, default `<DATA_DIR>/feedback`. The server creates it, with `.tmp/`, on the first report, not at start, so a copy whose folder cannot be written still starts and serves everything else.
-- `APP_COMMIT`: optional, default `unknown`. The Dockerfile takes it as a build argument and sets it in the runtime image. In `compose.yaml` it is `build.args.APP_COMMIT: ${BB_APP_COMMIT:-unknown}`, so whoever builds the image can pass the commit it is built from. `/api/health` adds `commit` beside `appVersion`.
-- `compose.yaml`: the volume `./feedback:/feedback` and `FEEDBACK_DIR: /feedback`. The README's first install creates `feedback/` with `data/` and `backups/` (so the container user owns it), and a new "Feedback" section documents section 1 for whoever reads the folder. `.env.example` documents `FEEDBACK_DIR` and `BB_APP_COMMIT`. `.gitignore` adds `feedback/` and `.feedback/`, so a clone that runs a container stays clean.
+- `APP_COMMIT`: optional, default `unknown`. The Dockerfile takes it as a build argument and sets it in the runtime image. In `compose.yaml` it is `build.args.APP_COMMIT: ${BB_APP_COMMIT:-unknown}`, so whoever builds the image can pass the commit it is built from. `/api/health` adds `commit` beside `appVersion`. `scripts/deploy.sh` sets `BB_APP_COMMIT` to the checked-out commit unless it is set already.
+- `compose.yaml`: the volume `./feedback:/feedback` and `FEEDBACK_DIR: /feedback`. The README's first install and `scripts/deploy.sh` create `feedback/` beside `data/` before compose starts (otherwise Docker would create it owned by root), and a new "Feedback" section documents section 1 for whoever reads the folder. `.env.example` documents `FEEDBACK_DIR` and `BB_APP_COMMIT`. `.gitignore` adds `feedback/` and `.feedback/`, so a clone that runs a container stays clean.
 
 ### 3. API
 
@@ -130,7 +130,7 @@ It sends at the same moments as the transaction outbox (spec 2 Design 4: on save
 
 On the board with the label `spec-08`. Each task meets the definition of done in `AGENTS.md`; "E2E" means a Playwright test in `web/e2e/` on WebKit at iPhone and iPad sizes (read the `webkit-e2e` skill first).
 
-1. **Feedback on the server.** Design 1 to 3. Files: `server/src/config.ts`, `server/src/modules/feedback/`, `server/src/modules/health/`, `shared/src/api/feedback.ts`, `server/src/app.ts`, `Dockerfile`, `compose.yaml`, `.env.example`, `.gitignore`, `README.md`, tests. Depends: none.
+1. **Feedback on the server.** Design 1 to 3. Files: `server/src/config.ts`, `server/src/modules/feedback/`, `server/src/modules/health/`, `shared/src/api/feedback.ts`, `server/src/app.ts`, `Dockerfile`, `compose.yaml`, `scripts/deploy.sh`, `.env.example`, `.gitignore`, `README.md`, tests. Depends: none.
 2. **Feedback outbox on the device.** Design 4 and the helpers of Design 5 (`feedbackDetails.ts`, `screenshot.ts`), with unit tests and no screen. Depends: 1.
 3. **Send feedback from Settings.** Design 5: the Help card, the sheet and the toast, with E2E online, offline and with a screenshot. Depends: 2.
 
