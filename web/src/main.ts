@@ -5,6 +5,7 @@ import { registerServiceWorker } from './push/registerServiceWorker.js';
 import { installSessionLock } from './session/lock.js';
 import { startAddOptions } from './offline/addOptions.js';
 import { startOutbox } from './offline/outbox.js';
+import { startFeedbackOutbox } from './offline/feedbackOutbox.js';
 // Global styles; order matters: design-system base before app styles.
 import './styles/fonts/geist.css';
 import './styles/bb.css';
@@ -14,6 +15,7 @@ createApp(App).use(router).mount('#app');
 installSessionLock(router);
 startAddOptions();
 startOutbox();
+startFeedbackOutbox();
 void registerServiceWorker((path) => void router.push(path));
 
 // After an update, a page still running the old build can ask for a script

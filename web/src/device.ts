@@ -1,13 +1,29 @@
-/** Names this browser's device for profile and remembered-login copy. */
-export function deviceName(): 'this iPhone' | 'this iPad' | 'this device' {
-  if (typeof navigator === 'undefined') return 'this device';
-  const userAgent = navigator.userAgent;
-  if (/iPhone|iPod/i.test(userAgent)) return 'this iPhone';
+/** Kind of device this browser runs on, from its user agent. */
+export type DeviceType = 'iPhone' | 'iPad' | 'other';
+
+/**
+ * The kind of this device. An iPad that asks for desktop sites says
+ * "Macintosh", and is told apart from a Mac by its touch points.
+ */
+export function deviceType(
+  nav:
+    | Pick<Navigator, 'userAgent' | 'maxTouchPoints'>
+    | undefined = typeof navigator === 'undefined' ? undefined : navigator,
+): DeviceType {
+  if (!nav) return 'other';
+  const userAgent = nav.userAgent;
+  if (/iPhone|iPod/i.test(userAgent)) return 'iPhone';
   if (
     /iPad/i.test(userAgent) ||
-    (/Macintosh/i.test(userAgent) && navigator.maxTouchPoints > 1)
+    (/Macintosh/i.test(userAgent) && nav.maxTouchPoints > 1)
   ) {
-    return 'this iPad';
+    return 'iPad';
   }
-  return 'this device';
+  return 'other';
+}
+
+/** Names this browser's device for profile and remembered-login copy. */
+export function deviceName(): 'this iPhone' | 'this iPad' | 'this device' {
+  const type = deviceType();
+  return type === 'other' ? 'this device' : `this ${type}`;
 }
