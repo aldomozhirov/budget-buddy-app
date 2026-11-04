@@ -2,7 +2,7 @@
 
 Rules: UI-AUTH-3, UI-TXN-1
 
-Text inputs are 52 high (password 56). Inside a sheet they use the bg fill. An error turns the border warn and shows a message announced to screen readers.
+Text inputs are 52 high (password 56). Inside a sheet they use the bg fill. An error turns the border warn and shows a message announced to screen readers. Free text uses `.noteinput` (96 high), or `.noteinput-tall` (140 high) for feedback; an attached file shows as an `.attach-tag` that removes it on tap.
 
 | Class or state | Meaning |
 |---|---|

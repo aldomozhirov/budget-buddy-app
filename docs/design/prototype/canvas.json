@@ -325,6 +325,24 @@
       "title": "Home · offline and locked",
       "is_interactive": true,
       "radius": 28
+    },
+    "SettingsFeedback.dc.html": {
+      "x": 0,
+      "y": 9800,
+      "w": 390,
+      "h": 844,
+      "title": "Settings · send feedback",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "SettingsFeedbackSent.dc.html": {
+      "x": 470,
+      "y": 9800,
+      "w": 390,
+      "h": 844,
+      "title": "Settings · feedback sent",
+      "is_interactive": true,
+      "radius": 28
     }
   },
   "createdOnFiles": {
@@ -386,6 +404,13 @@
       "text": "Spec 2 · other currencies and offline",
       "kind": "title1",
       "maxW": 2740
+    },
+    "feedback": {
+      "x": 0,
+      "y": 9530,
+      "text": "Feedback",
+      "kind": "title1",
+      "maxW": 860
     }
   },
   "order": [
@@ -424,7 +449,9 @@
     "TransactionsOutbox.dc.html",
     "HomeWaiting.dc.html",
     "HomeOffline.dc.html",
-    "HomeOfflineLocked.dc.html"
+    "HomeOfflineLocked.dc.html",
+    "SettingsFeedback.dc.html",
+    "SettingsFeedbackSent.dc.html"
   ],
   "pages": [],
   "title": "Budget Buddy"

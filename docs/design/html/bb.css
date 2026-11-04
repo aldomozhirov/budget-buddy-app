@@ -187,6 +187,11 @@
 .bb .text[aria-invalid="true"], .bb .pw[aria-invalid="true"], .bb .pw-err { border-color: var(--warn); }
 .bb .error { font-size: 13px; color: var(--warn); }
 .bb .noteinput { width: 100%; box-sizing: border-box; min-height: 96px; border-radius: var(--r-field); border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; font-size: 16px; padding: 12px 14px; outline: none; resize: none; }
+.bb .noteinput-tall { min-height: 140px; line-height: 1.45; }                       /* longer free text: feedback (UI-SET-6) */
+.bb .noteinput:focus { border-color: var(--ink); }
+.bb .noteinput::placeholder { color: var(--muted); }
+.bb .attach-tag { height: 36px; padding: 0 8px 0 12px; border-radius: 18px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; flex: none; }   /* an attached file; tap removes it */
+.bb .toast { position: absolute; left: 16px; right: 16px; bottom: 34px; display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px; background: var(--ink); color: var(--on-ink); font-size: 14px; }   /* role="status": a short confirmation, optional Undo */
 
 /* ---------- 8. Amount entry ---------- */
 .bb .amount { font-size: 46px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; font-variant-numeric: tabular-nums; }
