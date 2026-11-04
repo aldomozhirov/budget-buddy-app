@@ -518,7 +518,7 @@ body { margin: 0; min-height: 100vh; }
   &lt;button class="field" aria-haspopup="dialog"&gt;&lt;span class="field-l"&gt;Paid by&lt;/span&gt;&lt;span class="field-v"&gt;Alena&lt;/span&gt;&lt;/button&gt;
   &lt;button class="field" aria-haspopup="dialog" style="border-bottom: 0"&gt;&lt;span class="field-l"&gt;Note&lt;/span&gt;&lt;span class="field-v muted"&gt;Add a note&lt;/span&gt;&lt;/button&gt;
 &lt;/div&gt;</code></pre></div></div></section>
-<section id="text-inputs"><h2>Text, search and password</h2><span class="sg-spec">UI-AUTH-3, UI-TXN-1</span><p>Text inputs are 52 high (password 56). Inside a sheet they use the bg fill. An error turns the border warn and shows a message announced to screen readers.</p>
+<section id="text-inputs"><h2>Text, search and password</h2><span class="sg-spec">UI-AUTH-3, UI-TXN-1</span><p>Text inputs are 52 high (password 56). Inside a sheet they use the bg fill. An error turns the border warn and shows a message announced to screen readers. Free text uses <code>.noteinput</code> (96 high), or <code>.noteinput-tall</code> (140 high) for feedback; an attached file shows as an <code>.attach-tag</code> that removes it on tap.</p>
 <div class="sg-demo"><div class="sg-stage"><div class="stack">
   <div class="input-wrap"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><input class="search" type="search" placeholder="Search merchant, note, amount" aria-label="Search transactions"></div>
   <input class="text" placeholder="Name the account" aria-label="Name">
@@ -730,7 +730,7 @@ body { margin: 0; min-height: 100vh; }
 <tr><td>Saved</td><td>Confirmation says what was filled: “Groceries envelope added from the Groceries category.”</td></tr>
 </table></div></div></section>
 <section id="p-confirm"><h2>Pattern: confirm and undo</h2><span class="sg-spec">UI-NAV-4, UI-ADD-13, UI-TXN-3</span>
-<p>Destructive or far-reaching actions are confirmed in a sheet that states the consequence. Quick, reversible actions are not confirmed; they offer Undo instead (saved expense, labelling in Needs a category).</p></section>
+<p>Destructive or far-reaching actions are confirmed in a sheet that states the consequence. Quick, reversible actions are not confirmed; they offer Undo instead (saved expense, labelling in Needs a category). A short confirmation that needs no screen of its own is a <code>.toast</code> with <code>role="status"</code> at the bottom of the page, such as “Thanks! Your feedback is sent.” after the feedback sheet closes (UI-SET-6).</p></section>
 <section id="p-empty"><h2>Pattern: empty, offline and error states</h2><span class="sg-spec">UI-ADD-14, UI-TXN-3, CHK-12</span>
 <table class="sg-table"><tr><th>State</th><th>Copy</th></tr>
 <tr><td>Offline on Add expense</td><td>“Offline. It stays on this phone and sends itself later.” Row tag “Waiting to send”.</td></tr>

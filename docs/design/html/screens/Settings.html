@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Budget Buddy — Settings</title>
 <!-- Static export of the prototype screen "Settings" (prototype file Settings.dc.html), default state.
-     Generated on 2026-10-06. Layout and copy are the reference; see docs/design/html/README.md. -->
+     Generated on 2026-11-04. Layout and copy are the reference; see docs/design/html/README.md. -->
 <link rel="stylesheet" href="../fonts/geist.css">
 <style>
 body{margin:0}
@@ -27,6 +27,9 @@ a{color:inherit}a:hover{color:inherit}
 .bb .knob{position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:14px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)}
 .bb .knob-on{left:22px}
 .bb .seg{flex:1;height:36px;border-radius:10px;font-size:14px;font-weight:500;color:var(--muted);text-align:center}
+.bb .fb-area{width:100%;box-sizing:border-box;min-height:140px;border-radius:14px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:16px;line-height:1.45;padding:12px;outline:none;resize:none}
+.bb .fb-area:focus{border-color:var(--ink)}
+.bb .fb-area::placeholder{color:var(--muted)}
 .bb .seg-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
 .bb .chip{height:40px;min-width:44px;padding:0 12px;border-radius:20px;background:var(--bg);border:1px solid var(--line);font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:center;white-space:nowrap}
 .bb .chip-on{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
@@ -138,8 +141,18 @@ a{color:inherit}a:hover{color:inherit}
 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5"></path><path d="M5 20h14"></path></svg>
 </button>
 </div>
+<h2 class="h">Help</h2>
+<div class="card">
+<button class="row row-last" aria-haspopup="dialog"><span class="row-l"><span style="font-weight: 500">Send feedback</span><span style="font-size: 13px; color: var(--muted)">Report a problem or suggest an idea</span></span>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+</button>
+</div>
 <p style="margin: 14px 4px 0; font-size: 12px; color: var(--muted)">Budget Buddy · runs on your Mac mini · only reachable in your Tailscale network</p>
 </div>
+
+
+
+
 
 
 
