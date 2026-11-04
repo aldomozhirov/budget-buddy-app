@@ -39,6 +39,7 @@ ENV NODE_ENV=production \
     PORT=8080 \
     DATA_DIR=/data \
     BACKUP_DIR=/backups \
+    FEEDBACK_DIR=/feedback \
     NODE_OPTIONS=--max-semi-space-size=2
 WORKDIR /app
 COPY --from=prod-deps /app/package.json ./package.json
@@ -51,9 +52,15 @@ COPY --from=build /app/shared/dist ./shared/dist
 COPY --from=build /app/server/dist ./server/dist
 COPY --from=build /app/server/drizzle ./server/drizzle
 COPY --from=build /app/web/dist ./web/dist
-# The state lives in two mounted folders (DEP-2); the image owns empty ones so
-# a fresh volume starts writable by the app's user.
-RUN mkdir -p /data /backups && chown node:node /data /backups
+# The state lives in two mounted folders (DEP-2), and feedback reports go to a
+# third (spec 8); the image owns empty ones so a fresh volume starts writable
+# by the app's user.
+RUN mkdir -p /data /backups /feedback \
+ && chown node:node /data /backups /feedback
+# The commit the image is built from, for /api/health and feedback reports.
+# Set last, so a new commit rebuilds no earlier layer.
+ARG APP_COMMIT=unknown
+ENV APP_COMMIT=$APP_COMMIT
 USER node
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

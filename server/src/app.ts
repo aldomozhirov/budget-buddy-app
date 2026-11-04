@@ -14,6 +14,7 @@ import { installCsrfPlugin } from './plugins/csrf.js';
 import { installSessionPlugin } from './plugins/session.js';
 import { authRoutes } from './modules/auth/index.js';
 import { healthRoutes } from './modules/health/index.js';
+import { feedbackRoutes } from './modules/feedback/index.js';
 import { setupRoutes } from './modules/setup/index.js';
 import { memberRoutes } from './modules/members/index.js';
 import { familyRoutes } from './modules/family/index.js';
@@ -86,6 +87,10 @@ export type AppOptions = {
   clock?: Clock;
   /** Folder of the nightly copies, which the backup status counts. */
   backupDir?: string;
+  /** Folder feedback reports are written to; without one they answer 503. */
+  feedbackDir?: string;
+  /** Commit the copy was built from (`APP_COMMIT`); `unknown` by default. */
+  appCommit?: string;
   /** Event bus shared with background consumers of check-in lifecycle events. */
   events?: CheckinEventBus;
   /**
@@ -138,7 +143,8 @@ export async function createApp(options: AppOptions) {
     clock,
   });
 
-  await app.register(healthRoutes, { database: options.database });
+  const appCommit = options.appCommit ?? 'unknown';
+  await app.register(healthRoutes, { database: options.database, appCommit });
   await app.register(setupRoutes, {
     database: options.database,
     secureCookies,
@@ -240,6 +246,13 @@ export async function createApp(options: AppOptions) {
   });
   await app.register(exportRoutes, { database: options.database, clock });
   await app.register(deviceRoutes, { database: options.database, clock });
+  await app.register(feedbackRoutes, {
+    ...(options.feedbackDir === undefined
+      ? {}
+      : { feedbackDir: options.feedbackDir }),
+    appCommit,
+    clock,
+  });
   await app.register(passkeyRoutes, {
     database: options.database,
     secureCookies,

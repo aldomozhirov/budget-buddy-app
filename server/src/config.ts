@@ -21,6 +21,14 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
   DATA_DIR: z.string().min(1).optional(),
   BACKUP_DIR: z.string().min(1).optional(),
+  // Where feedback reports are written (spec 8); <DATA_DIR>/feedback if unset.
+  FEEDBACK_DIR: z.string().min(1).optional(),
+  // The commit the copy was built from. Empty counts as unset, since compose
+  // passes an empty value for a setting left out.
+  APP_COMMIT: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().max(100).default('unknown'),
+  ),
   // Contact for the push services (a `mailto:` or `https:` URL). Empty counts
   // as unset, since compose passes an empty value for a setting left out.
   VAPID_SUBJECT: z.preprocess(
@@ -69,6 +77,10 @@ export type AppConfig = {
   port: number;
   dataDir: string;
   backupDir: string;
+  /** Folder of feedback reports, one subfolder each (spec 8, Design 1). */
+  feedbackDir: string;
+  /** Commit the running copy was built from, or `unknown`. */
+  appCommit: string;
   databasePath: string;
   /** Folder for the VAPID and other keys, inside the data directory. */
   keysDir: string;
@@ -85,7 +97,8 @@ export type AppConfig = {
 /**
  * Validates environment variables once at startup and resolves the database path.
  * The data and backup directories default to the production mount points; local
- * development can override them through `.env`.
+ * development can override them through `.env`. The feedback folder defaults
+ * to `feedback` inside the data directory.
  * @param env Environment values to validate (defaults to `process.env`).
  * @returns Validated settings with `databasePath` derived from `dataDir`.
  * @throws A Zod error when any provided value is invalid.
@@ -104,6 +117,8 @@ export function parseConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     port: parsed.PORT,
     dataDir,
     backupDir,
+    feedbackDir: parsed.FEEDBACK_DIR ?? join(dataDir, 'feedback'),
+    appCommit: parsed.APP_COMMIT,
     databasePath: join(dataDir, 'budget-buddy.sqlite'),
     keysDir: join(dataDir, 'keys'),
     vapidSubject: parsed.VAPID_SUBJECT ?? defaultVapidSubject(appOrigins),

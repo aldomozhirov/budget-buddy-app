@@ -153,6 +153,7 @@ describe('sign in again when the app is re-opened', () => {
       ['GET', '/api/rates/pair?from=EUR&to=USD&date=2026-10-15'],
       ['GET', '/api/suggestions/categories?kind=expense'],
       ['POST', '/api/auth/sign-out'],
+      ['POST', '/api/feedback'],
     ] as const) {
       const response = await call(alex, method, url, {});
       expect(response.statusCode, `${method} ${url}`).toBe(401);

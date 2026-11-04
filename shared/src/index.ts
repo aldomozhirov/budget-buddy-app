@@ -9,6 +9,7 @@ export * from './api/currencies.js';
 export * from './api/envelopes.js';
 export * from './api/events.js';
 export * from './api/family.js';
+export * from './api/feedback.js';
 export * from './api/home.js';
 export * from './api/members.js';
 export * from './api/needsCategory.js';
