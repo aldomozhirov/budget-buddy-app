@@ -44,7 +44,6 @@ const device = {
   type: 'iPhone',
   os: 'iOS 26.1',
   display: 'standalone',
-  fromScreen: '/transactions/412',
   userAgent: 'Mozilla/5.0 (iPhone; made up)',
 };
 const body = (extra: Record<string, unknown> = {}) => ({
@@ -130,6 +129,18 @@ describe('POST /api/feedback', () => {
     (await readdir(feedbackDir).catch(() => [])).sort();
 
   describe('a new report', () => {
+    it('accepts fromScreen from an older app and does not write it', async () => {
+      const response = await send(
+        body({ device: { ...device, fromScreen: '/transactions/412' } }),
+      );
+
+      expect(response.statusCode, response.body).toBe(201);
+      const report = JSON.parse(
+        await readFile(join(feedbackDir, id, 'report.json'), 'utf8'),
+      );
+      expect(report.device).toEqual(device);
+    });
+
     it('answers 201 and writes report.json from the server and the session', async () => {
       await app.close();
       app = await makeApp({ feedbackDir, appCommit: '4bc9837abc' });

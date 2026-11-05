@@ -6,7 +6,7 @@ Inputs: `AGENTS.md`, `docs/requirements.md` (FBK, SEC-4 to SEC-9, TXN-7, DEP-2, 
 
 ## Goal
 
-A member who meets a problem, or has an idea, opens Settings → Help → "Send feedback", picks "Something’s wrong" or "An idea", types what happened, adds a screenshot if they like, and taps Send. The sheet closes with a thank-you toast. The report reaches the server with the app version and commit, the device, the iOS version, Home Screen app or Safari, the screen they came from and who sent it, and never an amount or a name from the family's data. Offline it waits on the phone and sends itself later, exactly once. On the server each report becomes a folder of files that the owner's own tooling picks up; the app keeps no list of reports and sends nothing out.
+A member who meets a problem, or has an idea, opens Settings → Help → "Send feedback", picks "Something’s wrong" or "An idea", types what happened, adds a screenshot if they like, and taps Send. The sheet closes with a thank-you toast. The report reaches the server with the app version and commit, the device, the iOS version, Home Screen app or Safari and who sent it, and never an amount or a name from the family's data. Offline it waits on the phone and sends itself later, exactly once. On the server each report becomes a folder of files that the owner's own tooling picks up; the app keeps no list of reports and sends nothing out.
 
 ## Decisions taken with the owner for this spec
 
@@ -25,7 +25,7 @@ Chosen by the planning session where the requirements and the design are silent.
 | O2 | Marking a report read | A reader may add files to a report folder or move the whole folder into `archive/` inside the feedback folder. It must not delete or rename it in place: the server checks `<id>` and `archive/<id>` to refuse a duplicate. | 1 |
 | O3 | The screenshot | The device always re-encodes the picked image as JPEG, at most 2048 px on the long side, quality 0.85, lowered step by step if the result is still over 3 MB. This also drops the photo's location and other metadata. | 2 |
 | O4 | Length of the text | At most 4000 characters, counted after trimming. | 1 |
-| O5 | "The screen open before Settings" (FBK-2) | The path of the route Settings was opened from, as Vue Router keeps it in `history.state.back` (for example `/transactions/412`), or `null`. It can hold ids, never names. | 2 |
+| O5 | "The screen open before Settings" (FBK-2) | The path of the route Settings was opened from, as Vue Router keeps it in `history.state.back` (for example `/transactions/412`), or `null`. It can hold ids, never names. Dropped by the owner on 2026-11-05: reports no longer carry the screen; the server drops `fromScreen` from older apps. | 2 |
 | O6 | A locked device (SEC-9) | Feedback is not an exception like `POST /api/transactions` (spec 2, D2). A report written on a locked device waits until someone signs in. | 2 |
 | O7 | A refused report | A 4xx answer other than `401 unauthenticated` and `session_locked` deletes the report from the phone, since the design has no place to show it. With O3 the only realistic cause is a picture the server cannot read. | 2 |
 | O8 | Sign-out | Sign-out first tries to send waiting reports, like the transaction outbox. Reports still unsent are deleted with it, without their own warning; the existing warning keeps counting only transactions. | 2 |
@@ -69,7 +69,6 @@ Chosen by the planning session where the requirements and the design are silent.
     "type": "iPhone",
     "os": "iOS 26.1",
     "display": "standalone",
-    "fromScreen": "/transactions/412",
     "userAgent": "Mozilla/5.0 (iPhone; …)"
   },
   "screenshot": "screenshot.jpg"
@@ -100,7 +99,6 @@ Writing: the server makes `.tmp/<id>-<random>/`, writes the files, then renames 
     type: 'iPhone' | 'iPad' | 'other',
     os: string | null,              // at most 40 chars
     display: 'standalone' | 'browser',
-    fromScreen: string | null,      // a path starting with "/", at most 200 chars
     userAgent: string,              // at most 400 chars
   },
   screenshot: { type: 'image/jpeg' | 'image/png', data: string } | null  // base64
@@ -120,10 +118,10 @@ It sends at the same moments as the transaction outbox (spec 2 Design 4: on save
 ### 5. Screen (UI-SET-6)
 
 - `SettingsScreen.vue`: the Help card last, with one `BbRow` "Send feedback", subtitle "Report a problem or suggest an idea", a right chevron. It opens the sheet.
-- `web/src/screens/settings/FeedbackSheet.vue`: `BbSheet` titled "Send feedback"; `BbSegmented` "Something’s wrong" / "An idea"; a `textarea.noteinput-tall` with the placeholder of the selected kind; the line "App version, device and screen are sent with it. Never amounts or names." with the round image button "Add a screenshot" (a hidden `<input type="file" accept="image/*">`), which turns into the `.attach-tag` "Screenshot ×" once a picture is picked; and the primary `BbButton` "Send", disabled until the text has 3 characters other than white space. Copy, order and classes come from `docs/design/html/screens/SettingsFeedback.html`.
+- `web/src/screens/settings/FeedbackSheet.vue`: `BbSheet` titled "Send feedback"; `BbSegmented` "Something’s wrong" / "An idea"; a `textarea.noteinput-tall` with the placeholder of the selected kind; the line "App version and device are sent with it. Never amounts or names." with the round image button "Add a screenshot" (a hidden `<input type="file" accept="image/*">`), which turns into the `.attach-tag` "Screenshot ×" once a picture is picked; and the primary `BbButton` "Send", disabled until the text has 3 characters other than white space. Copy, order and classes come from `docs/design/html/screens/SettingsFeedback.html`.
 - The draft (kind, text, screenshot) is kept in memory in the module, so Close and reopen keep it until the app is closed. It is never written to storage.
 - Send: the button shows it is busy, `sendFeedback` runs, the sheet closes and clears, and a toast (`.toast`, `role="status"`, 4 seconds) reads "Thanks! Your feedback is sent." (`sent`) or "Saved. It sends itself when you’re back online." (`saved`). Offline, Send stays enabled.
-- `web/src/screens/settings/feedbackDetails.ts`: builds `device` from `navigator.userAgent` (`deviceName()` in `web/src/device.ts`, the iOS version from `OS 26_1`), `matchMedia('(display-mode: standalone)')` or `navigator.standalone`, and `history.state.back` as it was when Settings opened (O5). Only these values; nothing from the stores.
+- `web/src/screens/settings/feedbackDetails.ts`: builds `device` from `navigator.userAgent` (`deviceName()` in `web/src/device.ts`, the iOS version from `OS 26_1`) and `matchMedia('(display-mode: standalone)')` or `navigator.standalone`. Only these values; nothing from the stores.
 - `web/src/screens/settings/screenshot.ts`: `createImageBitmap`, a canvas, `toBlob('image/jpeg', …)` per O3, then base64.
 
 ## Tasks

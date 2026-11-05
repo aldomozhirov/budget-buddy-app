@@ -25,13 +25,13 @@ export function isFeedbackTextLongEnough(text: string): boolean {
 
 /**
  * The device a report was written on (FBK-2). It never holds anything from
- * the family's data: `fromScreen` is a path, with ids at most.
+ * the family's data. Older apps also sent `fromScreen`; like any unknown key,
+ * it is dropped, so their reports are still accepted.
  */
 export const feedbackDeviceSchema = z.object({
   type: z.enum(['iPhone', 'iPad', 'other']),
   os: z.string().max(40).nullable(),
   display: z.enum(['standalone', 'browser']),
-  fromScreen: z.string().startsWith('/').max(200).nullable(),
   userAgent: z.string().max(400),
 });
 

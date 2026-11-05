@@ -28,7 +28,6 @@ function report(id: string, writtenAt = '2026-11-01T10:00:00Z'): FeedbackItem {
       type: 'iPhone',
       os: 'iOS 26.1',
       display: 'standalone',
-      fromScreen: '/home',
       userAgent: 'TestAgent/1.0',
     },
     screenshot: null,

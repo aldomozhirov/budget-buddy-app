@@ -405,7 +405,6 @@ feedback/
     "type": "iPhone",
     "os": "iOS 26.1",
     "display": "standalone",
-    "fromScreen": "/transactions/412",
     "userAgent": "Mozilla/5.0 (iPhone; …)"
   },
   "screenshot": "screenshot.jpg"
@@ -416,9 +415,9 @@ feedback/
 report was sent from the sheet; `receivedAt` is the server's when it arrived,
 later if the phone was offline. `device.type` is `iPhone`, `iPad` or `other`;
 `os` is `null` when it cannot be read; `display` is `standalone` (Home Screen
-app) or `browser`; `fromScreen` is the path of the screen open before Settings,
-or `null`. `screenshot` is `null` without one. `app.commit` is `BB_APP_COMMIT`,
-or `unknown`.
+app) or `browser`. Reports from app versions before 2026-11-05 may also hold
+`fromScreen`, the screen open before Settings. `screenshot` is `null` without
+one. `app.commit` is `BB_APP_COMMIT`, or `unknown`.
 
 ## Settings
 
