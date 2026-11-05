@@ -157,7 +157,6 @@ function selectRates(value: string | number): void {
         :model-value="rates"
         :options="rateOptions"
         label="Rates"
-        small
         @update:model-value="selectRates"
       />
     </template>
