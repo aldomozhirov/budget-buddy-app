@@ -66,7 +66,7 @@ interface Posted {
   kind: string;
   text: string;
   clientId: string;
-  device: { type: string; fromScreen: string | null };
+  device: { type: string } & Record<string, unknown>;
   screenshot: { type: string; data: string } | null;
 }
 
@@ -179,7 +179,7 @@ test('Settings ends with the Help card and its row opens the sheet', async ({
     await expect(sheet.getByRole('radio', { name: 'An idea' })).toBeVisible();
     await expect(
       sheet.getByText(
-        'App version, device and screen are sent with it. Never amounts or names.',
+        'App version and device are sent with it. Never amounts or names.',
       ),
     ).toBeVisible();
     await expect(sheet.getByRole('button', { name: 'Send' })).toBeDisabled();
@@ -368,6 +368,7 @@ test('online, Send closes and clears the sheet, thanks for 4 s, one report arriv
     const post = seen.posts[0]!;
     expect(post.kind).toBe('problem');
     expect(post.text).toBe(DRAFT);
+    expect(post.device).not.toHaveProperty('fromScreen');
     expect(post.device.type).toBe(
       testInfo.project.name === 'iphone' ? 'iPhone' : 'iPad',
     );

@@ -43,7 +43,6 @@ const report = (n: number) => ({
     type: 'other' as const,
     os: null,
     display: 'browser' as const,
-    fromScreen: null,
     userAgent: 'TestAgent/1.0',
   },
   screenshot: null,

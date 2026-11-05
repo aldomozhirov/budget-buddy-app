@@ -3,7 +3,6 @@ import { deviceType } from '../src/device.js';
 import {
   feedbackDetails,
   iosVersion,
-  screenBeforeSettings,
   type BrowserFacts,
 } from '../src/screens/settings/feedbackDetails.js';
 
@@ -27,31 +26,29 @@ const facts = (
 
 describe('feedbackDetails', () => {
   it('describes an iPhone in the Home Screen app', () => {
-    expect(feedbackDetails('/home', facts(iPhoneAgent, 5, true))).toEqual({
+    expect(feedbackDetails(facts(iPhoneAgent, 5, true))).toEqual({
       type: 'iPhone',
       os: 'iOS 26.1',
       display: 'standalone',
-      fromScreen: '/home',
       userAgent: iPhoneAgent,
     });
   });
 
   it('describes an iPad in the browser, with a three-part version', () => {
-    expect(feedbackDetails(null, facts(iPadAgent))).toMatchObject({
+    expect(feedbackDetails(facts(iPadAgent))).toMatchObject({
       type: 'iPad',
       os: 'iOS 26.0.1',
       display: 'browser',
-      fromScreen: null,
     });
   });
 
   it('tells an iPad asking for desktop sites from a Mac by touch points', () => {
-    expect(feedbackDetails(null, facts(iPadDesktopAgent, 5)).type).toBe('iPad');
-    expect(feedbackDetails(null, facts(macAgent, 0)).type).toBe('other');
+    expect(feedbackDetails(facts(iPadDesktopAgent, 5)).type).toBe('iPad');
+    expect(feedbackDetails(facts(macAgent, 0)).type).toBe('other');
   });
 
   it('gives other and no os for a non-Apple device', () => {
-    expect(feedbackDetails(null, facts(androidAgent))).toMatchObject({
+    expect(feedbackDetails(facts(androidAgent))).toMatchObject({
       type: 'other',
       os: null,
     });
@@ -59,14 +56,13 @@ describe('feedbackDetails', () => {
 
   it('cuts a very long user agent to 400 characters', () => {
     const long = `${iPhoneAgent} ${'x'.repeat(1000)}`;
-    expect(feedbackDetails(null, facts(long)).userAgent).toHaveLength(400);
+    expect(feedbackDetails(facts(long)).userAgent).toHaveLength(400);
   });
 
-  it('reads only what it is given, and returns only the five fields', () => {
-    const details = feedbackDetails('/a', facts(iPhoneAgent));
+  it('reads only what it is given, and returns only the four fields', () => {
+    const details = feedbackDetails(facts(iPhoneAgent));
     expect(Object.keys(details).sort()).toEqual([
       'display',
-      'fromScreen',
       'os',
       'type',
       'userAgent',
@@ -93,34 +89,5 @@ describe('deviceType', () => {
     expect(
       deviceType({ userAgent: 'Mozilla/5.0 (iPod touch)', maxTouchPoints: 5 }),
     ).toBe('iPhone');
-  });
-});
-
-describe('screenBeforeSettings', () => {
-  it('takes the path from history.state.back', () => {
-    expect(screenBeforeSettings({ back: '/transactions/412' })).toBe(
-      '/transactions/412',
-    );
-  });
-  it('drops query and hash', () => {
-    expect(screenBeforeSettings({ back: '/search?q=Alena#top' })).toBe(
-      '/search',
-    );
-    expect(screenBeforeSettings({ back: '/list#x?y' })).toBe('/list');
-  });
-  it('cuts to 200 characters', () => {
-    const out = screenBeforeSettings({ back: `/${'a'.repeat(300)}` });
-    expect(out).toHaveLength(200);
-    expect(out?.startsWith('/a')).toBe(true);
-  });
-  it('is null when there is no usable back', () => {
-    expect(screenBeforeSettings(null)).toBeNull();
-    expect(screenBeforeSettings({})).toBeNull();
-    expect(screenBeforeSettings({ back: null })).toBeNull();
-    expect(screenBeforeSettings({ back: 5 })).toBeNull();
-    expect(
-      screenBeforeSettings({ back: 'https://elsewhere.test/x' }),
-    ).toBeNull();
-    expect(screenBeforeSettings({ back: '?q=1' })).toBeNull();
   });
 });

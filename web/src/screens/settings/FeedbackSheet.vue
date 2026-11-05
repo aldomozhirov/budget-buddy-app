@@ -16,11 +16,6 @@ import { encodeScreenshot } from './screenshot.js';
  * tries to send it (spec 8, Design 4); it works offline too. Close keeps the
  * draft until the app is closed.
  */
-const props = defineProps<{
-  /** The screen open before Settings, sent with the report (O5). */
-  fromScreen: string | null;
-}>();
-
 const emit = defineEmits<{
   /** Sent now, or saved to send itself later; the sheet is cleared. */
   sent: [result: 'sent' | 'saved'];
@@ -94,7 +89,7 @@ async function send(): Promise<void> {
       kind: feedbackDraft.kind,
       text: feedbackDraft.text.trim(),
       writtenAt: new Date().toISOString(),
-      device: feedbackDetails(props.fromScreen),
+      device: feedbackDetails(),
       screenshot: shot ? { type: shot.type, data: shot.data } : null,
     });
     clearFeedbackDraft();
@@ -126,8 +121,7 @@ async function send(): Promise<void> {
       />
       <div class="feedback-details">
         <span class="t-sub feedback-details-text">
-          App version, device and screen are sent with it. Never amounts or
-          names.
+          App version and device are sent with it. Never amounts or names.
         </span>
         <button
           v-if="feedbackDraft.screenshot"

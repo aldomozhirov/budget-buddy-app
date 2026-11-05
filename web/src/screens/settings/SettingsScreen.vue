@@ -42,7 +42,6 @@ import ScheduleSheet from './ScheduleSheet.vue';
 import NotificationsSheet from './NotificationsSheet.vue';
 import TimeZoneSheet from './TimeZoneSheet.vue';
 import FeedbackSheet from './FeedbackSheet.vue';
-import { screenBeforeSettings } from './feedbackDetails.js';
 import BbToast from '../../components/BbToast.vue';
 import BbIcon from '../../components/BbIcon.vue';
 import { describeBackupRow } from './backupFormat.js';
@@ -112,8 +111,6 @@ const backupStatus = ref<BackupStatusResponse | null>(null);
 const backupUnavailable = ref(false);
 const backupSheetOpen = ref(false);
 const feedbackSheetOpen = ref(false);
-// Read as Settings opens: the screen the member came from (spec 8, O5).
-const fromScreen = screenBeforeSettings();
 const toastMessage = ref('');
 
 function feedbackSent(result: 'sent' | 'saved'): void {
@@ -1145,7 +1142,6 @@ async function readApiError(response: Response): Promise<{
     />
     <FeedbackSheet
       v-if="feedbackSheetOpen"
-      :from-screen="fromScreen"
       @sent="feedbackSent"
       @close="feedbackSheetOpen = false"
     />
