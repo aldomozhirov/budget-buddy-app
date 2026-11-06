@@ -432,14 +432,14 @@ body { margin: 0; min-height: 100vh; }
     <button class="seg" role="tab" aria-selected="false">Income</button>
     <button class="seg" role="tab" aria-selected="false">Transfer</button>
   </div>
-  <div class="segmented segmented-sm" role="tablist" aria-label="Rates" data-tabs>
+  <div class="segmented" role="tablist" aria-label="Rates" data-tabs>
     <button class="seg" role="tab" aria-selected="true">Rate of each date</button>
     <button class="seg" role="tab" aria-selected="false">Today’s rates</button>
   </div>
 </div></div><div class="sg-info"><table class="sg-table"><tr><th>Class or state</th><th>Meaning</th></tr>
 <tr><td><code>.segmented</code></td><td>Soft track.</td></tr>
 <tr><td><code>.seg[aria-selected="true"]</code></td><td>Selected segment on surface with a light shadow.</td></tr>
-<tr><td><code>.segmented-sm</code></td><td>32 high, inside cards.</td></tr>
+<tr><td><code>.segmented-sm</code></td><td>32 high. No screen uses it; every segmented control is 36 high.</td></tr>
 </table><div class="sg-dd"><div class="do"><b>Do</b><ul><li>Keep labels to one or two words.</li></ul></div><div class="dont"><b>Don’t</b><ul><li>Use it for actions.</li></ul></div></div></div>
 <div class="sg-code"><button class="sg-copy" type="button">Copy</button><pre><code>&lt;div class="stack"&gt;
   &lt;div class="segmented" role="tablist" aria-label="Kind" data-tabs&gt;
@@ -447,7 +447,7 @@ body { margin: 0; min-height: 100vh; }
     &lt;button class="seg" role="tab" aria-selected="false"&gt;Income&lt;/button&gt;
     &lt;button class="seg" role="tab" aria-selected="false"&gt;Transfer&lt;/button&gt;
   &lt;/div&gt;
-  &lt;div class="segmented segmented-sm" role="tablist" aria-label="Rates" data-tabs&gt;
+  &lt;div class="segmented" role="tablist" aria-label="Rates" data-tabs&gt;
     &lt;button class="seg" role="tab" aria-selected="true"&gt;Rate of each date&lt;/button&gt;
     &lt;button class="seg" role="tab" aria-selected="false"&gt;Today’s rates&lt;/button&gt;
   &lt;/div&gt;

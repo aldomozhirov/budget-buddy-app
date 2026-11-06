@@ -8,7 +8,7 @@ Switches between two to four views or kinds. It is a tab list.
 |---|---|
 | `.segmented` | Soft track. |
 | `.seg[aria-selected="true"]` | Selected segment on surface with a light shadow. |
-| `.segmented-sm` | 32 high, inside cards. |
+| `.segmented-sm` | 32 high. No screen uses it; every segmented control is 36 high. |
 
 **Do**
 
@@ -25,7 +25,7 @@ Switches between two to four views or kinds. It is a tab list.
     <button class="seg" role="tab" aria-selected="false">Income</button>
     <button class="seg" role="tab" aria-selected="false">Transfer</button>
   </div>
-  <div class="segmented segmented-sm" role="tablist" aria-label="Rates" data-tabs>
+  <div class="segmented" role="tablist" aria-label="Rates" data-tabs>
     <button class="seg" role="tab" aria-selected="true">Rate of each date</button>
     <button class="seg" role="tab" aria-selected="false">Today’s rates</button>
   </div>

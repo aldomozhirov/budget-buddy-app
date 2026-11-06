@@ -297,6 +297,26 @@ test('the chart has a pill per currency and Today’s rates changes the series',
   );
 });
 
+test('the Rates switch is as high as the Group by switch', async ({ page }) => {
+  const seed = await seedFamily(page.context());
+  await page.goto(`${origin}/check-ins/${seed.second}`);
+  const selected = async (name: string) => {
+    const group = page.getByRole('radiogroup', { name });
+    const segment = group.getByRole('radio', { checked: true }).locator('.seg');
+    await expect(segment).toBeVisible();
+    const box = await segment.boundingBox();
+    const size = await segment.evaluate(
+      (node) => getComputedStyle(node).fontSize,
+    );
+    return { height: box!.height, size };
+  };
+  const rates = await selected('Rates');
+  const groupBy = await selected('Group by');
+  expect(rates.height).toBe(groupBy.height);
+  expect(rates.height).toBe(36);
+  expect(rates.size).toBe('14px');
+});
+
 test('a first check-in chart says there are not enough check-ins', async ({
   page,
 }) => {
