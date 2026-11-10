@@ -177,7 +177,7 @@ For the closed check-in `C` (closed at `T1`, rates of the date `d1` in the confi
 6. **Biggest changes**: the five accounts with the largest `|a|`. Each opens its account (UI-SUM-4).
 7. **Also in this check-in**: accounts whose value at `C` is `carried_forward` ("wasn't changed"), accounts whose first snapshot is after `T0` (added), and accounts deactivated between `T0` and `T1`.
 8. **The first check-in** has no `P`. It shows the totals with "First check-in" and leaves out every comparison.
-9. **Chart series** (SUM-4, CUR-6): one point per closed check-in. In "All in EUR" each point is `E` at its own date's rates, or with "Today's rates" every point is converted at the latest stored rates. A single currency shows `C_cur` in its own unit.
+9. **Chart series** (SUM-4, CUR-6): one point per closed check-in, after a Start point at the opening balances (owner's decision, 2026-11-01): the balances at the latest `opening` snapshot taken before the first closed check-in, with `checkinId: null`. There is no Start without such a snapshot, or when it falls on the first check-in's date in the family time zone. In "All in EUR" each point is `E` at its own date's rates, or with "Today's rates" every point is converted at the latest stored rates. A single currency shows `C_cur` in its own unit.
 
 The summary is always computed from stored data, never stored (SUM-1). At PRF-1 volume (40 accounts, about 120 check-ins over 10 years) one query per check-in boundary is cheap, but the chart series must use one batched query, not one per point.
 
@@ -265,6 +265,8 @@ Since spec 2 (task 18): when the add options are stored on the phone, the locked
 **Limits.** (a) The server trusts the page for `awayMs`: a client that holds the session can claim 0 and keep a session fresh. It could also just send presence every minute, so this adds nothing; the lock protects a phone left unattended, not a stolen cookie. (b) Absence is counted from the last presence call, so when the call as the page leaves is lost, the lock can come up to 30 s earlier than 5 minutes; it never comes later. (c) Two tabs on one device share one session: a tab that is in use keeps the device unlocked for the other. (d) After a foreground stretch of more than 5 minutes offline, a request that beats the presence call that the `online` event sends is refused, and the refusal is final, so the member signs in once; the buttons that save are disabled offline and enable on that event, so the presence call normally goes first. A dropped connection to the server that the browser does not report (a Tailscale drop) fires no `online` event, so a request of the live stream or the check-in poll that comes back after more than 5 minutes can be refused first; the member signs in once more, which fails safe. (e) The page forgets nothing else: no data is written to the device except the path above.
 
 ## Tasks
+
+Open tasks moved to the task board on 2026-10-26 (`AGENTS.md`, Tasks): task 25 is TASK-1, task 30 is TASK-2 and task 31 is TASK-3. The list below is kept as the record of what was built and is no longer ticked here.
 
 How to read a task: **Refs** are requirement and design IDs. **Depends** lists tasks that must be done first. **Parallel** names tasks that may be built at the same time. **Files** are the expected places; build may add files nearby. Every task must also meet the definition of done in `AGENTS.md`. "E2E" means a Playwright test in `web/e2e/` that runs on WebKit at both iPhone and iPad sizes.
 

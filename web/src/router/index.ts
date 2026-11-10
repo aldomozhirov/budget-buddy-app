@@ -219,6 +219,14 @@ router.afterEach((to, from, failure) => {
     return;
   }
 
+  // Any other replace (a return from sign-in, a deleted account's page) also
+  // leaves the stack as it is, so the stack keeps matching the browser
+  // history that `navigateBack`, `leaveToPast` and `returnHome` step through.
+  if (history.state.replaced === true) {
+    screenTransitionClass.value = 'enter-fwd';
+    return;
+  }
+
   navigationStack.value = [...navigationStack.value, from.fullPath];
   screenTransitionClass.value = 'enter-fwd';
 });
@@ -277,4 +285,21 @@ export async function leaveToPast(path: string, parent: string): Promise<void> {
     return;
   }
   await replaceScreen(path);
+}
+
+/**
+ * Opens Home without adding a screen to the Back stack. When Home is in the
+ * stack, the history goes back to it, dropping the screens after it;
+ * otherwise the active screen is replaced with Home.
+ */
+export async function returnHome(): Promise<void> {
+  const paths = navigationStack.value.map(
+    (location) => router.resolve(location).path,
+  );
+  const index = paths.lastIndexOf('/');
+  if (index >= 0) {
+    router.go(index - paths.length);
+    return;
+  }
+  await replaceScreen('/');
 }

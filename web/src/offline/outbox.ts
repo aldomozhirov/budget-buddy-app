@@ -1,16 +1,13 @@
-import { readonly, ref, shallowRef, watch } from 'vue';
+import { readonly, ref, shallowRef } from 'vue';
 import type { CreateTransactionRequest } from '@budget-buddy/shared';
-import { authState } from '../stores/auth.js';
 import { deviceStore, type RecordStore } from './db.js';
+import { sendAtOutboxMoments } from './sendTriggers.js';
 
 /**
  * The outbox (spec 2, Design 4; TXN-7, UI-ADD-14): every transaction saved
  * on the Add form is written here first and leaves once the server has it.
  * The `client_id` makes a repeat harmless, so two tabs may send one item.
  */
-
-/** How often items that wait are tried again while the page is visible. */
-export const RETRY_INTERVAL_MS = 30_000;
 
 /** The body of `POST /api/transactions` as the outbox keeps it. */
 export type OutboxBody = CreateTransactionRequest & {
@@ -296,33 +293,16 @@ export const outbox: Outbox = createOutbox({
 
 let started = false;
 
-/**
- * Starts sending on its own: now, when the connection returns, when the
- * page comes back to the foreground, after a sign-in, and every 30 s while
- * items wait and the page is visible. Safari has no background sync, so
- * nothing is sent while the app is closed.
- */
+/** Starts sending on its own, at the moments of `sendAtOutboxMoments`. */
 export function startOutbox(): void {
   if (started || typeof window === 'undefined') return;
   started = true;
-  const flush = () => void outbox.flush().catch(() => undefined);
-  void outbox
-    .load()
-    .then(flush)
-    .catch(() => undefined);
+  // The first flush waits for the items to be read.
+  const loaded = outbox.load().catch(() => undefined);
+  const flush = () =>
+    void loaded.then(() => outbox.flush()).catch(() => undefined);
   void navigator.storage?.persist?.().catch(() => false);
-  window.addEventListener('online', flush);
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') flush();
-  });
-  watch(
-    () => authState.value?.member?.id ?? null,
-    (member) => {
-      if (member !== null) flush();
-    },
+  sendAtOutboxMoments(flush, () =>
+    outbox.items.value.some((item) => item.state === 'waiting'),
   );
-  window.setInterval(() => {
-    const waits = outbox.items.value.some((item) => item.state === 'waiting');
-    if (waits && document.visibilityState === 'visible') flush();
-  }, RETRY_INTERVAL_MS);
 }

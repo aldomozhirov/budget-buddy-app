@@ -5,6 +5,7 @@ import {
 } from '@budget-buddy/shared';
 import { authState, onSessionEnded } from '../stores/auth.js';
 import { deviceStore, type RecordStore } from './db.js';
+import { feedbackOutbox } from './feedbackOutbox.js';
 import { outbox } from './outbox.js';
 
 /**
@@ -113,8 +114,9 @@ export async function refreshAddOptions(): Promise<AddOptionsResponse | null> {
 }
 
 /**
- * Deletes what the phone keeps for a signed-in family: the stored options
- * and the outbox (D3). Sign-out and an ended session both do it.
+ * Deletes what the phone keeps for a signed-in family: the stored options,
+ * the outbox (D3) and waiting feedback (spec 8, O8). Sign-out and an ended
+ * session both do it.
  */
 export async function wipeDeviceData(): Promise<void> {
   wipes += 1;
@@ -123,6 +125,7 @@ export async function wipeDeviceData(): Promise<void> {
   await Promise.all([
     device.clear().catch(() => undefined),
     outbox.clear().catch(() => undefined),
+    feedbackOutbox.clear().catch(() => undefined),
   ]);
 }
 

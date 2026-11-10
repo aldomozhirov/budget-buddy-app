@@ -17,6 +17,7 @@ import {
   type AddOptionsAccount,
   type AddOptionsResponse,
   type DatedRate,
+  type KnownMerchant,
 } from '@budget-buddy/shared';
 import AccountPickerSheet from '../../components/AccountPickerSheet.vue';
 import BbButton from '../../components/BbButton.vue';
@@ -27,6 +28,10 @@ import BbChip from '../../components/BbChip.vue';
 import BbChipGroup from '../../components/BbChipGroup.vue';
 import BbIcon from '../../components/BbIcon.vue';
 import BbSegmented from '../../components/BbSegmented.vue';
+import {
+  canReadClipboard,
+  createDoubleTap,
+} from '../../composables/useClipboard.js';
 import CategoryPickerSheet from '../../components/CategoryPickerSheet.vue';
 import EnvelopePickerSheet from '../../components/EnvelopePickerSheet.vue';
 import { ApiError, callApi } from '../../api/callApi.js';
@@ -152,6 +157,9 @@ const saved = ref<{
 const undoing = ref(false);
 const savedHeading = ref<HTMLElement>();
 const amountGroup = ref<HTMLElement>();
+const amountKeypad = ref<InstanceType<typeof BbAmountInput>>();
+const arriveKeypad = ref<InstanceType<typeof BbAmountInput>>();
+const canPaste = canReadClipboard();
 
 /**
  * Moves focus into the saved view or back to the form: the side that is
@@ -313,10 +321,11 @@ const envelopeChips = computed(() => {
     .map((item) => ({ label: item.name, value: item.id }));
 });
 
-const merchants = computed<MerchantOption[]>(() => {
+/** Maps known merchants to the sheet's rows with what their rule fills. */
+function toOptions(list: KnownMerchant[]): MerchantOption[] {
   const data = options.value;
   if (!data) return [];
-  return data.merchants.map((item) => {
+  return list.map((item) => {
     const match = matchRule(item.merchant, accountId.value, data.rules);
     const ruleCategory = match ? categoryById(match.categoryId)?.name : null;
     const ruleEnvelope = match ? envelopeById(match.envelopeId)?.name : null;
@@ -329,7 +338,12 @@ const merchants = computed<MerchantOption[]>(() => {
       : 'Used before';
     return { ...item, detail };
   });
-});
+}
+
+const merchants = computed(() => toOptions(options.value?.merchants ?? []));
+const recentMerchants = computed(() =>
+  toOptions(options.value?.recentMerchants ?? []),
+);
 
 /** What the server would fill on save, previewed in the labels. */
 const fillPreview = computed(() =>
@@ -437,6 +451,21 @@ const arriveText = computed(() => {
   }
   return `Type what arrives in ${toLabel.value}`;
 });
+/** The amount is a button when a tap does something: switch or paste. */
+const amountTappable = computed(() => fx.value || canPaste);
+const amountLabel = computed(() => {
+  if (!fx.value) return undefined;
+  return arriveEdit.value
+    ? `Amount ${shownAmount.value}. Type it again`
+    : `Amount ${shownAmount.value}`;
+});
+/** Tells screen readers that a double tap pastes. */
+const amountHint = computed(() =>
+  canPaste ? 'Double-tap to paste an amount' : undefined,
+);
+const arriveHint = computed(() =>
+  canPaste ? 'Double-tap to paste what arrives' : undefined,
+);
 /** The pill is in the warning colour while the member has to type it. */
 const arriveWarn = computed(
   () => !arriveOk.value && !arriveEdit.value && !rateLoading.value,
@@ -698,6 +727,31 @@ function pickToFromSheet(picked: AddOptionsAccount | null): void {
 /** A tap on "Arrives as" moves the keypad to the second amount. */
 function editArrive(): void {
   arriveEdit.value = true;
+}
+
+/** One tracker for all three, so taps on two of them never pair up. */
+const isDoubleTap = createDoubleTap();
+
+/**
+ * A tap on the amount moves the keypad to it; a double tap also pastes into
+ * it (UI-AMT-5). A single tap never reads the clipboard.
+ */
+function tapAmount(): void {
+  arriveEdit.value = false;
+  if (canPaste && isDoubleTap('amount')) void amountKeypad.value?.paste();
+}
+
+/** The same for "Arrives as". */
+function tapArrive(): void {
+  editArrive();
+  if (canPaste && isDoubleTap('arrive')) void arriveKeypad.value?.paste();
+}
+
+/** A double tap on the hint's words pastes into the selected amount. */
+function tapHint(): void {
+  if (!canPaste || !isDoubleTap('hint')) return;
+  const keypad = arriveEdit.value ? arriveKeypad : amountKeypad;
+  void keypad.value?.paste();
 }
 
 function pickMerchant(value: string): void {
@@ -1044,24 +1098,19 @@ function addAnother(): void {
         <span class="num amount-expr add-expr">{{ expression }}</span>
         <div class="add-amount-line">
           <component
-            :is="fx ? 'button' : 'span'"
+            :is="amountTappable ? 'button' : 'span'"
             class="num amount"
             :class="{
               'add-amount-empty': typed === null || typed.empty,
               'add-amount-dim': arriveEdit,
-              'add-amount-btn': fx,
+              'add-amount-btn': amountTappable,
             }"
-            :type="fx ? 'button' : undefined"
-            :aria-label="
-              fx
-                ? arriveEdit
-                  ? `Amount ${shownAmount}. Type it again`
-                  : `Amount ${shownAmount}`
-                : undefined
-            "
+            :type="amountTappable ? 'button' : undefined"
+            :aria-label="amountLabel"
+            :aria-description="amountHint"
             aria-live="polite"
             aria-atomic="true"
-            @click="arriveEdit = false"
+            @click="tapAmount"
             >{{ shownAmount }}</component
           >
           <span class="add-currency">{{ currency.code }}</span>
@@ -1076,7 +1125,8 @@ function addAnother(): void {
           type="button"
           :aria-pressed="arriveEdit"
           :aria-label="`${arriveText}. Change`"
-          @click="editArrive"
+          :aria-description="arriveHint"
+          @click="tapArrive"
         >
           <span class="add-arrive-t">{{ arriveText }}</span>
           <svg
@@ -1093,10 +1143,17 @@ function addAnother(): void {
             <path d="M4 20h4L19 9l-4-4L4 16v4z" />
           </svg>
         </button>
-        <span v-if="!fx || keypadError" class="add-error">
+        <span v-if="!fx || keypadError || canPaste" class="add-error">
           <span v-if="keypadError" class="error" role="alert">{{
             keypadError
           }}</span>
+          <span
+            v-else-if="canPaste"
+            class="add-paste-hint"
+            aria-hidden="true"
+            @click="tapHint"
+            >Double-tap to paste</span
+          >
         </span>
       </div>
 
@@ -1251,10 +1308,12 @@ function addAnother(): void {
 
       <BbAmountInput
         v-show="!arriveEdit"
+        ref="amountKeypad"
         :key="keypadKey"
         v-model:amount="amount"
         bare
         :allow-negative="kind === 'expense'"
+        drop-pasted-sign
         :currency="currency"
         label="Amount"
         @change="onAmountChange"
@@ -1262,6 +1321,7 @@ function addAnother(): void {
       <BbAmountInput
         v-if="fx"
         v-show="arriveEdit"
+        ref="arriveKeypad"
         :key="`arrive-${arriveKey}`"
         bare
         :currency="toCurrency"
@@ -1328,6 +1388,7 @@ function addAnother(): void {
     <MerchantSheet
       v-if="sheet === 'merchant'"
       :merchants="merchants"
+      :recent="recentMerchants"
       :selected="merchant"
       @pick="pickMerchant"
       @close="sheet = null"
@@ -1447,19 +1508,22 @@ function addAnother(): void {
   align-items: baseline;
   gap: 8px;
 }
-.add-amount-empty {
-  color: var(--muted);
-}
-.add-amount-dim {
-  opacity: 0.45;
-}
 .add-amount-btn {
   padding: 0;
+  /* A double tap pastes (UI-AMT-5); it must not select the text. */
+  -webkit-user-select: none;
+  user-select: none;
   border: 0;
   background: none;
   color: inherit;
   font-family: inherit;
   cursor: pointer;
+}
+.add-amount-empty {
+  color: var(--muted);
+}
+.add-amount-dim {
+  opacity: 0.45;
 }
 .add-arrive {
   max-width: 100%;
@@ -1510,6 +1574,14 @@ function addAnother(): void {
 }
 .add-error .error {
   font-size: 12px;
+}
+/* Says that a double tap on the amount pastes (UI-AMT-5). With one
+   currency it takes the line kept for errors, so the screen does not grow. */
+.add-paste-hint {
+  color: var(--muted);
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
 }
 .add-field {
   display: flex;

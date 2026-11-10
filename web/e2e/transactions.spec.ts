@@ -395,3 +395,48 @@ test('long names and the filter sheets do not scroll sideways', async ({
     }
   });
 });
+
+test('the account filter names another person’s account with its owner; list rows keep the bare name', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    await seed(family);
+    for (const [name, owner] of [
+      ['DKB', 1],
+      ['Pot', null],
+    ] as const) {
+      await create(family, '/api/accounts', {
+        name,
+        ownerMemberId: owner,
+        type: 'bank',
+        currency: 'EUR',
+        openingBalance: '0',
+      });
+    }
+    await page.goto(`${family.origin}/transactions`);
+    await loaded(page);
+
+    // The list row paid from Max's DKB shows the bare name.
+    const lidl = page
+      .getByTestId('transaction-row')
+      .filter({ hasText: 'Lidl' });
+    await expect(lidl).toContainText('DKB');
+    await expect(lidl).not.toContainText('Max · DKB');
+
+    await page.getByRole('button', { name: /^Account:/ }).click();
+    const sheet = page.getByRole('dialog', { name: /^Account/ });
+    await expect(
+      sheet.getByRole('checkbox', { name: /^Max · DKB/ }),
+    ).toBeVisible();
+    await expect(sheet.getByRole('checkbox', { name: /^DKB/ })).toBeVisible();
+    await expect(sheet.getByRole('checkbox', { name: /^Pot/ })).toBeVisible();
+    await expect(
+      sheet.getByRole('checkbox', { name: /^ING Visa/ }),
+    ).toBeVisible();
+    await sheet.getByRole('checkbox', { name: /^Max · DKB/ }).click();
+    await sheet.getByRole('button', { name: /^Show/ }).click();
+    await expect(
+      page.getByRole('button', { name: 'Account: Max · DKB' }),
+    ).toHaveAttribute('aria-pressed', 'true');
+  });
+});

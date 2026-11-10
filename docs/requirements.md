@@ -1,6 +1,6 @@
 # Budget Buddy: product requirements
 
-Status: approved by the owner on 2026-10-05. Amended on 2026-10-06 after the prototype review: sign-in with a family password and profiles, the private home screen, and how category and envelope are filled in (section 3, MEM, DSH-1, DSH-4, CAT-1, CAT-5, SET-1, section 11). Amended on 2026-10-15 at the owner's request: the budget plan and the month review, which replace the family's planning spreadsheet and shared note (sections 1, 3, 4.1, 4.5, 4.7, 4.8, TXN-10, DSH-5, NTF-5, PLN, REV, COR-3, QUA-3, sections 8 to 11, appendix C). Specs 1 and 2 are unchanged by it. Amended on 2026-10-18 at the owner's request: "Needs a category" suggests a category only from a rule or an earlier transaction with the same merchant (CAT-7, spec 2 "Done when"). Amended again on 2026-10-18 at the owner's request: recurring incomes and expenses are set up on the Add form, and the month plan is put together from them, the envelopes and the month's wishes, which get a screen of their own; this replaces the separate list of plan lines, and the plan opens after every check-in. The family confirms each month's plan, and the review compares the month with that record; a payment the app matches to a due payment is logged on the transaction; a wish becomes an expense in one step (sections 3, 4.1, 4.7, 4.8, CHK-9, SUM-1, DSH-5, NTF-5, TXN-10, TXN-12 to TXN-14, PLN, REV, COR-3, QUA-3, sections 8 to 11, appendix C). It settles open questions 13 and 14. Specs 1 and 2 are unchanged by it. Amended on 2026-10-25 at the owner's request: a transaction that fits a due payment gets no envelope from a rule or a category's default, and the Add form says what it counts for; the Add form warns before a due payment that is already paid is saved again; carry-over envelopes in the review; and the defaults of 2026-10-18 are confirmed. Defaults were added for a link whose transaction moves to another month, rates for a coming month, envelope moves and adjustments in the plan, and what works offline (sections 4.7, 4.8, CAT-5, TXN-13, PLN-2, PLN-14, PLN-20, PLN-21, REV-4, QUA-3, sections 8 and 11). This document is the input for the `plan` agent. It is not a spec and contains no task list.
+Status: approved by the owner on 2026-10-05. Amended on 2026-10-06 after the prototype review: sign-in with a family password and profiles, the private home screen, and how category and envelope are filled in (section 3, MEM, DSH-1, DSH-4, CAT-1, CAT-5, SET-1, section 11). Amended on 2026-10-15 at the owner's request: the budget plan and the month review, which replace the family's planning spreadsheet and shared note (sections 1, 3, 4.1, 4.5, 4.7, 4.8, TXN-10, DSH-5, NTF-5, PLN, REV, COR-3, QUA-3, sections 8 to 11, appendix C). Specs 1 and 2 are unchanged by it. Amended on 2026-10-18 at the owner's request: "Needs a category" suggests a category only from a rule or an earlier transaction with the same merchant (CAT-7, spec 2 "Done when"). Amended again on 2026-10-18 at the owner's request: recurring incomes and expenses are set up on the Add form, and the month plan is put together from them, the envelopes and the month's wishes, which get a screen of their own; this replaces the separate list of plan lines, and the plan opens after every check-in. The family confirms each month's plan, and the review compares the month with that record; a payment the app matches to a due payment is logged on the transaction; a wish becomes an expense in one step (sections 3, 4.1, 4.7, 4.8, CHK-9, SUM-1, DSH-5, NTF-5, TXN-10, TXN-12 to TXN-14, PLN, REV, COR-3, QUA-3, sections 8 to 11, appendix C). It settles open questions 13 and 14. Specs 1 and 2 are unchanged by it. Amended on 2026-10-25 at the owner's request: a transaction that fits a due payment gets no envelope from a rule or a category's default, and the Add form says what it counts for; the Add form warns before a due payment that is already paid is saved again; carry-over envelopes in the review; and the defaults of 2026-10-18 are confirmed. Defaults were added for a link whose transaction moves to another month, rates for a coming month, envelope moves and adjustments in the plan, and what works offline (sections 4.7, 4.8, CAT-5, TXN-13, PLN-2, PLN-14, PLN-20, PLN-21, REV-4, QUA-3, sections 8 and 11). Amended on 2026-11-02 at the owner's request: the home screen no longer shows wealth, because the eye that reveals the envelopes would reveal it too (DSH-1); the latest check-in summary stays reachable from Wealth history. Amended on 2026-11-04 at the owner's request: members send feedback from Settings, and each report is left as files in a folder for the owner's own tooling to pick up (FBK, spec 8 in section 8). This document is the input for the `plan` agent. It is not a spec and contains no task list.
 
 ## How to use this document
 
@@ -337,14 +337,14 @@ How a record arrives depends on its source:
 - **SUM-1 (Must).** Every closed check-in has a summary page, shown right after closing. From spec 3 the month plan opens after closing instead (PLN-8) and leads to the summary. A list of past check-ins leads to each one. Summary pages are computed from the stored data, so a later correction shows up in them.
 - **SUM-2 (Must).** The summary shows the family total per currency together with the previous check-in's total, the difference, and its direction (up, down or unchanged), as the bot does.
 - **SUM-3 (Must).** It shows the equivalent of everything in the common currency, with the previous value, the difference and the direction.
-- **SUM-4 (Must).** It shows a line chart over all check-ins. The chart shows the equivalent total by default, can switch to any single currency in its own unit, and can switch between each date's rate and today's rates (CUR-6).
+- **SUM-4 (Must).** It shows a line chart over all check-ins. The chart shows the equivalent total by default, can switch to any single currency in its own unit, and can switch between each date's rate and today's rates (CUR-6). The line starts at the opening balances (ACC-1): a Start point at the latest opening balance taken before the first check-in, valued like the other points, so one closed check-in is enough for a line (owner's decision, 2026-11-01). Accounts opened after the first check-in join at their check-in. There is no Start point without an opening balance before the first check-in, or when it falls on the first check-in's date.
 - **SUM-5 (Should).** It shows what changed since the previous check-in: the accounts with the largest changes, subtotals per member and per account type, accounts added or deactivated, and which values were carried forward.
 - **SUM-6 (Should).** It shows how much of the change in the equivalent comes from rate movement (the currency effect of section 4.5).
 - **SUM-7 (Must, from spec 3).** It shows the period's income, spending and unexplained amounts, with a link to the reconciliation page.
 
 ### DSH: home screen and wealth history (spec 1)
 
-- **DSH-1 (Must).** The home screen shows current wealth as one equivalent in the common currency, with the change since the previous check-in and that check-in's date; the wealth figure opens the latest check-in summary, where the totals per currency are (SUM-2). Amounts on the home screen are hidden every time the app opens, are revealed for 30 seconds on request, and can be set to show by default per device. It shows a banner while a check-in is open; the banner contains no amounts.
+- **DSH-1 (Must).** The home screen shows no wealth figure (removed on 2026-11-02, so that revealing the envelopes does not reveal the family's wealth); wealth, its change and the totals per currency are on the latest check-in summary (SUM-2), which "Wealth history" opens. Amounts on the home screen are hidden every time the app opens, are revealed for 30 seconds on request, and can be set to show by default per device. It shows a banner while a check-in is open; the banner contains no amounts.
 - **DSH-2 (Must).** A wealth history view charts wealth over time for a chosen period, broken down by currency, by account type or by member.
 - **DSH-3 (Should).** A balance older than the check-in cadence is marked as stale wherever it is shown.
 - **DSH-4 (Must, from spec 2).** The home screen offers "add expense" in one tap and shows the envelopes of the current month. While amounts are hidden (DSH-1) it shows each envelope's share used and whether it is overspent instead of its balance.
@@ -547,6 +547,16 @@ How a record arrives depends on its source:
 - **MIG-2 (Could).** The command shows what it will create before writing. Running it twice creates nothing twice.
 - **MIG-3 (Could).** Rates for the imported dates are fetched (CUR-3).
 
+### FBK: feedback (spec 8)
+
+Added 2026-11-04 at the owner's request. Design: `docs/design-spec.md`, UI-SET-6.
+
+- **FBK-1 (Should).** Any signed-in member can send feedback from Settings: a problem or an idea, a text of at least 3 characters other than spaces, and at most one screenshot.
+- **FBK-2 (Should).** Each report carries, with no switch to turn it off: the app version and the commit the server was built from, the device and its iOS version, Home Screen app or Safari, the profile that sent it, and when it was written. (The screen open before Settings was dropped by the owner on 2026-11-05.) It never carries amounts, balances, or the names of accounts, merchants or envelopes, or notes, except what the member types or shows in the screenshot.
+- **FBK-3 (Should).** The server writes each report as files in a feedback folder (`FEEDBACK_DIR`), one subfolder per report holding `report.json` and the screenshot if there is one. A report appears in the folder complete or not at all, and sending the same report twice leaves one. The app never reads the folder back, shows no list of earlier reports and sends nothing anywhere (SEC-8): what reads the folder is the host's business, outside the app.
+- **FBK-4 (Should).** A report written offline waits on the device, like an offline expense (TXN-7), and is sent once when the connection returns.
+- **FBK-5 (Should).** The server accepts only a JPEG or PNG screenshot, checked by its content, of at most 3 MB. The device reduces a larger picture before sending it.
+
 ## 6. Non-functional requirements
 
 ### 6.1 DEP: deployment
@@ -695,6 +705,13 @@ Each entry leaves the app usable on its own. Cross-cutting requirements (section
 
 - **Scope:** MIG.
 - **Depends on:** spec 1, and a copy of the bot's live database from the owner.
+
+### Spec 8: feedback
+
+- **Goal:** members report problems and ideas from the app itself, with the details needed to act on them, instead of describing them later from memory.
+- **Scope:** FBK, UI-SET-6.
+- **Depends on:** specs 1 and 2 (Settings, the offline outbox). It may be built before spec 3; its number only keeps it apart from the roadmap above.
+- **Done when:** a report sent from an iPhone appears in the feedback folder with its screenshot and details and no amount; a report written in airplane mode arrives once after reconnecting; the same report sent twice leaves one folder.
 
 ## 9. Out of scope
 

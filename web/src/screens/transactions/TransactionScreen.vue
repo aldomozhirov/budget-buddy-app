@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { RouterLink, useRoute } from 'vue-router';
+import { useRoute } from 'vue-router';
 import {
+  accountOwnedName,
   accountsResponseSchema,
   addOptionsResponseSchema,
   categoriesResponseSchema,
@@ -14,6 +15,7 @@ import {
   ruleResponseSchema,
   todayInTimeZone,
   transactionResponseSchema,
+  type AddOptionsAccount,
   type AddOptionsResponse,
   type Category,
   type CoinSetting,
@@ -22,7 +24,9 @@ import {
   type Transaction,
   type TransactionRevision,
   type UpdateTransactionRequest,
+  type KnownMerchant,
 } from '@budget-buddy/shared';
+import AccountPickerSheet from '../../components/AccountPickerSheet.vue';
 import BbBackButton from '../../components/BbBackButton.vue';
 import BbButton from '../../components/BbButton.vue';
 import BbConfirmSheet from '../../components/BbConfirmSheet.vue';
@@ -31,6 +35,7 @@ import CategoryPickerSheet from '../../components/CategoryPickerSheet.vue';
 import EnvelopePickerSheet from '../../components/EnvelopePickerSheet.vue';
 import { ApiError, callApi } from '../../api/callApi.js';
 import { useBack } from '../../composables/useBack.js';
+import { accountCurrency } from '../add/addForm.js';
 import DateSheet from '../add/DateSheet.vue';
 import MerchantSheet, { type MerchantOption } from '../add/MerchantSheet.vue';
 import NoteSheet from '../add/NoteSheet.vue';
@@ -39,6 +44,8 @@ import AmountSheet from './AmountSheet.vue';
 import CountsAsPanel from './CountsAsPanel.vue';
 import { money } from './transactionsFormat.js';
 import {
+  amountsToRetype,
+  carryAmount,
   countsAsText,
   countsHint,
   countsInOtherCurrency,
@@ -50,18 +57,23 @@ import {
   recordLines,
   slashDate,
   type PageNames,
+  type RetypedAmount,
 } from './transactionPage.js';
 
 /**
  * One transaction (TXN-6, MEM-5, UI-TXN-4 to UI-TXN-8): the signed amount,
  * who and when, a detail row per field in the order of the Add form that
  * opens the Add form's own sheet, the rule offer after a category change,
- * the Record and Delete. Each change is saved as it is made. "Paid from"
- * opens the account. Split and "Attach receipt" are left out (O12).
+ * the Record and Delete. Each change is saved as it is made. The account
+ * rows open the account sheet; an account in another currency asks for the
+ * amount first. Split and "Attach receipt" are left out (O12).
  */
 defineOptions({ name: 'TransactionScreen' });
 
 type SheetName =
+  | 'account'
+  | 'toAccount'
+  | 'accountAmount'
   | 'amount'
   | 'toAmount'
   | 'merchant'
@@ -97,6 +109,16 @@ const offerCategoryId = ref<number | null>(null);
 const savedRule = ref('');
 /** Remounts the envelope sheet's keypad after each saved amount. */
 const countsKey = ref(0);
+
+/** An account pick that waits for amounts in its currency. */
+interface AccountChange {
+  /** The change so far: the account id, then each amount typed. */
+  change: UpdateTransactionRequest;
+  /** The amounts still to type, the next one first. */
+  steps: { field: RetypedAmount; currency: Currency; amount: bigint }[];
+}
+const accountChange = ref<AccountChange | null>(null);
+const accountStep = computed(() => accountChange.value?.steps[0]);
 
 const id = computed(() => Number(route.params.id));
 const today = computed(() =>
@@ -219,11 +241,12 @@ const payers = computed(() => {
     : [...active, { id: current, name: payerName.value }];
 });
 
-const merchants = computed<MerchantOption[]>(() => {
+/** Maps known merchants to the sheet's rows with what their rule fills. */
+function toOptions(list: KnownMerchant[]): MerchantOption[] {
   const data = options.value;
   if (!data) return [];
   const byId = names.value;
-  return data.merchants.map((item) => {
+  return list.map((item) => {
     const match = matchRule(
       item.merchant,
       transaction.value?.accountId ?? null,
@@ -242,7 +265,12 @@ const merchants = computed<MerchantOption[]>(() => {
       : 'Used before';
     return { ...item, detail };
   });
-});
+}
+
+const merchants = computed(() => toOptions(options.value?.merchants ?? []));
+const recentMerchants = computed(() =>
+  toOptions(options.value?.recentMerchants ?? []),
+);
 
 const offerText = computed(() => {
   const merchant = transaction.value?.merchant;
@@ -266,6 +294,14 @@ const arrivesCurrency = computed<Currency | undefined>(() =>
     ? getCurrency(transaction.value.toCurrency, coins.value)
     : undefined,
 );
+/** The active accounts a sheet offers, without the other side's. */
+const pickableAccounts = computed<AddOptionsAccount[]>(() => {
+  const now = transaction.value;
+  const all = options.value?.accounts ?? [];
+  if (!now || now.kind !== 'transfer') return all;
+  const other = sheet.value === 'toAccount' ? now.accountId : now.toAccountId;
+  return all.filter((item) => item.id !== other);
+});
 const envelopeCurrency = computed<Currency | undefined>(() =>
   transaction.value?.envelopeCurrency
     ? getCurrency(transaction.value.envelopeCurrency, coins.value)
@@ -312,7 +348,10 @@ async function load(): Promise<void> {
     accounts.value = new Map(
       accountsAnswer.accounts.map((item) => [
         item.id,
-        { name: item.name, currency: item.currency },
+        {
+          name: accountOwnedName(item, addOptions.profileId),
+          currency: item.currency,
+        },
       ]),
     );
     categories.value = categoriesAnswer.categories;
@@ -362,6 +401,70 @@ async function save(change: UpdateTransactionRequest): Promise<boolean> {
 function openSheet(name: SheetName): void {
   actionError.value = '';
   sheet.value = name;
+}
+
+/**
+ * Saves a picked account at once, or first asks for the amounts its
+ * currency needs (amountsToRetype), each filled with the number now.
+ */
+async function pickAccount(
+  side: 'from' | 'to',
+  picked: AddOptionsAccount | null,
+): Promise<void> {
+  const now = transaction.value;
+  sheet.value = null;
+  if (!now || !picked) return;
+  if (picked.id === (side === 'from' ? now.accountId : now.toAccountId)) {
+    return;
+  }
+  const change: UpdateTransactionRequest =
+    side === 'from' ? { accountId: picked.id } : { toAccountId: picked.id };
+  const fields = amountsToRetype(now, side, picked.currency);
+  if (!fields.length) {
+    await save(change);
+    return;
+  }
+  const pickedCurrency = accountCurrency(picked);
+  const fromCurrency = side === 'from' ? pickedCurrency : amountCurrency.value;
+  const toCurrency = side === 'to' ? pickedCurrency : arrivesCurrency.value;
+  const steps: AccountChange['steps'] = [];
+  for (const field of fields) {
+    const currency = field === 'amount' ? fromCurrency : toCurrency;
+    const old =
+      field === 'amount' ? amountCurrency.value : arrivesCurrency.value;
+    if (!currency) return;
+    const value = BigInt(
+      field === 'amount' ? now.amount : (now.toAmount ?? now.amount),
+    );
+    steps.push({
+      field,
+      currency,
+      amount: old ? carryAmount(value, old.decimals, currency.decimals) : value,
+    });
+  }
+  accountChange.value = { change, steps };
+  openSheet('accountAmount');
+}
+
+/** Keeps a typed amount; the last one saves the account change. */
+async function saveAccountAmount(amount: bigint): Promise<void> {
+  const pending = accountChange.value;
+  const step = pending?.steps[0];
+  if (!pending || !step) return;
+  const change = { ...pending.change, [step.field]: amount.toString() };
+  const steps = pending.steps.slice(1);
+  if (steps.length) {
+    accountChange.value = { change, steps };
+    return;
+  }
+  // A refusal shows on the page; the stored transaction stays as it was.
+  await save(change);
+  closeAccountChange();
+}
+
+function closeAccountChange(): void {
+  sheet.value = null;
+  accountChange.value = null;
 }
 
 async function pickMerchant(merchant: string): Promise<void> {
@@ -558,27 +661,31 @@ onMounted(() => void load());
         <p v-if="actionError" class="error" role="alert">{{ actionError }}</p>
 
         <div class="card">
-          <RouterLink
-            class="field field-link"
+          <button
+            class="field"
             data-testid="detail-row"
-            :to="`/accounts/${transaction.accountId}`"
+            type="button"
+            aria-haspopup="dialog"
+            @click="openSheet('account')"
           >
             <span class="field-l">{{ words.fromLabel }}</span>
             <span class="field-v"
               >{{ account?.name }} · {{ account?.currency }}</span
             >
-          </RouterLink>
-          <RouterLink
+          </button>
+          <button
             v-if="transaction.kind === 'transfer' && transaction.toAccountId"
-            class="field field-link"
+            class="field"
             data-testid="detail-row"
-            :to="`/accounts/${transaction.toAccountId}`"
+            type="button"
+            aria-haspopup="dialog"
+            @click="openSheet('toAccount')"
           >
             <span class="field-l">To</span>
             <span class="field-v"
               >{{ toAccount?.name }} · {{ toAccount?.currency }}</span
             >
-          </RouterLink>
+          </button>
           <button
             v-if="transaction.kind === 'expense'"
             class="field"
@@ -721,9 +828,43 @@ onMounted(() => void load());
     </div>
 
     <template v-if="transaction && options">
+      <AccountPickerSheet
+        v-if="sheet === 'account'"
+        :accounts="pickableAccounts"
+        :selected-id="transaction.accountId"
+        :profile-id="options.profileId"
+        :title="words.fromSheet"
+        @pick="pickAccount('from', $event)"
+        @close="sheet = null"
+      />
+      <AccountPickerSheet
+        v-if="sheet === 'toAccount'"
+        :accounts="pickableAccounts"
+        :selected-id="transaction.toAccountId"
+        :profile-id="options.profileId"
+        title="Transfer to"
+        @pick="pickAccount('to', $event)"
+        @close="sheet = null"
+      />
+      <AmountSheet
+        v-if="sheet === 'accountAmount' && accountStep"
+        :key="accountStep.field"
+        :title="
+          accountStep.field === 'amount' ? 'Amount' : 'Amount that arrives'
+        "
+        :currency="accountStep.currency"
+        :amount="accountStep.amount"
+        :allow-negative="
+          transaction.kind === 'expense' && accountStep.field === 'amount'
+        "
+        :saving="saving"
+        @save="saveAccountAmount"
+        @close="closeAccountChange"
+      />
       <MerchantSheet
         v-if="sheet === 'merchant'"
         :merchants="merchants"
+        :recent="recentMerchants"
         :selected="transaction.merchant ?? ''"
         @pick="pickMerchant"
         @close="sheet = null"

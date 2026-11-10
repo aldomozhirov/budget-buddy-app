@@ -112,7 +112,7 @@ function records(page: Page, store: string): Promise<number> {
 /** Waits until Home has loaded and the page has stored the options. */
 async function homeStored(page: Page): Promise<void> {
   await expect(
-    page.getByRole('link', { name: /Family wealth/u }),
+    page.getByRole('link', { name: 'Wealth history' }),
   ).toBeVisible();
   await expect.poll(() => records(page, 'addOptions')).toBe(1);
 }

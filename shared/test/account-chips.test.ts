@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   accountChipLabels,
+  accountOwnedName,
   pickAccountChips,
   type ChipAccount,
 } from '../src/index.js';
@@ -82,5 +83,29 @@ describe('accountChipLabels', () => {
       'EUR',
     ).map((chip) => chip.label);
     expect(labels).toEqual(['cash €', 'Cash $']);
+  });
+});
+
+describe('accountOwnedName', () => {
+  it('puts the owner before another person’s account', () => {
+    const dkb = account(1, 'DKB', { ownerMemberId: 2, ownerName: 'Max' });
+    expect(accountOwnedName(dkb, 1)).toBe('Max · DKB');
+  });
+
+  it('keeps the bare name for the profile’s own account', () => {
+    expect(accountOwnedName(account(1, 'DKB'), 1)).toBe('DKB');
+  });
+
+  it('keeps the bare name for a shared account', () => {
+    const shared = account(1, 'Joint', {
+      ownerMemberId: null,
+      ownerName: null,
+    });
+    expect(accountOwnedName(shared, 1)).toBe('Joint');
+  });
+
+  it('keeps the bare name when the owner has no name', () => {
+    const odd = account(1, 'DKB', { ownerMemberId: 2, ownerName: null });
+    expect(accountOwnedName(odd, 1)).toBe('DKB');
   });
 });

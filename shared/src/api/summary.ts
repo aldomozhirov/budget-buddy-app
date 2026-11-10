@@ -124,9 +124,14 @@ export const wealthSeriesQuerySchema = z
     },
   );
 
-/** One closed check-in on the chart (SUM-4). */
+/**
+ * One point on the chart (SUM-4): a closed check-in, or the Start at the
+ * opening balances, which comes first and has no check-in.
+ */
 export const wealthPointSchema = z.object({
-  checkinId: idSchema,
+  /** Null for the Start point. */
+  checkinId: idSchema.nullable(),
+  /** The check-in's close, or the instant of the Start's opening balance. */
   closedAt: z.number().int(),
   date: dateSchema,
   /** Null when the point needs a rate that is missing. */
@@ -146,5 +151,5 @@ export const wealthSeriesSchema = z.object({
   incomplete: z.boolean(),
 });
 
-/** The chart series of closed check-ins. */
+/** The chart series: the Start point, then the closed check-ins. */
 export type WealthSeries = z.infer<typeof wealthSeriesSchema>;

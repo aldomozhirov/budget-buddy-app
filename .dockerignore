@@ -2,8 +2,10 @@
 .git
 .github
 .githooks
-.opencode
+.agents
 .claude
+.codex
+.opencode
 node_modules
 **/node_modules
 **/dist
@@ -18,7 +20,6 @@ backups
 .env.*
 !.env.example
 docs
-scripts/build-tasks
 opencode.json
 *.md
 !README.md

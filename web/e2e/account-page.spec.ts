@@ -555,9 +555,14 @@ test('saves a balance with an earlier date', async ({ page }) => {
   });
   await page.goto('/accounts/1');
   await page.getByRole('button', { name: 'Set balance' }).click();
-  await page.getByRole('button', { name: /Today · Change date/ }).click();
-  await page.getByLabel('Earlier date…').fill('2026-10-09');
-  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: 'Date: Today. Change' }).click();
+  await page
+    .getByRole('dialog', { name: 'Date' })
+    .getByRole('button', { name: '9 October 2026', exact: true })
+    .click();
+  await expect(
+    page.getByRole('button', { name: 'Date: Yesterday. Change' }),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Start from last' }).click();
   await page.getByRole('button', { name: 'Plus' }).click();
   await page.getByRole('button', { name: '1', exact: true }).click();
@@ -586,17 +591,23 @@ test('keeps an earlier balance date when the account stays open overnight', asyn
   });
   await page.goto('/accounts/1');
   await page.getByRole('button', { name: 'Set balance' }).click();
-  await page.getByRole('button', { name: /Today · Change date/ }).click();
-  await expect(page.getByLabel('Earlier date…')).toHaveValue('2026-10-08');
-
-  await page.clock.fastForward(2 * 60 * 1000);
-  await expect(page.getByLabel('Earlier date…')).toHaveAttribute(
-    'max',
-    '2026-10-09',
-  );
-  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: 'Date: Today. Change' }).click();
+  const calendar = page.getByRole('dialog', { name: 'Date' });
   await expect(
-    page.getByRole('button', { name: '08/10/2026 · Change date' }),
+    calendar.getByRole('button', { name: '8 October 2026', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  await expect(
+    calendar.getByRole('button', { name: '9 October 2026', exact: true }),
+  ).toBeDisabled();
+
+  // Past midnight the new day can be picked; the picked day stays.
+  await page.clock.fastForward(2 * 60 * 1000);
+  await expect(
+    calendar.getByRole('button', { name: '9 October 2026', exact: true }),
+  ).toBeEnabled();
+  await calendar.getByRole('button', { name: 'Close' }).click();
+  await expect(
+    page.getByRole('button', { name: 'Date: Yesterday. Change' }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Start from last' }).click();
   await page.getByRole('button', { name: 'Save balance' }).click();
@@ -621,7 +632,7 @@ test('sends the formerly-Today date explicitly after a midnight rollover', async
   await page.goto('/accounts/1');
   await page.getByRole('button', { name: 'Set balance' }).click();
   await expect(
-    page.getByRole('button', { name: 'Today · Change date' }),
+    page.getByRole('button', { name: 'Date: Today. Change' }),
   ).toBeVisible();
   await page.clock.fastForward(30_000);
   await page.getByRole('button', { name: 'Start from last' }).click();
@@ -638,8 +649,12 @@ test('opens Set balance with the new Today date after midnight', async ({
   await page.clock.fastForward(30_000);
 
   await page.getByRole('button', { name: 'Set balance' }).click();
-  await page.getByRole('button', { name: 'Today · Change date' }).click();
-  await expect(page.getByLabel('Earlier date…')).toHaveValue('2026-10-09');
+  await page.getByRole('button', { name: 'Date: Today. Change' }).click();
+  await expect(
+    page
+      .getByRole('dialog', { name: 'Date' })
+      .getByRole('button', { name: '9 October 2026', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('opens correction with the refreshed date limit after midnight', async ({
@@ -650,11 +665,16 @@ test('opens correction with the refreshed date limit after midnight', async ({
   await page.clock.fastForward(30_000);
 
   await page.getByRole('button', { name: /Opening · Alex/u }).click();
+  await page
+    .getByRole('dialog', { name: 'Correct balance' })
+    .getByRole('button', { name: /^Date: .*\. Change$/u })
+    .click();
 
-  await expect(page.locator('#correction-date')).toHaveAttribute(
-    'max',
-    '2026-10-09',
-  );
+  await expect(
+    page
+      .getByRole('dialog', { name: 'Date' })
+      .getByRole('button', { name: '9 October 2026', exact: true }),
+  ).toBeEnabled();
 });
 
 test('choosing Today after midnight omits the balance date from the request', async ({
@@ -676,12 +696,14 @@ test('choosing Today after midnight omits the balance date from the request', as
 
   await page.goto('/accounts/1');
   await page.getByRole('button', { name: 'Set balance' }).click();
-  await page.getByRole('button', { name: 'Today · Change date' }).click();
-  await expect(page.getByLabel('Earlier date…')).toHaveValue('2026-10-08');
+  await page.getByRole('button', { name: 'Date: Today. Change' }).click();
   await page.clock.fastForward(30_000);
-  await page.getByRole('button', { name: 'Today', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: 'Date' })
+    .getByRole('button', { name: 'Today', exact: true })
+    .click();
   await expect(
-    page.getByRole('button', { name: 'Today · Change date' }),
+    page.getByRole('button', { name: 'Date: Today. Change' }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Start from last' }).click();
   await page.getByRole('button', { name: 'Save balance' }).click();
@@ -689,29 +711,21 @@ test('choosing Today after midnight omits the balance date from the request', as
   await expect.poll(() => submittedBody).toEqual({ amount: '198630' });
 });
 
-test('returns to Today if the earlier date is cleared', async ({ page }) => {
-  await page.goto('/accounts/1');
-  await page.getByRole('button', { name: 'Set balance' }).click();
-  await page.getByRole('button', { name: /Today · Change date/ }).click();
-  await page.getByLabel('Earlier date…').fill('');
-  await page.getByRole('button', { name: 'Done' }).click();
-  await expect(
-    page.getByRole('button', { name: 'Today · Change date' }),
-  ).toBeVisible();
-});
-
 test('keeps the entered amount while choosing an earlier date', async ({
   page,
 }) => {
+  await page.clock.install({ time: new Date('2026-10-10T12:00:00.000Z') });
   await page.goto('/accounts/1');
   await page.getByRole('button', { name: 'Set balance' }).click();
   await page.getByRole('button', { name: 'Start from last' }).click();
   await page.getByRole('button', { name: 'Plus' }).click();
   for (const key of ['1', '2', '0'])
     await page.getByRole('button', { name: key, exact: true }).click();
-  await page.getByRole('button', { name: /Today · Change date/ }).click();
-  await page.getByLabel('Earlier date…').fill('2026-10-07');
-  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: 'Date: Today. Change' }).click();
+  await page
+    .getByRole('dialog', { name: 'Date' })
+    .getByRole('button', { name: '7 October 2026', exact: true })
+    .click();
 
   await expect(
     page.getByRole('group', { name: 'Account balance' }).getByText('€2,106.30'),
@@ -723,42 +737,35 @@ test('keeps the entered amount while choosing an earlier date', async ({
   ).toBeVisible();
 });
 
-test('keeps the date editor focusable without hidden amount controls', async ({
+test('keeps focus in the calendar, then returns it to the date', async ({
   page,
 }) => {
   await page.goto('/accounts/1');
   await page.getByRole('button', { name: 'Set balance' }).click();
-  await page.getByRole('button', { name: /Today · Change date/ }).click();
-
-  const dialog = page.getByRole('dialog', { name: 'Balance date' });
-  const dateInput = page.getByLabel('Earlier date…');
-  await expect(dateInput).toBeFocused();
-  await dialog.getByRole('button', { name: 'Close' }).focus();
-  await page.keyboard.press('Tab');
-  await expect(dialog.getByRole('button', { name: 'Today' })).toBeFocused();
-  await page.keyboard.press('Tab');
-  await expect(dateInput).toBeFocused();
-  await page.keyboard.press('Tab');
-  await expect(dialog.getByRole('button', { name: 'Done' })).toBeFocused();
-  await page.keyboard.press('Tab');
-  await expect(dialog.getByRole('button', { name: 'Close' })).toBeFocused();
-  await page.keyboard.press('Tab');
-  await expect(dialog.getByRole('button', { name: 'Today' })).toBeFocused();
-
-  await page.keyboard.press('Tab');
-  await expect(dateInput).toBeFocused();
-  await page.keyboard.press('Tab');
-  await expect(dialog.getByRole('button', { name: 'Done' })).toBeFocused();
+  const date = page.getByRole('button', { name: 'Date: Today. Change' });
+  await date.focus();
   await page.keyboard.press('Enter');
-  const dateChoice = page.getByRole('button', {
-    name: /Today · Change date/,
-  });
-  await expect(dateChoice).toBeFocused();
+
+  const calendar = page.getByRole('dialog', { name: 'Date' });
+  await expect(calendar).toBeVisible();
+  // Tab cycles inside the calendar, never into Set balance below it.
+  for (let step = 0; step < 6; step += 1) {
+    await page.keyboard.press('Tab');
+    expect(
+      await calendar.evaluate((element) =>
+        element.contains(document.activeElement),
+      ),
+    ).toBe(true);
+  }
+  await page.keyboard.press('Escape');
+  await expect(calendar).toHaveCount(0);
+  await expect(page.getByRole('dialog', { name: 'Set balance' })).toBeVisible();
+  await expect(date).toBeFocused();
   expect(
-    await dateChoice.evaluate((element) => element.matches(':focus-visible')),
+    await date.evaluate((element) => element.matches(':focus-visible')),
   ).toBe(true);
-  await expect(dateChoice).toHaveCSS('outline-style', 'solid');
-  await expect(dateChoice).toHaveCSS('outline-width', '2px');
+  await expect(date).toHaveCSS('outline-style', 'solid');
+  await expect(date).toHaveCSS('outline-width', '2px');
 });
 
 test('keeps a currency preview tied to its requested currency', async ({

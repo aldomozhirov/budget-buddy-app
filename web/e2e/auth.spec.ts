@@ -1,5 +1,6 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
+import { expectCapsLockIconKeepsShape } from './support/caps-lock';
 
 const profiles = [
   { id: 1, name: 'Alex' },
@@ -446,6 +447,20 @@ test('a failed sign-out keeps the current session and reports the error', async 
   );
   await expect(profileSheet).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Hi, Alex' })).toBeVisible();
+  await expectExternalRequests(page, testInfo);
+});
+
+test('the Caps Lock icon keeps its shape in the sign-in password field', async ({
+  page,
+}, testInfo) => {
+  await installApi(page, testInfo, { defaultMemberId: 1 });
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/sign-in$/);
+
+  await expectCapsLockIconKeepsShape(
+    page.getByRole('textbox', { name: 'Family password' }),
+    page.getByRole('button', { name: 'Show password' }),
+  );
   await expectExternalRequests(page, testInfo);
 });
 

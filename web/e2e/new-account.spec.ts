@@ -234,6 +234,74 @@ test('Add another opens an empty new-account form', async ({ page }) => {
   ).toHaveCount(0);
 });
 
+test('three accounts in a row with Add another need one Back to Accounts', async ({
+  page,
+}) => {
+  await page.goto(`${origin}/accounts`);
+  await page.getByRole('link', { name: 'New account' }).click();
+  await expect(page).toHaveURL(/\/accounts\/new$/u);
+  const formLength = await historyLength(page);
+
+  for (const [index, name] of ['First', 'Second', 'Third'].entries()) {
+    if (index > 0) {
+      await page
+        .getByRole('button', { name: 'Add another', exact: true })
+        .click();
+      await expect(page).toHaveURL(/\/accounts\/new$/u);
+      await expect(
+        newAccountScreen(page).getByRole('button', {
+          name: 'Back to accounts',
+        }),
+      ).toBeVisible();
+    }
+    const accountId = await createAccount(page, name);
+    await expect(page).toHaveURL(new RegExp(`/accounts/${accountId}$`, 'u'));
+    await expect(
+      page.getByRole('heading', { name: 'Account added' }),
+    ).toBeVisible();
+  }
+  // Each form and account page replaced the one before it.
+  expect(await historyLength(page)).toBe(formLength);
+
+  await page
+    .getByRole('main')
+    .filter({ hasText: 'Third' })
+    .getByRole('button', { name: 'Back to accounts' })
+    .click();
+  await expect(page).toHaveURL(/\/accounts$/u);
+  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+  for (const name of ['First', 'Second', 'Third']) {
+    await expect(
+      page.getByRole('link', { name: new RegExp(name, 'u') }),
+    ).toBeVisible();
+  }
+});
+
+test('Back on an empty form from Add another returns to Accounts', async ({
+  page,
+}) => {
+  await page.goto(`${origin}/accounts`);
+  await page.getByRole('link', { name: 'New account' }).click();
+  await createAccount(page, 'Before the empty form');
+  await page.getByRole('button', { name: 'Add another', exact: true }).click();
+  await expect(page).toHaveURL(/\/accounts\/new$/u);
+
+  await newAccountScreen(page)
+    .getByRole('button', { name: 'Back to accounts' })
+    .click();
+  await expect(page).toHaveURL(/\/accounts$/u);
+  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+
+  // The browser's Back, as the swipe-back gesture uses, does the same.
+  await page.getByRole('link', { name: 'New account' }).click();
+  await createAccount(page, 'Before the swipe');
+  await page.getByRole('button', { name: 'Add another', exact: true }).click();
+  await expect(page).toHaveURL(/\/accounts\/new$/u);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/accounts$/u);
+  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+});
+
 test('Home on the creation confirmation opens Home', async ({ page }) => {
   await page.goto(`${origin}/accounts/new`);
   const accountId = await createAccount(page, 'Home action');
@@ -241,10 +309,103 @@ test('Home on the creation confirmation opens Home', async ({ page }) => {
   await expect(
     page.getByRole('heading', { name: 'Account added' }),
   ).toBeVisible();
+  const length = await historyLength(page);
 
   await page.getByRole('button', { name: 'Home', exact: true }).click();
   await expect(page).toHaveURL(/\/$/u);
   await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+  // With no Home behind it, Home replaces the account page.
+  expect(await historyLength(page)).toBe(length);
+});
+
+test('Home on the creation confirmation goes back to Home without the account pages', async ({
+  page,
+}) => {
+  await page.goto(`${origin}/`);
+  await expect(page.getByRole('heading', { name: 'Hi, Alex' })).toBeVisible();
+  const homeLength = await historyLength(page);
+  await page.getByRole('link', { name: 'Accounts', exact: true }).click();
+  await page.getByRole('link', { name: 'New account' }).click();
+  await createAccount(page, 'First');
+  await page.getByRole('button', { name: 'Add another', exact: true }).click();
+  await createAccount(page, 'Second');
+
+  await page.getByRole('button', { name: 'Home', exact: true }).click();
+  await expect(page).toHaveURL(/\/$/u);
+  await expect(page.getByRole('heading', { name: 'Hi, Alex' })).toBeVisible();
+  // Home went back in history: no entry was added after the form opened,
+  // and Back from Home leaves the app instead of reopening an account.
+  expect(await historyLength(page)).toBe(homeLength + 2);
+  await page.goBack();
+  await expect(page).not.toHaveURL(new RegExp(`^${origin}/accounts`, 'u'));
+});
+
+test('Back after Add another returns to the check-in that opened the first form', async ({
+  page,
+}) => {
+  const api = page.context().request;
+  const blairsAccount = await api.post(`${origin}/api/accounts`, {
+    headers: { Origin: origin },
+    data: {
+      name: 'Blair’s account',
+      ownerMemberId: 2,
+      type: 'bank',
+      currency: 'EUR',
+      openingBalance: '9000',
+    },
+  });
+  expect(blairsAccount.status()).toBe(201);
+  const opened = await api.post(`${origin}/api/checkins`, {
+    headers: { Origin: origin },
+    data: {},
+  });
+  expect(opened.status()).toBe(201);
+  await page.goto(`${origin}/check-in`);
+  await page.getByRole('link', { name: 'Create an account' }).click();
+  await expect(
+    newAccountScreen(page).getByRole('button', { name: 'Back to check-in' }),
+  ).toBeVisible();
+
+  await createAccount(page, 'First');
+  await page.getByRole('button', { name: 'Add another', exact: true }).click();
+  await expect(
+    newAccountScreen(page).getByRole('button', { name: 'Back to check-in' }),
+  ).toBeVisible();
+  await createAccount(page, 'Second');
+  await page
+    .getByRole('main')
+    .filter({ hasText: 'Second' })
+    .getByRole('button', { name: 'Back to check-in' })
+    .click();
+  await expect(page).toHaveURL(/\/check-in$/u);
+});
+
+test('Home still goes back to Home after an account was deleted on the way', async ({
+  page,
+}) => {
+  await page.goto(`${origin}/`);
+  await expect(page.getByRole('heading', { name: 'Hi, Alex' })).toBeVisible();
+  await page.getByRole('link', { name: 'Accounts', exact: true }).click();
+  await page.getByRole('link', { name: 'New account' }).click();
+  await createAccount(page, 'Typo');
+  // Deleting the account replaces its page with Accounts.
+  await page
+    .getByRole('main')
+    .filter({ hasText: 'Typo' })
+    .getByRole('button', { name: 'Account settings' })
+    .click();
+  await page.getByRole('button', { name: 'Delete account' }).click();
+  await page
+    .getByRole('dialog', { name: 'Delete account?' })
+    .getByRole('button', { name: 'Delete account' })
+    .click();
+  await expect(page).toHaveURL(/\/accounts$/u);
+  await page.getByRole('link', { name: 'New account' }).click();
+  await createAccount(page, 'Checking');
+
+  await page.getByRole('button', { name: 'Home', exact: true }).click();
+  await expect(page).toHaveURL(`${origin}/`);
+  await expect(page.getByRole('heading', { name: 'Hi, Alex' })).toBeVisible();
 });
 
 test('the creation confirmation is one-time across reloads and later visits', async ({
@@ -572,6 +733,18 @@ function todayInTimeZone(timeZone: string): string {
   const part = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((item) => item.type === type)?.value;
   return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
+/** The New account screen, apart from a screen leaving during a transition. */
+function newAccountScreen(page: import('@playwright/test').Page) {
+  return page
+    .getByRole('main')
+    .filter({ has: page.getByRole('heading', { name: 'New account' }) });
+}
+
+/** The browser's history length, which a pushed screen grows. */
+function historyLength(page: import('@playwright/test').Page): Promise<number> {
+  return page.evaluate(() => history.length);
 }
 
 async function createAccount(

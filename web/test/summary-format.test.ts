@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { WealthSeries } from '@budget-buddy/shared';
 import {
   accountLabel,
+  chartPoints,
   createMoneyFormatter,
   missingRatesText,
   trendsFromSeries,
@@ -78,6 +79,75 @@ describe('trendsFromSeries', () => {
       null,
     ]);
   });
+
+  it('adds no row for the Start point and keeps the oldest check-in first', () => {
+    const withStart = series(['100', '150', '90']);
+    withStart.points = [
+      { checkinId: null, closedAt: -1, date: '2026-08-20', amount: '50' },
+      ...withStart.points,
+    ];
+    const trends = trendsFromSeries(withStart);
+    expect([...trends.keys()]).toEqual([1, 2, 3]);
+    expect([...trends.values()]).toEqual([
+      { total: '100', trend: 'first' },
+      { total: '150', trend: 'up' },
+      { total: '90', trend: 'down' },
+    ]);
+  });
+});
+
+describe('chartPoints', () => {
+  function withStart(amounts: (string | null)[]): WealthSeries {
+    const base = series(amounts.slice(1));
+    base.points = [
+      {
+        checkinId: null,
+        closedAt: -1,
+        date: '2026-08-20',
+        amount: amounts[0]!,
+      },
+      ...base.points,
+    ];
+    base.incomplete = amounts.includes(null);
+    return base;
+  }
+
+  it('marks the Start point at the opening balances', () => {
+    const points = chartPoints(
+      withStart(['50', '100', '150']),
+      formatter,
+      'UTC',
+    );
+    expect(points.map((point) => point.start)).toEqual([true, false, false]);
+    expect(points[0]).toMatchObject({
+      date: '20/08/2026',
+      tick: 'Aug 26',
+      value: 50n,
+      label: '€0.50',
+    });
+  });
+
+  it('draws a line from the Start and one check-in', () => {
+    expect(
+      chartPoints(withStart(['50', '100']), formatter, 'UTC'),
+    ).toHaveLength(2);
+  });
+
+  it('leaves out a Start that lacks a rate, so no check-in is taken for it', () => {
+    const points = chartPoints(
+      withStart([null, '100', '150']),
+      formatter,
+      'UTC',
+    );
+    expect(points.map((point) => point.value)).toEqual([100n, 150n]);
+    expect(points.map((point) => point.start)).toEqual([false, false]);
+  });
+
+  it('keeps one check-in as a plain point when the Start lacks a rate', () => {
+    const points = chartPoints(withStart([null, '100']), formatter, 'UTC');
+    expect(points).toHaveLength(1);
+    expect(points[0]?.start).toBe(false);
+  });
 });
 
 describe('trendText', () => {
@@ -122,6 +192,14 @@ describe('wealthChartSummary', () => {
     );
     expect(wealthChartSummary('EUR', [])).toBe(
       'EUR over 0 check-ins, from the first date to the latest date',
+    );
+  });
+
+  it('does not count the Start point at the opening balances', () => {
+    expect(
+      wealthChartSummary('All in EUR', ['20/08/2026', '02/09/2026'], true),
+    ).toBe(
+      'All in EUR from the opening balances over 1 check-in, from 20/08/2026 to 02/09/2026',
     );
   });
 });

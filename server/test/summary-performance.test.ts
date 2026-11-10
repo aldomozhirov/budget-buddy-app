@@ -15,7 +15,10 @@ let family: FamilyDatabase;
 let lastCheckin: number;
 let now: number;
 
-/** PRF-1 volume: 40 accounts, 120 monthly check-ins, ten years of daily rates. */
+/**
+ * PRF-1 volume: 40 accounts opened three days before the first of 120 monthly
+ * check-ins, and ten years of daily rates.
+ */
 beforeEach(async () => {
   family = await createFamilyDatabase();
   const { database } = family;
@@ -31,6 +34,14 @@ beforeEach(async () => {
         currency: currencies[index % currencies.length] ?? 'EUR',
       }),
     );
+    accounts.forEach((accountId, index) => {
+      family.snapshot({
+        accountId,
+        takenAt: firstClose - 3 * day,
+        amount: BigInt(90_000 + index * 1_000),
+        source: 'opening',
+      });
+    });
     for (let month = 0; month < checkinCount; month += 1) {
       // About one month apart, so 120 of them span ten years.
       const closedAt = firstClose + month * 30 * day;
@@ -87,7 +98,8 @@ it('computes a summary and the chart series in under 200 ms (PRF-1)', () => {
   for (const result of [dated, today, single]) {
     expect(result.status).toBe('ok');
     if (result.status === 'ok') {
-      expect(result.series.points).toHaveLength(checkinCount);
+      // The Start point at the opening balances, then every check-in.
+      expect(result.series.points).toHaveLength(checkinCount + 1);
       expect(result.series.incomplete).toBe(false);
     }
   }

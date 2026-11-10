@@ -1,0 +1,79 @@
+# Commands no agent runs in this repository (AGENTS.md, "Agent tooling").
+# The same list is in .claude/settings.json and .opencode/agents/build.md.
+# A Codex rule matches the start of a command, so a flag is caught only in
+# the position the rule names.
+
+FORCE_OR_DELETE = [
+    "--force",
+    "-f",
+    "--force-with-lease",
+    "--force-if-includes",
+    "--delete",
+    "-d",
+    "--mirror",
+    "--no-verify",
+]
+
+prefix_rule(
+    pattern = ["git", "push", FORCE_OR_DELETE],
+    decision = "forbidden",
+    justification = "Never force-push, delete a remote branch or skip hooks. Push your own branch with a plain git push.",
+    match = ["git push --force", "git push -f origin main", "git push --delete origin x"],
+    not_match = ["git push", "git push -u origin my-branch"],
+)
+
+prefix_rule(
+    pattern = ["git", "push", "origin", FORCE_OR_DELETE],
+    decision = "forbidden",
+    justification = "Never force-push, delete a remote branch or skip hooks. Push your own branch with a plain git push.",
+    match = ["git push origin --force", "git push origin -d my-branch"],
+    not_match = ["git push origin my-branch"],
+)
+
+prefix_rule(
+    pattern = ["git", "reset", "--hard"],
+    decision = "forbidden",
+    justification = "Destroys uncommitted work. Commit or ask the owner instead.",
+)
+
+prefix_rule(
+    pattern = ["git", "clean"],
+    decision = "forbidden",
+    justification = "Deletes untracked files. Remove only files you created, by name.",
+)
+
+prefix_rule(
+    pattern = ["git", "commit", ["--no-verify", "-n"]],
+    decision = "forbidden",
+    justification = "The pre-commit hook must run.",
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", "merge", "--admin"],
+    decision = "forbidden",
+    justification = "Never merge around the required check.",
+)
+
+prefix_rule(
+    pattern = [["sudo", "tailscale"]],
+    decision = "forbidden",
+    justification = "Agents do not run sudo or tailscale on this machine.",
+)
+
+prefix_rule(
+    pattern = ["docker", "system", "prune"],
+    decision = "forbidden",
+    justification = "Never prune; remove only the test containers you created.",
+)
+
+prefix_rule(
+    pattern = ["docker", "volume", ["rm", "prune"]],
+    decision = "forbidden",
+    justification = "Never remove Docker volumes; they may hold the app's data.",
+)
+
+prefix_rule(
+    pattern = ["docker", "compose", "down", ["-v", "--volumes"]],
+    decision = "forbidden",
+    justification = "Never docker compose down -v; it deletes volumes.",
+)

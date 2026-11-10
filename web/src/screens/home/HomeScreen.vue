@@ -4,7 +4,6 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import {
   currenciesResponseSchema,
-  formatDate,
   homeResponseSchema,
   type CoinSetting,
   type HomeResponse,
@@ -32,18 +31,13 @@ import LimitedHome from './LimitedHome.vue';
 import ProfileSheet from './ProfileSheet.vue';
 import { authState, setAuthState } from '../../stores/auth.js';
 import { monthName } from '../envelopes/envelopeFormat.js';
-import {
-  createMoneyFormatter,
-  directionClass,
-  directionOfMinor,
-} from '../summary/summaryFormat';
+import { createMoneyFormatter } from '../summary/summaryFormat';
 
 /**
  * Home: greeting, the eye button, the open check-in banner, the Income,
  * Transfer and Check-in tiles, the "Waiting to send" card (UI-HOME-8), this
- * month's envelopes card, "Needs a category", the Family wealth card, the
- * "Everything" grid and the sticky "Add expense" button (UI-HOME-1 to 6,
- * DSH-4, D2).
+ * month's envelopes card, "Needs a category", the "Everything" grid and the
+ * sticky "Add expense" button (UI-HOME-1 to 5, DSH-4, D2).
  * Amounts are hidden whenever the screen opens, unless this device's setting
  * says otherwise; the eye shows them for 30 s, counting the seconds down in
  * the note. Nothing here stores whether they are visible.
@@ -76,13 +70,12 @@ const secondsLeft = computed(() =>
 
 const formatter = computed(() => createMoneyFormatter(coins.value));
 const currency = computed(() => home.value?.commonCurrency ?? '');
-const wealth = computed(() => home.value?.wealth ?? null);
 const checkin = computed(() => home.value?.checkin ?? null);
-const lastCheckinDate = computed(() =>
-  wealth.value ? formatDate(wealth.value.lastCheckinDate, 'UTC') : '',
-);
+/** Wealth history opens the latest closed check-in, or Check-ins. */
 const summaryLink = computed(() =>
-  wealth.value ? `/check-ins/${wealth.value.checkinId}` : '/check-ins',
+  home.value?.lastClosedCheckinId
+    ? `/check-ins/${home.value.lastClosedCheckinId}`
+    : '/check-ins',
 );
 /**
  * The tile opens the open check-in, or Check-ins when none is open, where
@@ -117,7 +110,7 @@ const spentAmount = computed(() => {
     ? 'Rate missing'
     : formatter.value.money(spent, currency.value);
 });
-// The design draws four dots here, one fewer than the wealth card's five.
+// The design draws four dots here, one fewer than a full amount's five.
 const spentMask = computed(() =>
   formatter.value.masked(currency.value).replace(/ •$/u, ''),
 );
@@ -166,32 +159,6 @@ const bannerDetail = computed(() => {
   if (open.accountsLeft === 0) return `${opened} · you’re done`;
   const left = `${open.accountsLeft} of your accounts`;
   return `${opened} · ${left} ${open.scheduled ? 'to check' : 'left'}`;
-});
-
-const wealthSubline = computed(() => {
-  const data = wealth.value;
-  if (!data) return 'No check-in yet';
-  if (!visible.value) return `Hidden · last check-in ${lastCheckinDate.value}`;
-  if (data.change === null) return `Last check-in ${lastCheckinDate.value}`;
-  const since = `since check-in of ${lastCheckinDate.value}`;
-  return directionOfMinor(data.change) === 'unchanged'
-    ? `Unchanged ${since}`
-    : `${formatter.value.signed(data.change, currency.value)} ${since}`;
-});
-
-const wealthSublineClass = computed(() => {
-  const change = wealth.value?.change;
-  return visible.value && change != null
-    ? directionClass(directionOfMinor(change))
-    : '';
-});
-
-const wealthAmount = computed(() => {
-  const amount = wealth.value?.amount;
-  if (!visible.value) return '';
-  return amount == null
-    ? 'Rate missing'
-    : formatter.value.money(amount, currency.value);
 });
 
 /** `today`, `yesterday`, `on Saturday` within a week, else `over a week ago`. */
@@ -496,7 +463,7 @@ onBeforeUnmount(() => {
             v-for="row in envelopeRows"
             :key="row.envelope.id"
             class="home-envelope"
-            to="/envelopes"
+            :to="`/envelopes/${row.envelope.id}`"
           >
             <span class="home-envelope-head">
               <span class="home-envelope-name">{{ row.envelope.name }}</span>
@@ -522,31 +489,6 @@ onBeforeUnmount(() => {
           <BbIcon name="tag" :size="22" />
           <span class="home-needs-text">Needs a category</span>
           <span class="badge" aria-hidden="true">{{ needsCategory }}</span>
-          <BbIcon name="forward" :size="18" class="chev" />
-        </RouterLink>
-
-        <RouterLink class="home-wealth" :to="summaryLink">
-          <span class="home-wealth-text">
-            <span class="t-sub">Family wealth · {{ currency }}</span>
-            <template v-if="wealth">
-              <span
-                v-if="visible && wealth.amount === null"
-                class="num home-wealth-amount"
-              >
-                {{ wealthAmount }}
-              </span>
-              <BbAmount
-                v-else
-                class="home-wealth-amount"
-                :value="wealthAmount"
-                :visible="visible"
-                :masked-value="formatter.masked(currency)"
-              />
-            </template>
-            <span class="num t-sub" :class="wealthSublineClass">
-              {{ wealthSubline }}
-            </span>
-          </span>
           <BbIcon name="forward" :size="18" class="chev" />
         </RouterLink>
 
@@ -840,31 +782,5 @@ onBeforeUnmount(() => {
 .home-needs-text {
   flex: 1;
   font-weight: 500;
-}
-
-.home-wealth {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 44px;
-  padding: 16px;
-  border-radius: var(--r-card);
-  background: var(--surface);
-  color: var(--ink);
-  text-decoration: none;
-}
-
-.home-wealth-text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.home-wealth-amount {
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
 }
 </style>

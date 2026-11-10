@@ -424,6 +424,71 @@ describe('add options, merchants and suggestions API', () => {
     });
   });
 
+  describe('recent merchants', () => {
+    it('holds only merchants the profile entered, the family list stays whole', async () => {
+      const bank = await account('Bank', 'EUR');
+      const blair = await signInAsBlair();
+      await spend(bank, '2026-10-01', { merchant: 'Rewe' });
+      await spend(bank, '2026-10-02', { merchant: 'Kiosk' }, blair);
+      const forAlex = await addOptions();
+      expect(forAlex.recentMerchants).toEqual([
+        { merchant: 'Rewe', key: 'rewe' },
+      ]);
+      expect(forAlex.merchants.map((item) => item.key)).toEqual([
+        'kiosk',
+        'rewe',
+      ]);
+      const forBlair = await addOptions(blair);
+      expect(forBlair.recentMerchants).toEqual([
+        { merchant: 'Kiosk', key: 'kiosk' },
+      ]);
+      expect(forBlair.merchants).toHaveLength(2);
+    });
+
+    it('is newest first, one per key with this profile’s spelling, at most 6', async () => {
+      const bank = await account('Bank', 'EUR');
+      const blair = await signInAsBlair();
+      for (let day = 1; day <= 7; day += 1) {
+        await spend(bank, `2026-10-0${day}`, { merchant: `Shop ${day}` });
+      }
+      await spend(bank, '2026-10-08', { merchant: 'shop 3' });
+      await spend(bank, '2026-10-09', { merchant: 'SHOP 3' }, blair);
+      const { recentMerchants } = await addOptions();
+      expect(recentMerchants.map((item) => item.merchant)).toEqual([
+        'shop 3',
+        'Shop 7',
+        'Shop 6',
+        'Shop 5',
+        'Shop 4',
+        'Shop 2',
+      ]);
+    });
+
+    it('counts who entered the expense, not who paid', async () => {
+      const bank = await account('Bank', 'EUR');
+      const blair = await signInAsBlair();
+      await spend(bank, '2026-10-01', { merchant: 'Cafe', memberId: 2 });
+      expect((await addOptions()).recentMerchants.map((i) => i.key)).toEqual([
+        'cafe',
+      ]);
+      expect((await addOptions(blair)).recentMerchants).toEqual([]);
+    });
+
+    it('leaves drafts out', async () => {
+      const bank = await account('Bank', 'EUR');
+      database
+        .prepare(
+          `INSERT INTO txn (kind, status, date, account_id, amount, member_id,
+             merchant, merchant_key, created_by, created_at, updated_by,
+             updated_at)
+           VALUES ('expense', 'draft', '2026-10-14', ?, 100, 1, 'Ghost',
+             'ghost', 1, 0, 1, 0)`,
+        )
+        .run(bank);
+      expect((await addOptions()).recentMerchants).toEqual([]);
+    });
+  });
+
   describe('merchants', () => {
     it('gives the most recent spelling and the matching rule', async () => {
       const bank = await account('Bank', 'EUR');

@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { goToSignIn } from '../../session/lock.js';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import {
   accountResponseSchema,
   currenciesResponseSchema,
+  deleteAccountResponseSchema,
+  deleteSnapshotResponseSchema,
   formatChange,
   formatDate,
   formatMoney,
@@ -19,14 +21,18 @@ import {
   type ManagedMember,
   type Snapshot,
 } from '@budget-buddy/shared';
+import { ApiError, callApi } from '../../api/callApi.js';
 import BbAmountInput from '../../components/BbAmountInput.vue';
 import BbBackButton from '../../components/BbBackButton.vue';
 import BbButton from '../../components/BbButton.vue';
 import BbIcon from '../../components/BbIcon.vue';
 import BbSheet from '../../components/BbSheet.vue';
 import BbTag from '../../components/BbTag.vue';
+import DateSheet from '../add/DateSheet.vue';
+import { dayLabel } from '../add/addForm.js';
 import LineChart from '../../components/charts/LineChart.vue';
 import { useBack } from '../../composables/useBack.js';
+import { replaceScreen, returnHome } from '../../router/index.js';
 import { consumeAccountAddedNotice } from '../../stores/account-creation.js';
 import { setAuthState } from '../../stores/auth.js';
 
@@ -35,7 +41,6 @@ defineOptions({ name: 'AccountScreen' });
 
 type Sheet =
   | 'balance'
-  | 'balance-date'
   | 'correction'
   | 'settings'
   | 'deactivate'
@@ -82,8 +87,8 @@ const relabelPending = ref(false);
 const showAccountAdded = ref(false);
 const previewing = ref(false);
 const saving = ref(false);
-const balanceDateChoice = ref<HTMLButtonElement>();
-const balanceDateInput = ref<HTMLInputElement>();
+/** Which sheet's date the calendar, open over that sheet, is picking. */
+const datePicking = ref<'balance' | 'correction' | null>(null);
 
 const currency = computed(() =>
   getCurrency(account.value?.currency ?? currencyCode.value, coins.value),
@@ -236,6 +241,16 @@ async function load(): Promise<void> {
   }
 }
 
+/**
+ * The server's reason for a refused write, or `offline` when the server
+ * could not be reached at all.
+ */
+function refusalMessage(cause: unknown, offline: string): string {
+  return cause instanceof ApiError && cause.status !== 0
+    ? cause.message
+    : offline;
+}
+
 function copySettings(): void {
   if (!account.value) return;
   name.value = account.value.name;
@@ -271,33 +286,31 @@ function openBalance(): void {
   sheet.value = 'balance';
 }
 
-function openBalanceDate(): void {
-  refreshClock();
-  sheet.value = 'balance-date';
-  void nextTick(() => balanceDateInput.value?.focus());
+/** The day a snapshot was taken, in the family time zone. */
+function snapshotDate(snapshot: Snapshot): string {
+  return todayInTimeZone(new Date(snapshot.takenAt), timeZone.value);
 }
 
-function returnToBalance(): void {
+/**
+ * Opens the month calendar over Set balance or Correct balance; the sheet
+ * below stays open, so an amount typed there is kept.
+ */
+function openDatePicker(target: 'balance' | 'correction'): void {
   refreshClock();
-  if (!balanceDate.value || balanceDate.value > today.value) {
-    balanceDate.value = today.value;
-  }
-  sheet.value = 'balance';
-  void nextTick(() => balanceDateChoice.value?.focus());
+  datePicking.value = target;
 }
 
-function closeBalanceSheet(): void {
-  if (sheet.value === 'balance-date') {
-    returnToBalance();
-  } else {
-    sheet.value = null;
-  }
-}
-
-function chooseTodayForBalance(): void {
+/**
+ * Takes the calendar's pick. The day it showed as today means today, also
+ * when midnight passed while it was open.
+ */
+function pickDate(picked: string): void {
+  const shownToday = today.value;
   refreshClock();
-  balanceDate.value = today.value;
-  returnToBalance();
+  const date = picked === shownToday ? today.value : picked;
+  if (datePicking.value === 'balance') balanceDate.value = date;
+  if (datePicking.value === 'correction') correctionDate.value = date;
+  datePicking.value = null;
 }
 
 async function saveBalance(amount: bigint): Promise<void> {
@@ -340,20 +353,14 @@ async function saveBalance(amount: bigint): Promise<void> {
 async function openCorrection(snapshot: Snapshot): Promise<void> {
   refreshClock();
   selectedSnapshot.value = snapshot;
-  correctionDate.value = todayInTimeZone(
-    new Date(snapshot.takenAt),
-    timeZone.value,
-  );
+  correctionDate.value = snapshotDate(snapshot);
   actionError.value = '';
   sheet.value = 'correction';
 }
 
 async function saveCorrection(amount: bigint): Promise<void> {
   if (!selectedSnapshot.value || saving.value) return;
-  const originalDate = todayInTimeZone(
-    new Date(selectedSnapshot.value.takenAt),
-    timeZone.value,
-  );
+  const originalDate = snapshotDate(selectedSnapshot.value);
   saving.value = true;
   actionError.value = '';
   try {
@@ -390,18 +397,19 @@ async function deleteSnapshot(): Promise<void> {
   saving.value = true;
   actionError.value = '';
   try {
-    const response = await request(
+    await callApi(
+      'DELETE',
       `/api/snapshots/${selectedSnapshot.value.id}`,
-      { method: 'DELETE' },
+      deleteSnapshotResponseSchema,
     );
-    if (!response.ok)
-      throw new Error('Could not delete this balance. Try again.');
     sheet.value = null;
     selectedSnapshot.value = null;
     await load();
-  } catch {
-    actionError.value =
-      'Could not delete this balance. Check your connection and try again.';
+  } catch (cause) {
+    actionError.value = refusalMessage(
+      cause,
+      'Could not delete this balance. Check your connection and try again.',
+    );
   } finally {
     saving.value = false;
   }
@@ -545,17 +553,18 @@ async function setActive(active: boolean): Promise<void> {
   saving.value = true;
   actionError.value = '';
   try {
-    const response = await request(
+    const response = await callApi(
+      'POST',
       `/api/accounts/${accountId.value}/${active ? 'reactivate' : 'deactivate'}`,
-      { method: 'POST' },
+      accountResponseSchema,
     );
-    if (!response.ok)
-      throw new Error('Could not update this account. Try again.');
-    account.value = accountResponseSchema.parse(await response.json()).account;
+    account.value = response.account;
     sheet.value = null;
-  } catch {
-    actionError.value =
-      'Could not update this account. Check your connection and try again.';
+  } catch (cause) {
+    actionError.value = refusalMessage(
+      cause,
+      'Could not update this account. Check your connection and try again.',
+    );
   } finally {
     saving.value = false;
   }
@@ -566,15 +575,17 @@ async function deleteAccount(): Promise<void> {
   saving.value = true;
   actionError.value = '';
   try {
-    const response = await request(`/api/accounts/${accountId.value}`, {
-      method: 'DELETE',
-    });
-    if (!response.ok)
-      throw new Error('Could not delete this account. Try again.');
+    await callApi(
+      'DELETE',
+      `/api/accounts/${accountId.value}`,
+      deleteAccountResponseSchema,
+    );
     await router.replace('/accounts');
-  } catch {
-    actionError.value =
-      'Could not delete this account. Check your connection and try again.';
+  } catch (cause) {
+    actionError.value = refusalMessage(
+      cause,
+      'Could not delete this account. Check your connection and try again.',
+    );
   } finally {
     saving.value = false;
   }
@@ -590,12 +601,14 @@ function historyChange(index: number): string {
   );
 }
 
+// Replaces this page, so Back after any number of accounts returns to the
+// screen that opened the first form (UI-ACC-2).
 function addAnotherAccount(): void {
-  void router.push('/accounts/new');
+  void replaceScreen('/accounts/new');
 }
 
 function goHome(): void {
-  void router.push('/');
+  void returnHome();
 }
 </script>
 
@@ -735,62 +748,36 @@ function goHome(): void {
     </div>
 
     <BbSheet
-      v-if="(sheet === 'balance' || sheet === 'balance-date') && currency"
-      :title="sheet === 'balance' ? 'Set balance' : 'Balance date'"
-      @close="closeBalanceSheet"
+      v-if="sheet === 'balance' && currency"
+      title="Set balance"
+      @close="sheet = null"
     >
       <div class="account-sheet-body">
-        <div
-          v-show="sheet === 'balance'"
-          :aria-hidden="sheet === 'balance-date' ? 'true' : undefined"
-          :inert="sheet === 'balance-date'"
+        <button
+          class="meta"
+          :class="{ 'meta-set': balanceDate !== today }"
+          type="button"
+          :aria-label="`Date: ${dayLabel(balanceDate, today)}. Change`"
+          @click="openDatePicker('balance')"
         >
-          <button
-            ref="balanceDateChoice"
-            class="account-date-choice"
-            type="button"
-            @click="openBalanceDate"
-          >
-            {{
-              !balanceDate || balanceDate === today
-                ? 'Today'
-                : formatDate(balanceDate, timeZone)
-            }}
-            · Change date
-          </button>
-          <BbAmountInput
-            :currency="currency"
-            :allow-negative="true"
-            :last-amount="account ? BigInt(account.balance) : null"
-            :saving="saving"
-            label="Account balance"
-            save-label="Save balance"
-            needs-server
-            @save="saveBalance"
-          />
-          <p v-if="actionError" class="error" role="alert">
-            {{ actionError }}
-          </p>
-        </div>
-        <div v-if="sheet === 'balance-date'" class="account-date-editor">
-          <button
-            class="account-date-choice"
-            type="button"
-            @click="chooseTodayForBalance"
-          >
-            Today
-          </button>
-          <label class="lbl" for="balance-date">Earlier date…</label>
-          <input
-            id="balance-date"
-            ref="balanceDateInput"
-            v-model="balanceDate"
-            class="text"
-            type="date"
-            :max="today"
-          />
-          <BbButton @click="returnToBalance">Done</BbButton>
-        </div>
+          <span class="meta-l"><BbIcon name="calendar" :size="13" />Date</span>
+          <span class="meta-v"
+            >{{ dayLabel(balanceDate, today) }}<BbIcon name="down" :size="14"
+          /></span>
+        </button>
+        <BbAmountInput
+          :currency="currency"
+          :allow-negative="true"
+          :last-amount="account ? BigInt(account.balance) : null"
+          :saving="saving"
+          label="Account balance"
+          save-label="Save balance"
+          needs-server
+          @save="saveBalance"
+        />
+        <p v-if="actionError" class="error" role="alert">
+          {{ actionError }}
+        </p>
       </div>
     </BbSheet>
 
@@ -804,14 +791,21 @@ function goHome(): void {
           {{ sourceLabels[selectedSnapshot.source] }} ·
           {{ selectedSnapshot.updatedByName }}
         </p>
-        <label class="lbl" for="correction-date">Date</label>
-        <input
-          id="correction-date"
-          v-model="correctionDate"
-          class="text"
-          type="date"
-          :max="today"
-        />
+        <button
+          class="meta"
+          :class="{
+            'meta-set': correctionDate !== snapshotDate(selectedSnapshot),
+          }"
+          type="button"
+          :aria-label="`Date: ${dayLabel(correctionDate, today)}. Change`"
+          @click="openDatePicker('correction')"
+        >
+          <span class="meta-l"><BbIcon name="calendar" :size="13" />Date</span>
+          <span class="meta-v"
+            >{{ dayLabel(correctionDate, today)
+            }}<BbIcon name="down" :size="14"
+          /></span>
+        </button>
         <BbAmountInput
           :key="selectedSnapshot.id"
           :currency="currency"
@@ -836,6 +830,16 @@ function goHome(): void {
         <p v-if="actionError" class="error" role="alert">{{ actionError }}</p>
       </div>
     </BbSheet>
+    <DateSheet
+      v-if="
+        (datePicking === 'balance' && sheet === 'balance') ||
+        (datePicking === 'correction' && sheet === 'correction')
+      "
+      :date="datePicking === 'balance' ? balanceDate : correctionDate"
+      :today="today"
+      @pick="pickDate"
+      @close="datePicking = null"
+    />
 
     <BbSheet
       v-if="sheet === 'settings'"
@@ -843,8 +847,18 @@ function goHome(): void {
       @close="sheet = null"
     >
       <div class="account-sheet-body scroll">
-        <label class="lbl" for="account-name">Name</label>
-        <input id="account-name" v-model="name" class="text" />
+        <label class="lbl" for="account-label">Name</label>
+        <!-- iOS offers a saved username for a field whose id or name says
+             "name" or "user", even with autocomplete off. -->
+        <input
+          id="account-label"
+          v-model="name"
+          name="account-label"
+          class="text"
+          autocomplete="off"
+          autocapitalize="words"
+          spellcheck="false"
+        />
         <label class="lbl" for="account-owner">Owner</label>
         <select id="account-owner" v-model="ownerMemberId" class="text">
           <option :value="null">Shared</option>
@@ -1143,15 +1157,16 @@ function goHome(): void {
   flex-direction: column;
   gap: 12px;
   overflow-y: auto;
-  padding: 0 16px max(24px, var(--safe-area-bottom));
+  /* The sheet has the side gutter already; the 4px keeps focus rings,
+     drawn outside a field, from being clipped by this scroll box. */
+  margin: 0 -4px;
+  padding: 0 4px max(24px, var(--safe-area-bottom));
 }
-.account-date-choice {
-  min-height: 48px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-field);
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
+/* iOS sizes a native select by its longest option; keep every field and
+   button to the sheet's width instead. */
+.account-sheet-body > * {
+  min-width: 0;
+  max-width: 100%;
 }
 .account-sheet-body .lbl {
   margin-bottom: -8px;

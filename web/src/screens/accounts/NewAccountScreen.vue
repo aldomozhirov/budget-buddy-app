@@ -20,6 +20,8 @@ import BbChip from '../../components/BbChip.vue';
 import BbSegmented from '../../components/BbSegmented.vue';
 import BbSheet from '../../components/BbSheet.vue';
 import { useBack } from '../../composables/useBack.js';
+import DateSheet from '../add/DateSheet.vue';
+import { dayLabel } from '../add/addForm.js';
 import { markAccountCreated } from '../../stores/account-creation.js';
 import { authState, setAuthState } from '../../stores/auth.js';
 import { replaceScreen } from '../../router/index.js';
@@ -129,6 +131,11 @@ function selectCurrency(code: string): void {
   currencySearch.value = '';
 }
 
+function pickOpeningDate(date: string): void {
+  openingDate.value = date;
+  dateOpen.value = false;
+}
+
 async function saveAccount(): Promise<void> {
   nameError.value = '';
   error.value = '';
@@ -204,12 +211,17 @@ async function saveAccount(): Promise<void> {
       <p v-if="loading" role="status">Loading account options…</p>
       <template v-else>
         <div class="new-account-field">
-          <label class="lbl" for="account-name">Name</label>
+          <label class="lbl" for="account-label">Name</label>
+          <!-- iOS offers a saved username for a field whose id or name says
+               "name" or "user", even with autocomplete off. -->
           <input
-            id="account-name"
+            id="account-label"
             v-model="name"
+            name="account-label"
             class="text"
             autocomplete="off"
+            autocapitalize="words"
+            spellcheck="false"
             placeholder="e.g. ING Girokonto"
             :aria-invalid="Boolean(nameError)"
           />
@@ -308,11 +320,7 @@ async function saveAccount(): Promise<void> {
               aria-label="Opening balance date"
               @click="dateOpen = true"
             >
-              {{
-                openingDate === todayInTimeZone(new Date(), timeZone)
-                  ? 'Today'
-                  : openingDate
-              }}
+              {{ dayLabel(openingDate, todayInTimeZone(new Date(), timeZone)) }}
               ▾
             </button>
           </div>
@@ -374,23 +382,13 @@ async function saveAccount(): Promise<void> {
         "
       />
     </BbSheet>
-    <BbSheet
+    <DateSheet
       v-if="dateOpen"
-      title="Opening balance date"
+      :date="openingDate"
+      :today="todayInTimeZone(new Date(), timeZone)"
+      @pick="pickOpeningDate"
       @close="dateOpen = false"
-    >
-      <div class="new-account-date-sheet">
-        <label class="lbl" for="opening-date">Date</label>
-        <input
-          id="opening-date"
-          v-model="openingDate"
-          class="text"
-          type="date"
-          :max="todayInTimeZone(new Date(), timeZone)"
-        />
-        <BbButton @click="dateOpen = false">Done</BbButton>
-      </div>
-    </BbSheet>
+    />
   </main>
 </template>
 
@@ -477,11 +475,6 @@ async function saveAccount(): Promise<void> {
 .new-account-picker {
   max-height: 65vh;
   overflow-y: auto;
-  padding: 0 16px 24px;
-}
-.new-account-date-sheet {
-  display: grid;
-  gap: 12px;
   padding: 0 16px 24px;
 }
 .new-account-currency-row {

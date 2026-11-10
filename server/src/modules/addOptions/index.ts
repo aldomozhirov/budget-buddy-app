@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3';
 import type { FastifyPluginAsync } from 'fastify';
 import {
   addOptionsResponseSchema,
+  RECENT_MERCHANT_LIMIT,
   todayInTimeZone,
 } from '@budget-buddy/shared';
 import { systemClock, type Clock } from '../../clock.js';
@@ -103,6 +104,10 @@ export const addOptionsRoutes: FastifyPluginAsync<{
       merchants: knownMerchants(database, { limit: KNOWN_MERCHANT_LIMIT }).map(
         ({ merchant, key }) => ({ merchant, key }),
       ),
+      recentMerchants: knownMerchants(database, {
+        limit: RECENT_MERCHANT_LIMIT,
+        createdBy: memberId,
+      }).map(({ merchant, key }) => ({ merchant, key })),
       commonCurrency: family.cc,
       timeZone: family.tz,
     });

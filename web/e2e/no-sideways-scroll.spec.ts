@@ -260,10 +260,12 @@ test('accounts, check-ins and their sheets do not scroll sideways', async ({
       'Opening balance',
       'Opening balance date',
     ]) {
-      await checkSheet(
-        page,
-        name === 'Other currency or coin' ? 'Currency or coin' : name,
-        () => page.getByRole('button', { name, exact: true }).click(),
+      const sheets: Record<string, string> = {
+        'Other currency or coin': 'Currency or coin',
+        'Opening balance date': 'Date',
+      };
+      await checkSheet(page, sheets[name] ?? name, () =>
+        page.getByRole('button', { name, exact: true }).click(),
       );
     }
 
@@ -278,14 +280,23 @@ test('accounts, check-ins and their sheets do not scroll sideways', async ({
     await checkSheet(page, 'Set balance', () =>
       page.getByRole('button', { name: 'Set balance' }).click(),
     );
+    // The calendar opens over Set balance and Correct balance.
     await page.getByRole('button', { name: 'Set balance' }).click();
-    await checkSheet(page, 'Balance date', () =>
-      page.getByRole('button', { name: /Today · Change date/ }).click(),
+    await checkSheet(page, 'Date', () =>
+      page.getByRole('button', { name: 'Date: Today. Change' }).click(),
     );
     await page.keyboard.press('Escape');
     await checkSheet(page, 'Correct balance', () =>
       page.getByRole('button', { name: /Opening · / }).click(),
     );
+    await page.getByRole('button', { name: /Opening · / }).click();
+    await checkSheet(page, 'Date', () =>
+      page
+        .getByRole('dialog', { name: 'Correct balance' })
+        .getByRole('button', { name: /^Date: .*\. Change$/u })
+        .click(),
+    );
+    await page.keyboard.press('Escape');
     await checkSheet(page, 'Account settings', () =>
       page.getByRole('button', { name: 'Account settings' }).click(),
     );

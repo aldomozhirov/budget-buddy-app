@@ -430,9 +430,12 @@ async function dispatchTouch(
     clockedPages.add(page);
   }
   if (phase !== 'start') await page.clock.fastForward(elapsedMs);
+  const timeStamp =
+    (touchTimes.get(page) ?? 1000) + (phase === 'start' ? 0 : elapsedMs);
+  touchTimes.set(page, timeStamp);
 
   return target.evaluate(
-    (element, { phase, clientY, touchCount }) => {
+    (element, { phase, clientY, touchCount, timeStamp }) => {
       const type = `touch${phase}`;
       const points = Array.from({ length: touchCount }, (_, index) => ({
         identifier: index + 1,
@@ -442,6 +445,11 @@ async function dispatchTouch(
       }));
       const event = new Event(type, { bubbles: true, cancelable: true });
       Object.defineProperties(event, {
+        // The sheet times a flick with `timeStamp`, which the browser takes
+        // from the real clock and `page.clock` does not fake; it is set
+        // here, so the speed is what the test says and not how fast the
+        // test itself runs.
+        timeStamp: { value: timeStamp },
         touches: { value: phase === 'end' ? [] : points },
         changedTouches: {
           value:
@@ -453,7 +461,7 @@ async function dispatchTouch(
       element.dispatchEvent(event);
       return event.defaultPrevented;
     },
-    { phase, clientY, touchCount },
+    { phase, clientY, touchCount, timeStamp },
   );
 }
 
@@ -464,3 +472,5 @@ async function tapScrim(page: Page, sheet: Locator): Promise<void> {
 }
 
 const clockedPages = new WeakSet<Page>();
+/** Each page's touch time in ms, moved by `elapsedMs` like its clock. */
+const touchTimes = new WeakMap<Page, number>();

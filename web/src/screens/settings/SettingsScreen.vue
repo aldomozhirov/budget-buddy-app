@@ -41,6 +41,9 @@ import FollowUpSheet from './FollowUpSheet.vue';
 import ScheduleSheet from './ScheduleSheet.vue';
 import NotificationsSheet from './NotificationsSheet.vue';
 import TimeZoneSheet from './TimeZoneSheet.vue';
+import FeedbackSheet from './FeedbackSheet.vue';
+import BbToast from '../../components/BbToast.vue';
+import BbIcon from '../../components/BbIcon.vue';
 import { describeBackupRow } from './backupFormat.js';
 import { formatUpdated } from './ratesFormat.js';
 import { deviceName } from '../../device.js';
@@ -107,6 +110,16 @@ const ratesSheetOpen = ref(false);
 const backupStatus = ref<BackupStatusResponse | null>(null);
 const backupUnavailable = ref(false);
 const backupSheetOpen = ref(false);
+const feedbackSheetOpen = ref(false);
+const toastMessage = ref('');
+
+function feedbackSent(result: 'sent' | 'saved'): void {
+  feedbackSheetOpen.value = false;
+  toastMessage.value =
+    result === 'sent'
+      ? 'Thanks! Your feedback is sent.'
+      : 'Saved. It sends itself when you’re back online.';
+}
 const backupRow = computed(() =>
   backupStatus.value ? describeBackupRow(backupStatus.value) : null,
 );
@@ -916,6 +929,25 @@ async function readApiError(response: Response): Promise<{
         </BbListCard>
       </section>
 
+      <section class="settings-section" aria-labelledby="settings-help-heading">
+        <h2 id="settings-help-heading" class="h">Help</h2>
+        <BbListCard>
+          <BbRow
+            interactive
+            aria-haspopup="dialog"
+            subtitle="Report a problem or suggest an idea"
+            @click="feedbackSheetOpen = true"
+          >
+            <template #title>
+              <span class="settings-row-title">Send feedback</span>
+            </template>
+            <template #trailing>
+              <BbIcon name="forward" :size="16" class="chev" />
+            </template>
+          </BbRow>
+        </BbListCard>
+      </section>
+
       <p v-if="screenError" class="error settings-screen-error" role="alert">
         {{ screenError }}
         <button class="text-btn" type="button" @click="loadMembers">
@@ -1107,6 +1139,17 @@ async function readApiError(response: Response): Promise<{
       :time-zone="timeZone"
       @saved="saveSchedule"
       @close="scheduleSheetOpen = false"
+    />
+    <FeedbackSheet
+      v-if="feedbackSheetOpen"
+      @sent="feedbackSent"
+      @close="feedbackSheetOpen = false"
+    />
+    <BbToast
+      v-if="toastMessage"
+      :key="toastMessage"
+      :message="toastMessage"
+      @done="toastMessage = ''"
     />
     <SignOutQuestion
       v-if="askUnsent"

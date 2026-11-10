@@ -71,6 +71,8 @@ try {
     events,
     appOrigins: config.appOrigins,
     backupDir: config.backupDir,
+    feedbackDir: config.feedbackDir,
+    appCommit: config.appCommit,
     secureCookies: config.nodeEnv !== 'development',
     rates,
     push: {

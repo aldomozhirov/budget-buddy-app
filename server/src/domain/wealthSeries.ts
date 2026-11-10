@@ -21,10 +21,14 @@ export type WealthSeriesResult =
 
 /**
  * Computes one point per closed check-in, oldest first, from stored data
- * (SUM-1). All balances come from one batched query. In the equivalent view
- * each currency total is converted at its point's rates, or with `today` at
- * the latest stored rates for every point, and a point that lacks a rate is
- * `null`. A single currency needs no rates.
+ * (SUM-1), after a Start point at the opening balances (SUM-4). The Start is
+ * the instant of the latest opening balance taken before the first closed
+ * check-in; there is none without such a balance, or when it falls on the
+ * first check-in's day in the family's time zone. All balances come from one
+ * batched query. In the equivalent view each currency total is converted at
+ * its point's rates, or with `today` at the latest stored rates for every
+ * point, and a point that lacks a rate is `null`. A single currency needs no
+ * rates.
  * @throws {Error} if the family is not set up or an account has an unknown
  * currency.
  */
@@ -55,13 +59,23 @@ export function getWealthSeries(
     return { status: 'unknown_currency' };
   }
 
+  const first = checkins[0];
+  const startAt =
+    first === undefined ? undefined : openingBefore(database, first.closedAt);
+  const entries: { id: number | null; closedAt: number }[] =
+    first !== undefined &&
+    startAt !== undefined &&
+    valuation.dateOf(startAt) !== valuation.dateOf(first.closedAt)
+      ? [{ id: null, closedAt: startAt }, ...checkins]
+      : checkins;
+
   const totals = currencyTotalsAt(
     database,
-    checkins.map((checkin) => checkin.closedAt),
+    entries.map((entry) => entry.closedAt),
   );
   const latestDate = valuation.dateOf(options.now);
   let incomplete = false;
-  const points = checkins.map(({ id, closedAt }, index) => {
+  const points = entries.map(({ id, closedAt }, index) => {
     const date = valuation.dateOf(closedAt);
     const byCurrency = totals[index] ?? new Map<string, bigint>();
     let amount: bigint | null = 0n;
@@ -98,4 +112,18 @@ export function getWealthSeries(
       incomplete,
     },
   };
+}
+
+/** The latest opening balance's instant before `before`, if there is one. */
+function openingBefore(
+  database: Database.Database,
+  before: number,
+): number | undefined {
+  const row = database
+    .prepare(
+      `SELECT MAX(taken_at) AS taken_at FROM snapshot
+       WHERE source = 'opening' AND taken_at < ?`,
+    )
+    .get(before) as { taken_at: bigint | null };
+  return row.taken_at === null ? undefined : Number(row.taken_at);
 }

@@ -90,6 +90,9 @@ export function trendsFromSeries(
   >();
   let previous: string | null | undefined;
   for (const point of series.points) {
+    // The Start point at the opening balances is no check-in: it adds no row
+    // and leaves the oldest check-in `first`.
+    if (point.checkinId === null) continue;
     let trend: CheckinTrend = null;
     if (previous === undefined) trend = 'first';
     else if (previous !== null && point.amount !== null) {
@@ -115,12 +118,21 @@ export function trendText(trend: CheckinTrend): string {
   return '';
 }
 
-/** The points of the chart, leaving out those that lack a rate. */
+/**
+ * The points of the chart, leaving out those that lack a rate. `start` marks
+ * the Start point at the opening balances.
+ */
 export function chartPoints(
   series: WealthSeries,
   formatter: MoneyFormatter,
   timeZone: string,
-): { date: string; tick: string; value: bigint; label: string }[] {
+): {
+  date: string;
+  tick: string;
+  value: bigint;
+  label: string;
+  start: boolean;
+}[] {
   return series.points.flatMap((point) => {
     if (point.amount === null) return [];
     return [
@@ -133,6 +145,7 @@ export function chartPoints(
         }).format(new Date(`${point.date}T12:00:00Z`)),
         value: parseMinor(point.amount),
         label: formatter.money(point.amount, series.currency),
+        start: point.checkinId === null,
       },
     ];
   });
@@ -158,14 +171,19 @@ export function missingRatesText(
 /**
  * The screen-reader summary of the wealth chart: `All in EUR over 1 check-in,
  * from 02/09/2026 to 02/09/2026`; `check-in` is singular for one point.
+ * With `fromOpening`, the first date is the Start at the opening balances,
+ * which is not a check-in: `All in EUR from the opening balances over 1
+ * check-in, from 20/08/2026 to 02/09/2026`.
  */
 export function wealthChartSummary(
   name: string,
   dates: readonly string[],
+  fromOpening = false,
 ): string {
-  const count = dates.length;
+  const count = dates.length - (fromOpening ? 1 : 0);
   const noun = count === 1 ? 'check-in' : 'check-ins';
-  return `${name} over ${count} ${noun}, from ${dates[0] ?? 'the first date'} to ${dates.at(-1) ?? 'the latest date'}`;
+  const start = fromOpening ? ' from the opening balances' : '';
+  return `${name}${start} over ${count} ${noun}, from ${dates[0] ?? 'the first date'} to ${dates.at(-1) ?? 'the latest date'}`;
 }
 
 /** Names accounts as `Sofia’s Cash €`, or just the name when it is shared. */

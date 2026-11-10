@@ -735,6 +735,13 @@ body,
   border: 0;
 }
 
+/* Each open sheet is its own layer, so a sheet opened over another dims it
+   with its own scrim instead of sliding under the sheet below. */
+.bb.sheet-layer {
+  position: relative;
+  z-index: 100;
+}
+
 .bb .scrim {
   appearance: none;
   z-index: 100;
@@ -780,6 +787,15 @@ body,
   .bb .components-content {
     padding-inline: 0;
   }
+}
+
+/* A double tap on the amount pastes (UI-AMT-5); the pointer makes iOS
+   deliver each tap as a click. */
+.bb .amount-entry-display.can-paste {
+  cursor: pointer;
+  /* A double tap pastes; it must not select the amount's text. */
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* The line under the amount in a sheet, e.g. what an envelope has left. */

@@ -2,7 +2,9 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import {
+  accountOwnedName,
   accountsResponseSchema,
+  addOptionsResponseSchema,
   categoriesResponseSchema,
   currenciesResponseSchema,
   envelopesResponseSchema,
@@ -48,6 +50,8 @@ const categories = ref<Category[]>([]);
 const rules = ref<Rule[]>([]);
 const envelopes = ref<Envelope[]>([]);
 const accounts = ref<Account[]>([]);
+/** The signed-in profile, to name other people's accounts. */
+const profileId = ref(0);
 const coins = ref<CoinSetting[]>([]);
 const loading = ref(true);
 const error = ref('');
@@ -67,7 +71,13 @@ const envelopeName = computed(
   () => new Map(envelopes.value.map((item) => [item.id, item.name])),
 );
 const accountName = computed(
-  () => new Map(accounts.value.map((item) => [item.id, item.name])),
+  () =>
+    new Map(
+      accounts.value.map((item) => [
+        item.id,
+        accountOwnedName(item, profileId.value),
+      ]),
+    ),
 );
 const shown = computed(() =>
   categories.value.filter((item) => item.kind === tab.value && !item.archived),
@@ -89,20 +99,29 @@ async function load(first = false): Promise<void> {
   if (first) loading.value = true;
   error.value = '';
   try {
-    const [categoryData, ruleData, active, archivedData, accountData, money] =
-      await Promise.all([
-        callApi('GET', '/api/categories', categoriesResponseSchema),
-        callApi('GET', '/api/rules', rulesResponseSchema),
-        callApi('GET', '/api/envelopes', envelopesResponseSchema),
-        callApi('GET', '/api/envelopes?archived=true', envelopesResponseSchema),
-        callApi('GET', '/api/accounts?inactive=true', accountsResponseSchema),
-        callApi('GET', '/api/currencies', currenciesResponseSchema),
-      ]);
+    const [
+      categoryData,
+      ruleData,
+      active,
+      archivedData,
+      accountData,
+      money,
+      addOptions,
+    ] = await Promise.all([
+      callApi('GET', '/api/categories', categoriesResponseSchema),
+      callApi('GET', '/api/rules', rulesResponseSchema),
+      callApi('GET', '/api/envelopes', envelopesResponseSchema),
+      callApi('GET', '/api/envelopes?archived=true', envelopesResponseSchema),
+      callApi('GET', '/api/accounts?inactive=true', accountsResponseSchema),
+      callApi('GET', '/api/currencies', currenciesResponseSchema),
+      callApi('GET', '/api/add-options', addOptionsResponseSchema),
+    ]);
     categories.value = categoryData.categories;
     rules.value = ruleData.rules;
     envelopes.value = [...active.envelopes, ...archivedData.envelopes];
     accounts.value = accountData.accounts;
     coins.value = money.coins;
+    profileId.value = addOptions.profileId;
   } catch (cause) {
     error.value =
       cause instanceof ApiError && cause.status !== 0
@@ -323,6 +342,7 @@ async function moveUp(rule: Rule): Promise<void> {
       :categories="categories"
       :envelopes="envelopes"
       :accounts="accounts"
+      :profile-id="profileId"
       :coins="coins"
       @saved="load()"
       @deleted="load()"

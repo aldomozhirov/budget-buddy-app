@@ -30,6 +30,9 @@ a{color:inherit}a:hover{color:inherit}
 .bb .knob{position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:14px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)}
 .bb .knob-on{left:22px}
 .bb .seg{flex:1;height:36px;border-radius:10px;font-size:14px;font-weight:500;color:var(--muted);text-align:center}
+.bb .fb-area{width:100%;box-sizing:border-box;min-height:140px;border-radius:14px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:16px;line-height:1.45;padding:12px;outline:none;resize:none}
+.bb .fb-area:focus{border-color:var(--ink)}
+.bb .fb-area::placeholder{color:var(--muted)}
 .bb .seg-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
 .bb .chip{height:40px;min-width:44px;padding:0 12px;border-radius:20px;background:var(--bg);border:1px solid var(--line);font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:center;white-space:nowrap}
 .bb .chip-on{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
@@ -140,6 +143,12 @@ a{color:inherit}a:hover{color:inherit}
 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5"></path><path d="M5 20h14"></path></svg>
 </button>
 </div>
+<h2 class="h">Help</h2>
+<div class="card">
+<button class="row row-last" onClick="{{openFb}}" aria-haspopup="dialog"><span class="row-l"><span style="font-weight: 500">Send feedback</span><span style="font-size: 13px; color: var(--muted)">Report a problem or suggest an idea</span></span>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+</button>
+</div>
 <p style="margin: 14px 4px 0; font-size: 12px; color: var(--muted)">Budget Buddy · runs on your Mac mini · only reachable in your Tailscale network</p>
 </div>
 
@@ -223,13 +232,56 @@ a{color:inherit}a:hover{color:inherit}
 </div>
 </sc-if>
 
+<sc-if value="{{fbOpen}}" hint-placeholder-val="{{ false }}">
+<div onClick="{{closeFb}}" style="position: absolute; inset: 0; background: var(--scrim)"></div>
+<div role="dialog" aria-label="Send feedback" style="position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 24px 24px 0 0; padding: 10px 16px 30px; display: flex; flex-direction: column; gap: 12px">
+<div aria-hidden="true" style="align-self: center; width: 36px; height: 5px; border-radius: 3px; background: var(--line)"></div>
+<div style="display: flex; align-items: center; gap: 12px">
+<h2 style="flex: 1; margin: 0; font-size: 18px; font-weight: 600">Send feedback</h2>
+<button onClick="{{closeFb}}" aria-label="Close" style="width: 44px; height: 44px; border-radius: 22px; background: var(--bg); display: flex; align-items: center; justify-content: center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+</div>
+<div role="radiogroup" aria-label="Kind of feedback" style="display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--soft)">
+<sc-for list="{{fbKinds}}" as="k" hint-placeholder-count="2">
+<button role="radio" aria-checked="{{k.on}}" class="{{k.cls}}" onClick="{{k.pick}}">{{k.label}}</button>
+</sc-for>
+</div>
+<textarea id="fb-text" aria-label="Your feedback" class="fb-area" placeholder="{{fbPlaceholder}}" value="{{fbText}}" onChange="{{onFbText}}"></textarea>
+<div style="display: flex; align-items: center; gap: 10px; min-height: 44px">
+<span style="flex: 1; font-size: 13px; color: var(--muted)">App version, device and screen are sent with it. Never amounts or names.</span>
+<sc-if value="{{fbNoShot}}" hint-placeholder-val="{{ true }}">
+<button onClick="{{fbAddShot}}" aria-label="Add a screenshot" style="width: 44px; height: 44px; border-radius: 22px; background: var(--bg); color: var(--accent); display: flex; align-items: center; justify-content: center; flex: none">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M21 16l-5-5-8 8"></path></svg>
+</button>
+</sc-if>
+<sc-if value="{{fbShot}}" hint-placeholder-val="{{ false }}">
+<button onClick="{{fbRemoveShot}}" aria-label="Remove the screenshot" style="height: 36px; padding: 0 8px 0 12px; border-radius: 18px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; flex: none">Screenshot
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+</sc-if>
+</div>
+<button onClick="{{fbSend}}" disabled="{{fbCant}}" style="height: 56px; border-radius: 18px; background: {{fbBg}}; color: {{fbFg}}; font-weight: 600; font-size: 16px; text-align: center">Send</button>
+</div>
+</sc-if>
+
+<sc-if value="{{fbSent}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="position: absolute; left: 16px; right: 16px; bottom: 34px; display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px; background: var(--ink); color: var(--on-ink); font-size: 14px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+<span style="flex: 1">Thanks! Your feedback is sent.</span>
+</div>
+</sc-if>
+
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"sheet":{"editor":"enum","options":["none","schedule"],"default":"none"},"$preview":{"width":390,"height":844}}'>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"sheet":{"editor":"enum","options":["none","schedule"],"default":"none"},"feedback":{"editor":"enum","options":["none","open","filled","sent"],"default":"none"},"$preview":{"width":390,"height":844}}'>
 class Component extends DCLogic {
   constructor(props) {
     super(props);
     this.state = { sheet: props.sheet === 'schedule' ? 'schedule' : null, mode: 'monthly', day: 5, every: 4, weekday: 6, time: '09:00', reminder: 2, push: false, pushPrompt: false, hideHome: true, faceId: true, pwOpen: false, pwCur: '', pwNew: '', pwChanged: false };
+    var fb = props.feedback || 'none';
+    Object.assign(this.state, { fb: fb === 'open' || fb === 'filled', fbKind: 'bug', fbShot: fb === 'filled', fbSent: fb === 'sent',
+      fbText: fb === 'filled' ? 'Saving an expense from Revolut USD showed “Something went wrong”, but it was saved anyway, so I added it twice.' : '' });
   }
   renderVals() {
     var self = this;
@@ -265,7 +317,20 @@ class Component extends DCLogic {
       return { label: t, on: on, cls: on ? 'chip chip-on' : 'chip', pick: function () { self.setState({ time: t }); } };
     });
     var REM = [1, 2, 3, 7, 0];
-    return {
+    var fbOk = this.state.fbText.trim().length >= 3;
+    var fbVals = {
+      openFb: function () { self.setState({ fb: true, fbSent: false }); },
+      closeFb: function () { self.setState({ fb: false }); },
+      fbOpen: this.state.fb, fbSent: this.state.fbSent,
+      fbKinds: [['bug', 'Something’s wrong'], ['idea', 'An idea']].map(function (k) { var on = self.state.fbKind === k[0]; return { label: k[1], on: on, cls: on ? 'seg seg-on' : 'seg', pick: function () { self.setState({ fbKind: k[0] }); } }; }),
+      fbPlaceholder: this.state.fbKind === 'bug' ? 'What happened, and what did you expect?' : 'What would make Budget Buddy better?',
+      fbText: this.state.fbText, onFbText: function (e) { self.setState({ fbText: e.target.value }); },
+      fbNoShot: !this.state.fbShot, fbShot: this.state.fbShot,
+      fbAddShot: function () { self.setState({ fbShot: true }); }, fbRemoveShot: function () { self.setState({ fbShot: false }); },
+      fbCant: !fbOk, fbBg: fbOk ? 'var(--ink)' : 'var(--soft)', fbFg: fbOk ? 'var(--on-ink)' : 'var(--muted)',
+      fbSend: function () { if (fbOk) self.setState({ fb: false, fbSent: true, fbText: '', fbShot: false }); }
+    };
+    return Object.assign(fbVals, {
       themeClass: (this.props.dark ? 'bb-dark' : 'bb-light') + ' ' + (function () { try { return sessionStorage.getItem('bb-nav') === 'back' ? 'nav-back' : 'nav-fwd'; } catch (e) { return 'nav-fwd'; } })(),
       navCapture: function (e) {
         var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
@@ -304,7 +369,7 @@ class Component extends DCLogic {
       pwFg: st.pwCur && st.pwNew.length >= 10 ? 'var(--on-ink)' : 'var(--muted)',
       savePw: function () { if (self.state.pwCur && self.state.pwNew.length >= 10) self.setState({ pwOpen: false, pwChanged: true }); },
       pwHint: st.pwChanged ? 'Changed just now · other devices signed out' : 'One password for everyone'
-    };
+    });
   }
 }
 </script>
