@@ -262,13 +262,13 @@ test('an account in another currency asks for the amount in it first', async ({
     await typeAmount(amount, '70');
     await amount.getByRole('button', { name: 'Save' }).click();
     await expect(amount).toHaveCount(0);
-    await expect(row).toContainText('Wise $ · USD');
+    await expect(row).toContainText('Max · Wise $ · USD');
     await expect(
       page.getByRole('button', { name: 'Change amount' }),
     ).toHaveText('−$70.00');
     for (const text of [
       'Amount changed to $70.00 by Alena',
-      'Account changed to Wise $ by Alena',
+      'Account changed to Max · Wise $ by Alena',
     ]) {
       await expect(page.getByText(text, { exact: true })).toBeVisible();
     }
@@ -324,12 +324,14 @@ test('income and transfers open the account sheet; a transfer’s To is changed'
       .click();
     await typeAmount(arrives, '218.6');
     await arrives.getByRole('button', { name: 'Save' }).click();
-    await expect(toRow).toContainText('Wise $ · USD');
+    await expect(toRow).toContainText('Max · Wise $ · USD');
     await expect(page.getByRole('button', { name: /^Arrives/ })).toContainText(
       '$218.60',
     );
     await expect(
-      page.getByText('To account changed to Wise $ by Alena', { exact: true }),
+      page.getByText('To account changed to Max · Wise $ by Alena', {
+        exact: true,
+      }),
     ).toBeVisible();
 
     // Back to one currency: saved at once, and no second amount.
@@ -822,5 +824,163 @@ test('the merchant sheet on the transaction page has no Recent group without own
     const sheet = page.getByRole('dialog', { name: 'Merchant' });
     await expect(sheet.getByLabel('Search or type a merchant')).toBeVisible();
     await expect(sheet.getByRole('heading', { name: 'Recent' })).toHaveCount(0);
+  });
+});
+
+/** Alena (signed in) and Max, each with a DKB, plus a shared account. */
+async function seedOwnedNames(family: Family): Promise<Record<string, number>> {
+  const ids: Record<string, number> = {
+    Alena: 1,
+    Max: await create(family, '/api/members', { name: 'Max' }),
+  };
+  const open = (
+    key: string,
+    name: string,
+    ownerMemberId: number | null,
+  ): Promise<number> =>
+    create(family, '/api/accounts', {
+      name,
+      ownerMemberId,
+      type: 'bank',
+      currency: 'EUR',
+      openingBalance: '100000',
+    }).then((id) => (ids[key] = id));
+  await open('own DKB', 'DKB', 1);
+  await open('Max DKB', 'DKB', 2);
+  await open('Joint', 'Joint', null);
+  return ids;
+}
+
+test('another person’s account is named with its owner, and a transfer tells two DKBs apart', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    const ids = await seedOwnedNames(family);
+    const spend = (accountId: number) =>
+      create(family, '/api/transactions', {
+        kind: 'expense',
+        accountId,
+        amount: '1250',
+        merchant: 'Bakery',
+      });
+    const maxs = await spend(ids['Max DKB']!);
+    const owns = await spend(ids['own DKB']!);
+    const shared = await spend(ids.Joint!);
+    const move = await create(family, '/api/transactions', {
+      kind: 'transfer',
+      accountId: ids['own DKB'],
+      toAccountId: ids['Max DKB'],
+      amount: '5000',
+    });
+
+    await page.goto(`${family.origin}/transactions/${maxs}`);
+    const paidFrom = page.getByRole('button', { name: /^Paid from/ });
+    await expect(paidFrom).toContainText('Max · DKB · EUR');
+
+    // Own and shared accounts read as the bare name.
+    await page.goto(`${family.origin}/transactions/${owns}`);
+    await expect(paidFrom).toContainText(/^Paid fromDKB · EUR$/);
+    await page.goto(`${family.origin}/transactions/${shared}`);
+    await expect(paidFrom).toContainText(/^Paid fromJoint · EUR$/);
+
+    // The transfer's title and rows differ by the owner.
+    await page.goto(`${family.origin}/transactions/${move}`);
+    await expect(page.locator('.transaction-title')).toHaveText(
+      'DKB → Max · DKB',
+    );
+    await expect(page.getByRole('button', { name: /^From/ })).toContainText(
+      /^FromDKB · EUR$/,
+    );
+    await expect(page.getByRole('button', { name: /^To/ })).toContainText(
+      /^ToMax · DKB · EUR$/,
+    );
+  });
+});
+
+test('the Record names the account changed to another person’s', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    const ids = await seedOwnedNames(family);
+    const id = await create(family, '/api/transactions', {
+      kind: 'expense',
+      accountId: ids['own DKB'],
+      amount: '1250',
+      merchant: 'Bakery',
+    });
+    await page.goto(`${family.origin}/transactions/${id}`);
+    await page.getByRole('button', { name: /^Paid from/ }).click();
+    const sheet = page.getByRole('dialog', { name: 'Paid from' });
+    await sheet.getByRole('radio', { name: /^DKB/, checked: false }).click();
+    await expect(
+      page.getByText('Account changed to Max · DKB by Alena', { exact: true }),
+    ).toBeVisible();
+  });
+});
+
+test('long owner and account names are cut off inside the rows', async ({
+  page,
+}, testInfo) => {
+  await startFamily(page, async (family) => {
+    const longOwner = 'Bartholomew Montague';
+    const longName = 'Sparkasse Girokonto1';
+    expect(longOwner).toHaveLength(20);
+    expect(longName).toHaveLength(20);
+    const maxId = await create(family, '/api/members', { name: longOwner });
+    const long = await create(family, '/api/accounts', {
+      name: longName,
+      ownerMemberId: maxId,
+      type: 'bank',
+      currency: 'EUR',
+      openingBalance: '100000',
+    });
+    const own = await create(family, '/api/accounts', {
+      name: 'Giro',
+      ownerMemberId: 1,
+      type: 'bank',
+      currency: 'EUR',
+      openingBalance: '100000',
+    });
+    const id = await create(family, '/api/transactions', {
+      kind: 'transfer',
+      accountId: long,
+      toAccountId: own,
+      amount: '5000',
+    });
+    const back = await create(family, '/api/transactions', {
+      kind: 'transfer',
+      accountId: own,
+      toAccountId: long,
+      amount: '5000',
+    });
+    for (const [txn, rowName] of [
+      [id, /^From/],
+      [back, /^To/],
+    ] as const) {
+      await page.goto(`${family.origin}/transactions/${txn}`);
+      const row = page.getByRole('button', { name: rowName });
+      await expect(row).toContainText(`${longOwner} · ${longName}`);
+      const box = await row.evaluate((element) => {
+        const label = element
+          .querySelector('.field-l')!
+          .getBoundingClientRect();
+        const value = element.querySelector('.field-v')!;
+        const v = value.getBoundingClientRect();
+        const r = element.getBoundingClientRect();
+        return {
+          labelRight: label.right,
+          valueLeft: v.left,
+          valueRight: v.right,
+          rowRight: r.right,
+          cut: value.scrollWidth > value.clientWidth,
+        };
+      });
+      expect(box.valueLeft).toBeGreaterThanOrEqual(box.labelRight);
+      expect(box.valueRight).toBeLessThan(box.rowRight - 7);
+      // The iPad is wide enough for both names in full.
+      if (testInfo.project.name === 'iphone') expect(box.cut).toBe(true);
+    }
+    await expectNoSidewaysScroll(page, 'Transaction page');
+    await shoot(page, testInfo, 'TransactionLongAccountNames');
   });
 });

@@ -562,3 +562,56 @@ async function waitForServer(url: string, child: ChildProcess): Promise<void> {
   }
   throw new Error(`Server did not start at ${url}`);
 }
+
+test('a rule names another person’s account with its owner', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    const max = await post(family, '/api/members', { name: 'Max' });
+    const accountIds: Record<string, number> = {};
+    for (const [key, name, owner] of [
+      ['own', 'DKB', 1],
+      ['max', 'DKB', max.id],
+      ['shared', 'Pot', null],
+    ] as const) {
+      accountIds[key] = (
+        await post(family, '/api/accounts', {
+          name,
+          ownerMemberId: owner,
+          type: 'bank',
+          currency: 'EUR',
+          openingBalance: '0',
+        })
+      ).id;
+    }
+    const categories = (await (
+      await family.api.get(`${family.origin}/api/categories`)
+    ).json()) as { categories: { id: number; name: string }[] };
+    const shopping = categories.categories.find((c) => c.name === 'Shopping')!;
+    await createRule(family, {
+      pattern: 'Amazon',
+      categoryId: shopping.id,
+      accountId: accountIds.max,
+    });
+    await createRule(family, {
+      pattern: 'Lidl',
+      categoryId: shopping.id,
+      accountId: accountIds.shared,
+    });
+
+    await page.goto(`${family.origin}/categories?tab=rules`);
+    await expect(
+      page.getByRole('listitem').filter({ hasText: 'Amazon' }),
+    ).toContainText('only Max · DKB');
+    await expect(
+      page.getByRole('listitem').filter({ hasText: 'Lidl' }),
+    ).toContainText(/only Pot$/);
+
+    await page.getByRole('button', { name: /^Amazon/ }).click();
+    const sheet = page.getByRole('dialog', { name: /^Rule \d/ });
+    const chips = sheet.getByRole('radiogroup', { name: 'Only for account' });
+    await expect(chips.getByRole('radio', { name: 'Max · DKB' })).toBeChecked();
+    const names = await chips.getByRole('radio').allTextContents();
+    expect(new Set(names).size).toBe(names.length);
+  });
+});
