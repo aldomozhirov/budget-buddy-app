@@ -11,13 +11,15 @@ export interface MerchantOption extends KnownMerchant {
 }
 
 /**
- * The merchant sheet (UI-ADD-3): the family's recent merchants with what
- * their rule fills in, a search, "Use “…”" for a new one and "No merchant"
- * to clear it. One pick closes it.
+ * The merchant sheet (UI-ADD-3): the member's own recent merchants with what
+ * their rule fills in, a search over the family's merchants, "Use “…”" for a
+ * new one and "No merchant" to clear it. One pick closes it.
  */
 const props = defineProps<{
-  /** Known merchants, most recently used first. */
+  /** The family's known merchants, most recently used first; searched. */
   merchants: MerchantOption[];
+  /** The member's own recent merchants, newest first; shown unsearched. */
+  recent: MerchantOption[];
   /** The merchant on the form; empty for none. */
   selected: string;
 }>();
@@ -29,8 +31,6 @@ const emit = defineEmits<{
   close: [];
 }>();
 
-const RECENT_COUNT = 6;
-
 const search = ref('');
 const needle = computed(() => search.value.trim().replace(/\s+/gu, ' '));
 const words = computed(() =>
@@ -41,9 +41,7 @@ const matches = computed(() =>
     words.value.every((word) => merchant.key.includes(word)),
   ),
 );
-const shown = computed(() =>
-  needle.value ? matches.value : props.merchants.slice(0, RECENT_COUNT),
-);
+const shown = computed(() => (needle.value ? matches.value : props.recent));
 const heading = computed(() => {
   if (!needle.value) return 'Recent';
   const count = matches.value.length;

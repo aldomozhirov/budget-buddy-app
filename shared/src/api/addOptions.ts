@@ -32,6 +32,9 @@ export const knownMerchantSchema = z.object({
 /** Known merchant as stored on the phone. */
 export type KnownMerchant = z.infer<typeof knownMerchantSchema>;
 
+/** How many of the member's own merchants the Recent group offers. */
+export const RECENT_MERCHANT_LIMIT = 6;
+
 /**
  * What `GET /api/add-options` returns (Design 4; D3): the names the Add form
  * needs and no amount, balance or total. The lists are ordered for the
@@ -66,6 +69,15 @@ export const addOptionsResponseSchema = z.object({
   rules: z.array(ruleSchema),
   /** The most recently used merchants, at most 500, newest first. */
   merchants: z.array(knownMerchantSchema),
+  /**
+   * The merchants of confirmed expenses this profile entered, newest first,
+   * at most `RECENT_MERCHANT_LIMIT`. Empty when absent, so options stored
+   * before the field existed still load.
+   */
+  recentMerchants: z
+    .array(knownMerchantSchema)
+    .max(RECENT_MERCHANT_LIMIT)
+    .default([]),
   commonCurrency: z.string(),
   timeZone: z.string(),
 });

@@ -23,6 +23,7 @@ import {
   type Transaction,
   type TransactionRevision,
   type UpdateTransactionRequest,
+  type KnownMerchant,
 } from '@budget-buddy/shared';
 import AccountPickerSheet from '../../components/AccountPickerSheet.vue';
 import BbBackButton from '../../components/BbBackButton.vue';
@@ -239,11 +240,12 @@ const payers = computed(() => {
     : [...active, { id: current, name: payerName.value }];
 });
 
-const merchants = computed<MerchantOption[]>(() => {
+/** Maps known merchants to the sheet's rows with what their rule fills. */
+function toOptions(list: KnownMerchant[]): MerchantOption[] {
   const data = options.value;
   if (!data) return [];
   const byId = names.value;
-  return data.merchants.map((item) => {
+  return list.map((item) => {
     const match = matchRule(
       item.merchant,
       transaction.value?.accountId ?? null,
@@ -262,7 +264,12 @@ const merchants = computed<MerchantOption[]>(() => {
       : 'Used before';
     return { ...item, detail };
   });
-});
+}
+
+const merchants = computed(() => toOptions(options.value?.merchants ?? []));
+const recentMerchants = computed(() =>
+  toOptions(options.value?.recentMerchants ?? []),
+);
 
 const offerText = computed(() => {
   const merchant = transaction.value?.merchant;
@@ -853,6 +860,7 @@ onMounted(() => void load());
       <MerchantSheet
         v-if="sheet === 'merchant'"
         :merchants="merchants"
+        :recent="recentMerchants"
         :selected="transaction.merchant ?? ''"
         @pick="pickMerchant"
         @close="sheet = null"

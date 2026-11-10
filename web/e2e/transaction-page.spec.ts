@@ -765,3 +765,62 @@ test('a page that cannot be found says so', async ({ page }) => {
     await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible();
   });
 });
+
+/** Answers the add options with own and other-member merchants. */
+async function stubMerchants(
+  page: Page,
+  recentMerchants: { merchant: string; key: string }[],
+): Promise<void> {
+  await page.route('**/api/add-options', async (route) => {
+    const response = await route.fetch();
+    const body = (await response.json()) as Record<string, unknown>;
+    await route.fulfill({
+      response,
+      json: {
+        ...body,
+        merchants: [
+          { merchant: 'Own Cafe', key: 'own cafe' },
+          { merchant: 'Blair Bakery', key: 'blair bakery' },
+        ],
+        recentMerchants,
+      },
+    });
+  });
+}
+
+test('the merchant sheet on the transaction page lists only the member’s own merchants', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    const { ids } = await seed(family);
+    await stubMerchants(page, [{ merchant: 'Own Cafe', key: 'own cafe' }]);
+    await page.goto(`${family.origin}/transactions/${ids.rewe}`);
+    await page.getByRole('button', { name: /^Merchant/ }).click();
+    const sheet = page.getByRole('dialog', { name: 'Merchant' });
+    await expect(sheet.getByRole('heading', { name: 'Recent' })).toBeVisible();
+    await expect(sheet.getByRole('radio', { name: /Own Cafe/ })).toBeVisible();
+    await expect(
+      sheet.getByRole('radio', { name: /Blair Bakery/ }),
+    ).toHaveCount(0);
+
+    await sheet.getByLabel('Search or type a merchant').fill('blair bakery');
+    await expect(
+      sheet.getByRole('radio', { name: /Blair Bakery/ }),
+    ).toBeVisible();
+    await expect(sheet.getByRole('button', { name: /^Use “/ })).toHaveCount(0);
+  });
+});
+
+test('the merchant sheet on the transaction page has no Recent group without own merchants', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    const { ids } = await seed(family);
+    await stubMerchants(page, []);
+    await page.goto(`${family.origin}/transactions/${ids.rewe}`);
+    await page.getByRole('button', { name: /^Merchant/ }).click();
+    const sheet = page.getByRole('dialog', { name: 'Merchant' });
+    await expect(sheet.getByLabel('Search or type a merchant')).toBeVisible();
+    await expect(sheet.getByRole('heading', { name: 'Recent' })).toHaveCount(0);
+  });
+});

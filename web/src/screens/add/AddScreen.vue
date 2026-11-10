@@ -17,6 +17,7 @@ import {
   type AddOptionsAccount,
   type AddOptionsResponse,
   type DatedRate,
+  type KnownMerchant,
 } from '@budget-buddy/shared';
 import AccountPickerSheet from '../../components/AccountPickerSheet.vue';
 import BbButton from '../../components/BbButton.vue';
@@ -320,10 +321,11 @@ const envelopeChips = computed(() => {
     .map((item) => ({ label: item.name, value: item.id }));
 });
 
-const merchants = computed<MerchantOption[]>(() => {
+/** Maps known merchants to the sheet's rows with what their rule fills. */
+function toOptions(list: KnownMerchant[]): MerchantOption[] {
   const data = options.value;
   if (!data) return [];
-  return data.merchants.map((item) => {
+  return list.map((item) => {
     const match = matchRule(item.merchant, accountId.value, data.rules);
     const ruleCategory = match ? categoryById(match.categoryId)?.name : null;
     const ruleEnvelope = match ? envelopeById(match.envelopeId)?.name : null;
@@ -336,7 +338,12 @@ const merchants = computed<MerchantOption[]>(() => {
       : 'Used before';
     return { ...item, detail };
   });
-});
+}
+
+const merchants = computed(() => toOptions(options.value?.merchants ?? []));
+const recentMerchants = computed(() =>
+  toOptions(options.value?.recentMerchants ?? []),
+);
 
 /** What the server would fill on save, previewed in the labels. */
 const fillPreview = computed(() =>
@@ -1381,6 +1388,7 @@ function addAnother(): void {
     <MerchantSheet
       v-if="sheet === 'merchant'"
       :merchants="merchants"
+      :recent="recentMerchants"
       :selected="merchant"
       @pick="pickMerchant"
       @close="sheet = null"
