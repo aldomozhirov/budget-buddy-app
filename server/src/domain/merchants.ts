@@ -16,12 +16,15 @@ export const KNOWN_MERCHANT_LIMIT = 500;
  * The merchants of confirmed expenses, newest use first. Each merchant is
  * counted once under its key, with its most recent spelling (UI-ADD-3).
  * @param search Part of a merchant, in any case; blank for all.
+ * @param createdBy Only expenses this member entered, so that rank and
+ * spelling come from their rows; absent for the whole family.
  */
 export function knownMerchants(
   database: Database.Database,
-  options: { search?: string; limit: number },
+  options: { search?: string; limit: number; createdBy?: number },
 ): { merchant: string; key: string; lastUsedOn: string }[] {
   const search = merchantKey(options.search ?? '');
+  const createdBy = options.createdBy ?? null;
   const rows = database
     .prepare(
       `SELECT merchant, merchant_key AS key, date FROM (
@@ -34,10 +37,11 @@ export function knownMerchants(
             AND merchant IS NOT NULL AND merchant_key IS NOT NULL
             AND merchant_key != ''
             AND (? = '' OR instr(merchant_key, ?) > 0)
+            AND (? IS NULL OR created_by = ?)
        ) WHERE rank = 1
        ORDER BY date DESC, id DESC LIMIT ?`,
     )
-    .all(search, search, options.limit) as {
+    .all(search, search, createdBy, createdBy, options.limit) as {
     merchant: string;
     key: string;
     date: string;

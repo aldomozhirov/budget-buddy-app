@@ -46,6 +46,7 @@ const options: AddOptionsResponse = {
   envelopes: [{ id: 5, name: 'Food', currency: 'EUR', defaultCategoryId: 4 }],
   rules: [],
   merchants: [{ merchant: 'REWE', key: 'rewe' }],
+  recentMerchants: [{ merchant: 'REWE', key: 'rewe' }],
   commonCurrency: 'EUR',
   timeZone: 'Europe/Berlin',
 };
@@ -106,6 +107,25 @@ describe('the stored options', () => {
     });
     expect(JSON.stringify(record)).not.toMatch(/amount|balance|total/iu);
     expect(await store.load()).toEqual(options);
+    resetDeviceDatabase();
+  });
+
+  it('loads options stored before recentMerchants with an empty list', async () => {
+    const fake = new FakeIndexedDb();
+    const raw = deviceStore<StoredAddOptions>(
+      'addOptions',
+      () => fake as never,
+    );
+    const store = createAddOptionsStore(raw);
+    const { recentMerchants: _unused, ...old } = options;
+    void _unused;
+    await raw.put({
+      key: 'current',
+      profileId: 1,
+      storedAt: 1,
+      options: old as never,
+    });
+    expect(await store.load()).toEqual({ ...options, recentMerchants: [] });
     resetDeviceDatabase();
   });
 
@@ -195,7 +215,7 @@ describe('deleting what the phone keeps', () => {
   });
 
   it('refreshes from the server and keeps the old ones on a failure', async () => {
-    const next = { ...options, merchants: [] };
+    const next = { ...options, merchants: [], recentMerchants: [] };
     vi.stubGlobal('fetch', async () => json(200, next));
     expect(await refreshAddOptions()).toEqual(next);
     expect(storedOptions.value).toEqual(next);

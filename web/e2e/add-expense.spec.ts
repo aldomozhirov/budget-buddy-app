@@ -422,3 +422,67 @@ test('Undo deletes the saved expense and returns to the form', async ({
     expect(gone.status()).toBe(404);
   });
 });
+
+/** Answers the add options with own and other-member merchants. */
+async function stubMerchants(
+  page: Page,
+  recentMerchants: { merchant: string; key: string }[],
+): Promise<void> {
+  await page.route('**/api/add-options', async (route) => {
+    const response = await route.fetch();
+    const body = (await response.json()) as Record<string, unknown>;
+    await route.fulfill({
+      response,
+      json: {
+        ...body,
+        merchants: [
+          { merchant: 'Own Cafe', key: 'own cafe' },
+          { merchant: 'Blair Bakery', key: 'blair bakery' },
+        ],
+        recentMerchants,
+      },
+    });
+  });
+}
+
+test('the merchant sheet lists the member’s own merchants and searches the family’s', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    await seed(family);
+    await stubMerchants(page, [{ merchant: 'Own Cafe', key: 'own cafe' }]);
+    await openAdd(page, family);
+    await page.getByRole('button', { name: 'Add merchant' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Merchant' });
+    await expect(sheet.getByRole('heading', { name: 'Recent' })).toBeVisible();
+    await expect(sheet.getByRole('radio', { name: /Own Cafe/ })).toBeVisible();
+    await expect(
+      sheet.getByRole('radio', { name: /Blair Bakery/ }),
+    ).toHaveCount(0);
+
+    await sheet.getByLabel('Search or type a merchant').fill('blair bakery');
+    await expect(sheet.getByRole('heading', { name: '1 match' })).toBeVisible();
+    await expect(
+      sheet.getByRole('radio', { name: /Blair Bakery/ }),
+    ).toBeVisible();
+    await expect(sheet.getByRole('button', { name: /^Use “/ })).toHaveCount(0);
+  });
+});
+
+test('a member with no merchants of their own sees no Recent group', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    await seed(family);
+    await stubMerchants(page, []);
+    await openAdd(page, family);
+    await page.getByRole('button', { name: 'Add merchant' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Merchant' });
+    await expect(sheet.getByLabel('Search or type a merchant')).toBeVisible();
+    await expect(sheet.getByRole('heading', { name: 'Recent' })).toHaveCount(0);
+    await expect(sheet.getByRole('radio')).toHaveCount(0);
+
+    await sheet.getByLabel('Search or type a merchant').fill('own');
+    await expect(sheet.getByRole('radio', { name: /Own Cafe/ })).toBeVisible();
+  });
+});
