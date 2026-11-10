@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import {
+  accountOwnedName,
   accountsResponseSchema,
   addOptionsResponseSchema,
   categoriesResponseSchema,
@@ -347,7 +348,10 @@ async function load(): Promise<void> {
     accounts.value = new Map(
       accountsAnswer.accounts.map((item) => [
         item.id,
-        { name: item.name, currency: item.currency },
+        {
+          name: accountOwnedName(item, addOptions.profileId),
+          currency: item.currency,
+        },
       ]),
     );
     categories.value = categoriesAnswer.categories;

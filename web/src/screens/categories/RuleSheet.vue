@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import {
+  accountOwnedName,
   deleteRuleResponseSchema,
   ruleResponseSchema,
   type Account,
@@ -37,6 +38,8 @@ const props = defineProps<{
   envelopes: Envelope[];
   /** Every account, so that a rule's account keeps its name. */
   accounts: Account[];
+  /** The signed-in profile, to name other people's accounts. */
+  profileId: number;
   /** Coins of the family, to write the envelopes' amounts. */
   coins: CoinSetting[];
 }>();
@@ -112,7 +115,10 @@ const accountChips = computed(() => [
     ),
     accountId.value || null,
     3,
-  ).map((account) => ({ label: account.name, value: account.id })),
+  ).map((account) => ({
+    label: accountOwnedName(account, props.profileId),
+    value: account.id,
+  })),
 ]);
 
 const canSave = computed(

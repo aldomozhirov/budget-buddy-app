@@ -43,6 +43,22 @@ export function pickAccountChips<Account extends ChipAccount>(
 }
 
 /**
+ * Names an account for people (Design UI-NAV-7): another person's account
+ * reads "Max · DKB", the profile's own and a shared one read "DKB". An
+ * account whose owner has no name reads as its bare name.
+ */
+export function accountOwnedName(
+  account: Pick<ChipAccount, 'name' | 'ownerMemberId' | 'ownerName'>,
+  profileId: number,
+): string {
+  return account.ownerMemberId !== null &&
+    account.ownerMemberId !== profileId &&
+    account.ownerName !== null
+    ? `${account.ownerName} · ${account.name}`
+    : account.name;
+}
+
+/**
  * Labels the chips of one row (Design 3.7): the account's name, the owner's
  * name in front for another profile's account ("Max · DKB"), and the
  * currency symbol after it when the currency is not the common currency or
@@ -53,13 +69,7 @@ export function accountChipLabels<Account extends ChipAccount>(
   profileId: number,
   commonCurrency: string,
 ): AccountChip<Account>[] {
-  const bases = accounts.map((account) =>
-    account.ownerMemberId !== null &&
-    account.ownerMemberId !== profileId &&
-    account.ownerName !== null
-      ? `${account.ownerName} · ${account.name}`
-      : account.name,
-  );
+  const bases = accounts.map((account) => accountOwnedName(account, profileId));
   const seen = new Map<string, number>();
   for (const base of bases) {
     const key = foldText(base);

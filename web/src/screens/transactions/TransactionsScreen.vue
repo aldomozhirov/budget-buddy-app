@@ -10,7 +10,9 @@ import {
 } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import {
+  accountOwnedName,
   accountsResponseSchema,
+  addOptionsResponseSchema,
   categoriesResponseSchema,
   currenciesResponseSchema,
   envelopesResponseSchema,
@@ -241,16 +243,25 @@ async function removeItem(): Promise<void> {
 async function bootstrap(): Promise<void> {
   bootError.value = '';
   try {
-    const [settings, members, accounts, categories, active, archived, money] =
-      await Promise.all([
-        callApi('GET', '/api/settings', settingsResponseSchema),
-        callApi('GET', '/api/members', membersResponseSchema),
-        callApi('GET', '/api/accounts?inactive=true', accountsResponseSchema),
-        callApi('GET', '/api/categories', categoriesResponseSchema),
-        callApi('GET', '/api/envelopes', envelopesResponseSchema),
-        callApi('GET', '/api/envelopes?archived=true', envelopesResponseSchema),
-        callApi('GET', '/api/currencies', currenciesResponseSchema),
-      ]);
+    const [
+      settings,
+      members,
+      accounts,
+      categories,
+      active,
+      archived,
+      money,
+      addOptions,
+    ] = await Promise.all([
+      callApi('GET', '/api/settings', settingsResponseSchema),
+      callApi('GET', '/api/members', membersResponseSchema),
+      callApi('GET', '/api/accounts?inactive=true', accountsResponseSchema),
+      callApi('GET', '/api/categories', categoriesResponseSchema),
+      callApi('GET', '/api/envelopes', envelopesResponseSchema),
+      callApi('GET', '/api/envelopes?archived=true', envelopesResponseSchema),
+      callApi('GET', '/api/currencies', currenciesResponseSchema),
+      callApi('GET', '/api/add-options', addOptionsResponseSchema),
+    ]);
     lookups.value = {
       member: members.members.map((item) => ({
         id: item.id,
@@ -259,7 +270,7 @@ async function bootstrap(): Promise<void> {
       })),
       account: accounts.accounts.map((item) => ({
         id: item.id,
-        name: item.name,
+        name: accountOwnedName(item, addOptions.profileId),
         archived: !item.active,
       })),
       category: categories.categories.map((item) => ({
