@@ -759,6 +759,18 @@ body,
   outline: none;
 }
 
+/* The on-screen keyboard (iOS) shrinks only the visual viewport, so the
+   sheet lifts by its height (--keyboard-inset) and its cap shrinks with it.
+   The keyboard covers the home indicator, so that padding drops. */
+.bb .sheet {
+  bottom: var(--keyboard-inset, 0px);
+  max-height: min(88dvh, calc(var(--keyboard-visible, 100dvh) * 0.88));
+}
+
+.bb.keyboard-open .sheet {
+  padding-bottom: 30px;
+}
+
 .bb .sheet-head h2 {
   flex: 1;
 }
@@ -834,7 +846,7 @@ body,
    docked keypad stays on screen while the form above it scrolls. */
 .bb .sheet-tall {
   box-sizing: border-box;
-  height: calc(100dvh - 44px);
+  height: calc(var(--keyboard-visible, 100dvh) - 44px);
   max-height: none;
   overflow-y: hidden;
 }
