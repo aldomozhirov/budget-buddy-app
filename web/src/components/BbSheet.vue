@@ -1,5 +1,17 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, useId } from 'vue';
+import {
+  computed,
+  nextTick,
+  onMounted,
+  onUnmounted,
+  ref,
+  useId,
+  watch,
+} from 'vue';
+import {
+  keyboardVisibleHeight,
+  useKeyboardInset,
+} from '../composables/useKeyboardInset.js';
 import BbIcon from './BbIcon.vue';
 import { isTopSheet, registerSheet, unregisterSheet } from './sheetStack.js';
 
@@ -32,11 +44,29 @@ const layer = ref<HTMLElement>();
 const dragOffset = ref(0);
 const dragging = ref(false);
 const hasDragged = ref(false);
+const keyboardInset = useKeyboardInset();
+const layerStyle = computed(() =>
+  keyboardInset.value > 0
+    ? {
+        '--keyboard-inset': `${keyboardInset.value}px`,
+        '--keyboard-visible': `${keyboardVisibleHeight.value}px`,
+      }
+    : undefined,
+);
 const sheetStyle = computed(() =>
   dragging.value
     ? { transform: `translateY(${dragOffset.value}px)` }
     : undefined,
 );
+
+// Keep the field being typed in visible when the keyboard opens or moves.
+watch(keyboardInset, async () => {
+  await nextTick();
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && dialog.value?.contains(active)) {
+    active.scrollIntoView({ block: 'nearest' });
+  }
+});
 const scrimStyle = computed(() => {
   if (!dragging.value) return undefined;
   const height = dialog.value?.offsetHeight ?? window.innerHeight;
@@ -258,7 +288,12 @@ onUnmounted(() => {
 
 <template>
   <Teleport to="body">
-    <div ref="layer" class="bb sheet-layer">
+    <div
+      ref="layer"
+      class="bb sheet-layer"
+      :class="{ 'keyboard-open': keyboardInset > 0 }"
+      :style="layerStyle"
+    >
       <button
         class="scrim"
         :class="{
