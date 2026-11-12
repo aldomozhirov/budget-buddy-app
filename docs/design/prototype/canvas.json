@@ -343,6 +343,105 @@
       "title": "Settings · feedback sent",
       "is_interactive": true,
       "radius": 28
+    },
+    "HomeWishes.dc.html": {
+      "x": 0,
+      "y": 11000,
+      "w": 390,
+      "h": 844,
+      "title": "Home · wishes",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "Wishes.dc.html": {
+      "x": 470,
+      "y": 11000,
+      "w": 390,
+      "h": 844,
+      "title": "Wishes",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "WishesNew.dc.html": {
+      "x": 940,
+      "y": 11000,
+      "w": 390,
+      "h": 844,
+      "title": "Wishes · new wish",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "WishesNext.dc.html": {
+      "x": 1410,
+      "y": 11000,
+      "w": 390,
+      "h": 844,
+      "title": "Wishes · next month",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "WishDetail.dc.html": {
+      "x": 1880,
+      "y": 11000,
+      "w": 390,
+      "h": 844,
+      "title": "Wish · Weekend in Salzburg",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "WishRecord.dc.html": {
+      "x": 2350,
+      "y": 11000,
+      "w": 390,
+      "h": 844,
+      "title": "Wish · record as expense",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "WishLink.dc.html": {
+      "x": 2820,
+      "y": 11000,
+      "w": 390,
+      "h": 844,
+      "title": "Wish · link an expense",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "WishDone.dc.html": {
+      "x": 3290,
+      "y": 11000,
+      "w": 390,
+      "h": 844,
+      "title": "Wish · done",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "TransactionWish.dc.html": {
+      "x": 3760,
+      "y": 11000,
+      "w": 390,
+      "h": 844,
+      "title": "Transaction · counts for a wish",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "TransactionCountsFor.dc.html": {
+      "x": 4230,
+      "y": 11000,
+      "w": 390,
+      "h": 844,
+      "title": "Transaction · counts for sheet",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "TransactionInEnvelope.dc.html": {
+      "x": 4700,
+      "y": 11000,
+      "w": 390,
+      "h": 844,
+      "title": "Transaction · in an envelope",
+      "is_interactive": true,
+      "radius": 28
     }
   },
   "createdOnFiles": {
@@ -411,6 +510,13 @@
       "text": "Feedback",
       "kind": "title1",
       "maxW": 860
+    },
+    "spec3a": {
+      "x": 0,
+      "y": 10730,
+      "text": "Spec 3a · wishes",
+      "kind": "title1",
+      "maxW": 5090
     }
   },
   "order": [
@@ -451,7 +557,18 @@
     "HomeOffline.dc.html",
     "HomeOfflineLocked.dc.html",
     "SettingsFeedback.dc.html",
-    "SettingsFeedbackSent.dc.html"
+    "SettingsFeedbackSent.dc.html",
+    "HomeWishes.dc.html",
+    "Wishes.dc.html",
+    "WishesNew.dc.html",
+    "WishesNext.dc.html",
+    "WishDetail.dc.html",
+    "WishRecord.dc.html",
+    "WishLink.dc.html",
+    "WishDone.dc.html",
+    "TransactionWish.dc.html",
+    "TransactionCountsFor.dc.html",
+    "TransactionInEnvelope.dc.html"
   ],
   "pages": [],
   "title": "Budget Buddy"

@@ -222,7 +222,8 @@
 
 .bb .tag { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 5px; background: var(--soft); color: var(--muted); white-space: nowrap; }
 .bb .tag-warn { background: var(--warn-soft); color: var(--warn); }
-.bb .tag-mode { font-size: 12px; font-weight: 500; padding: 3px 8px; border-radius: 6px; }   /* "Resets monthly" */
+.bb .tag-mode { font-size: 12px; font-weight: 500; padding: 3px 8px; border-radius: 6px; }   /* "Resets monthly"; a wish card's category (UI-WSH-2) */
+.bb .tag-done { background: var(--accent-soft); color: var(--accent); }   /* a wish ticked off as done (UI-WSH-2) */
 .bb .badge { min-width: 24px; height: 24px; padding: 0 8px; box-sizing: border-box; border-radius: 12px; background: var(--ink); color: var(--on-ink); font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
 
 .bb .progress { display: block; height: 6px; border-radius: 3px; background: var(--soft); overflow: hidden; }

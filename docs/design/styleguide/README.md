@@ -27,7 +27,7 @@ Read this index, then open only the sections the task needs. Each section has th
 | [Text, search and password](text-inputs.md) | UI-AUTH-3, UI-TXN-1 | `.text` `.search` `.pw` `.error[role="alert"]` `.shake` |
 | [Amount and keypad](keypad.md) | UI-AMT-1 to UI-AMT-4, ACC-9 | `.amount` `.amount-expr` `.keypad` `.key / .key-op` |
 | [Cards and banner](cards.md) | UI-ENV-1, UI-HOME-5, UI-SUM-2 | `.card` `.card-hero` `.card-warn` `.banner` `.progress / .progress-over` |
-| [List rows, tags and badges](rows.md) | UI-ACC-1, UI-TXN-2, UI-CHK-3 | `.row` `.tag` `.tag-warn` `.badge` |
+| [List rows, tags and badges](rows.md) | UI-ACC-1, UI-TXN-2, UI-CHK-3 | `.row` `.tag` `.tag-done` `.tag-warn` `.badge` |
 | [Hidden amounts](masked.md) | UI-HOME-2, UI-HOME-3, DSH-1 | `.masked` |
 | [Sheets](sheets.md) | UI-NAV-4, UI-CHK-7, UI-TXN-8 | `.scrim` `.sheet` `.sheet-handle / .sheet-head` `.t-group` `.opt[aria-checked]` `.cal / .day` |
 | [Top bar](topbar.md) | UI-NAV-1, UI-NAV-2 | `.topbar` `.t-title / .t-sub` |

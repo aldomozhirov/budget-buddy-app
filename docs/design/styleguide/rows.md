@@ -7,7 +7,8 @@ Rows are at least 56 high and divided by line. Tags mark state in words. A badge
 | Class or state | Meaning |
 |---|---|
 | `.row` | List row; .row-l holds title and meta. |
-| `.tag` | Neutral state ("Inactive", "Transfer", "Refund"). |
+| `.tag` | Neutral state ("Inactive", "Transfer", "Refund", a dropped wish). |
+| `.tag-done` | With `.tag` or `.tag-mode`: a wish ticked off as done ("Done"). |
 | `.tag-warn` | Warning state ("Stale", "No category"). |
 | `.badge` | Count of items waiting. |
 
