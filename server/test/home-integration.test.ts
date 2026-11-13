@@ -146,6 +146,7 @@ describe('home and device routes', () => {
       lastClosedCheckinId: null,
       spending: null,
       needsCategory: 0,
+      wishes: { open: 0 },
       backupWarning: null,
     });
   });

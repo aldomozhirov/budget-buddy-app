@@ -65,6 +65,8 @@ export const homeResponseSchema = z.object({
   spending: homeSpendingSchema.nullable(),
   /** Transactions waiting for a category (CAT-7); 0 hides the row. */
   needsCategory: z.number().int().nonnegative(),
+  /** Wishes of the current month (UI-HOME-9). */
+  wishes: z.object({ open: z.number().int().nonnegative() }),
   /** Set when the last successful backup is over two days old. */
   backupWarning: z.object({ daysAgo: z.number().int().min(2) }).nullable(),
 });

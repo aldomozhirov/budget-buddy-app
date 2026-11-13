@@ -428,6 +428,9 @@ export const exportExclusions: Readonly<
     reason:
       'A retry fingerprint and a search key derived from the merchant; neither is data the family entered.',
   },
+  // Not exported yet: TASK-45 adds wishes.csv and wish_links.csv.
+  wish: 'table',
+  plan_link: 'table',
   device: 'table',
   session: 'table',
   passkey: 'table',

@@ -998,3 +998,110 @@ export const rule = sqliteTable(
     check('rule_pattern_check', sql`length(trim(${table.pattern})) > 0`),
   ],
 );
+
+/** A thing the family wants to buy in a month (PLN-9, spec 3a). */
+export const wish = sqliteTable(
+  'wish',
+  {
+    id: integer('id').primaryKey(),
+    month: text('month').notNull(),
+    name: text('name').notNull(),
+    amount: moneyInteger('amount').notNull(),
+    /** The expression the member typed; never evaluated by the server. */
+    expression: text('expression'),
+    currency: text('currency').notNull(),
+    categoryId: integer('category_id').references(() => category.id),
+    note: text('note'),
+    state: text('state', { enum: ['open', 'done', 'dropped'] })
+      .notNull()
+      .default('open'),
+    createdBy: integer('created_by')
+      .notNull()
+      .references(() => member.id),
+    createdAt: integer('created_at').notNull(),
+    updatedBy: integer('updated_by')
+      .notNull()
+      .references(() => member.id),
+    updatedAt: integer('updated_at').notNull(),
+    /** Soft delete, so Undo can restore it. */
+    deletedAt: integer('deleted_at'),
+    deletedBy: integer('deleted_by').references(() => member.id),
+  },
+  (table) => [
+    index('wish_month_idx')
+      .on(table.month)
+      .where(sql`${table.deletedAt} IS NULL`),
+    index('wish_category_idx')
+      .on(table.categoryId)
+      .where(sql`${table.categoryId} IS NOT NULL`),
+    check('wish_month_check', monthPattern(table.month)),
+    check('wish_amount_check', sql`${table.amount} > 0`),
+    check(
+      'wish_state_check',
+      sql`${table.state} IN ('open', 'done', 'dropped')`,
+    ),
+    check(
+      'wish_deleted_check',
+      sql`(${table.deletedAt} IS NULL) = (${table.deletedBy} IS NULL)`,
+    ),
+  ],
+);
+
+/** What a transaction counts for besides an envelope (PLN-10, PLN-14). */
+export const planLink = sqliteTable(
+  'plan_link',
+  {
+    id: integer('id').primaryKey(),
+    txnId: integer('txn_id')
+      .notNull()
+      .references(() => txn.id, { onDelete: 'cascade' }),
+    kind: text('kind', { enum: ['wish'] }).notNull(),
+    wishId: integer('wish_id').references(() => wish.id),
+    /** The month of the expense's date, kept in step with it. */
+    month: text('month').notNull(),
+    /** In the wish's currency; null: rate missing. */
+    amount: moneyInteger('amount'),
+    amountManual: booleanInteger('amount_manual', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    madeHow: text('made_how', { enum: ['recorded', 'member'] }).notNull(),
+    /** Null only for a link made by the app. */
+    madeBy: integer('made_by').references(() => member.id),
+    madeAt: integer('made_at').notNull(),
+    detachedAt: integer('detached_at'),
+    detachedReason: text('detached_reason', { enum: ['wish_deleted'] }),
+  },
+  (table) => [
+    uniqueIndex('plan_link_txn_active_unique')
+      .on(table.txnId)
+      .where(sql`${table.detachedAt} IS NULL`),
+    index('plan_link_wish_idx')
+      .on(table.wishId)
+      .where(sql`${table.detachedAt} IS NULL`),
+    index('plan_link_month_idx')
+      .on(table.month)
+      .where(sql`${table.detachedAt} IS NULL`),
+    check('plan_link_kind_check', sql`${table.kind} IN ('wish')`),
+    check(
+      'plan_link_made_how_check',
+      sql`${table.madeHow} IN ('recorded', 'member')`,
+    ),
+    check(
+      'plan_link_detached_reason_check',
+      sql`${table.detachedReason} IS NULL OR ${table.detachedReason} IN ('wish_deleted')`,
+    ),
+    check(
+      'plan_link_wish_check',
+      sql`${table.kind} <> 'wish' OR ${table.wishId} IS NOT NULL`,
+    ),
+    check(
+      'plan_link_manual_check',
+      sql`${table.amountManual} IN (0, 1) AND (${table.amountManual} = 0 OR ${table.amount} IS NOT NULL)`,
+    ),
+    check('plan_link_month_check', monthPattern(table.month)),
+    check(
+      'plan_link_detached_check',
+      sql`(${table.detachedAt} IS NULL) = (${table.detachedReason} IS NULL)`,
+    ),
+  ],
+);
