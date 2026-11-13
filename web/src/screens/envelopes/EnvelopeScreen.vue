@@ -444,6 +444,19 @@ async function removeAdjustment(): Promise<void> {
       </template>
     </div>
 
+    <footer
+      v-if="envelope && !envelope.archived"
+      class="bottombar envelope-bottombar"
+    >
+      <RouterLink
+        class="primary envelope-add"
+        :to="{ path: '/add', query: { envelopeId: envelope.id } }"
+      >
+        <BbIcon name="plus" :size="22" :stroke-width="2.2" />
+        Add expense
+      </RouterLink>
+    </footer>
+
     <MoveMoneySheet
       v-if="sheet === 'move' && envelope"
       :envelopes="active"
@@ -473,8 +486,28 @@ async function removeAdjustment(): Promise<void> {
 </template>
 
 <style scoped>
+.envelope-screen {
+  height: var(--app-h, 100dvh);
+  min-height: 0;
+}
 .envelope-screen .app-content {
   gap: 14px;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.envelope-screen .app-content::-webkit-scrollbar {
+  display: none;
+}
+.bb .envelope-bottombar {
+  padding: 12px var(--gutter) max(16px, var(--safe-area-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+}
+.bb .envelope-add {
+  height: 60px;
+  border-radius: 18px;
+  text-decoration: none;
 }
 .envelope-title {
   flex: 1;

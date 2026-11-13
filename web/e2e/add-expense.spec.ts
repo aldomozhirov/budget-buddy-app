@@ -243,6 +243,97 @@ test('the envelope label previews the on-save fill and the saved view says it', 
   });
 });
 
+/** The ids of the seeded envelopes by name. */
+async function envelopeIds(family: Family): Promise<Record<string, number>> {
+  const response = await family.api.get(`${family.origin}/api/envelopes`);
+  const { envelopes } = (await response.json()) as {
+    envelopes: { id: number; name: string }[];
+  };
+  return Object.fromEntries(envelopes.map(({ id, name }) => [name, id]));
+}
+
+test('a merchant rule never replaces the envelope Add was opened with', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    await seed(family);
+    const ids = await envelopeIds(family);
+    await page.goto(`${family.origin}/add?envelopeId=${ids['Unexpected']}`);
+    const categories = page.getByRole('radiogroup', { name: 'Category' });
+    const envelopes = page.getByRole('radiogroup', { name: 'Envelope' });
+    await expect(
+      envelopes.getByRole('radio', { name: 'Unexpected' }),
+    ).toBeChecked();
+
+    // The REWE rule names Groceries for both, but the pick is by hand.
+    await pickMerchant(page, 'REWE');
+    await expect(
+      envelopes.getByRole('radio', { name: 'Unexpected' }),
+    ).toBeChecked();
+    await expect(envelopes.getByRole('radio', { checked: true })).toHaveCount(
+      1,
+    );
+    await expect(page.getByText('Envelope · from REWE rule')).toHaveCount(0);
+    await expect(page.getByText('Envelope · optional')).toBeVisible();
+    await expect(
+      categories.getByRole('radio', { name: 'Groceries' }),
+    ).toBeChecked();
+
+    await typeAmount(page, '9');
+    await page.getByRole('button', { name: 'Save €9.00' }).click();
+    await expect(
+      page.getByText('€9.00 · REWE · ING Visa · Groceries', { exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByText('€9.00 · REWE · ING Visa · Unexpected · Groceries', {
+        exact: true,
+      }),
+    ).toBeVisible();
+  });
+});
+
+test('an unknown, malformed or archived envelope id opens Add with nothing selected', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    await seed(family);
+    const ids = await envelopeIds(family);
+    const archived = await family.api.patch(
+      `${family.origin}/api/envelopes/${ids['Eating out']}`,
+      { headers: { Origin: family.origin }, data: { archived: true } },
+    );
+    expect(archived.status()).toBe(200);
+
+    for (const value of [
+      '99999',
+      'abc',
+      '0',
+      '-1',
+      '1.5',
+      '1e3',
+      '',
+      String(ids['Eating out']),
+    ]) {
+      await page.goto(`${family.origin}/add?envelopeId=${value}`);
+      await expect(
+        page.getByRole('button', { name: 'Enter an amount' }),
+      ).toBeDisabled();
+      await expect(
+        page.getByRole('radiogroup', { name: 'Envelope' }),
+      ).toBeVisible();
+      await expect(
+        page
+          .getByRole('radiogroup', { name: 'Envelope' })
+          .getByRole('radio', { checked: true }),
+      ).toHaveCount(0);
+      await expect(
+        page.getByText('Envelope · optional', { exact: true }),
+      ).toBeVisible();
+      await expect(page.getByRole('alert')).toHaveCount(0);
+    }
+  });
+});
+
 test('a refund saves with a leading minus', async ({ page }, testInfo) => {
   await startFamily(page, async (family) => {
     await seed(family);

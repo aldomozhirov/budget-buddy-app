@@ -574,6 +574,209 @@ test('a carry-over envelope shows its carried amount, a pending plan and moves',
   });
 });
 
+/** Names an expense category's id, as the add options list it. */
+async function categoryId(family: Family, name: string): Promise<number> {
+  const response = await family.api.get(
+    `${family.origin}/api/categories?kind=expense`,
+  );
+  const { categories } = (await response.json()) as {
+    categories: { id: number; name: string }[];
+  };
+  return categories.find((category) => category.name === name)!.id;
+}
+
+/** Seven envelopes (the chip row shows five), the first under Groceries. */
+async function seedSeven(family: Family): Promise<number[]> {
+  const ids: number[] = [];
+  for (const [name, category] of [
+    ['Groceries', 'Groceries'],
+    ['Eating out', null],
+    ['Unexpected', null],
+    ['Transport', null],
+    ['Health', null],
+    ['Gifts', null],
+    ['Holiday', null],
+  ] as const) {
+    ids.push(
+      await createEnvelope(family, {
+        name,
+        currency: 'EUR',
+        monthlyAmount: '50000',
+        mode: 'reset',
+        startingBalance: '0',
+        ...(category && {
+          defaultCategoryId: await categoryId(family, category),
+        }),
+      }),
+    );
+  }
+  return ids;
+}
+
+test('Add expense is a bar at the bottom that stays while the page scrolls', async ({
+  page,
+}, testInfo) => {
+  await startFamily(page, async (family) => {
+    const id = await seedGroceries(family);
+    // Enough rows that the page has to scroll on the iPad as well.
+    for (let row = 0; row < 40; row += 1) {
+      seedExpenseOn(family, id, family.today, 100 + row, `Shop ${row}`);
+    }
+    await page.goto(`${family.origin}/envelopes/${id}`);
+    const add = page.getByRole('link', { name: 'Add expense' });
+    await expect(add).toBeVisible();
+    const viewport = page.viewportSize()!;
+    const before = (await add.boundingBox())!;
+    expect(before.y + before.height).toBeLessThanOrEqual(viewport.height);
+    expect(before.y + before.height).toBeGreaterThan(viewport.height - 40);
+    expect(before.height).toBeGreaterThanOrEqual(56);
+    await page.waitForTimeout(1200);
+    await saveScreenshot(page, `EnvelopeAddBar-${testInfo.project.name}.png`);
+
+    // The content scrolls to its last row while the bar does not move.
+    const hero = page.getByRole('region', { name: 'This month' });
+    const heroBefore = (await hero.boundingBox())!;
+    // Full width: as wide as the cards of the content column.
+    expect(before.width).toBeCloseTo(heroBefore.width, 0);
+    const last = page.getByRole('link', { name: /Shop \d+/ }).last();
+    await last.scrollIntoViewIfNeeded();
+    await expect(last).toBeInViewport();
+    expect((await hero.boundingBox())!.y).toBeLessThan(heroBefore.y - 100);
+    const after = (await add.boundingBox())!;
+    expect(after.y).toBeCloseTo(before.y, 0);
+    expect(after.x).toBeCloseTo(before.x, 0);
+    await expect(add).toBeInViewport();
+    // The bar sits on its own row: the last row clears it.
+    const row = (await last.boundingBox())!;
+    expect(row.y + row.height).toBeLessThanOrEqual(after.y + 1);
+    // The page itself does not scroll under the bar.
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollHeight - window.innerHeight,
+      ),
+    ).toBeLessThanOrEqual(0);
+  });
+});
+
+/** Taps Add expense on an envelope page and checks the form it opens. */
+async function openAddFrom(
+  page: Page,
+  family: Family,
+  id: number,
+  name: string,
+): Promise<void> {
+  await page.goto(`${family.origin}/envelopes/${id}`);
+  await page.getByRole('link', { name: 'Add expense' }).click();
+  await expect(page).toHaveURL(new RegExp(`/add\\?envelopeId=${id}$`));
+  await expect(
+    page.getByRole('radio', { name: 'Expense', checked: true }),
+  ).toBeVisible();
+  const chips = page.getByRole('radiogroup', { name: 'Envelope' });
+  await expect(chips.getByRole('radio', { checked: true })).toHaveCount(1);
+  await expect(chips.getByRole('radio', { name })).toBeChecked();
+  await expect(chips.getByRole('radio').first()).toHaveAccessibleName(name);
+  await expect(chips.getByRole('radio').first()).toBeChecked();
+  await expect(page.getByText('Envelope · optional')).toBeVisible();
+}
+
+test('Add expense opens Add with that envelope selected and first', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    const ids = await seedSeven(family);
+    // Both are beyond the five chips the row shows, so they are put first.
+    await openAddFrom(page, family, ids[6]!, 'Holiday');
+    await openAddFrom(page, family, ids[5]!, 'Gifts');
+  });
+});
+
+test('an envelope among the first five chips also leads the row', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    const ids = await seedSeven(family);
+    await openAddFrom(page, family, ids[2]!, 'Unexpected');
+  });
+});
+
+test('the linked envelope previews its category, fills it on save and survives Add another', async ({
+  page,
+}) => {
+  await startFamily(page, async (family) => {
+    const [groceries] = await seedSeven(family);
+    seedMonths(family, groceries!, 'reset', 50000, []);
+    await page.goto(`${family.origin}/envelopes/${groceries}`);
+    await page.getByRole('link', { name: 'Add expense' }).click();
+
+    const chips = page.getByRole('radiogroup', { name: 'Envelope' });
+    await expect(chips.getByRole('radio', { name: 'Groceries' })).toBeChecked();
+    await expect(
+      page.getByText('Category · optional · if empty, Groceries'),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole('radiogroup', { name: 'Category' })
+        .getByRole('radio', { checked: true }),
+    ).toHaveCount(0);
+
+    const keypad = page.getByRole('group', { name: 'Amount keypad' });
+    await typeAmount(keypad, '5');
+    await page.getByRole('button', { name: 'Save €5.00' }).click();
+    await expect(
+      page.getByText('Groceries category added from the Groceries envelope.'),
+    ).toBeVisible();
+
+    // Add another keeps the envelope, and still previews the category.
+    await page.getByRole('button', { name: 'Add another' }).click();
+    await expect(chips.getByRole('radio', { name: 'Groceries' })).toBeChecked();
+    await expect(chips.getByRole('radio').first()).toHaveAccessibleName(
+      'Groceries',
+    );
+    await expect(
+      page.getByText('Category · optional · if empty, Groceries'),
+    ).toBeVisible();
+    await typeAmount(keypad, '7.25');
+    await page.getByRole('button', { name: 'Save €7.25' }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Expense saved' }),
+    ).toBeVisible();
+
+    // Done returns to the envelope page, which lists both expenses.
+    await page.getByRole('button', { name: 'Done' }).click();
+    await expect(page).toHaveURL(new RegExp(`/envelopes/${groceries}$`));
+    const hero = page.getByRole('region', { name: 'This month' });
+    await expect(hero).toContainText('€12.25 spent of €500.00');
+    await expect(page.getByText('Today · Alena · Joint')).toHaveCount(2);
+    await expect(page.getByRole('link', { name: /€5\.00$/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: /€7\.25$/ })).toBeVisible();
+  });
+});
+
+test('an archived envelope has no Add expense button', async ({ page }) => {
+  await startFamily(page, async (family) => {
+    const [groceries, eatingOut] = await seedSeven(family);
+    const archived = await family.api.patch(
+      `${family.origin}/api/envelopes/${eatingOut}`,
+      { headers: { Origin: family.origin }, data: { archived: true } },
+    );
+    expect(archived.status()).toBe(200);
+
+    await page.goto(`${family.origin}/envelopes/${eatingOut}`);
+    await expect(
+      page.getByRole('heading', { name: 'Eating out', level: 1 }),
+    ).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Add expense' })).toHaveCount(
+      0,
+    );
+
+    // A live envelope on the same build still has it.
+    await page.goto(`${family.origin}/envelopes/${groceries}`);
+    await expect(page.getByRole('link', { name: 'Add expense' })).toHaveCount(
+      1,
+    );
+  });
+});
+
 async function saveScreenshot(page: Page, name: string): Promise<void> {
   mkdirSync('test-results/screens', { recursive: true });
   await page.screenshot({ path: `test-results/screens/${name}` });

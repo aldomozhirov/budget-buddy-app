@@ -63,6 +63,20 @@ export function parseKind(value: unknown): FormKind {
 }
 
 /**
+ * The envelope named by `/add?envelopeId=`: a positive whole number, the
+ * first of a repeated query value; anything else is null.
+ */
+export function parseEnvelopeId(value: unknown): number | null {
+  const first = Array.isArray(value) ? value[0] : value;
+  if (typeof first === 'number') {
+    return Number.isSafeInteger(first) && first > 0 ? first : null;
+  }
+  if (typeof first !== 'string' || !/^[1-9][0-9]*$/.test(first)) return null;
+  const id = Number(first);
+  return Number.isSafeInteger(id) ? id : null;
+}
+
+/**
  * A rate source holding the one rate the server gave for a pair, so the
  * shared `convert` gives the same amount the server would (UI-ADD-15).
  */

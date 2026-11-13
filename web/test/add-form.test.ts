@@ -10,6 +10,7 @@ import {
   kindWords,
   merchantHint,
   pairLookup,
+  parseEnvelopeId,
   parseKind,
   pickLabel,
   savedSummary,
@@ -186,6 +187,35 @@ describe('parseKind', () => {
     expect(parseKind('expense')).toBe('expense');
     expect(parseKind('nonsense')).toBe('expense');
     expect(parseKind(undefined)).toBe('expense');
+  });
+});
+
+describe('parseEnvelopeId', () => {
+  it('reads a positive whole number, as a number or a string', () => {
+    expect(parseEnvelopeId('12')).toBe(12);
+    expect(parseEnvelopeId(7)).toBe(7);
+    expect(parseEnvelopeId(['3', '9'])).toBe(3);
+  });
+
+  it('gives null for a missing or malformed value', () => {
+    for (const value of [
+      undefined,
+      '',
+      'abc',
+      '0',
+      '-2',
+      '1.5',
+      '01',
+      ' 4',
+      0,
+      2.5,
+      [],
+      null,
+      {},
+    ]) {
+      expect(parseEnvelopeId(value)).toBeNull();
+    }
+    expect(parseEnvelopeId('99999999999999999999')).toBeNull();
   });
 });
 
