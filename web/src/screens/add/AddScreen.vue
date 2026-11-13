@@ -62,6 +62,7 @@ import {
   kindWords,
   merchantHint,
   pairLookup,
+  parseEnvelopeId,
   parseKind,
   pickLabel,
   savedSummary,
@@ -121,6 +122,8 @@ const keypadKey = ref(0);
 const merchant = ref('');
 const category = ref<FormPick>(EMPTY_PICK);
 const envelope = ref<FormPick>(EMPTY_PICK);
+/** The envelope Add was opened from; it leads the chip row (UI-ADD-8). */
+const linkedEnvelopeId = ref<number | null>(null);
 const extraCategoryId = ref<number | null>(null);
 const extraEnvelopeId = ref<number | null>(null);
 const suggestedIds = ref<number[]>([]);
@@ -314,8 +317,13 @@ const recentCategoryIds = computed(() =>
 
 const envelopes = computed(() => options.value?.envelopes ?? []);
 const envelopeChips = computed(() => {
-  const base = envelopes.value.slice(0, ENVELOPE_CHIPS).map((item) => item.id);
-  return withFront(withFront(base, extraEnvelopeId.value), envelope.value.id)
+  const linked = linkedEnvelopeId.value;
+  const base = envelopes.value
+    .filter((item) => item.id !== linked)
+    .slice(0, linked === null ? ENVELOPE_CHIPS : ENVELOPE_CHIPS - 1)
+    .map((item) => item.id);
+  const lead = linked === null ? base : [linked, ...base];
+  return withFront(withFront(lead, extraEnvelopeId.value), envelope.value.id)
     .map((id) => envelopeById(id))
     .filter((item): item is EnvelopeOption => item !== undefined)
     .map((item) => ({ label: item.name, value: item.id }));
@@ -641,7 +649,13 @@ function resetForm(): void {
   merchant.value = '';
   resetArrive();
   category.value = EMPTY_PICK;
-  envelope.value = EMPTY_PICK;
+  // Opened from an envelope page: that envelope counts as picked by hand.
+  const linked = parseEnvelopeId(route.query.envelopeId);
+  const usable =
+    kind.value === 'expense' && envelopeById(linked) ? linked : null;
+  linkedEnvelopeId.value = usable;
+  envelope.value =
+    usable === null ? EMPTY_PICK : { id: usable, source: 'hand' };
   extraCategoryId.value = null;
   extraEnvelopeId.value = null;
   note.value = '';
