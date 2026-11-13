@@ -149,8 +149,11 @@ export const categoryRoutes: FastifyPluginAsync<{
         .get(id);
       if (!exists) return 'not_found' as const;
       const used = database
-        .prepare('SELECT 1 AS found FROM txn_part WHERE category_id = ?')
-        .get(id);
+        .prepare(
+          `SELECT 1 AS found FROM txn_part WHERE category_id = ?
+           UNION ALL SELECT 1 FROM wish WHERE category_id = ?`,
+        )
+        .get(id, id);
       if (used) return 'used' as const;
       // An envelope that only names it as its default stops naming it.
       database
@@ -213,8 +216,10 @@ function loadCategories(
               (SELECT COUNT(*) FROM txn_part p JOIN txn t ON t.id = p.txn_id
                 WHERE p.category_id = c.id AND t.status = 'confirmed'
                   AND t.date >= ? AND t.date <= ?) AS usedThisYear,
-              EXISTS (SELECT 1 FROM txn_part p
-                       WHERE p.category_id = c.id) AS used,
+              (EXISTS (SELECT 1 FROM txn_part p
+                        WHERE p.category_id = c.id)
+               OR EXISTS (SELECT 1 FROM wish w
+                           WHERE w.category_id = c.id)) AS used,
               (SELECT COUNT(*) FROM rule r
                 WHERE r.category_id = c.id) AS ruleCount,
               c.created_by AS createdBy, c.created_at AS createdAt,

@@ -24,6 +24,7 @@ import { addOptionsRoutes } from './modules/addOptions/index.js';
 import { accountRoutes } from './modules/accounts/index.js';
 import { categoryRoutes } from './modules/categories/index.js';
 import { envelopeRoutes } from './modules/envelopes/index.js';
+import { wishRoutes } from './modules/wishes/index.js';
 import { snapshotRoutes } from './modules/snapshots/index.js';
 import { checkinRoutes } from './modules/checkins/index.js';
 import { ruleRoutes } from './modules/rules/index.js';
@@ -178,6 +179,10 @@ export async function createApp(options: AppOptions) {
     events,
   });
   await app.register(envelopeRoutes, {
+    database: options.database,
+    clock,
+  });
+  await app.register(wishRoutes, {
     database: options.database,
     clock,
   });

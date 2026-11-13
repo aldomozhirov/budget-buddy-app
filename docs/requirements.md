@@ -133,7 +133,7 @@ Outbound only: public price feeds, Apple push service
 
 1. An amount is a whole number of the currency's smallest unit. Each currency or coin defines its number of decimals (EUR 2, JPY 0, BTC 8). Coins with more than 8 decimals are stored with 8. No floating point is used in storage or arithmetic, and amounts that can exceed JavaScript's safe integer range use BigInt or a decimal library.
 2. A balance is signed. Money the family owes is a negative balance. Totals are plain sums.
-3. Every amount is stored in its original currency. Converted figures are computed when shown and never stored. The one exception is the envelope amount of a foreign-currency expense (section 4.4).
+3. Every amount is stored in its original currency. Converted figures are computed when shown and never stored. There are two exceptions: the envelope amount of a foreign-currency expense (section 4.4), and the amount an expense counts for a wish in another currency (section 4.7), stored beside it.
 4. A rate is stored per currency pair and date as an exact decimal. A figure dated D is converted at the rate of D, or of the nearest earlier date that has a rate.
 5. A total across currencies is computed by adding each currency in its own unit, converting each currency total, and adding the results. One rounding rule, half away from zero to the smallest unit, is used everywhere.
 

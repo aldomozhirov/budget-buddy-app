@@ -171,7 +171,7 @@ describe('migration 0005: spending schema', () => {
     const journal = JSON.parse(
       await readFile(join(drizzleFolder, 'meta', '_journal.json'), 'utf8'),
     ) as { entries: Array<{ tag: string }> };
-    const kept = journal.entries.filter(({ tag }) => !tag.startsWith('0005_'));
+    const kept = journal.entries.filter(({ tag }) => tag < '0005_');
     expect(kept).toHaveLength(5);
     for (const { tag } of kept) {
       await cp(join(drizzleFolder, `${tag}.sql`), join(folder, `${tag}.sql`));
@@ -224,7 +224,7 @@ describe('migration 0005: spending schema', () => {
 
     // First start after the merge.
     const database = track(await openDatabase(config(dataDir, backupDir)));
-    expect(migrationVersion(database)).toBe(6);
+    expect(migrationVersion(database)).toBe(7);
     for (const table of spec1Tables) {
       expect(dump(database, table), table).toEqual(expected[table]);
     }
@@ -273,7 +273,7 @@ describe('migration 0005: spending schema', () => {
     database.close();
     for (let start = 0; start < 2; start += 1) {
       const again = track(await openDatabase(config(dataDir, backupDir)));
-      expect(migrationVersion(again)).toBe(6);
+      expect(migrationVersion(again)).toBe(7);
       expect(dump(again, 'category')).toHaveLength(16);
       again.close();
     }

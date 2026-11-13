@@ -52,6 +52,9 @@ export function getHome(
     lastClosedCheckinId: lastClosedCheckinId(database),
     spending: spending(database, valuation, options.now),
     needsCategory: needsCategoryCount(database),
+    wishes: {
+      open: openWishes(database, monthOfDate(valuation.dateOf(options.now))),
+    },
     backupWarning: backupWarning(database, options.now),
   };
 }
@@ -90,6 +93,17 @@ function openCheckin(
     openedDate: valuation.dateOf(checkin.openedAt),
     accountsLeft: mine ? mine.accounts - mine.completed : 0,
   };
+}
+
+/** The open wishes of a month, for Home's Wishes row (UI-HOME-9). */
+function openWishes(database: Database.Database, month: string): number {
+  const row = database
+    .prepare(
+      `SELECT COUNT(*) AS n FROM wish
+       WHERE month = ? AND state = 'open' AND deleted_at IS NULL`,
+    )
+    .get(month) as { n: bigint };
+  return Number(row.n);
 }
 
 /** A rhythm with a plain name: monthly, or every week; anything else none. */
