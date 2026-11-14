@@ -38,6 +38,7 @@ function transaction(overrides: Partial<Transaction> = {}): Transaction {
     envelopeAmount: '6420',
     envelopeAmountManual: false,
     envelopeRate: null,
+    countsFor: { type: 'envelope', id: 1 },
     source: 'typed',
     enteredAt: null,
     createdBy: 1,
