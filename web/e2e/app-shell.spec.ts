@@ -96,6 +96,7 @@ test.beforeEach(async ({ page }) => {
         spending: null,
         needsCategory: 0,
         backupWarning: null,
+        wishes: { open: 0 },
       },
     }),
   );
@@ -228,6 +229,7 @@ test('Home remains usable in a desktop-width browser', async ({
           spending: null,
           needsCategory: 0,
           backupWarning: null,
+          wishes: { open: 0 },
         },
       }),
     );
