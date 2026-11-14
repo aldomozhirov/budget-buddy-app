@@ -26,6 +26,7 @@ import {
   ScanFace,
   Search,
   Settings,
+  Star,
   StickyNote,
   Store,
   Tag,
@@ -70,6 +71,7 @@ const icons = {
   alert: CircleAlert,
   info: Info,
   image: ImagePlus,
+  star: Star,
 } satisfies Record<Exclude<BbIconName, 'wallet'>, Component>;
 
 /** Names of the icons available to BbIcon. */
@@ -107,6 +109,7 @@ export type BbIconName =
   | 'alert'
   | 'info'
   | 'image'
+  | 'star'
   | 'wallet';
 
 /**
