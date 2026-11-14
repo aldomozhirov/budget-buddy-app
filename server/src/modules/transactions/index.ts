@@ -37,14 +37,15 @@ import {
 import { createRateLookup } from '../../rates/lookup.js';
 import type { BackfillRequester } from '../../rates/service.js';
 
-type Issue = { path: PropertyKey[]; message: string };
+/** A validation problem of one field. */
+export type Issue = { path: PropertyKey[]; message: string };
 
 /**
  * What a create or an edit is checked with: the transaction as it would be
  * stored, and which of its fields the request sets, so a stored value that
  * has since become archived or inactive stays valid (history).
  */
-interface Draft {
+export interface Draft {
   state: StoredTransaction;
   changed: (field: keyof StoredTransaction) => boolean;
   /** The request gives `amount`. */
@@ -365,7 +366,10 @@ function hashBody(body: CreateTransactionRequest): string {
 }
 
 /** Whether a transaction sent with this client id was deleted since. */
-function wasDeleted(database: Database.Database, clientId: string): boolean {
+export function wasDeleted(
+  database: Database.Database,
+  clientId: string,
+): boolean {
   return (
     database
       .prepare(
@@ -377,7 +381,7 @@ function wasDeleted(database: Database.Database, clientId: string): boolean {
 }
 
 /** A new transaction before the server's checks; every field is "set". */
-function createDraft(
+export function createDraft(
   body: CreateTransactionRequest,
   memberId: number,
   today: string,
@@ -462,7 +466,7 @@ function editDraft(
  * and envelopes and the deactivation are only checked where the request sets
  * the field (or, for accounts, the date). Fills in the account currencies.
  */
-function checkDraft(
+export function checkDraft(
   database: Database.Database,
   draft: Draft,
   today: string,
@@ -806,7 +810,7 @@ export function settleEnvelope(
   });
 }
 
-function insertTransaction(
+export function insertTransaction(
   database: Database.Database,
   state: StoredTransaction,
   clientHash: string,

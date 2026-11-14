@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import type { FastifyPluginAsync, FastifyReply } from 'fastify';
+import type { FastifyPluginAsync } from 'fastify';
 import {
   addMonths,
   createWishRequestSchema,
@@ -39,11 +39,17 @@ import {
   type StoredLink,
 } from '../../domain/wishLinks.js';
 import { listWishes, loadWish, wishesSummary } from '../../domain/wishes.js';
+import {
+  sendChanged,
+  sendInvalid,
+  sendNotFound,
+  sendProfileRequired,
+  type Issue,
+} from './errors.js';
+import { addRecordRoutes } from './record.js';
 
 /** The first month a wish can be for (O8). */
 const firstMonth = '2000-01';
-
-type Issue = { path: PropertyKey[]; message: string };
 
 type WishState3 = {
   state: WishState;
@@ -222,6 +228,8 @@ export const wishRoutes: FastifyPluginAsync<{
       .code(201)
       .send(wishResponseSchema.parse({ wish: loadWish(database, id) }));
   });
+
+  addRecordRoutes(app, { database, clock, rates });
 
   app.post('/api/wishes', async (request, reply) => {
     const parsed = createWishRequestSchema.safeParse(request.body);
@@ -522,35 +530,4 @@ function categoryProblem(
       message: 'Choose an expense category that is not archived.',
     },
   ];
-}
-
-function sendInvalid(
-  reply: FastifyReply,
-  message: string,
-  issues: readonly Issue[],
-) {
-  const fields: Record<string, string> = {};
-  for (const issue of issues) {
-    const field = String(issue.path[0] ?? 'form');
-    fields[field] ??= issue.message;
-  }
-  return reply.code(400).send({ error: { code: 'invalid', message, fields } });
-}
-
-function sendNotFound(reply: FastifyReply) {
-  return reply.code(404).send({
-    error: { code: 'not_found', message: 'Wish not found.' },
-  });
-}
-
-function sendChanged(reply: FastifyReply) {
-  return reply.code(409).send({
-    error: { code: 'changed', message: 'Someone changed it meanwhile.' },
-  });
-}
-
-function sendProfileRequired(reply: FastifyReply) {
-  return reply.code(403).send({
-    error: { code: 'profile_required', message: 'Choose a profile first.' },
-  });
 }

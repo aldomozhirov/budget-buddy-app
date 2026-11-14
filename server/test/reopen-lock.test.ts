@@ -139,6 +139,8 @@ describe('sign in again when the app is re-opened', () => {
       ['DELETE', '/api/wishes/1'],
       ['POST', '/api/wishes/1/move'],
       ['POST', '/api/wishes/1/restore'],
+      ['POST', '/api/wishes/1/record'],
+      ['POST', '/api/wishes/1/unrecord'],
       ['GET', '/api/categories'],
       ['POST', '/api/categories'],
       ['PATCH', '/api/categories/1'],
