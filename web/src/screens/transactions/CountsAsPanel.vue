@@ -8,13 +8,16 @@ import BbButton from '../../components/BbButton.vue';
 import { amountText } from '../add/addForm.js';
 
 /**
- * "Counts in the envelope as" (UI-TXN-5): what an expense in another
- * currency takes from its envelope, the rate it was converted at, a keypad
+ * "Counts in the envelope as" (UI-TXN-5) and "Counts for the wish as"
+ * (UI-TXN-10): what an expense in another currency takes from its envelope
+ * or counts for its wish, the rate it was converted at, a keypad
  * to type what the bank charged, and the button that keeps it. It sits in
- * the envelope sheet, under the list.
+ * the Counts for sheet, under the list.
  */
 const props = defineProps<{
-  /** The envelope's currency, for the keypad and the figures. */
+  /** The label above the figure and on the keypad. */
+  label: string;
+  /** The envelope's or wish's currency, for the keypad and the figures. */
   currency: Currency;
   /** The amount now, written; empty when there is no rate yet. */
   current: string;
@@ -41,7 +44,7 @@ const amount = computed(() =>
     ? typed.value.amount
     : null,
 );
-const label = computed(() =>
+const buttonLabel = computed(() =>
   amount.value === null
     ? `Type the amount in ${props.currency.code}`
     : `Count it as ${amountText(amount.value, props.currency)}`,
@@ -54,14 +57,14 @@ function save(): void {
 
 <template>
   <div class="counts-box">
-    <span class="lbl">Counts in the envelope as</span>
+    <span class="lbl">{{ label }}</span>
     <span class="num counts-figure">{{ shown }}</span>
     <span class="num t-sub counts-hint">{{ hint }}</span>
   </div>
   <BbAmountInput
     bare
     :currency="currency"
-    label="Counts in the envelope as"
+    :label="label"
     @change="typed = $event"
   />
   <BbButton
@@ -69,7 +72,7 @@ function save(): void {
     needs-server
     :disabled="amount === null || amount <= 0n || saving"
     @click="save"
-    >{{ label }}</BbButton
+    >{{ buttonLabel }}</BbButton
   >
 </template>
 

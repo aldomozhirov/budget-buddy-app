@@ -82,6 +82,8 @@ export interface PageNames {
   account: ReadonlyMap<number, { name: string; currency: string }>;
   category: ReadonlyMap<number, string>;
   envelope: ReadonlyMap<number, { name: string; currency: string }>;
+  /** The wishes that still exist, by id, with today's name and currency. */
+  wish?: ReadonlyMap<number, { name: string; currency: string }>;
 }
 
 /** An expense with a negative amount is a refund (TXN-8). */
@@ -125,6 +127,11 @@ export function slashDate(date: string): string {
   const { year, month, day } = dateParts(date);
   const two = (value: number) => String(value).padStart(2, '0');
   return `${two(day)}/${two(month)}/${year}`;
+}
+
+/** The name of the month of a date, `October`. */
+export function monthName(date: string): string {
+  return MONTHS[dateParts(date).month - 1] ?? '';
 }
 
 /** `2 October`, with the year when it is not this year's. */
@@ -179,38 +186,64 @@ export function countsInOtherCurrency(transaction: Transaction): boolean {
   );
 }
 
+/** Whether an expense's wish counts in another currency (UI-TXN-10). */
+export function wishInOtherCurrency(transaction: Transaction): boolean {
+  const counts = transaction.countsFor;
+  return (
+    transaction.kind === 'expense' &&
+    counts.type === 'wish' &&
+    counts.linkCurrency !== undefined &&
+    counts.linkCurrency !== transaction.currency
+  );
+}
+
 /**
- * The envelope amount as shown ("€21.40"): a refund's is negative in the
- * data and shown without its sign, as on the keypad.
+ * The amount an expense counts as ("€21.40"), for its envelope or its wish:
+ * a refund's is negative in the data and shown without its sign, as on the
+ * keypad. Empty when there is no rate yet.
  */
 export function countsAsText(
   transaction: Transaction,
   coins: readonly CoinCurrency[],
 ): string {
-  if (transaction.envelopeAmount === null) return '';
-  const amount = BigInt(transaction.envelopeAmount);
+  const wish = transaction.countsFor.type === 'wish';
+  const value = wish
+    ? (transaction.countsFor.linkAmount ?? null)
+    : transaction.envelopeAmount;
+  if (value === null) return '';
+  const amount = BigInt(value);
   return money(
     amount < 0n ? -amount : amount,
-    transaction.envelopeCurrency ?? transaction.currency,
+    (wish
+      ? transaction.countsFor.linkCurrency
+      : transaction.envelopeCurrency) ?? transaction.currency,
     coins,
   );
 }
 
-/** The sheet's line under "Counts in the envelope as" (3.3, UI-TXN-5). */
+/**
+ * The sheet's line under "Counts in the envelope as" (3.3, UI-TXN-5) and
+ * "Counts for the wish as" (UI-TXN-10): the rate, or that it was typed.
+ */
 export function countsHint(
   transaction: Transaction,
   coins: readonly CoinCurrency[],
   today: string,
 ): string {
-  if (transaction.envelopeAmountManual) {
+  const wish = transaction.countsFor.type === 'wish';
+  const manual = wish
+    ? transaction.countsFor.linkAmountManual === true
+    : transaction.envelopeAmountManual;
+  const rate = wish ? transaction.countsFor.rate : transaction.envelopeRate;
+  if (manual) {
     return (
-      'Typed by hand. It changes again if the amount, date, account or ' +
-      'envelope changes.'
+      `Typed by hand. It changes again if the amount, date, account or ` +
+      `${wish ? 'wish' : 'envelope'} changes.`
     );
   }
-  if (transaction.envelopeRate) {
+  if (rate) {
     return (
-      `${rateLine(transaction.envelopeRate, coins, today)} ` +
+      `${rateLine(rate, coins, today)} ` +
       'Type what the bank charged, if you know it.'
     );
   }
@@ -220,21 +253,36 @@ export function countsHint(
   );
 }
 
-/** What the Envelope row shows: the name, and "counts as" across currencies. */
-export function envelopeRowText(
+/**
+ * What the Counts for row shows (UI-TXN-4, UI-TXN-10): "Groceries
+ * envelope", the wish's name, or "Unplanned"; across currencies with
+ * "· counts as €21.40".
+ */
+export function countsForRowText(
   transaction: Transaction,
-  name: string | undefined,
+  envelopeName: string | undefined,
   coins: readonly CoinCurrency[],
 ): string {
-  if (transaction.envelopeId === null) return 'None';
-  const label = name ?? 'Envelope';
-  if (!countsInOtherCurrency(transaction)) return label;
-  const counts = countsAsText(transaction, coins);
-  return counts ? `${label} · counts as ${counts}` : `${label} · rate missing`;
+  const counts = transaction.countsFor;
+  let label: string;
+  let other: boolean;
+  if (counts.type === 'wish') {
+    label = counts.name ?? 'Wish';
+    other = wishInOtherCurrency(transaction);
+  } else if (transaction.envelopeId !== null) {
+    label = `${envelopeName ?? 'Envelope'} envelope`;
+    other = countsInOtherCurrency(transaction);
+  } else {
+    return 'Unplanned';
+  }
+  if (!other) return label;
+  const text = countsAsText(transaction, coins);
+  return text ? `${label} · counts as ${text}` : `${label} · rate missing`;
 }
 
 /**
- * The question in the delete confirmation (UI-TXN-8): what goes back where.
+ * The question in the delete confirmation (UI-TXN-8, UI-TXN-10): what goes
+ * back where.
  * @param envelopeName The expense's envelope; undefined for none.
  */
 export function deleteText(
@@ -243,6 +291,9 @@ export function deleteText(
   coins: readonly CoinCurrency[],
 ): string {
   if (transaction.kind !== 'expense') return 'This can’t be undone.';
+  if (transaction.countsFor.type === 'wish') {
+    return `It no longer counts for ${transaction.countsFor.name ?? 'its wish'}. This can’t be undone.`;
+  }
   if (transaction.envelopeId === null) {
     return 'It’s in no envelope. This can’t be undone.';
   }
@@ -385,14 +436,62 @@ export function recordLines(
     if (changes.merchant) set('Merchant', changes.merchant[1]);
     if (changes.categoryId)
       set('Category', names.category.get(changes.categoryId[1] ?? 0));
-    if (changes.envelopeId)
+    // Link changes read as one line, and take the envelope change with them.
+    const link = changes.link;
+    const wishName = (id: number, snapshot: string) =>
+      names.wish?.get(id)?.name ?? snapshot;
+    let linkWords: string | null = null;
+    if (link) {
+      const [was, now] = link;
+      const from = was ? wishName(was.wishId, was.name) : '';
+      const to = now ? wishName(now.wishId, now.name) : '';
+      const [oldEnvelope, newEnvelope] = changes.envelopeId ?? [null, null];
+      const fromEnvelope = names.envelope.get(oldEnvelope ?? 0)?.name;
+      const toEnvelope = names.envelope.get(newEnvelope ?? 0)?.name;
+      if (was && now) {
+        linkWords = `Moved from the wish ${from} to the wish ${to}`;
+      } else if (now) {
+        if (fromEnvelope && newEnvelope === null) {
+          linkWords = `Moved from the ${fromEnvelope} envelope to the wish ${to}`;
+        } else if (now.madeHow === 'recorded') {
+          linkWords = `Recorded from the wish ${to}`;
+        } else {
+          linkWords = `Linked to the wish ${to}`;
+        }
+      } else if (was) {
+        linkWords =
+          toEnvelope && oldEnvelope === null
+            ? `Charged to ${toEnvelope}; link to ${from} removed`
+            : `Link to ${from} removed`;
+      }
+    }
+    if (linkWords) words.push(linkWords);
+    if (changes.envelopeId && !linkWords) {
       set('Envelope', names.envelope.get(changes.envelopeId[1] ?? 0)?.name);
-    if (changes.envelopeAmount?.[1] != null)
+    }
+    if (changes.envelopeAmount?.[1] != null && !linkWords) {
       amountWords(
         'Envelope amount',
         changes.envelopeAmount[1],
         unit?.envelope ?? '',
       );
+    }
+    if (changes.linkAmount?.[1] != null && changes.linkWish && !link) {
+      const wish = changes.linkWish;
+      const found = names.wish?.get(wish.wishId);
+      const amount = BigInt(changes.linkAmount[1]);
+      words.push(
+        `Counts for ${found?.name ?? wish.name} as ${money(
+          amount < 0n ? -amount : amount,
+          found?.currency ??
+            (transaction.countsFor.id === wish.wishId
+              ? transaction.countsFor.linkCurrency
+              : undefined) ??
+            transaction.currency,
+          coins,
+        )}`,
+      );
+    }
     if (changes.date?.[1] != null)
       set('Date', dayLabel(changes.date[1], today));
     if (changes.memberId)
