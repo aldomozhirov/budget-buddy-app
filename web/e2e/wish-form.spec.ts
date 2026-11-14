@@ -158,6 +158,107 @@ test.describe('New and edit wish', () => {
     });
   });
 
+  test('adds a wish for a month 3 months ahead with the Month stepper', async ({
+    page,
+  }) => {
+    await startFamily(page, async (family) => {
+      const month = await currentMonth(family);
+      const target = addMonths(month, 3);
+      await page.goto(`${family.origin}/wishes/new`);
+      const previous = page.getByRole('button', { name: 'Previous month' });
+      const following = page.getByRole('button', { name: 'Next month' });
+      await expect(
+        page.getByText(`For ${nameOf(month)}`, { exact: true }),
+      ).toBeVisible();
+      for (let i = 0; i < 3; i++) await following.click();
+      await expect(
+        page.getByText(`For ${nameOf(target)}`, { exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByText('In 3 months · plan ahead', { exact: true }),
+      ).toBeVisible();
+      await page.getByLabel('Name', { exact: true }).fill('Summer trip');
+      await page.getByRole('button', { name: 'Amount', exact: true }).click();
+      for (const k of ['5', '0', '0']) await key(page, k);
+      await page.locator('footer').getByRole('button').last().click();
+
+      await expect(page).toHaveURL(/\/wishes$/u);
+      await expect(
+        page.getByText(`Summer trip added to ${nameOf(target)}.`),
+      ).toBeVisible();
+      await expect(page.locator('.wishes-month-name')).toHaveText(
+        `${nameOf(target)} ${target.slice(0, 4)}`,
+      );
+      await expect(previous).toBeEnabled();
+    });
+  });
+
+  test('the Month stepper stops at both ends', async ({ page }) => {
+    await startFamily(page, async (family) => {
+      const month = await currentMonth(family);
+      await page.goto(
+        `${family.origin}/wishes/new?month=${addMonths(month, 11)}`,
+      );
+      const previous = page.getByRole('button', { name: 'Previous month' });
+      const following = page.getByRole('button', { name: 'Next month' });
+      await expect(following).toBeEnabled();
+      await following.click();
+      await expect(
+        page.getByText('In 12 months · plan ahead', { exact: true }),
+      ).toBeVisible();
+      await expect(following).toBeDisabled();
+      await expect(previous).toBeEnabled();
+
+      await page.goto(`${family.origin}/wishes/new?month=2000-02`);
+      await expect(previous).toBeEnabled();
+      await previous.click();
+      await expect(page.getByText('January 2000')).toBeVisible();
+      await expect(previous).toBeDisabled();
+      await expect(following).toBeEnabled();
+    });
+  });
+
+  test('edits a wish to an earlier month', async ({ page }) => {
+    await startFamily(page, async (family) => {
+      const month = await currentMonth(family);
+      const earlier = addMonths(month, -2);
+      const id = await addWish(family, month, 'Winter tyres');
+      await page.goto(`${family.origin}/wishes/${id}/edit`);
+      await expect(
+        page.getByText(`For ${nameOf(month)}`, { exact: true }),
+      ).toBeVisible();
+      const previous = page.getByRole('button', { name: 'Previous month' });
+      await previous.click();
+      await previous.click();
+      await expect(
+        page.getByText(`For ${nameOf(earlier)}`, { exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByText('2 months ago', { exact: true }),
+      ).toBeVisible();
+      await page.locator('footer').getByRole('button').last().click();
+
+      await expect(page).toHaveURL(/\/wishes\/\d+$/u);
+      await expect(
+        page.getByText(new RegExp(`${nameOf(earlier)} wish`, 'u')).first(),
+      ).toBeVisible();
+
+      const old = (await (
+        await family.api.get(`${family.origin}/api/wishes?month=${month}`)
+      ).json()) as WishesResponse;
+      expect(old.wishes).toHaveLength(0);
+      const moved = (await (
+        await family.api.get(`${family.origin}/api/wishes?month=${earlier}`)
+      ).json()) as WishesResponse;
+      expect(moved.wishes.map((item) => item.name)).toEqual(['Winter tyres']);
+
+      await page.goto(`${family.origin}/wishes`);
+      await page.getByRole('button', { name: 'Previous month' }).click();
+      await page.getByRole('button', { name: 'Previous month' }).click();
+      await expect(page.getByText('Winter tyres').first()).toBeVisible();
+    });
+  });
+
   test('edits a wish from the cog', async ({ page }) => {
     await startFamily(page, async (family) => {
       const month = await currentMonth(family);

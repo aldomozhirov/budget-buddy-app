@@ -33,9 +33,9 @@ export function hasPreviousMonth(month: string): boolean {
   return month > EARLIEST_MONTH;
 }
 
-/** Coming months stop at the one after the current month (UI-WSH-1). */
+/** Coming months go up to 12 months after the current one (O8). */
 export function hasNextMonth(month: string, current: string): boolean {
-  return month < addMonths(current, 1);
+  return month < addMonths(current, 12);
 }
 
 /** "3 wishes · 2 open" (UI-WSH-2). */

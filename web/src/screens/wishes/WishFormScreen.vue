@@ -30,10 +30,11 @@ import { ApiError, callApi } from '../../api/callApi.js';
 import { useBack } from '../../composables/useBack.js';
 import { leaveToPast } from '../../router/index.js';
 import { envelopeCurrency, monthName } from '../envelopes/envelopeFormat.js';
+import WishMonthStepper from './WishMonthStepper.vue';
 import { pendingWishMessage } from './wishMessage.js';
 
 /**
- * The new and edit wish page (UI-WSH-3): name, amount on the keypad with
+ * The new and edit wish page (UI-WSH-3): name, month, amount on the keypad with
  * the typed expression under the result (PLN-16), currency, category and
  * note. `/wishes/new?month=` and `/wishes/:id/edit` open it. Editing ends
  * with "Drop" ("Bring back") and "Delete", which act at once and leave a
@@ -54,6 +55,8 @@ const loading = ref(true);
 const loadError = ref('');
 const wish = ref<Wish | null>(null);
 const month = ref('');
+/** The family's current month, the stepper's reference. */
+const current = ref('');
 const currencies = ref<CurrencyOption[]>([]);
 const coins = ref<CoinSetting[]>([]);
 const categories = ref<Category[]>([]);
@@ -174,6 +177,7 @@ async function load(): Promise<void> {
     currencies.value = currencyData.currencies;
     coins.value = currencyData.coins;
     commonCurrency.value = settings.commonCurrency;
+    current.value = monthOfDate(todayInTimeZone(new Date(), settings.timeZone));
     categories.value = categoryData.categories;
     const counts = new Map<string, number>();
     for (const account of accounts.accounts) {
@@ -200,7 +204,7 @@ async function load(): Promise<void> {
       month.value =
         typeof wanted === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/u.test(wanted)
           ? wanted
-          : monthOfDate(todayInTimeZone(new Date(), settings.timeZone));
+          : current.value;
       currencyCode.value = settings.commonCurrency;
     }
   } catch (cause) {
@@ -272,7 +276,13 @@ async function save(): Promise<void> {
         'PATCH',
         `/api/wishes/${wish.value.id}`,
         wishResponseSchema,
-        body,
+        month.value === wish.value.month
+          ? body
+          : {
+              ...body,
+              month: month.value,
+              expect: { month: wish.value.month },
+            },
       );
       goBack();
     } else {
@@ -397,6 +407,15 @@ async function remove(): Promise<void> {
           <span v-if="nameError" class="error" role="alert">{{
             nameError
           }}</span>
+        </div>
+
+        <div class="wf-field">
+          <span id="wish-lbl-month" class="lbl">Month</span>
+          <WishMonthStepper
+            v-model:month="month"
+            aria-labelledby="wish-lbl-month"
+            :current="current"
+          />
         </div>
 
         <div class="wf-field">

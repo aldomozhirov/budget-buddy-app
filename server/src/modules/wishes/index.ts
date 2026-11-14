@@ -307,6 +307,9 @@ export const wishRoutes: FastifyPluginAsync<{
           ? []
           : (categoryProblem(database, body.categoryId, id) ?? [])),
       ];
+      if (body.month !== undefined) {
+        problems.push(...(monthProblem(body.month) ?? []));
+      }
       if (problems.length > 0) return problems;
       const sets: string[] = [];
       const values: unknown[] = [];
@@ -321,6 +324,10 @@ export const wishRoutes: FastifyPluginAsync<{
       if (body.categoryId !== undefined) set('category_id', body.categoryId);
       if (body.note !== undefined) set('note', body.note);
       if (body.state !== undefined) set('state', body.state);
+      if (body.month !== undefined && body.month !== stored.month) {
+        set('month', body.month);
+      }
+      if (sets.length === 0) return 'ok' as const;
       const oldCurrency = (
         database.prepare('SELECT currency FROM wish WHERE id = ?').get(id) as {
           currency: string;
@@ -368,7 +375,6 @@ export const wishRoutes: FastifyPluginAsync<{
     }
     const { month: target, expect } = parsed.data;
     const id = params.data.id;
-    const current = currentMonth();
     const now = clock.now().getTime();
 
     const outcome = database.transaction(() => {
@@ -380,12 +386,9 @@ export const wishRoutes: FastifyPluginAsync<{
       ) {
         return 'changed' as const;
       }
-      // Forward: an open wish of this month to the next. Back (Undo): a
-      // wish of the next month to this one. Nothing else moves (PLN-11).
-      const forward =
-        stored.month === current && target === addMonths(current, 1);
-      const back = stored.month === addMonths(current, 1) && target === current;
-      if (stored.state !== 'open' || !(forward || back)) {
+      // Any wish that is not deleted moves to another month in the O8
+      // range (PLN-11).
+      if (target === stored.month || monthProblem(target)) {
         return 'invalid' as const;
       }
       database
@@ -399,9 +402,11 @@ export const wishRoutes: FastifyPluginAsync<{
     if (outcome === 'not_found') return sendNotFound(reply);
     if (outcome === 'changed') return sendChanged(reply);
     if (outcome === 'invalid') {
-      return sendInvalid(reply, 'Only an open wish of this month moves on.', [
-        { path: ['month'], message: 'This wish cannot move to that month.' },
-      ]);
+      return sendInvalid(
+        reply,
+        'Choose another month, from 2000-01 to a year ahead.',
+        [{ path: ['month'], message: 'This wish cannot move to that month.' }],
+      );
     }
     return wishResponseSchema.parse({ wish: loadWish(database, id) });
   });
