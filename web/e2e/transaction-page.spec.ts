@@ -142,7 +142,7 @@ test('every row opens a sheet, in the order of the Add form', async ({
       'Paid from',
       'Merchant',
       'Category',
-      'Envelope',
+      'Counts for',
       'Date',
       'Paid by',
       'Note',
@@ -151,7 +151,7 @@ test('every row opens a sheet, in the order of the Add form', async ({
       ['Paid from', 'Paid from'],
       ['Merchant', 'Merchant'],
       ['Category', 'Category'],
-      ['Envelope', 'Envelope'],
+      ['Counts for', 'Counts for'],
       ['Date', 'Date'],
       ['Paid by', 'Paid by'],
       ['Note', 'Note'],
@@ -164,16 +164,18 @@ test('every row opens a sheet, in the order of the Add form', async ({
       await expect(sheet).toHaveCount(0);
     }
 
-    const envelope = page.getByRole('button', { name: /^Envelope/ });
+    const envelope = page.getByRole('button', { name: /^Counts for/ });
     await envelope.click();
-    const sheet = page.getByRole('dialog', { name: 'Envelope' });
+    const sheet = page.getByRole('dialog', { name: 'Counts for' });
     await expect(
-      sheet.getByText('Changing it never changes the category.'),
+      sheet.getByText(/^Pick one: an envelope, one of \w+’s wishes, or/u),
     ).toBeVisible();
-    await expect(sheet.getByRole('radio', { name: 'None' })).toBeVisible();
+    await expect(
+      sheet.getByRole('radio', { name: /^Unplanned/ }),
+    ).toBeVisible();
     await expect(
       sheet.getByRole('radio', { name: /^Groceries/ }),
-    ).toContainText(/Resets monthly · .*€\d.* left/u);
+    ).toContainText(/Resets monthly · .*€\d.* (left|overspent)/u);
     await sheet.getByRole('button', { name: 'Close', exact: true }).click();
 
     await expectNoSidewaysScroll(page, 'Transaction');
@@ -273,9 +275,9 @@ test('an account in another currency asks for the amount in it first', async ({
       await expect(page.getByText(text, { exact: true })).toBeVisible();
     }
     // The EUR envelope now counts the dollars at the date's rate.
-    await expect(page.getByRole('button', { name: /^Envelope/ })).toContainText(
-      /Groceries · counts as €\d/u,
-    );
+    await expect(
+      page.getByRole('button', { name: /^Counts for/ }),
+    ).toContainText(/Groceries envelope · counts as €\d/u);
   });
 });
 
@@ -441,11 +443,13 @@ test('a foreign-currency expense shows what it counts as and keeps a typed value
     await expect(
       page.getByRole('button', { name: 'Change amount' }),
     ).toHaveText('−$23.39');
-    const row = page.getByRole('button', { name: /^Envelope/ });
-    await expect(row).toContainText(/Groceries · counts as €\d/u);
+    const row = page.getByRole('button', { name: /^Counts for/ });
+    await expect(row).toContainText(/Groceries envelope · counts as €\d/u);
     // The whole value is shown, not cut off with an ellipsis.
-    const value = page.getByTestId('envelope-value');
-    await expect(value).toHaveText(/^Groceries · counts as €\d[\d,]*\.\d\d$/u);
+    const value = page.getByTestId('counts-for-value');
+    await expect(value).toHaveText(
+      /^Groceries envelope · counts as €\d[\d,]*\.\d\d$/u,
+    );
     await expect(value).toBeVisible();
     expect(
       await value.evaluate(
@@ -457,7 +461,7 @@ test('a foreign-currency expense shows what it counts as and keeps a typed value
     await shoot(page, testInfo, 'TransactionFx');
 
     await row.click();
-    const sheet = page.getByRole('dialog', { name: 'Envelope' });
+    const sheet = page.getByRole('dialog', { name: 'Counts for' });
     await expect(
       sheet.getByText('Counts in the envelope as').first(),
     ).toBeVisible();
@@ -472,7 +476,7 @@ test('a foreign-currency expense shows what it counts as and keeps a typed value
     await typeAmount(sheet, '21.40');
     await sheet.getByRole('button', { name: 'Count it as €21.40' }).click();
     await expect(sheet).toHaveCount(0);
-    await expect(row).toContainText('Groceries · counts as €21.40');
+    await expect(row).toContainText('Groceries envelope · counts as €21.40');
 
     // The typed amount stays and is marked as typed by hand (3.3).
     await row.click();
@@ -481,18 +485,18 @@ test('a foreign-currency expense shows what it counts as and keeps a typed value
     ).toBeVisible();
     await expect(
       page
-        .getByRole('dialog', { name: 'Envelope' })
+        .getByRole('dialog', { name: 'Counts for' })
         .getByText('€21.40')
         .first(),
     ).toBeVisible();
     await page
-      .getByRole('dialog', { name: 'Envelope' })
+      .getByRole('dialog', { name: 'Counts for' })
       .getByRole('button', { name: 'Close', exact: true })
       .click();
     await page.reload();
-    await expect(page.getByRole('button', { name: /^Envelope/ })).toContainText(
-      'Groceries · counts as €21.40',
-    );
+    await expect(
+      page.getByRole('button', { name: /^Counts for/ }),
+    ).toContainText('Groceries envelope · counts as €21.40');
   });
 });
 
@@ -565,15 +569,15 @@ test('"Just this once" saves no rule; the envelope can be cleared on its own', a
     ).json()) as { rules: unknown[] };
     expect(rules.rules).toHaveLength(1);
 
-    // "None" keeps the category (UI-ADD-12, UI-TXN-5).
-    await page.getByRole('button', { name: /^Envelope/ }).click();
+    // "Unplanned" keeps the category (UI-ADD-12, UI-TXN-5).
+    await page.getByRole('button', { name: /^Counts for/ }).click();
     await page
-      .getByRole('dialog', { name: 'Envelope' })
-      .getByRole('radio', { name: 'None' })
+      .getByRole('dialog', { name: 'Counts for' })
+      .getByRole('radio', { name: /^Unplanned/ })
       .click();
-    await expect(page.getByRole('button', { name: /^Envelope/ })).toContainText(
-      'None',
-    );
+    await expect(
+      page.getByRole('button', { name: /^Counts for/ }),
+    ).toContainText('Unplanned');
     await expect(page.getByRole('button', { name: /^Category/ })).toContainText(
       'Eating out',
     );

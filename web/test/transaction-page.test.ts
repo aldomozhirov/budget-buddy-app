@@ -3,9 +3,9 @@ import type { Transaction, TransactionRevision } from '@budget-buddy/shared';
 import {
   amountsToRetype,
   carryAmount,
+  countsForRowText,
   countsHint,
   deleteText,
-  envelopeRowText,
   headerAmount,
   longDate,
   rateLine,
@@ -148,16 +148,52 @@ describe('the rate of an envelope amount', () => {
   });
 
   it('shows "counts as" only across currencies', () => {
-    expect(envelopeRowText(transaction(), 'Groceries', [])).toBe('Groceries');
-    expect(envelopeRowText(foreign, 'Groceries', [])).toBe(
-      'Groceries · counts as €21.40',
+    expect(countsForRowText(transaction(), 'Groceries', [])).toBe(
+      'Groceries envelope',
+    );
+    expect(countsForRowText(foreign, 'Groceries', [])).toBe(
+      'Groceries envelope · counts as €21.40',
     );
     expect(
-      envelopeRowText({ ...foreign, envelopeAmount: null }, 'Groceries', []),
-    ).toBe('Groceries · rate missing');
+      countsForRowText({ ...foreign, envelopeAmount: null }, 'Groceries', []),
+    ).toBe('Groceries envelope · rate missing');
     expect(
-      envelopeRowText(transaction({ envelopeId: null }), undefined, []),
-    ).toBe('None');
+      countsForRowText(
+        transaction({ envelopeId: null, countsFor: { type: 'none' } }),
+        undefined,
+        [],
+      ),
+    ).toBe('Unplanned');
+  });
+
+  it('names a wish, with "counts as" across currencies', () => {
+    const wish = transaction({
+      envelopeId: null,
+      envelopeCurrency: null,
+      envelopeAmount: null,
+      countsFor: {
+        type: 'wish',
+        id: 7,
+        name: 'Winter tyres',
+        linkAmount: '2140',
+        linkCurrency: 'EUR',
+      },
+    });
+    expect(countsForRowText(wish, undefined, [])).toBe('Winter tyres');
+    const abroad = { ...wish, currency: 'USD', amount: '2339' };
+    expect(countsForRowText(abroad, undefined, [])).toBe(
+      'Winter tyres · counts as €21.40',
+    );
+    expect(
+      countsForRowText(
+        {
+          ...abroad,
+          countsFor: { ...abroad.countsFor, linkAmount: null },
+        },
+        undefined,
+        [],
+      ),
+    ).toBe('Winter tyres · rate missing');
   });
 });
 
@@ -175,6 +211,19 @@ describe('the delete question', () => {
     expect(deleteText(transaction({ kind: 'income' }), undefined, [])).toBe(
       'This can’t be undone.',
     );
+  });
+
+  it('says a linked expense no longer counts for its wish', () => {
+    expect(
+      deleteText(
+        transaction({
+          envelopeId: null,
+          countsFor: { type: 'wish', id: 7, name: 'Winter tyres' },
+        }),
+        undefined,
+        [],
+      ),
+    ).toBe('It no longer counts for Winter tyres. This can’t be undone.');
   });
 });
 
@@ -294,5 +343,76 @@ describe('carryAmount', () => {
 
   it('is exact above 2^53', () => {
     expect(carryAmount(9007199254740993n, 0, 2)).toBe(900719925474099300n);
+  });
+});
+
+describe('the record of what it counts for', () => {
+  const link = (
+    wishId: number,
+    name: string,
+    madeHow: 'member' | 'recorded' = 'member',
+  ) => ({
+    kind: 'wish' as const,
+    wishId,
+    name,
+    madeHow,
+  });
+  const texts = (
+    changes: TransactionRevision['changes'][],
+    wish?: PageNames['wish'],
+  ) =>
+    recordLines(
+      transaction(),
+      changes.map((entry, index) => revision(index + 1, entry, 0)),
+      { ...names, ...(wish ? { wish } : {}) },
+      [],
+      'UTC',
+      '2026-10-05',
+    )
+      .slice(1)
+      .map((line) => line.text);
+
+  it('writes each line of UI-TXN-10 and O9', () => {
+    expect(
+      texts([
+        { link: [null, link(7, 'Tyres')] },
+        { link: [null, link(7, 'Tyres', 'recorded')] },
+        { link: [null, link(7, 'Tyres')], envelopeId: [1, null] },
+        { link: [link(7, 'Tyres'), null], envelopeId: [null, 1] },
+        { link: [link(7, 'Tyres'), null] },
+        { link: [link(7, 'Tyres'), link(8, 'Salzburg')] },
+      ]),
+    ).toEqual([
+      'Linked to the wish Tyres by Alena',
+      'Recorded from the wish Tyres by Alena',
+      'Moved from the Groceries envelope to the wish Tyres by Alena',
+      'Charged to Groceries; link to Tyres removed by Alena',
+      'Link to Tyres removed by Alena',
+      'Moved from the wish Tyres to the wish Salzburg by Alena',
+    ]);
+  });
+
+  it('names a wish by its snapshot unless it still exists', () => {
+    const changes: TransactionRevision['changes'][] = [
+      { link: [null, link(7, 'Old name')] },
+    ];
+    expect(texts(changes)).toEqual(['Linked to the wish Old name by Alena']);
+    expect(
+      texts(changes, new Map([[7, { name: 'New name', currency: 'EUR' }]])),
+    ).toEqual(['Linked to the wish New name by Alena']);
+  });
+
+  it('writes a corrected amount in the wish’s currency', () => {
+    expect(
+      texts(
+        [
+          {
+            linkAmount: ['100', '2140'],
+            linkWish: { wishId: 7, name: 'Tyres' },
+          },
+        ],
+        new Map([[7, { name: 'Tyres', currency: 'EUR' }]]),
+      ),
+    ).toEqual(['Counts for Tyres as €21.40 by Alena']);
   });
 });

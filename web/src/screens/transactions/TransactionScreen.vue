@@ -15,6 +15,8 @@ import {
   ruleResponseSchema,
   todayInTimeZone,
   transactionResponseSchema,
+  wishResponseSchema,
+  wishesResponseSchema,
   type AddOptionsAccount,
   type AddOptionsResponse,
   type Category,
@@ -24,6 +26,7 @@ import {
   type Transaction,
   type TransactionRevision,
   type UpdateTransactionRequest,
+  type Wish,
   type KnownMerchant,
 } from '@budget-buddy/shared';
 import AccountPickerSheet from '../../components/AccountPickerSheet.vue';
@@ -32,7 +35,6 @@ import BbButton from '../../components/BbButton.vue';
 import BbConfirmSheet from '../../components/BbConfirmSheet.vue';
 import BbIcon from '../../components/BbIcon.vue';
 import CategoryPickerSheet from '../../components/CategoryPickerSheet.vue';
-import EnvelopePickerSheet from '../../components/EnvelopePickerSheet.vue';
 import { ApiError, callApi } from '../../api/callApi.js';
 import { useBack } from '../../composables/useBack.js';
 import { accountCurrency } from '../add/addForm.js';
@@ -42,20 +44,23 @@ import NoteSheet from '../add/NoteSheet.vue';
 import PayerSheet from '../add/PayerSheet.vue';
 import AmountSheet from './AmountSheet.vue';
 import CountsAsPanel from './CountsAsPanel.vue';
+import CountsForSheet from './CountsForSheet.vue';
 import { money } from './transactionsFormat.js';
 import {
   amountsToRetype,
   carryAmount,
   countsAsText,
+  countsForRowText,
   countsHint,
   countsInOtherCurrency,
   deleteText,
-  envelopeRowText,
   headerAmount,
   longDate,
+  monthName,
   PAGE_WORDS,
   recordLines,
   slashDate,
+  wishInOtherCurrency,
   type PageNames,
   type RetypedAmount,
 } from './transactionPage.js';
@@ -78,7 +83,7 @@ type SheetName =
   | 'toAmount'
   | 'merchant'
   | 'category'
-  | 'envelope'
+  | 'countsFor'
   | 'date'
   | 'payer'
   | 'note';
@@ -97,6 +102,10 @@ const categories = ref<Category[]>([]);
 const envelopes = ref<Envelope[]>([]);
 const archivedEnvelopes = ref<Envelope[]>([]);
 const coins = ref<CoinSetting[]>([]);
+/** The wishes of the transaction's month that can be linked to. */
+const monthWishes = ref<Wish[]>([]);
+/** The wishes the Record names that still exist, by id. */
+const wishNames = ref(new Map<number, { name: string; currency: string }>());
 const loading = ref(true);
 const loadError = ref('');
 
@@ -138,6 +147,7 @@ const names = computed<PageNames>(() => ({
       { name: item.name, currency: item.currency },
     ]),
   ),
+  wish: wishNames.value,
 }));
 
 const words = computed(() =>
@@ -185,8 +195,12 @@ const arrivesText = computed(() =>
     : '',
 );
 const fx = computed(
-  () => transaction.value !== null && countsInOtherCurrency(transaction.value),
+  () =>
+    transaction.value !== null &&
+    (countsInOtherCurrency(transaction.value) ||
+      wishInOtherCurrency(transaction.value)),
 );
+const forWish = computed(() => transaction.value?.countsFor.type === 'wish');
 
 const title = computed(() => {
   const value = transaction.value;
@@ -201,10 +215,13 @@ const dateLine = computed(() =>
     ? `${longDate(transaction.value.date, today.value)} · ${words.value.by} ${payerName.value}`
     : '',
 );
-const envelopeText = computed(() =>
+const countsForText = computed(() =>
   transaction.value
-    ? envelopeRowText(transaction.value, envelopeName.value, coins.value)
+    ? countsForRowText(transaction.value, envelopeName.value, coins.value)
     : '',
+);
+const wishLinks = computed(() =>
+  monthWishes.value.filter((wish) => wish.state !== 'dropped'),
 );
 const record = computed(() =>
   transaction.value
@@ -302,16 +319,67 @@ const pickableAccounts = computed<AddOptionsAccount[]>(() => {
   const other = sheet.value === 'toAccount' ? now.accountId : now.toAccountId;
   return all.filter((item) => item.id !== other);
 });
-const envelopeCurrency = computed<Currency | undefined>(() =>
-  transaction.value?.envelopeCurrency
-    ? getCurrency(transaction.value.envelopeCurrency, coins.value)
-    : undefined,
-);
+/** The currency of the amount "counts as" types: the wish's or envelope's. */
+const countsCurrency = computed<Currency | undefined>(() => {
+  const now = transaction.value;
+  const code = forWish.value
+    ? now?.countsFor.linkCurrency
+    : now?.envelopeCurrency;
+  return code ? getCurrency(code, coins.value) : undefined;
+});
 
 function errorText(cause: unknown, fallback: string): string {
   return cause instanceof ApiError && cause.status !== 0
     ? cause.message
     : fallback;
+}
+
+/**
+ * Reads the wishes of the transaction's month for the sheet, and the wishes
+ * the Record names, for today's names. A failure leaves them as they were:
+ * the page works without them.
+ */
+async function loadWishes(): Promise<void> {
+  const now = transaction.value;
+  if (!now || now.kind !== 'expense') return;
+  try {
+    const answer = await callApi(
+      'GET',
+      `/api/wishes?month=${now.date.slice(0, 7)}`,
+      wishesResponseSchema,
+    );
+    monthWishes.value = answer.wishes;
+  } catch {
+    monthWishes.value = [];
+  }
+  const known = new Map<number, { name: string; currency: string }>();
+  for (const wish of monthWishes.value) {
+    known.set(wish.id, { name: wish.name, currency: wish.currency });
+  }
+  const wanted = new Set<number>();
+  for (const revision of revisions.value) {
+    for (const link of revision.changes.link ?? []) {
+      if (link) wanted.add(link.wishId);
+    }
+    if (revision.changes.linkWish) wanted.add(revision.changes.linkWish.wishId);
+  }
+  await Promise.all(
+    [...wanted]
+      .filter((wishId) => !known.has(wishId))
+      .map(async (wishId) => {
+        try {
+          const { wish } = await callApi(
+            'GET',
+            `/api/wishes/${wishId}`,
+            wishResponseSchema,
+          );
+          known.set(wish.id, { name: wish.name, currency: wish.currency });
+        } catch {
+          // A deleted wish stays named by the snapshot in the Record.
+        }
+      }),
+  );
+  wishNames.value = known;
 }
 
 async function load(): Promise<void> {
@@ -358,6 +426,7 @@ async function load(): Promise<void> {
     envelopes.value = active.envelopes;
     archivedEnvelopes.value = archived.envelopes;
     coins.value = money.coins;
+    await loadWishes();
   } catch (cause) {
     loadError.value = errorText(
       cause,
@@ -386,6 +455,7 @@ async function save(change: UpdateTransactionRequest): Promise<boolean> {
     transaction.value = answer.transaction;
     revisions.value = answer.revisions;
     countsKey.value += 1;
+    void loadWishes();
     return true;
   } catch (cause) {
     actionError.value = errorText(
@@ -401,6 +471,7 @@ async function save(change: UpdateTransactionRequest): Promise<boolean> {
 function openSheet(name: SheetName): void {
   actionError.value = '';
   sheet.value = name;
+  if (name === 'countsFor') void loadWishes();
 }
 
 /**
@@ -530,27 +601,59 @@ async function saveRule(): Promise<void> {
   }
 }
 
-async function pickEnvelope(picked: Envelope | null): Promise<void> {
+/**
+ * Picks an envelope, which also removes a wish link (PLN-14). Another
+ * currency keeps the sheet open for the "counts as" keypad.
+ */
+async function pickEnvelope(picked: Envelope): Promise<void> {
   const now = transaction.value;
   if (!now) return;
-  const sameCurrency = picked === null || picked.currency === now.currency;
-  if ((picked?.id ?? null) === now.envelopeId) {
+  if (picked.id === now.envelopeId) {
+    if (picked.currency === now.currency) sheet.value = null;
+    return;
+  }
+  if (picked.currency === now.currency) sheet.value = null;
+  const saved = await save({ envelopeId: picked.id });
+  if (!saved) sheet.value = null;
+}
+
+/**
+ * Picks a wish of the month, which takes the expense out of its envelope.
+ * Another currency keeps the sheet open for "Counts for the wish as".
+ */
+async function pickWish(picked: Wish): Promise<void> {
+  const now = transaction.value;
+  if (!now) return;
+  const sameCurrency = picked.currency === now.currency;
+  if (now.countsFor.type === 'wish' && now.countsFor.id === picked.id) {
     if (sameCurrency) sheet.value = null;
     return;
   }
-  // Another currency keeps the sheet open for the "counts as" keypad.
   if (sameCurrency) sheet.value = null;
-  const saved = await save({ envelopeId: picked?.id ?? null });
+  const saved = await save({ wishId: picked.id });
   if (!saved) sheet.value = null;
+}
+
+/** Picks "Unplanned": no envelope and no wish. */
+async function pickNeither(): Promise<void> {
+  const now = transaction.value;
+  sheet.value = null;
+  if (!now) return;
+  const change: UpdateTransactionRequest = {};
+  if (now.countsFor.type === 'wish') change.wishId = null;
+  if (now.envelopeId !== null) change.envelopeId = null;
+  if (Object.keys(change).length) await save(change);
 }
 
 async function saveCounts(amount: bigint): Promise<void> {
   const now = transaction.value;
   if (!now) return;
   const sign = BigInt(now.amount) < 0n ? -1n : 1n;
-  if (await save({ envelopeAmount: (sign * amount).toString() })) {
-    sheet.value = null;
-  }
+  const typed = (sign * amount).toString();
+  const saved = await save(
+    forWish.value ? { linkAmount: typed } : { envelopeAmount: typed },
+  );
+  if (saved) sheet.value = null;
 }
 
 async function saveAmount(amount: bigint): Promise<void> {
@@ -722,17 +825,14 @@ onMounted(() => void load());
             data-testid="detail-row"
             type="button"
             aria-haspopup="dialog"
-            @click="openSheet('envelope')"
+            @click="openSheet('countsFor')"
           >
-            <span class="field-l">Envelope</span>
+            <span class="field-l">Counts for</span>
             <span
               class="field-v num"
-              :class="{
-                'is-empty': transaction.envelopeId === null,
-                'is-wrapped': fx,
-              }"
-              data-testid="envelope-value"
-              >{{ envelopeText }}</span
+              :class="{ 'is-wrapped': fx }"
+              data-testid="counts-for-value"
+              >{{ countsForText }}</span
             >
           </button>
           <template v-if="transaction.kind === 'transfer'">
@@ -878,26 +978,38 @@ onMounted(() => void load());
         @pick="pickCategory"
         @close="sheet = null"
       />
-      <EnvelopePickerSheet
-        v-if="sheet === 'envelope'"
+      <CountsForSheet
+        v-if="sheet === 'countsFor'"
         :envelopes="envelopes"
+        :wishes="wishLinks"
         :coins="coins"
-        :selected-id="transaction.envelopeId"
-        hint="Changing it never changes the category."
-        @pick="pickEnvelope"
+        :month-name="monthName(transaction.date)"
+        :envelope-id="transaction.envelopeId"
+        :wish-id="
+          transaction.countsFor.type === 'wish'
+            ? (transaction.countsFor.id ?? null)
+            : null
+        "
+        :wish-name="transaction.countsFor.name"
+        @envelope="pickEnvelope"
+        @wish="pickWish"
+        @none="pickNeither"
         @close="sheet = null"
       >
-        <template v-if="fx && envelopeCurrency" #after>
+        <template v-if="fx && countsCurrency" #after>
           <CountsAsPanel
             :key="countsKey"
-            :currency="envelopeCurrency"
+            :label="
+              forWish ? 'Counts for the wish as' : 'Counts in the envelope as'
+            "
+            :currency="countsCurrency"
             :current="countsAsText(transaction, coins)"
             :hint="countsHint(transaction, coins, today)"
             :saving="saving"
             @save="saveCounts"
           />
         </template>
-      </EnvelopePickerSheet>
+      </CountsForSheet>
       <DateSheet
         v-if="sheet === 'date'"
         :date="transaction.date"
