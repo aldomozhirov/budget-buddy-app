@@ -417,7 +417,7 @@ describe('wishes API', () => {
     expect(insert).toThrow(/UNIQUE/u);
   });
 
-  it('moves an open wish of this month forward, and back for Undo, and refuses any other move', async () => {
+  it('moves a wish to any other month in range, and back for Undo', async () => {
     const wish = await add({ name: 'Move me' });
     const forward = await call('POST', `/api/wishes/${wish.id}/move`, {
       month: '2026-11',
@@ -433,12 +433,6 @@ describe('wishes API', () => {
     ).toHaveLength(1);
     expect((await call('GET', '/api/home')).json().wishes).toEqual({ open: 0 });
 
-    // A wish already in the next month does not move on.
-    const twice = await call('POST', `/api/wishes/${wish.id}/move`, {
-      month: '2026-12',
-    });
-    expect(twice.statusCode).toBe(400);
-    expect(twice.json().error.code).toBe('invalid');
     // Undo expects the month it moved to.
     const stale = await call('POST', `/api/wishes/${wish.id}/move`, {
       month: '2026-10',
@@ -451,29 +445,100 @@ describe('wishes API', () => {
     });
     expect(back.json().wish.month).toBe('2026-10');
 
+    // Any month in the range, earlier ones and five months ahead included.
+    for (const month of ['2026-03', '2027-03', '2000-01', '2027-10']) {
+      const moved = await call('POST', `/api/wishes/${wish.id}/move`, {
+        month,
+      });
+      expect(moved.statusCode, month).toBe(200);
+      expect(moved.json().wish.month).toBe(month);
+    }
+
     const done = await add({ name: 'Done' });
     await call('PATCH', `/api/wishes/${done.id}`, { state: 'done' });
     const dropped = await add({ name: 'Dropped' });
     await call('PATCH', `/api/wishes/${dropped.id}`, { state: 'dropped' });
-    const past = await add({ month: '2026-09', name: 'Past' });
-    const future = await add({ month: '2026-12', name: 'Future' });
-    for (const [id, month] of [
-      [done.id, '2026-11'],
-      [dropped.id, '2026-11'],
-      [past.id, '2026-10'],
-      [past.id, '2026-11'],
-      [future.id, '2026-11'],
-      [wish.id, '2026-12'],
-      [wish.id, '2026-10'],
-    ] as const) {
-      const response = await call('POST', `/api/wishes/${id}/move`, { month });
-      expect(response.statusCode, `${id} to ${month}`).toBe(400);
+    for (const id of [done.id, dropped.id]) {
+      const moved = await call('POST', `/api/wishes/${id}/move`, {
+        month: '2026-09',
+      });
+      expect(moved.statusCode).toBe(200);
+    }
+
+    // The wish's own month, and months out of range, are refused.
+    const own = await call('POST', `/api/wishes/${done.id}/move`, {
+      month: '2026-09',
+    });
+    expect(own.statusCode).toBe(400);
+    for (const month of ['1999-12', '2027-11']) {
+      const response = await call('POST', `/api/wishes/${wish.id}/move`, {
+        month,
+      });
+      expect(response.statusCode, month).toBe(400);
       expect(response.json().error.code).toBe('invalid');
     }
     expect(
       (await call('POST', '/api/wishes/999/move', { month: '2026-11' }))
         .statusCode,
     ).toBe(404);
+  });
+
+  it('changes the month on PATCH, in range only, and keeps the links', async () => {
+    const wish = await add({ amount: '48000' });
+    linkExpense(wish.id, 12000n);
+    const stamp = now + 1000;
+    now = stamp;
+    for (const month of ['2026-03', '2027-01', '2027-10', '2000-01']) {
+      const response = await call('PATCH', `/api/wishes/${wish.id}`, {
+        month,
+      });
+      expect(response.statusCode, `${month} ${response.body}`).toBe(200);
+      const moved = response.json().wish;
+      expect(moved).toMatchObject({
+        month,
+        spent: '12000',
+        expenseCount: 1,
+        updatedBy: 1,
+      });
+      expect(
+        database
+          .prepare('SELECT month FROM plan_link WHERE wish_id = ?')
+          .all(wish.id),
+      ).toEqual([{ month: '2026-10' }]);
+    }
+
+    // The same month changes nothing.
+    const same = await call('PATCH', `/api/wishes/${wish.id}`, {
+      month: '2000-01',
+    });
+    expect(same.statusCode, same.body).toBe(200);
+    expect(same.json().wish.month).toBe('2000-01');
+
+    for (const month of ['1999-12', '2027-11']) {
+      const response = await call('PATCH', `/api/wishes/${wish.id}`, {
+        month,
+      });
+      expect(response.statusCode, month).toBe(400);
+      expect(response.json().error.code).toBe('invalid');
+    }
+    const staleMonth = await call('PATCH', `/api/wishes/${wish.id}`, {
+      month: '2026-11',
+      expect: { month: '2026-10' },
+    });
+    expect(staleMonth.statusCode).toBe(409);
+    expect(staleMonth.json().error.code).toBe('changed');
+
+    const done = await add({ name: 'Done' });
+    await call('PATCH', `/api/wishes/${done.id}`, { state: 'done' });
+    const dropped = await add({ name: 'Dropped' });
+    await call('PATCH', `/api/wishes/${dropped.id}`, { state: 'dropped' });
+    for (const id of [done.id, dropped.id]) {
+      const response = await call('PATCH', `/api/wishes/${id}`, {
+        month: '2026-08',
+      });
+      expect(response.statusCode, response.body).toBe(200);
+      expect(response.json().wish.month).toBe('2026-08');
+    }
   });
 
   it('counts the open wishes of the current month on Home', async () => {
@@ -761,10 +826,15 @@ describe('wishes API', () => {
       month: '2026-12',
     });
     expect(forward.statusCode).toBe(200);
-    const stale = await call('POST', '/api/wishes/1/move', {
-      month: '2026-11',
+    // The range follows that month too: 2027-11 is the last one.
+    const last = await call('POST', '/api/wishes/1/move', {
+      month: '2027-11',
     });
-    expect(stale.statusCode).toBe(400);
+    expect(last.statusCode).toBe(200);
+    const beyond = await call('POST', '/api/wishes/1/move', {
+      month: '2027-12',
+    });
+    expect(beyond.statusCode).toBe(400);
   });
 
   it('answers every wish route with 401 without a session, session_locked when locked, and refuses a foreign origin', async () => {

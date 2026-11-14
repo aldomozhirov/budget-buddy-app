@@ -72,11 +72,12 @@ describe('month arrows', () => {
     expect(hasPreviousMonth(EARLIEST_MONTH)).toBe(false);
   });
 
-  it('goes forward only to the month after the current one', () => {
+  it('goes forward up to 12 months after the current one', () => {
     expect(hasNextMonth('2026-11', '2026-11')).toBe(true);
-    expect(hasNextMonth('2026-12', '2026-11')).toBe(false);
-    expect(hasNextMonth('2027-01', '2026-12')).toBe(false);
-    expect(hasNextMonth('2026-12', '2026-12')).toBe(true);
+    expect(hasNextMonth('2027-10', '2026-11')).toBe(true);
+    expect(hasNextMonth('2027-11', '2026-11')).toBe(false);
+    expect(hasNextMonth('2027-12', '2026-12')).toBe(false);
+    expect(hasNextMonth('2027-11', '2026-12')).toBe(true);
   });
 });
 

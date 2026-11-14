@@ -461,7 +461,7 @@ test.describe('Wishes', () => {
     });
   });
 
-  test('switches to last month and the next one, and stops after the next', async ({
+  test('switches to last month and the next one, and stops 12 months ahead', async ({
     page,
   }, testInfo) => {
     await startFamily(page, async (family) => {
@@ -518,10 +518,21 @@ test.describe('Wishes', () => {
         page.getByRole('heading', { name: 'Done and dropped' }),
       ).toHaveCount(0);
       await expect(page.getByText(FOOTNOTE)).toBeVisible();
-      // Plans stop one month ahead.
-      await expect(following).toBeDisabled();
+      await expect(following).toBeEnabled();
       await expect(previous).toBeEnabled();
       await screenshot(page, testInfo, 'WishesNext');
+
+      // Plans go up to 12 months after the current month, and stop there.
+      const farthest = addMonths(month, 12);
+      for (let i = 1; i < 12; i++) await following.click();
+      await expect(page.getByText(withYear(farthest))).toBeVisible();
+      await expect(
+        page.getByText('In 12 months · plan ahead', { exact: true }),
+      ).toBeVisible();
+      await expect(following).toBeDisabled();
+      await expect(previous).toBeEnabled();
+      for (let i = 1; i < 12; i++) await previous.click();
+      await expect(page.getByText(withYear(next))).toBeVisible();
 
       await add.click();
       await expect(page).toHaveURL(`${family.origin}/wishes/new?month=${next}`);

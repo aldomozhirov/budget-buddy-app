@@ -100,6 +100,8 @@ export const updateWishRequestSchema = z
     categoryId: idSchema.nullable(),
     note: noteSchema,
     state: wishStateSchema,
+    /** Moves the wish to another month (2000-01 to a year ahead, O8). */
+    month: monthSchema,
     expect: wishExpectSchema,
   })
   .partial()
@@ -110,7 +112,7 @@ export const updateWishRequestSchema = z
 
 /** Body of `POST /api/wishes/:id/move` (PLN-11, UI-WSH-4). */
 export const moveWishRequestSchema = z.object({
-  /** The month to move to: the next one, or back to the current one. */
+  /** The month to move to: any one in the O8 range but the wish's own. */
   month: monthSchema,
   expect: wishExpectSchema.optional(),
 });

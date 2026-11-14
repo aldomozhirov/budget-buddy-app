@@ -2,7 +2,6 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import {
-  addMonths,
   currenciesResponseSchema,
   wishesResponseSchema,
   type CoinSetting,
@@ -15,17 +14,15 @@ import BbTag from '../../components/BbTag.vue';
 import { ApiError, callApi } from '../../api/callApi.js';
 import { isOnline } from '../../composables/useOnline.js';
 import { useBack } from '../../composables/useBack.js';
-import { monthName, monthWithYear } from '../envelopes/envelopeFormat.js';
+import { monthName } from '../envelopes/envelopeFormat.js';
 import { createMoneyFormatter } from '../summary/summaryFormat.js';
 import {
   cardDetail,
   cardFigures,
   doneDetail,
-  hasNextMonth,
-  hasPreviousMonth,
-  monthRelation,
   summaryLine,
 } from './wishesFormat.js';
+import WishMonthStepper from './WishMonthStepper.vue';
 import { takeWishMessage, type WishMessage } from './wishMessage.js';
 
 /**
@@ -90,7 +87,6 @@ const total = computed(() => {
   const shown = sum.estimated ? `≈ ${amount}` : amount;
   return sum.incomplete ? `${shown} · Rate missing` : shown;
 });
-const relation = computed(() => monthRelation(month.value, current.value));
 const newWishLink = computed(() => `/wishes/new?month=${month.value}`);
 
 onMounted(() => {
@@ -165,12 +161,6 @@ async function load(target?: string): Promise<void> {
     if (ticket === requested) loading.value = false;
   }
 }
-
-/** Steps the switcher by `by` months and loads that month. */
-function step(by: number): void {
-  const base = month.value || current.value;
-  if (base) void load(addMonths(base, by));
-}
 </script>
 
 <template>
@@ -191,30 +181,12 @@ function step(by: number): void {
       </RouterLink>
     </header>
 
-    <div v-if="month" class="wishes-months">
-      <button
-        class="wishes-step"
-        type="button"
-        aria-label="Previous month"
-        :disabled="!hasPreviousMonth(month)"
-        @click="step(-1)"
-      >
-        <BbIcon name="back" />
-      </button>
-      <span class="wishes-month" aria-live="polite">
-        <span class="wishes-month-name">{{ monthWithYear(month) }}</span>
-        <span class="t-sub">{{ relation }}</span>
-      </span>
-      <button
-        class="wishes-step"
-        type="button"
-        aria-label="Next month"
-        :disabled="!hasNextMonth(month, current)"
-        @click="step(1)"
-      >
-        <BbIcon name="forward" />
-      </button>
-    </div>
+    <WishMonthStepper
+      v-if="month"
+      :month="month"
+      :current="current"
+      @update:month="load"
+    />
 
     <div class="content app-content wishes-content">
       <p v-if="loading && !data" role="status">Loading wishes…</p>
@@ -330,38 +302,6 @@ function step(by: number): void {
   min-width: 0;
   display: flex;
   flex-direction: column;
-}
-.wishes-months {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 8px;
-}
-.wishes-step {
-  flex: none;
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 22px;
-  color: var(--ink);
-}
-.wishes-step:disabled {
-  opacity: 0.3;
-}
-.wishes-month {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-.wishes-month-name {
-  font-weight: 600;
-}
-.wishes-month .t-sub {
-  font-size: 12px;
 }
 .wishes-summary {
   display: flex;
