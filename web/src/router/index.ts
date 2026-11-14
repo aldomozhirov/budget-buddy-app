@@ -111,11 +111,10 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../screens/wishes/WishesScreen.vue'),
     meta: { title: 'Wishes' },
   },
-  // The form is built by a later task of spec 3a.
   {
     path: '/wishes/new',
     name: 'NewWish',
-    component: () => import('../screens/PlaceholderScreen.vue'),
+    component: () => import('../screens/wishes/WishFormScreen.vue'),
     meta: { title: 'New wish' },
   },
   {
@@ -123,6 +122,12 @@ const routes: RouteRecordRaw[] = [
     name: 'Wish',
     component: () => import('../screens/wishes/WishScreen.vue'),
     meta: { title: 'Wish' },
+  },
+  {
+    path: '/wishes/:id/edit',
+    name: 'EditWish',
+    component: () => import('../screens/wishes/WishFormScreen.vue'),
+    meta: { title: 'Edit wish' },
   },
   {
     path: '/categories',
@@ -257,6 +262,8 @@ function naturalParent(path: string): string {
   const edited = /^\/envelopes\/(\d+)\/edit$/.exec(path);
   if (edited) return `/envelopes/${edited[1]}`;
   if (path.startsWith('/envelopes/')) return '/envelopes';
+  const wishEdited = /^\/wishes\/(\d+)\/edit$/.exec(path);
+  if (wishEdited) return `/wishes/${wishEdited[1]}`;
   if (path.startsWith('/wishes/')) return '/wishes';
   return '/';
 }
