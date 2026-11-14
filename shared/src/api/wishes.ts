@@ -210,3 +210,44 @@ export const restoreWishResponseSchema = z.object({
   /** Transactions whose link could not be reattached. */
   notRestored: z.array(idSchema),
 });
+
+/** Query of `GET /api/wishes/:id/candidates` (UI-WSH-6). */
+export const wishCandidatesQuerySchema = z.object({
+  /** Words that must each match a merchant, note or amount. */
+  q: z.string().max(200).optional(),
+});
+
+/** An unplanned expense of the wish's month that can be linked to it. */
+export const wishCandidateSchema = z.object({
+  transactionId: idSchema,
+  merchant: z.string().nullable(),
+  note: z.string().nullable(),
+  date: dateSchema,
+  accountId: idSchema,
+  accountName: z.string(),
+  categoryName: z.string().nullable(),
+  /** The expense's own amount, in the account's currency. */
+  amount: minorStringSchema,
+  currency: z.string(),
+  /** The category or the merchant fits the wish (spec 3a, O2). */
+  fits: z.boolean(),
+});
+
+/** An expense that can be linked to a wish. */
+export type WishCandidate = z.infer<typeof wishCandidateSchema>;
+
+/** Response of `GET /api/wishes/:id/candidates`; fitting ones come first. */
+export const wishCandidatesResponseSchema = z.object({
+  month: monthSchema,
+  candidates: z.array(wishCandidateSchema),
+});
+
+/** Response of `GET /api/wishes/:id/candidates`. */
+export type WishCandidatesResponse = z.infer<
+  typeof wishCandidatesResponseSchema
+>;
+
+/** Body of `POST /api/wishes/:id/links` (PLN-10). */
+export const linkWishExpenseRequestSchema = z.object({
+  transactionId: idSchema,
+});
