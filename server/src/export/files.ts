@@ -24,6 +24,11 @@ export interface ExportColumn {
   kind: ColumnKind;
   /** Key in the file's `currencies` that gives an amount's currency. */
   currency?: string;
+  /**
+   * SQL expression of the row (alias `t`) read instead of the column, such as
+   * a name looked up by id. The column is still the one the file exports.
+   */
+  select?: string;
 }
 
 /**
@@ -37,6 +42,8 @@ export interface ExportFile {
   table: string;
   /** SQL ordering that makes the file the same on every run. */
   orderBy: string;
+  /** SQL condition on the row (alias `t`) that rows must meet to be written. */
+  where?: string;
   /**
    * `rows` writes one row per table row. `pairs` writes one `setting,value`
    * row per listed column of the table's single row.
@@ -336,6 +343,55 @@ export const exportFiles: readonly ExportFile[] = [
     ],
   },
   {
+    name: 'wishes.csv',
+    table: 'wish',
+    orderBy: 'id',
+    where: 't.deleted_at IS NULL',
+    layout: 'rows',
+    currencies: { wish: 't.currency' },
+    columns: [
+      text('id'),
+      text('month'),
+      text('name'),
+      amount('amount', 'wish'),
+      text('currency'),
+      {
+        header: 'category',
+        column: 'category_id',
+        kind: 'text',
+        select: '(SELECT c.name FROM category c WHERE c.id = t.category_id)',
+      },
+      text('note'),
+      text('expression'),
+      text('state'),
+      text('created_by'),
+      instant('created_at'),
+      text('updated_by'),
+      instant('updated_at'),
+    ],
+  },
+  {
+    name: 'wish_links.csv',
+    table: 'plan_link',
+    orderBy: 'id',
+    where: 't.detached_at IS NULL',
+    layout: 'rows',
+    currencies: {
+      wish: '(SELECT w.currency FROM wish w WHERE w.id = t.wish_id)',
+    },
+    columns: [
+      text('txn_id', 'transaction_id'),
+      text('wish_id'),
+      text('month'),
+      amount('amount', 'wish'),
+      currency('wish'),
+      flag('amount_manual'),
+      text('made_how'),
+      text('made_by'),
+      instant('made_at'),
+    ],
+  },
+  {
     name: 'rules.csv',
     table: 'rule',
     orderBy: 'position',
@@ -428,9 +484,15 @@ export const exportExclusions: Readonly<
     reason:
       'A retry fingerprint and a search key derived from the merchant; neither is data the family entered.',
   },
-  // Not exported yet: TASK-45 adds wishes.csv and wish_links.csv.
-  wish: 'table',
-  plan_link: 'table',
+  wish: {
+    columns: ['deleted_at', 'deleted_by'],
+    reason: 'Deleted wishes are left out, so their delete stamp is not needed.',
+  },
+  plan_link: {
+    columns: ['id', 'kind', 'detached_at', 'detached_reason'],
+    reason:
+      'A row number and the only kind; detached links are left out, so their detach stamp is not needed.',
+  },
   device: 'table',
   session: 'table',
   passkey: 'table',
@@ -460,12 +522,12 @@ export function readRows(
   file: ExportFile,
 ): CsvCell[][] {
   const reads = file.columns.filter(({ column }) => column !== null);
-  const selected = reads.map(({ column }) => `t.${column}`);
+  const selected = reads.map(({ column, select }) => select ?? `t.${column}`);
   const sources = Object.entries(file.currencies ?? {});
   for (const [, expression] of sources) selected.push(expression);
   const rows = database
     .prepare(
-      `SELECT ${selected.join(', ')} FROM ${file.table} t ORDER BY ${file.orderBy}`,
+      `SELECT ${selected.join(', ')} FROM ${file.table} t${file.where ? ` WHERE ${file.where}` : ''} ORDER BY ${file.orderBy}`,
     )
     .raw(true)
     .safeIntegers(true)
