@@ -881,6 +881,10 @@
   padding: 3px 8px;
   border-radius: 6px;
 } /* "Resets monthly" */
+.bb .tag-done {
+  background: var(--accent-soft);
+  color: var(--accent);
+} /* a wish ticked off as done (UI-WSH-2) */
 .bb .badge {
   min-width: 24px;
   height: 24px;

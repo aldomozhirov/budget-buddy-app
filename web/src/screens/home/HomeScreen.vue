@@ -91,6 +91,11 @@ const dateLine = computed(() =>
 
 const spending = computed(() => home.value?.spending ?? null);
 const needsCategory = computed(() => home.value?.needsCategory ?? 0);
+/** The Wishes row's line; it shows no amounts (UI-HOME-9). */
+const wishesText = computed(() => {
+  const open = home.value?.wishes.open ?? 0;
+  return open > 0 ? `${open} open this month` : 'No wishes this month';
+});
 /** "October" and "Day 13 of 31" for the envelopes card's heading. */
 const monthHeading = computed(() => {
   const today = home.value?.today;
@@ -480,6 +485,13 @@ onBeforeUnmount(() => {
           </RouterLink>
         </section>
 
+        <RouterLink class="home-needs home-wishes" to="/wishes">
+          <BbIcon name="star" :size="22" />
+          <span class="home-needs-text">Wishes</span>
+          <span class="t-sub home-wishes-count">{{ wishesText }}</span>
+          <BbIcon name="forward" :size="18" class="chev" />
+        </RouterLink>
+
         <RouterLink
           v-if="needsCategory > 0"
           class="home-needs"
@@ -782,5 +794,9 @@ onBeforeUnmount(() => {
 .home-needs-text {
   flex: 1;
   font-weight: 500;
+}
+
+.home-wishes-count {
+  font-size: 13px;
 }
 </style>
