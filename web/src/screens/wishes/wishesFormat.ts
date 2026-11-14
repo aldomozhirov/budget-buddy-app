@@ -1,6 +1,7 @@
 import {
   addMonths,
   type Wish,
+  type WishExpense,
   type WishesResponse,
 } from '@budget-buddy/shared';
 import { expenseCountText } from '../envelopes/envelopeFormat.js';
@@ -107,4 +108,34 @@ export function doneDetail(
   else if (BigInt(wish.over) > 0n) parts.push(`${money(wish.over)} over`);
   if (wish.incomplete) parts.push('Rate missing');
   return parts.join(' · ');
+}
+
+/**
+ * The line under a wish page's bar: "€120.00 spent of €350.00 · 1 expense",
+ * for a closed wish with "· €12.20 under" or "· €5.00 over" (UI-WSH-4).
+ */
+export function pageDetail(
+  wish: Wish,
+  money: (minor: string) => string,
+): string {
+  if (wish.state === 'open') return cardDetail(wish, money);
+  const parts = [
+    `${money(wish.spent)} spent of ${money(wish.amount)}`,
+    expenseCountText(wish.expenseCount),
+  ];
+  if (BigInt(wish.under) > 0n) parts.push(`${money(wish.under)} under`);
+  else if (BigInt(wish.over) > 0n) parts.push(`${money(wish.over)} over`);
+  if (wish.incomplete) parts.push('Rate missing');
+  return parts.join(' · ');
+}
+
+/** "recorded from the wish" or "linked by Alena" (UI-WSH-4). */
+export function madeLine(expense: WishExpense): string {
+  if (expense.madeHow === 'recorded') return 'recorded from the wish';
+  return expense.madeBy ? `linked by ${expense.madeBy}` : 'linked';
+}
+
+/** `2026-10-01` as "01/10", the design's short date. */
+export function shortDay(date: string): string {
+  return `${date.slice(8, 10)}/${date.slice(5, 7)}`;
 }

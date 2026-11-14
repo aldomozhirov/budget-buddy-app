@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Wish } from '@budget-buddy/shared';
+import type { Wish, WishExpense } from '@budget-buddy/shared';
 import {
   EARLIEST_MONTH,
   cardDetail,
@@ -7,7 +7,10 @@ import {
   doneDetail,
   hasNextMonth,
   hasPreviousMonth,
+  madeLine,
   monthRelation,
+  pageDetail,
+  shortDay,
   summaryLine,
 } from '../src/screens/wishes/wishesFormat';
 
@@ -202,5 +205,123 @@ describe('doneDetail', () => {
         money,
       ),
     ).toBe('€0.00 of €200.00 · Rate missing');
+  });
+});
+
+describe('pageDetail', () => {
+  it('reads like the card while the wish is open', () => {
+    expect(pageDetail(wish({}), money)).toBe('Nothing spent yet · €480.00');
+    expect(
+      pageDetail(
+        wish({
+          amount: '35000',
+          spent: '12000',
+          left: '23000',
+          expenseCount: 1,
+        }),
+        money,
+      ),
+    ).toBe('€120.00 spent of €350.00 · 1 expense');
+  });
+
+  it('adds how far under a done wish ended', () => {
+    expect(
+      pageDetail(
+        wish({
+          state: 'done',
+          amount: '15000',
+          spent: '13780',
+          left: '1220',
+          under: '1220',
+          expenseCount: 2,
+        }),
+        money,
+      ),
+    ).toBe('€137.80 spent of €150.00 · 2 expenses · €12.20 under');
+  });
+
+  it('adds how far over, and nothing when it ended on the amount', () => {
+    expect(
+      pageDetail(
+        wish({
+          state: 'done',
+          amount: '10000',
+          spent: '11200',
+          left: '-1200',
+          over: '1200',
+          expenseCount: 1,
+        }),
+        money,
+      ),
+    ).toBe('€112.00 spent of €100.00 · 1 expense · €12.00 over');
+    expect(
+      pageDetail(
+        wish({
+          state: 'done',
+          amount: '10000',
+          spent: '10000',
+          left: '0',
+          expenseCount: 1,
+        }),
+        money,
+      ),
+    ).toBe('€100.00 spent of €100.00 · 1 expense');
+  });
+
+  it('does not say "Nothing spent yet" for a dropped wish', () => {
+    expect(pageDetail(wish({ state: 'dropped', amount: '20000' }), money)).toBe(
+      '€0.00 spent of €200.00 · 0 expenses',
+    );
+  });
+
+  it('adds "Rate missing" for a closed wish', () => {
+    expect(
+      pageDetail(
+        wish({ state: 'done', expenseCount: 1, incomplete: true }),
+        money,
+      ),
+    ).toBe('€0.00 spent of €480.00 · 1 expense · Rate missing');
+  });
+});
+
+describe('madeLine', () => {
+  const expense = (overrides: Partial<WishExpense>): WishExpense => ({
+    transactionId: 1,
+    merchant: 'Thalia',
+    note: null,
+    date: '2026-10-01',
+    accountId: 1,
+    accountName: 'ING Visa',
+    amount: '1000',
+    currency: 'EUR',
+    linkAmount: '1000',
+    madeHow: 'member',
+    madeBy: 'Alena',
+    ...overrides,
+  });
+
+  it('says an expense was recorded from the wish', () => {
+    expect(madeLine(expense({ madeHow: 'recorded', madeBy: null }))).toBe(
+      'recorded from the wish',
+    );
+    expect(madeLine(expense({ madeHow: 'recorded' }))).toBe(
+      'recorded from the wish',
+    );
+  });
+
+  it('names the member who linked it', () => {
+    expect(madeLine(expense({}))).toBe('linked by Alena');
+  });
+
+  it('says only "linked" when nobody is named', () => {
+    expect(madeLine(expense({ madeBy: null }))).toBe('linked');
+  });
+});
+
+describe('shortDay', () => {
+  it('writes day and month with leading zeros', () => {
+    expect(shortDay('2026-10-01')).toBe('01/10');
+    expect(shortDay('2026-12-31')).toBe('31/12');
+    expect(shortDay('2027-02-09')).toBe('09/02');
   });
 });

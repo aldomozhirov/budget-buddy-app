@@ -111,7 +111,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../screens/wishes/WishesScreen.vue'),
     meta: { title: 'Wishes' },
   },
-  // The form and a wish's page are built by later tasks of spec 3a.
+  // The form is built by a later task of spec 3a.
   {
     path: '/wishes/new',
     name: 'NewWish',
@@ -121,7 +121,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/wishes/:id',
     name: 'Wish',
-    component: () => import('../screens/PlaceholderScreen.vue'),
+    component: () => import('../screens/wishes/WishScreen.vue'),
     meta: { title: 'Wish' },
   },
   {
