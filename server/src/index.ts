@@ -10,6 +10,7 @@ import { createRatesJob } from './jobs/rates.js';
 import { createBackupJob } from './jobs/backup.js';
 import { createEnvelopeTopUpJob } from './jobs/envelopeTopUp.js';
 import { fillPendingEnvelopeAmounts } from './domain/envelopes.js';
+import { fillPendingLinkAmounts } from './domain/wishLinks.js';
 import { createNotifier } from './notify/notifier.js';
 import { createWebPushSender } from './modules/push/sender.js';
 import { loadOrCreateVapidKeys } from './modules/push/vapid.js';
@@ -48,7 +49,13 @@ try {
         : [createFixtureFeed()],
     logger: { error: (error, message) => app?.log.error(error, message) },
     onRatesStored: () => {
-      if (database) fillPendingEnvelopeAmounts(database);
+      if (database) {
+        try {
+          fillPendingEnvelopeAmounts(database);
+        } finally {
+          fillPendingLinkAmounts(database);
+        }
+      }
     },
   });
   // Shared with the schedule job, which opens check-ins outside any request.
@@ -114,6 +121,11 @@ try {
     fillPendingEnvelopeAmounts(database);
   } catch (error) {
     app.log.error(error, 'Filling envelope amounts failed');
+  }
+  try {
+    fillPendingLinkAmounts(database);
+  } catch (error) {
+    app.log.error(error, 'Filling wish link amounts failed');
   }
   jobRunner.start();
 } catch (error) {

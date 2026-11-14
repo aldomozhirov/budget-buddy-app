@@ -7,6 +7,7 @@ import {
   deleteTransactionResponseSchema,
   fillOnSave,
   merchantKey,
+  monthOfDate,
   todayInTimeZone,
   transactionChangesSchema,
   transactionIdParamsSchema,
@@ -27,6 +28,12 @@ import {
   type StoredTransaction,
 } from '../../domain/transactions.js';
 import { lookupCurrency } from '../../domain/currencies.js';
+import {
+  linkAmountFor,
+  linkChanges,
+  saveLink,
+  type StoredLink,
+} from '../../domain/wishLinks.js';
 import { createRateLookup } from '../../rates/lookup.js';
 import type { BackfillRequester } from '../../rates/service.js';
 
@@ -188,6 +195,19 @@ export const transactionRoutes: FastifyPluginAsync<{
       return sendProfileRequired(reply);
     }
     const { id } = params.data;
+    // One choice (PLN-14): an envelope and a wish together make no sense.
+    if (
+      typeof body.data.wishId === 'number' &&
+      typeof body.data.envelopeId === 'number'
+    ) {
+      return reply.code(400).send({
+        error: {
+          code: 'invalid',
+          message: 'Choose an envelope or a wish, not both.',
+          fields: { wishId: 'Choose an envelope or a wish, not both.' },
+        },
+      });
+    }
     const { timeZone, today } = family();
     const now = clock.now().getTime();
     const lookup = createRateLookup(database);
@@ -195,14 +215,22 @@ export const transactionRoutes: FastifyPluginAsync<{
     const outcome = database.transaction(
       ():
         | { kind: 'not_found' }
+        | { kind: 'wish_not_open' }
         | { kind: 'invalid'; issues: Issue[] }
         | { kind: 'updated'; backfill: boolean } => {
         const stored = readTransaction(database, id);
         if (!stored) return { kind: 'not_found' };
         const draft = editDraft(stored, body.data);
         const issues = checkDraft(database, draft, today, timeZone);
+        const linked = chooseLink(database, draft, body.data, memberId, now);
+        if (linked === 'wish_not_open') return { kind: 'wish_not_open' };
+        issues.push(...linked);
+        // After the choice: a wish takes the expense out of its envelope.
         if (body.data.envelopeAmount !== undefined) {
           issues.push(...checkEnvelopeAmount(draft.state, body.data));
+        }
+        if (body.data.linkAmount !== undefined) {
+          issues.push(...checkLinkAmount(draft.state, body.data));
         }
         if (issues.length > 0) return { kind: 'invalid', issues };
         // An edit never fills anything (3.5).
@@ -217,13 +245,18 @@ export const transactionRoutes: FastifyPluginAsync<{
           next.envelopeAmount = BigInt(body.data.envelopeAmount);
           next.envelopeAmountManual = true;
         }
-        const changes = changedFields(stored, next);
+        settleLink(database, draft, body.data, lookup);
+        const changes = {
+          ...changedFields(stored, next),
+          ...linkChanges(stored.link, next.link, next.currency),
+        };
         if (Object.keys(changes).length === 0) {
           return { kind: 'updated', backfill: false };
         }
         next.updatedBy = memberId;
         next.updatedAt = now;
         updateTransaction(database, next);
+        saveLink(database, id, stored.link, next.link);
         writeRevision(database, {
           txnId: id,
           action: 'update',
@@ -233,14 +266,26 @@ export const transactionRoutes: FastifyPluginAsync<{
         });
         return {
           kind: 'updated',
-          backfill: ['date', 'accountId', 'toAccountId', 'envelopeId'].some(
-            (field) => field in changes,
-          ),
+          backfill: [
+            'date',
+            'accountId',
+            'toAccountId',
+            'envelopeId',
+            'link',
+          ].some((field) => field in changes),
         };
       },
     )();
 
     if (outcome.kind === 'not_found') return sendNotFound(reply);
+    if (outcome.kind === 'wish_not_open') {
+      return reply.code(409).send({
+        error: {
+          code: 'wish_not_open',
+          message: 'This wish is dropped or deleted.',
+        },
+      });
+    }
     if (outcome.kind === 'invalid') {
       return sendValidation(reply, 'Check the transaction.', outcome.issues);
     }
@@ -364,6 +409,8 @@ function createDraft(
       envelopeCurrency: null,
       envelopeAmount: null,
       envelopeAmountManual: false,
+      envelopeName: null,
+      link: null,
       source: 'typed',
       enteredAt: body.enteredAt ?? null,
       createdBy: memberId,
@@ -383,7 +430,11 @@ function editDraft(
   stored: StoredTransaction,
   body: UpdateTransactionRequest,
 ): Draft {
-  const state: StoredTransaction = { ...stored };
+  // The link is copied: it is changed in place while the edit settles.
+  const state: StoredTransaction = {
+    ...stored,
+    link: stored.link && { ...stored.link },
+  };
   if (body.date !== undefined) state.date = body.date;
   if (body.accountId !== undefined) state.accountId = body.accountId;
   if (body.amount !== undefined) state.amount = BigInt(body.amount);
@@ -544,6 +595,145 @@ function checkDraft(
     }
   }
   return issues;
+}
+
+type WishRow = {
+  id: bigint;
+  name: string;
+  currency: string;
+  month: string;
+  state: 'open' | 'done' | 'dropped';
+  deletedAt: bigint | null;
+};
+
+/**
+ * Applies the request's choice of what the expense counts for (Design 2) to
+ * the draft: a wish takes the expense out of its envelope; an envelope, a
+ * null wish or a date in another month removes the link (O3). Only the link
+ * is decided here; its amount is set by `settleLink`.
+ * @returns Issues of the request, or `wish_not_open` for a dropped or
+ *   deleted wish.
+ */
+function chooseLink(
+  database: Database.Database,
+  draft: Draft,
+  body: UpdateTransactionRequest,
+  memberId: number,
+  now: number,
+): Issue[] | 'wish_not_open' {
+  const { state } = draft;
+  const month = monthOfDate(state.date);
+  let link: StoredLink | null = state.link;
+  if (body.wishId === null || typeof body.envelopeId === 'number') link = null;
+  if (link && link.month !== month) link = null;
+  if (typeof body.wishId === 'number') {
+    const unchanged =
+      link !== null && link.wishId === body.wishId && link.month === month;
+    if (!unchanged) {
+      if (state.kind !== 'expense' || state.status !== 'confirmed') {
+        return [
+          {
+            path: ['wishId'],
+            message: 'Only a confirmed expense can count for a wish.',
+          },
+        ];
+      }
+      const wish = database
+        .prepare(
+          `SELECT id, name, currency, month, state, deleted_at AS deletedAt
+           FROM wish WHERE id = ?`,
+        )
+        .get(body.wishId) as WishRow | undefined;
+      if (!wish) {
+        return [{ path: ['wishId'], message: 'Choose a wish.' }];
+      }
+      if (wish.deletedAt !== null || wish.state === 'dropped') {
+        return 'wish_not_open';
+      }
+      if (wish.month !== month) {
+        return [
+          {
+            path: ['wishId'],
+            message: 'Choose a wish of the same month as the expense.',
+          },
+        ];
+      }
+      link = {
+        id: 0,
+        wishId: Number(wish.id),
+        wishName: wish.name,
+        wishCurrency: wish.currency,
+        wishMonth: wish.month,
+        wishState: wish.state,
+        month,
+        amount: null,
+        amountManual: false,
+        madeHow: 'member',
+        madeBy: memberId,
+        madeAt: now,
+      };
+    }
+    // Choosing a wish takes the expense out of its envelope.
+    state.envelopeId = null;
+  }
+  state.link = link;
+  return [];
+}
+
+/**
+ * Converts the link amount of a draft anew, which clears a typed one, when
+ * the link is new or the amount, date, account or wish changed or the
+ * request sends a null `linkAmount`; a typed `linkAmount` wins (Design 3).
+ * The issues of a typed amount are returned by `checkLinkAmount` first.
+ */
+function settleLink(
+  database: Database.Database,
+  draft: Draft,
+  body: UpdateTransactionRequest,
+  lookup: ReturnType<typeof createRateLookup>,
+): void {
+  const { state, changed } = draft;
+  const link = state.link;
+  if (link === null) return;
+  const before = link.id === 0 ? null : link;
+  if (
+    before === null ||
+    changed('amount') ||
+    changed('date') ||
+    changed('accountId') ||
+    body.linkAmount === null
+  ) {
+    link.amount = linkAmountFor(database, lookup, {
+      amount: state.amount,
+      currency: state.currency,
+      wishCurrency: link.wishCurrency,
+      date: state.date,
+    });
+    link.amountManual = false;
+  }
+  if (typeof body.linkAmount === 'string') {
+    link.amount = BigInt(body.linkAmount);
+    link.amountManual = true;
+  }
+}
+
+/** A typed link amount needs a wish in another currency and the sign. */
+function checkLinkAmount(
+  state: StoredTransaction,
+  body: UpdateTransactionRequest,
+): Issue[] {
+  if (body.linkAmount === null || body.linkAmount === undefined) return [];
+  const issue = (message: string) => [{ path: ['linkAmount'], message }];
+  if (state.link === null) return issue('Choose a wish first.');
+  if (state.link.wishCurrency === state.currency) {
+    return issue(
+      'Only an expense in another currency than its wish can be typed by hand.',
+    );
+  }
+  const amount = BigInt(body.linkAmount);
+  return amount !== 0n && amount < 0n === state.amount < 0n
+    ? []
+    : issue('Enter an amount with the same sign as the expense.');
 }
 
 /** A typed envelope amount needs an envelope and the expense's sign. */

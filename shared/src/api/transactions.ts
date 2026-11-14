@@ -147,7 +147,8 @@ export type CreateTransactionRequest = z.infer<
  * Validates `PATCH /api/transactions/:id`: any field but the kind (3.4).
  * Null clears an optional field. `envelopeAmount` is the envelope amount
  * typed by hand (3.3), in minor units of the envelope's currency; null goes
- * back to the converted one. The rules of the stored kind are checked by the
+ * back to the converted one. `wishId` and `linkAmount` are the wish link of
+ * spec 3a. The rules of the stored kind are checked by the
  * server against the result.
  */
 export const updateTransactionRequestSchema = z
@@ -163,6 +164,16 @@ export const updateTransactionRequestSchema = z
     categoryId: idSchema.nullable().optional(),
     envelopeId: idSchema.nullable().optional(),
     envelopeAmount: amountInputSchema.nullable().optional(),
+    /**
+     * The wish the expense counts for (PLN-14); null removes the link. Not
+     * together with a non-null `envelopeId`: the server answers 400.
+     */
+    wishId: idSchema.nullable().optional(),
+    /**
+     * The amount counted for the wish typed by hand, in minor units of the
+     * wish's currency; null goes back to the converted one.
+     */
+    linkAmount: amountInputSchema.nullable().optional(),
   })
   .strict()
   .refine(
@@ -192,6 +203,29 @@ export const envelopeRateSchema = z.object({
   rate: z.string(),
   date: dateSchema,
 });
+
+/**
+ * What a transaction counts for (PLN-14, UI-TXN-10): one choice among an
+ * envelope, a wish of its month and neither. For a wish, `linkAmount` is in
+ * `linkCurrency` (the wish's); null means no rate yet.
+ */
+export const countsForSchema = z.object({
+  type: z.enum(['envelope', 'wish', 'none']),
+  id: idSchema.optional(),
+  name: z.string().optional(),
+  linkAmount: minorStringSchema.nullable().optional(),
+  linkAmountManual: z.boolean().optional(),
+  linkCurrency: z.string().optional(),
+  /** How the link was made: from the wish ("recorded") or by a member. */
+  madeHow: z.enum(['recorded', 'member']).optional(),
+  /** The member who made the link. */
+  madeBy: idSchema.nullable().optional(),
+  /** The rate of a converted link amount, as for an envelope amount. */
+  rate: envelopeRateSchema.optional(),
+});
+
+/** What a transaction counts for. */
+export type CountsFor = z.infer<typeof countsForSchema>;
 
 /**
  * One transaction. Spec 2 stores one part per expense or income (D5), so its
@@ -226,6 +260,8 @@ export const transactionSchema = z.object({
    * missing amount and one typed by hand.
    */
   envelopeRate: envelopeRateSchema.nullable(),
+  /** What it counts for: an envelope, a wish or neither. */
+  countsFor: countsForSchema,
   source: z.enum(['typed', 'photo', 'apple_pay', 'statement', 'connector']),
   enteredAt: z.number().int().nullable(),
   createdBy: idSchema,
@@ -240,6 +276,20 @@ export type Transaction = z.infer<typeof transactionSchema>;
 /** An old and a new value of a field; null where there is none. */
 const changePair = <T extends z.ZodType>(value: T) =>
   z.tuple([value.nullable(), value.nullable()]).optional();
+
+/**
+ * A wish link as a revision records it (Design 6 of spec 3a). The name is a
+ * snapshot, so the record reads right after the wish is renamed or deleted.
+ */
+export const revisionLinkSchema = z.object({
+  kind: z.literal('wish'),
+  wishId: idSchema,
+  name: z.string(),
+  madeHow: z.enum(['recorded', 'member']),
+});
+
+/** A wish link in a revision. */
+export type RevisionLink = z.infer<typeof revisionLinkSchema>;
 
 /**
  * The `changes` of a revision (MEM-5; Design 3.9): `{field: [old, new]}`
@@ -265,6 +315,12 @@ export const transactionChangesSchema = z
     envelopeId: changePair(idSchema),
     envelopeAmount: changePair(minorStringSchema),
     envelopeAmountManual: changePair(z.boolean()),
+    link: changePair(revisionLinkSchema),
+    /** In minor units of the wish's currency. */
+    linkAmount: changePair(minorStringSchema),
+    linkAmountManual: changePair(z.boolean()),
+    /** The wish of a link whose amount alone changed; one value, no pair. */
+    linkWish: z.object({ wishId: idSchema, name: z.string() }).optional(),
     source: changePair(z.string()),
     enteredAt: changePair(z.number().int()),
     createdBy: changePair(idSchema),

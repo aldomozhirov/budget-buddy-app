@@ -54,7 +54,7 @@ export interface RefreshResult {
 export interface BackfillRequester {
   /**
    * Fetches, in the background, the rates missing for every currency in use
-   * (on accounts and envelopes) back to its earliest snapshot or
+   * (on accounts, envelopes and wishes) back to its earliest snapshot or
    * transaction (CUR-3). Returns at once and never throws; call it after a
    * write that adds a currency or an earlier date.
    */
@@ -139,7 +139,8 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
       selectUsed: database.prepare(
         `SELECT DISTINCT u.code, c.feed_id AS coinFeedId
     FROM (SELECT currency AS code FROM account
-      UNION ALL SELECT currency FROM envelope) u
+      UNION ALL SELECT currency FROM envelope
+      UNION ALL SELECT currency FROM wish WHERE deleted_at IS NULL) u
     LEFT JOIN coin c ON c.code = u.code`,
       ),
       selectCoin: database.prepare(
@@ -151,7 +152,7 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
     GROUP BY a.currency`,
       ),
       // Each side of a transaction in its account's currency, and an
-      // expense in its envelope's (Design 3.11).
+      // expense in its envelope's or its wish's (Design 3.11).
       selectEarliestTransactions: database.prepare(
         `SELECT code, MIN(date) AS date FROM (
       SELECT a.currency AS code, t.date FROM txn t
@@ -160,7 +161,11 @@ export function createRatesService(options: RatesServiceOptions): RatesService {
         JOIN account a ON a.id = t.to_account_id
       UNION ALL SELECT e.currency, t.date FROM txn_part p
         JOIN txn t ON t.id = p.txn_id
-        JOIN envelope e ON e.id = p.envelope_id)
+        JOIN envelope e ON e.id = p.envelope_id
+      UNION ALL SELECT w.currency, t.date FROM plan_link l
+        JOIN txn t ON t.id = l.txn_id
+        JOIN wish w ON w.id = l.wish_id
+        WHERE l.detached_at IS NULL)
     GROUP BY code`,
       ),
       selectSpan: database.prepare(

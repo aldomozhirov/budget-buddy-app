@@ -10,6 +10,12 @@ import {
   type TransactionKind,
 } from '@budget-buddy/shared';
 import { lookupCurrency, rescaleMinor } from './currencies.js';
+import {
+  linkAmountFor,
+  linkSnapshot,
+  readLink,
+  type StoredLink,
+} from './wishLinks.js';
 
 /**
  * A transaction as stored, with its one part (D5) and the currencies of its
@@ -36,6 +42,10 @@ export interface StoredTransaction {
   envelopeCurrency: string | null;
   envelopeAmount: bigint | null;
   envelopeAmountManual: boolean;
+  /** The envelope's name, read with the transaction; never written. */
+  envelopeName: string | null;
+  /** The active link to a wish (spec 3a), which excludes an envelope. */
+  link: StoredLink | null;
   source: Transaction['source'];
   enteredAt: number | null;
   createdBy: number;
@@ -45,7 +55,9 @@ export interface StoredTransaction {
 }
 
 type Row = {
-  [Key in keyof StoredTransaction]: StoredTransaction[Key] extends number
+  [
+    Key in Exclude<keyof StoredTransaction, 'link'>
+  ]: StoredTransaction[Key] extends number
     ? bigint
     : StoredTransaction[Key] extends number | null
       ? bigint | null
@@ -69,6 +81,7 @@ export function readTransaction(
          p.category_id AS categoryId, p.envelope_id AS envelopeId,
          e.currency AS envelopeCurrency, p.envelope_amount AS envelopeAmount,
          COALESCE(p.envelope_amount_manual, 0) AS envelopeAmountManual,
+         e.name AS envelopeName,
          t.source, t.entered_at AS enteredAt, t.created_by AS createdBy,
          t.created_at AS createdAt, t.updated_by AS updatedBy,
          t.updated_at AS updatedAt
@@ -91,6 +104,7 @@ export function readTransaction(
     categoryId: id_(row.categoryId),
     envelopeId: id_(row.envelopeId),
     envelopeAmountManual: row.envelopeAmountManual === 1n,
+    link: readLink(database, Number(row.id)),
     enteredAt: id_(row.enteredAt),
     createdBy: Number(row.createdBy),
     createdAt: Number(row.createdAt),
@@ -149,6 +163,7 @@ export function toTransactionResponse(
     value === null ? null : toMinorString(value);
   return {
     id: stored.id,
+    countsFor: countsFor(stored, lookup),
     clientId: stored.clientId,
     kind: stored.kind,
     status: stored.status,
@@ -185,11 +200,61 @@ export function toTransactionResponse(
   };
 }
 
-/** The fields a revision records (Design 3.9), in their JSON form. */
+/** What the transaction counts for, read by the row and the sheet. */
+function countsFor(
+  stored: StoredTransaction,
+  lookup: RateLookup,
+): Transaction['countsFor'] {
+  const { link } = stored;
+  if (link) {
+    const rate =
+      link.wishCurrency !== stored.currency &&
+      link.amount !== null &&
+      !link.amountManual
+        ? exchangeRate(stored.currency, link.wishCurrency, stored.date, lookup)
+        : undefined;
+    return {
+      type: 'wish',
+      id: link.wishId,
+      name: link.wishName,
+      linkAmount: link.amount === null ? null : toMinorString(link.amount),
+      linkAmountManual: link.amountManual,
+      linkCurrency: link.wishCurrency,
+      madeHow: link.madeHow,
+      madeBy: link.madeBy,
+      ...(rate
+        ? {
+            rate: {
+              from: stored.currency,
+              to: link.wishCurrency,
+              rate: rate.rate,
+              date: rate.date,
+            },
+          }
+        : {}),
+    };
+  }
+  if (stored.envelopeId !== null) {
+    return {
+      type: 'envelope',
+      id: stored.envelopeId,
+      ...(stored.envelopeName === null ? {} : { name: stored.envelopeName }),
+    };
+  }
+  return { type: 'none' };
+}
+
+/**
+ * The fields a revision records (Design 3.9), in their JSON form. A wish link
+ * is recorded by `linkChanges`, not here.
+ */
 type RevisionValues = {
-  [Key in keyof Required<TransactionChanges>]: NonNullable<
-    TransactionChanges[Key]
-  >[0];
+  [
+    Key in Exclude<
+      keyof Required<TransactionChanges>,
+      'link' | 'linkAmount' | 'linkAmountManual' | 'linkWish'
+    >
+  ]: NonNullable<TransactionChanges[Key]>[0];
 };
 
 function revisionValues(stored: StoredTransaction): RevisionValues {
@@ -240,6 +305,14 @@ export function deletedFields(stored: StoredTransaction): TransactionChanges {
   const changes: Record<string, [unknown, null]> = {};
   for (const [key, value] of Object.entries(revisionValues(stored))) {
     changes[key] = [value, null];
+  }
+  // A linked expense's record still says what it counted for (Design 6).
+  if (stored.link) {
+    changes.link = [linkSnapshot(stored.link), null];
+    if (stored.link.amount !== null) {
+      changes.linkAmount = [toMinorString(stored.link.amount), null];
+    }
+    changes.linkAmountManual = [stored.link.amountManual, null];
   }
   return changes as TransactionChanges;
 }
@@ -350,6 +423,7 @@ export function prepareTransactionRelabel(
         updateRevision.run(revision.changes, revision.id);
       }
       recomputeEnvelopeAmounts(database, lookup, accountId);
+      recomputeLinkAmounts(database, lookup, accountId);
     },
   };
 }
@@ -387,6 +461,41 @@ function recomputeEnvelopeAmounts(
   );
   for (const part of parts) {
     update.run(envelopeAmountFor(database, lookup, part), part.id);
+  }
+}
+
+/**
+ * Recomputes the wish link amounts of an account's expenses that were not
+ * typed by hand, from the expense amounts as they are now (Design 3).
+ */
+function recomputeLinkAmounts(
+  database: Database.Database,
+  lookup: RateLookup,
+  accountId: number,
+): void {
+  const links = database
+    .prepare(
+      `SELECT l.id, t.amount, t.date, a.currency,
+         w.currency AS wishCurrency
+       FROM plan_link l
+         JOIN txn t ON t.id = l.txn_id
+         JOIN account a ON a.id = t.account_id
+         JOIN wish w ON w.id = l.wish_id
+       WHERE t.account_id = ? AND l.amount_manual = 0
+         AND l.detached_at IS NULL`,
+    )
+    .all(accountId) as Array<{
+    id: bigint;
+    amount: bigint;
+    date: string;
+    currency: string;
+    wishCurrency: string;
+  }>;
+  const update = database.prepare(
+    'UPDATE plan_link SET amount = ? WHERE id = ?',
+  );
+  for (const link of links) {
+    update.run(linkAmountFor(database, lookup, link), link.id);
   }
 }
 

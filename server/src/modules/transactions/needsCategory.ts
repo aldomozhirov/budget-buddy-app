@@ -241,7 +241,8 @@ export const needsCategoryRoutes: FastifyPluginAsync<{
               (id) => findEnvelope(database, id),
             );
             next.categoryId = categoryId;
-            if (fill.filled.envelope === 'category') {
+            // A linked expense counts for its wish: no envelope (O13).
+            if (fill.filled.envelope === 'category' && stored.link === null) {
               next.envelopeId = fill.envelopeId;
               filledEnvelopeId = fill.envelopeId;
               settleEnvelope(database, next, lookup);

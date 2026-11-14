@@ -16,6 +16,13 @@ import {
 } from '@budget-buddy/shared';
 import { systemClock, type Clock } from '../../clock.js';
 import { lookupCurrency } from '../../domain/currencies.js';
+import {
+  detachWishLinks,
+  reattachWishLinks,
+  recomputeWishLinks,
+} from '../../domain/wishLinkChanges.js';
+import { createRateLookup } from '../../rates/lookup.js';
+import type { BackfillRequester } from '../../rates/service.js';
 import { createValuation } from '../../domain/valuation.js';
 import { listWishes, loadWish, wishesSummary } from '../../domain/wishes.js';
 
@@ -24,7 +31,12 @@ const firstMonth = '2000-01';
 
 type Issue = { path: PropertyKey[]; message: string };
 
-type WishState3 = { state: WishState; month: string; deleted: boolean };
+type WishState3 = {
+  state: WishState;
+  month: string;
+  deleted: boolean;
+  deletedAt: number | null;
+};
 
 /**
  * Registers the wish routes (spec 3a, Design 4): a month's wishes, one wish,
@@ -34,8 +46,10 @@ type WishState3 = { state: WishState; month: string; deleted: boolean };
 export const wishRoutes: FastifyPluginAsync<{
   database: Database.Database;
   clock?: Clock;
+  /** Asked to fetch the rates a wish currency or a link date needs. */
+  rates?: BackfillRequester;
 }> = async (app, options) => {
-  const { database } = options;
+  const { database, rates } = options;
   const clock = options.clock ?? systemClock;
 
   /** The current month in the family time zone. */
@@ -141,6 +155,7 @@ export const wishRoutes: FastifyPluginAsync<{
     const body = parsed.data;
     const id = params.data.id;
     const now = clock.now().getTime();
+    let currencyChanged = false;
 
     const outcome = database.transaction(() => {
       const stored = readState(database, id);
@@ -173,12 +188,29 @@ export const wishRoutes: FastifyPluginAsync<{
       if (body.categoryId !== undefined) set('category_id', body.categoryId);
       if (body.note !== undefined) set('note', body.note);
       if (body.state !== undefined) set('state', body.state);
+      const oldCurrency = (
+        database.prepare('SELECT currency FROM wish WHERE id = ?').get(id) as {
+          currency: string;
+        }
+      ).currency;
       database
         .prepare(
           `UPDATE wish SET ${sets.join(', ')}, updated_by = ?, updated_at = ?
            WHERE id = ?`,
         )
         .run(...values, memberId, now, id);
+      // The amounts counted for the wish follow its currency (O5).
+      if (body.currency !== undefined && body.currency !== oldCurrency) {
+        recomputeWishLinks(
+          database,
+          id,
+          oldCurrency,
+          createRateLookup(database),
+          memberId,
+          now,
+        );
+        currencyChanged = true;
+      }
       return 'ok' as const;
     })();
     if (outcome === 'not_found') return sendNotFound(reply);
@@ -186,6 +218,7 @@ export const wishRoutes: FastifyPluginAsync<{
     if (outcome !== 'ok') {
       return sendInvalid(reply, 'Check the wish.', outcome);
     }
+    if (currencyChanged) rates?.requestBackfill();
     return wishResponseSchema.parse({ wish: loadWish(database, id) });
   });
 
@@ -256,6 +289,7 @@ export const wishRoutes: FastifyPluginAsync<{
       database
         .prepare(`UPDATE wish SET deleted_at = ?, deleted_by = ? WHERE id = ?`)
         .run(now, memberId, id);
+      detachWishLinks(database, id, memberId, now);
       return true;
     })();
     if (!found) return sendNotFound(reply);
@@ -270,6 +304,7 @@ export const wishRoutes: FastifyPluginAsync<{
       return sendProfileRequired(reply);
     }
     const id = params.data.id;
+    const now = clock.now().getTime();
     const outcome = database.transaction(() => {
       const stored = readState(database, id);
       if (!stored) return 'not_found' as const;
@@ -279,14 +314,20 @@ export const wishRoutes: FastifyPluginAsync<{
           `UPDATE wish SET deleted_at = NULL, deleted_by = NULL WHERE id = ?`,
         )
         .run(id);
-      return 'ok' as const;
+      return reattachWishLinks(
+        database,
+        id,
+        stored.deletedAt ?? 0,
+        memberId,
+        now,
+        createRateLookup(database),
+      );
     })();
     if (outcome === 'not_found') return sendNotFound(reply);
     if (outcome === 'changed') return sendChanged(reply);
-    // Reattaching the links of a deleted wish is added with the links.
     return restoreWishResponseSchema.parse({
       wish: loadWish(database, id),
-      notRestored: [],
+      notRestored: outcome,
     });
   });
 };
@@ -303,7 +344,12 @@ function readState(
     .get(id) as
     { state: WishState; month: string; deletedAt: bigint | null } | undefined;
   return row
-    ? { state: row.state, month: row.month, deleted: row.deletedAt !== null }
+    ? {
+        state: row.state,
+        month: row.month,
+        deleted: row.deletedAt !== null,
+        deletedAt: row.deletedAt === null ? null : Number(row.deletedAt),
+      }
     : undefined;
 }
 
