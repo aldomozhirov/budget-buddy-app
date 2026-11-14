@@ -7,6 +7,7 @@ import {
   wishResponseSchema,
   wishesResponseSchema,
   type CoinSetting,
+  type RecordWishResponse,
   type Wish,
   type WishState,
 } from '@budget-buddy/shared';
@@ -14,6 +15,7 @@ import BbBackButton from '../../components/BbBackButton.vue';
 import BbIcon from '../../components/BbIcon.vue';
 import BbProgress from '../../components/BbProgress.vue';
 import LinkExpenseSheet from './LinkExpenseSheet.vue';
+import RecordSheet from './RecordSheet.vue';
 import { ApiError, callApi } from '../../api/callApi.js';
 import { isOnline } from '../../composables/useOnline.js';
 import { useBack } from '../../composables/useBack.js';
@@ -45,6 +47,8 @@ const error = ref('');
 const busy = ref(false);
 /** The "Link an expense" sheet is open. */
 const linking = ref(false);
+/** The "Record as expense" sheet is open. */
+const recording = ref(false);
 /** The message at the bottom, with the call that takes the change back. */
 const message = ref<{ text: string; undo: (() => Promise<void>) | null }>();
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -249,6 +253,46 @@ async function link(transactionId: number): Promise<void> {
   }
 }
 
+/**
+ * The expense was saved from the record sheet: show the wish as it is now
+ * and offer Undo, which deletes the expense and gives the wish its old
+ * state back (Design 5).
+ */
+function recorded(answer: RecordWishResponse, keepOpen: boolean): void {
+  recording.value = false;
+  wish.value = answer.wish;
+  const name = answer.wish.name;
+  say(
+    keepOpen
+      ? 'Expense saved · the wish stays open'
+      : `Expense saved · ${name} done`,
+    () => unrecord(answer),
+    UNDO_MS,
+  );
+}
+
+/** The Undo of a record; a 409 means someone changed the expense first. */
+async function unrecord(answer: RecordWishResponse): Promise<void> {
+  const item = wish.value;
+  if (!item) return;
+  try {
+    const result = await callApi(
+      'POST',
+      `/api/wishes/${item.id}/unrecord`,
+      wishResponseSchema,
+      {
+        transactionId: answer.transaction.id,
+        state: answer.previousState,
+      },
+    );
+    wish.value = result.wish;
+    say('Undone.', null, 4000);
+  } catch (cause) {
+    say(failure(cause), null, 4000);
+    await load();
+  }
+}
+
 /** Runs the message's Undo once. */
 async function undo(): Promise<void> {
   const action = message.value?.undo;
@@ -420,7 +464,12 @@ async function undo(): Promise<void> {
     </div>
 
     <div v-if="wish && wish.state === 'open'" class="wish-bar">
-      <button class="primary num" type="button" :disabled="!isOnline">
+      <button
+        class="primary num"
+        type="button"
+        :disabled="!isOnline"
+        @click="recording = true"
+      >
         {{
           isOnline
             ? 'Record as expense'
@@ -438,6 +487,14 @@ async function undo(): Promise<void> {
       :disabled="busy || !isOnline"
       @pick="link"
       @close="linking = false"
+    />
+
+    <RecordSheet
+      v-if="recording && wish"
+      :wish="wish"
+      :coins="coins"
+      @saved="recorded"
+      @close="recording = false"
     />
 
     <div v-if="message" class="toast wish-toast" role="status">
