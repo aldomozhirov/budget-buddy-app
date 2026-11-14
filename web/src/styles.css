@@ -846,7 +846,15 @@ body,
    docked keypad stays on screen while the form above it scrolls. */
 .bb .sheet-tall {
   box-sizing: border-box;
-  height: calc(var(--keyboard-visible, 100dvh) - 44px);
+  height: calc(var(--keyboard-visible, 100dvh) - var(--sheet-top, 44px));
   max-height: none;
   overflow-y: hidden;
+}
+
+/* A sheet heading with a line under it, the close button beside both. */
+.bb .sheet-titles {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }

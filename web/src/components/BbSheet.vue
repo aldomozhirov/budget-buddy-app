@@ -29,8 +29,12 @@ const props = withDefaults(
     closable?: boolean;
     /** Fills the screen below the status bar; the body must scroll itself. */
     tall?: boolean;
+    /** Gap above a `tall` sheet in px; the default leaves the status bar. */
+    top?: number;
+    /** A line under the heading, outside it, so the name stays the title. */
+    subtitle?: string;
   }>(),
-  { closeLabel: 'Close', closable: true, tall: false },
+  { closeLabel: 'Close', closable: true, tall: false, top: 44, subtitle: '' },
 );
 
 const emit = defineEmits<{
@@ -53,11 +57,10 @@ const layerStyle = computed(() =>
       }
     : undefined,
 );
-const sheetStyle = computed(() =>
-  dragging.value
-    ? { transform: `translateY(${dragOffset.value}px)` }
-    : undefined,
-);
+const sheetStyle = computed(() => ({
+  ...(props.tall ? { '--sheet-top': `${props.top}px` } : {}),
+  ...(dragging.value ? { transform: `translateY(${dragOffset.value}px)` } : {}),
+}));
 
 // Keep the field being typed in visible when the keyboard opens or moves.
 watch(keyboardInset, async () => {
@@ -327,7 +330,15 @@ onUnmounted(() => {
       >
         <div class="sheet-handle" aria-hidden="true" />
         <header class="sheet-head">
-          <h2 :id="titleId" class="t-sheet">
+          <div v-if="subtitle" class="sheet-titles">
+            <h2 :id="titleId" class="t-sheet">
+              <slot name="title">
+                {{ title }}
+              </slot>
+            </h2>
+            <span class="t-sub">{{ subtitle }}</span>
+          </div>
+          <h2 v-else :id="titleId" class="t-sheet">
             <slot name="title">
               {{ title }}
             </slot>

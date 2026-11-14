@@ -13,6 +13,7 @@ import {
 import BbBackButton from '../../components/BbBackButton.vue';
 import BbIcon from '../../components/BbIcon.vue';
 import BbProgress from '../../components/BbProgress.vue';
+import LinkExpenseSheet from './LinkExpenseSheet.vue';
 import { ApiError, callApi } from '../../api/callApi.js';
 import { isOnline } from '../../composables/useOnline.js';
 import { useBack } from '../../composables/useBack.js';
@@ -42,6 +43,8 @@ const current = ref('');
 const loading = ref(true);
 const error = ref('');
 const busy = ref(false);
+/** The "Link an expense" sheet is open. */
+const linking = ref(false);
 /** The message at the bottom, with the call that takes the change back. */
 const message = ref<{ text: string; undo: (() => Promise<void>) | null }>();
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -222,6 +225,30 @@ async function unmove(from: string, back: string): Promise<void> {
   }
 }
 
+/** Links the tapped expense to the wish and closes the sheet (UI-WSH-6). */
+async function link(transactionId: number): Promise<void> {
+  const item = wish.value;
+  if (!item || busy.value || !isOnline.value) return;
+  busy.value = true;
+  try {
+    const answer = await callApi(
+      'POST',
+      `/api/wishes/${item.id}/links`,
+      wishResponseSchema,
+      { transactionId },
+    );
+    wish.value = answer.wish;
+    linking.value = false;
+    say(`Linked to ${item.name}`, null, 4000);
+  } catch (cause) {
+    linking.value = false;
+    say(failure(cause), null, 4000);
+    if (cause instanceof ApiError && cause.status === 409) await load();
+  } finally {
+    busy.value = false;
+  }
+}
+
 /** Runs the message's Undo once. */
 async function undo(): Promise<void> {
   const action = message.value?.undo;
@@ -358,7 +385,12 @@ async function undo(): Promise<void> {
           <p v-if="rows.length === 0" class="t-sub wish-none">
             {{ expenseCountText(0) }} yet.
           </p>
-          <button class="wish-link" type="button" :disabled="!isOnline">
+          <button
+            class="wish-link"
+            type="button"
+            :disabled="!isOnline || wish.state === 'dropped'"
+            @click="linking = true"
+          >
             <BbIcon name="plus" :size="18" :stroke-width="2.2" />
             Link an expense you added
           </button>
@@ -379,6 +411,17 @@ async function undo(): Promise<void> {
         }}
       </button>
     </div>
+
+    <LinkExpenseSheet
+      v-if="linking && wish"
+      :wish-id="wish.id"
+      :wish-name="wish.name"
+      :month="wish.month"
+      :format="formatter.signed"
+      :disabled="busy || !isOnline"
+      @pick="link"
+      @close="linking = false"
+    />
 
     <div v-if="message" class="toast wish-toast" role="status">
       <span class="wish-toast-text">{{ message.text }}</span>

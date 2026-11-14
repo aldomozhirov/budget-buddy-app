@@ -3,11 +3,14 @@ import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 import {
   addMonths,
   createWishRequestSchema,
+  linkWishExpenseRequestSchema,
   monthOfDate,
   moveWishRequestSchema,
   restoreWishResponseSchema,
   todayInTimeZone,
   updateWishRequestSchema,
+  wishCandidatesQuerySchema,
+  wishCandidatesResponseSchema,
   wishIdParamsSchema,
   wishResponseSchema,
   wishesQuerySchema,
@@ -24,6 +27,17 @@ import {
 import { createRateLookup } from '../../rates/lookup.js';
 import type { BackfillRequester } from '../../rates/service.js';
 import { createValuation } from '../../domain/valuation.js';
+import {
+  listWishCandidates,
+  unplannedExpense,
+} from '../../domain/wishCandidates.js';
+import { writeRevision } from '../../domain/transactions.js';
+import {
+  linkAmountFor,
+  linkChanges,
+  saveLink,
+  type StoredLink,
+} from '../../domain/wishLinks.js';
 import { listWishes, loadWish, wishesSummary } from '../../domain/wishes.js';
 
 /** The first month a wish can be for (O8). */
@@ -96,6 +110,117 @@ export const wishRoutes: FastifyPluginAsync<{
       : undefined;
     if (!wish) return sendNotFound(reply);
     return wishResponseSchema.parse({ wish });
+  });
+
+  app.get('/api/wishes/:id/candidates', async (request, reply) => {
+    const params = wishIdParamsSchema.safeParse(request.params);
+    const query = wishCandidatesQuerySchema.safeParse(request.query);
+    const wish = params.success
+      ? loadWish(database, params.data.id)
+      : undefined;
+    if (!wish) return sendNotFound(reply);
+    if (!query.success) {
+      return sendInvalid(reply, 'Check the search.', query.error.issues);
+    }
+    return wishCandidatesResponseSchema.parse({
+      month: wish.month,
+      candidates: listWishCandidates(database, wish, query.data.q),
+    });
+  });
+
+  app.post('/api/wishes/:id/links', async (request, reply) => {
+    const params = wishIdParamsSchema.safeParse(request.params);
+    if (!params.success) return sendNotFound(reply);
+    const parsed = linkWishExpenseRequestSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return sendInvalid(reply, 'Check the expense.', parsed.error.issues);
+    }
+    const memberId = request.authContext?.memberId;
+    if (memberId === null || memberId === undefined) {
+      return sendProfileRequired(reply);
+    }
+    const id = params.data.id;
+    const txnId = parsed.data.transactionId;
+    const now = clock.now().getTime();
+    const lookup = createRateLookup(database);
+
+    const outcome = database.transaction(() => {
+      const wish = database
+        .prepare(
+          `SELECT name, currency, month, state, deleted_at AS deletedAt
+           FROM wish WHERE id = ?`,
+        )
+        .get(id) as
+        | {
+            name: string;
+            currency: string;
+            month: string;
+            state: WishState;
+            deletedAt: bigint | null;
+          }
+        | undefined;
+      if (!wish) return 'not_found' as const;
+      if (wish.deletedAt !== null || wish.state === 'dropped') {
+        return 'wish_not_open' as const;
+      }
+      const expense = database
+        .prepare(
+          `SELECT t.amount, t.date, a.currency
+           FROM txn t JOIN account a ON a.id = t.account_id
+           WHERE t.id = ? AND ${unplannedExpense}`,
+        )
+        .get(txnId) as
+        { amount: bigint; date: string; currency: string } | undefined;
+      // Gone, planned meanwhile or of another month: it changed.
+      if (!expense || expense.date.slice(0, 7) !== wish.month) {
+        return 'changed' as const;
+      }
+      const link: StoredLink = {
+        id: 0,
+        wishId: id,
+        wishName: wish.name,
+        wishCurrency: wish.currency,
+        wishMonth: wish.month,
+        wishState: wish.state,
+        month: wish.month,
+        amount: linkAmountFor(database, lookup, {
+          amount: expense.amount,
+          currency: expense.currency,
+          wishCurrency: wish.currency,
+          date: expense.date,
+        }),
+        amountManual: false,
+        madeHow: 'member',
+        madeBy: memberId,
+        madeAt: now,
+      };
+      saveLink(database, txnId, null, link);
+      database
+        .prepare('UPDATE txn SET updated_by = ?, updated_at = ? WHERE id = ?')
+        .run(memberId, now, txnId);
+      writeRevision(database, {
+        txnId,
+        action: 'update',
+        changes: linkChanges(null, link, expense.currency),
+        changedBy: memberId,
+        changedAt: now,
+      });
+      return 'ok' as const;
+    })();
+    if (outcome === 'not_found') return sendNotFound(reply);
+    if (outcome === 'changed') return sendChanged(reply);
+    if (outcome === 'wish_not_open') {
+      return reply.code(409).send({
+        error: {
+          code: 'wish_not_open',
+          message: 'This wish is dropped or deleted.',
+        },
+      });
+    }
+    rates?.requestBackfill();
+    return reply
+      .code(201)
+      .send(wishResponseSchema.parse({ wish: loadWish(database, id) }));
   });
 
   app.post('/api/wishes', async (request, reply) => {

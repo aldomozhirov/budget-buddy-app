@@ -571,7 +571,7 @@ const numberPattern = /^(\d{1,19})(?:[.,](\d{1,19}))?$/u;
  * or payer name as a case-folded part of it, or, when it is a number, an
  * amount.
  */
-function searchClause(
+export function searchClause(
   database: Database.Database,
   valuation: Valuation,
   text: string | undefined,
