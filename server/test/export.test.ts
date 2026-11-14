@@ -171,6 +171,32 @@ const expectedHeaders: Record<string, string[]> = {
     'changed_by',
     'changed_at',
   ],
+  'wishes.csv': [
+    'id',
+    'month',
+    'name',
+    'amount',
+    'currency',
+    'category',
+    'note',
+    'expression',
+    'state',
+    'created_by',
+    'created_at',
+    'updated_by',
+    'updated_at',
+  ],
+  'wish_links.csv': [
+    'transaction_id',
+    'wish_id',
+    'month',
+    'amount',
+    'currency',
+    'amount_manual',
+    'made_how',
+    'made_by',
+    'made_at',
+  ],
   'rules.csv': [
     'id',
     'position',
@@ -349,6 +375,30 @@ describe('export', () => {
         INSERT INTO rule (position, pattern, category_id, account_id,
           created_by, created_at, updated_by, updated_at)
         VALUES (1, 'RAMEN, UDON', 2, 2, 1, 29, 1, 30);
+      `);
+    // Wishes: two kept (one in JPY with a category), one deleted; links:
+    // one active, one with no rate yet, one detached by the deleted wish.
+    database.exec(`
+        INSERT INTO wish (id, month, name, amount, expression, currency,
+          category_id, note, state, created_by, created_at, updated_by,
+          updated_at)
+        VALUES (1, '2026-11', 'Camera', 12000, '100*120', 'JPY', 2, 'Gift',
+          'open', 1, 40, 1, 41),
+          (2, '2026-12', '=Trip', 5000, NULL, 'EUR', NULL, NULL, 'done', 1,
+          42, 1, 43);
+        INSERT INTO wish (id, month, name, amount, currency, created_by,
+          created_at, updated_by, updated_at, deleted_at, deleted_by)
+        VALUES (3, '2026-11', 'Gone', 100, 'EUR', 1, 44, 1, 45, 46, 1);
+        INSERT INTO plan_link (txn_id, kind, wish_id, month, amount,
+          amount_manual, made_how, made_by, made_at)
+        VALUES (1, 'wish', 1, '2026-10', 2500, 1, 'member', 1, 47),
+          (2, 'wish', 2, '2026-10', NULL, 0, 'recorded', NULL, 48);
+      `);
+    database.exec(`
+        INSERT INTO plan_link (txn_id, kind, wish_id, month, amount,
+          made_how, made_by, made_at, detached_at, detached_reason)
+        VALUES (1, 'wish', 3, '2026-10', 100, 'member', 1, 51, 52,
+          'wish_deleted');
       `);
     // Secrets that must never reach the export.
     database
@@ -568,6 +618,71 @@ describe('export', () => {
     expect(Object.values(written).join('\n')).not.toContain(
       'HASH-NOT-EXPORTED',
     );
+  });
+
+  it('writes wishes and links, leaving out deleted wishes and detached links', async () => {
+    const written = await files();
+    const rows = (name: string) => parseCsv(written[name] ?? '').slice(1);
+    expect(rows('wishes.csv')).toEqual([
+      [
+        '1',
+        '2026-11',
+        'Camera',
+        '12000',
+        'JPY',
+        expect.any(String),
+        'Gift',
+        '100*120',
+        'open',
+        '1',
+        '1970-01-01T00:00:00.040Z',
+        '1',
+        '1970-01-01T00:00:00.041Z',
+      ],
+      [
+        '2',
+        '2026-12',
+        "'=Trip",
+        '50.00',
+        'EUR',
+        '',
+        '',
+        '',
+        'done',
+        '1',
+        '1970-01-01T00:00:00.042Z',
+        '1',
+        '1970-01-01T00:00:00.043Z',
+      ],
+    ]);
+    const category = database
+      .prepare('SELECT name FROM category WHERE id = 2')
+      .get() as { name: string };
+    expect(rows('wishes.csv')[0]?.[5]).toBe(category.name);
+    expect(rows('wish_links.csv')).toEqual([
+      [
+        '1',
+        '1',
+        '2026-10',
+        '2500',
+        'JPY',
+        'true',
+        'member',
+        '1',
+        '1970-01-01T00:00:00.047Z',
+      ],
+      [
+        '2',
+        '2',
+        '2026-10',
+        '',
+        'EUR',
+        'false',
+        'recorded',
+        '',
+        '1970-01-01T00:00:00.048Z',
+      ],
+    ]);
   });
 
   it('writes instants as ISO 8601 in UTC and keeps rates exact', async () => {

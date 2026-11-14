@@ -196,6 +196,50 @@ describe('nightly backup', () => {
       expect(row?.bytes).toBe(BigInt((await stat(file)).size));
     });
 
+    it('keeps wishes, links, deleted wishes and detached links (PLN-17)', async () => {
+      database.exec(`
+        INSERT INTO account (id, name, owner_member_id, type, currency,
+          created_by, created_at, updated_by, updated_at)
+        VALUES (1, 'Giro', 1, 'bank', 'EUR', 1, 1, 1, 1);
+        INSERT INTO txn (id, kind, date, account_id, amount, member_id,
+          created_by, created_at, updated_by, updated_at)
+        VALUES (1, 'expense', '2026-10-06', 1, 2500, 1, 1, 1, 1, 1),
+          (2, 'expense', '2026-10-07', 1, 900, 1, 1, 1, 1, 1);
+        INSERT INTO wish (id, month, name, amount, currency, created_by,
+          created_at, updated_by, updated_at)
+        VALUES (1, '2026-11', 'Camera', 12000, 'EUR', 1, 1, 1, 1);
+        INSERT INTO wish (id, month, name, amount, currency, created_by,
+          created_at, updated_by, updated_at, deleted_at, deleted_by)
+        VALUES (2, '2026-11', 'Gone', 100, 'EUR', 1, 1, 1, 1, 2, 1);
+        INSERT INTO plan_link (txn_id, kind, wish_id, month, amount,
+          made_how, made_by, made_at)
+        VALUES (1, 'wish', 1, '2026-10', 2500, 'member', 1, 1);
+        INSERT INTO plan_link (txn_id, kind, wish_id, month, amount,
+          made_how, made_by, made_at, detached_at, detached_reason)
+        VALUES (2, 'wish', 2, '2026-10', 900, 'member', 1, 1, 2,
+          'wish_deleted');
+      `);
+      await tick();
+      const file = join(backupDir, 'daily', 'budget-buddy-2026-10-11.sqlite');
+      const copy = new Database(file, { readonly: true });
+      const rows = (sql: string) => copy.prepare(sql).all();
+      expect(rows('SELECT id, name, deleted_at FROM wish ORDER BY id')).toEqual(
+        [
+          { id: 1, name: 'Camera', deleted_at: null },
+          { id: 2, name: 'Gone', deleted_at: 2 },
+        ],
+      );
+      expect(
+        rows(
+          'SELECT txn_id, wish_id, detached_reason FROM plan_link ORDER BY id',
+        ),
+      ).toEqual([
+        { txn_id: 1, wish_id: 1, detached_reason: null },
+        { txn_id: 2, wish_id: 2, detached_reason: 'wish_deleted' },
+      ]);
+      copy.close();
+    });
+
     it('passes the integrity check while writes happen through the same connection', async () => {
       const total = growScratchTable(database);
       let written = 0;
