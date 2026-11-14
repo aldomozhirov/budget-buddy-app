@@ -270,6 +270,23 @@ async function undo(): Promise<void> {
         <h1 class="t-title">{{ wish?.name ?? 'Wish' }}</h1>
         <span v-if="wish" class="num t-sub">{{ subtitle }}</span>
       </div>
+      <RouterLink
+        v-if="wish"
+        class="icon-btn"
+        :to="`/wishes/${wish.id}/edit`"
+        aria-label="Edit wish"
+      >
+        <BbIcon name="settings" />
+      </RouterLink>
+      <button
+        v-else
+        class="icon-btn"
+        type="button"
+        aria-label="Edit wish"
+        disabled
+      >
+        <BbIcon name="settings" />
+      </button>
     </header>
 
     <div class="content app-content wish-content">

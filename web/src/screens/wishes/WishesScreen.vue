@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import {
   addMonths,
@@ -13,6 +13,7 @@ import BbIcon from '../../components/BbIcon.vue';
 import BbProgress from '../../components/BbProgress.vue';
 import BbTag from '../../components/BbTag.vue';
 import { ApiError, callApi } from '../../api/callApi.js';
+import { isOnline } from '../../composables/useOnline.js';
 import { useBack } from '../../composables/useBack.js';
 import { monthName, monthWithYear } from '../envelopes/envelopeFormat.js';
 import { createMoneyFormatter } from '../summary/summaryFormat.js';
@@ -25,6 +26,7 @@ import {
   monthRelation,
   summaryLine,
 } from './wishesFormat.js';
+import { takeWishMessage, type WishMessage } from './wishMessage.js';
 
 /**
  * Wishes: one month's wishes, a month switcher, the summary line, an
@@ -43,6 +45,11 @@ const loading = ref(true);
 const error = ref('');
 /** Guards against a slow answer for a month the member has left. */
 let requested = 0;
+
+/** What the wish form left, with the Undo that takes it back. */
+const message = ref<WishMessage>();
+const undoing = ref(false);
+let timer: ReturnType<typeof setTimeout> | undefined;
 
 const formatter = computed(() => createMoneyFormatter(coins.value));
 const open = computed(
@@ -86,7 +93,44 @@ const total = computed(() => {
 const relation = computed(() => monthRelation(month.value, current.value));
 const newWishLink = computed(() => `/wishes/new?month=${month.value}`);
 
-onMounted(() => void load());
+onMounted(() => {
+  const left = takeWishMessage();
+  if (left) say(left);
+  void load(left?.month);
+});
+onUnmounted(() => clearTimeout(timer));
+
+/** Shows a message for the length of an Undo (about 8 seconds). */
+function say(next: WishMessage, ms = 8000): void {
+  clearTimeout(timer);
+  message.value = next;
+  timer = setTimeout(() => (message.value = undefined), ms);
+}
+
+/** Runs the Undo once; a 409 says that someone changed the wish first. */
+async function undo(): Promise<void> {
+  const action = message.value?.undo;
+  if (!action || undoing.value) return;
+  undoing.value = true;
+  try {
+    await action();
+    say({ text: 'Undone.', undo: null }, 4000);
+  } catch (cause) {
+    say(
+      {
+        text:
+          cause instanceof ApiError && cause.status === 409
+            ? 'Someone changed it meanwhile.'
+            : 'Could not undo. Check your connection and try again.',
+        undo: null,
+      },
+      4000,
+    );
+  } finally {
+    undoing.value = false;
+    await load(month.value || undefined);
+  }
+}
 
 /** Loads `target`, or the current month when it is not given. */
 async function load(target?: string): Promise<void> {
@@ -95,13 +139,18 @@ async function load(target?: string): Promise<void> {
   loading.value = true;
   try {
     const query = target ? `?month=${target}` : '';
-    const [wishes, currencies] = await Promise.all([
+    const [wishes, currencies, now] = await Promise.all([
       callApi('GET', `/api/wishes${query}`, wishesResponseSchema),
       coins.value.length
         ? Promise.resolve(null)
         : callApi('GET', '/api/currencies', currenciesResponseSchema),
+      // Opened on another month, the switcher still needs the current one.
+      target && !current.value
+        ? callApi('GET', '/api/wishes', wishesResponseSchema)
+        : Promise.resolve(null),
     ]);
     if (ticket !== requested) return;
+    if (now) current.value = now.month;
     if (currencies) coins.value = currencies.coins;
     if (!target) current.value = wishes.month;
     data.value = wishes;
@@ -256,6 +305,19 @@ function step(by: number): void {
         </p>
       </template>
     </div>
+
+    <div v-if="message" class="toast wishes-toast" role="status">
+      <span class="wishes-toast-text">{{ message.text }}</span>
+      <button
+        v-if="message.undo"
+        class="wishes-undo"
+        type="button"
+        :disabled="undoing || !isOnline"
+        @click="undo"
+      >
+        Undo
+      </button>
+    </div>
   </main>
 </template>
 
@@ -406,5 +468,19 @@ function step(by: number): void {
 .bb .app-content > p.wishes-note {
   margin: 0 4px;
   font-size: 13px;
+}
+.wishes-toast {
+  position: fixed;
+  z-index: 30;
+}
+.wishes-toast-text {
+  flex: 1;
+  min-width: 0;
+}
+.wishes-undo {
+  min-height: 44px;
+  padding: 0 8px;
+  font-weight: 600;
+  color: var(--on-ink);
 }
 </style>
