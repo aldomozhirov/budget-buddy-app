@@ -449,7 +449,7 @@ test.describe('Linking an expense to a wish', () => {
       await page.context().setOffline(true);
       await expect(
         page.getByText(
-          'Offline. Recording and changing wishes need a connection.',
+          'Offline. Adding to and changing wishes need a connection.',
         ),
       ).toBeVisible();
       await expect(open).toBeDisabled();

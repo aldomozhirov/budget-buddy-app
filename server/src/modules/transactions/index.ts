@@ -103,6 +103,7 @@ export const transactionRoutes: FastifyPluginAsync<{
       ():
         | { kind: 'created' | 'repeated'; id: number; filled: Filled }
         | { kind: 'conflict'; message: string }
+        | { kind: 'wish_not_open'; message: string }
         | { kind: 'invalid'; issues: Issue[] } => {
         if (body.clientId !== undefined) {
           const existing = database
@@ -127,6 +128,8 @@ export const transactionRoutes: FastifyPluginAsync<{
             };
           }
         }
+        // A wish takes the expense out of any envelope, default or rule
+        // (PLN-18, O13), so nothing is filled in for an envelope.
         const fill = fillOnSave(
           {
             kind: body.kind,
@@ -141,10 +144,42 @@ export const transactionRoutes: FastifyPluginAsync<{
         if (issues.length > 0) return { kind: 'invalid', issues };
         // Only what was sent is checked: a filled value is an active default.
         draft.state.categoryId = fill.categoryId;
-        draft.state.envelopeId = fill.envelopeId;
+        draft.state.envelopeId =
+          body.wishId === undefined ? fill.envelopeId : null;
         const state = settle(database, draft, lookup, true);
+        if (body.wishId !== undefined) {
+          const linked = recordedLink(
+            database,
+            lookup,
+            state,
+            body,
+            body.wishId,
+            memberId,
+            now,
+          );
+          if ('message' in linked) {
+            return { kind: 'wish_not_open', message: linked.message };
+          }
+          if ('issues' in linked) {
+            return { kind: 'invalid', issues: linked.issues };
+          }
+          state.link = linked.link;
+        }
         const id = insertTransaction(database, state, clientHash);
-        return { kind: 'created', id, filled: fill.filled };
+        if (state.link !== null) {
+          saveLink(database, id, null, state.link);
+          writeRevision(database, {
+            txnId: id,
+            action: 'update',
+            changes: linkChanges(null, state.link, state.currency),
+            changedBy: memberId,
+            changedAt: now,
+          });
+        }
+        // No envelope default was used for an expense that counts for a wish.
+        const filled = { ...fill.filled };
+        if (body.wishId !== undefined) delete filled.envelope;
+        return { kind: 'created', id, filled };
       },
     )();
 
@@ -155,6 +190,11 @@ export const transactionRoutes: FastifyPluginAsync<{
       return reply
         .code(409)
         .send({ error: { code: 'conflict', message: outcome.message } });
+    }
+    if (outcome.kind === 'wish_not_open') {
+      return reply.code(409).send({
+        error: { code: 'wish_not_open', message: outcome.message },
+      });
     }
     if (outcome.kind === 'created') rates?.requestBackfill();
     const status = outcome.kind === 'created' ? 201 : 200;
@@ -599,6 +639,78 @@ export function checkDraft(
     }
   }
   return issues;
+}
+
+/**
+ * The recorded link of a new expense to its wish (PLN-18, spec 3a Design 3).
+ * The link amount is the typed `linkAmount` (the wish's own figure of an
+ * untouched prefill), else the expense converted at the day's rate.
+ * @returns The link, `message` for a wish that is dropped, deleted or of
+ *   another month than the expense (409), or `issues`.
+ */
+function recordedLink(
+  database: Database.Database,
+  lookup: ReturnType<typeof createRateLookup>,
+  state: StoredTransaction,
+  body: CreateTransactionRequest,
+  wishId: number,
+  memberId: number,
+  now: number,
+): { link: StoredLink } | { message: string } | { issues: Issue[] } {
+  const wish = database
+    .prepare(
+      `SELECT id, name, currency, month, state, deleted_at AS deletedAt
+       FROM wish WHERE id = ?`,
+    )
+    .get(wishId) as WishRow | undefined;
+  if (!wish)
+    return { issues: [{ path: ['wishId'], message: 'Choose a wish.' }] };
+  if (wish.deletedAt !== null || wish.state === 'dropped') {
+    return { message: 'This wish is dropped or deleted.' };
+  }
+  const month = monthOfDate(state.date);
+  if (wish.month !== month) {
+    return { message: 'The date is outside the wish’s month.' };
+  }
+  let amount: bigint | null;
+  if (wish.currency === state.currency) {
+    amount = state.amount;
+  } else if (body.linkAmount !== undefined) {
+    amount = BigInt(body.linkAmount);
+    if (amount === 0n || amount < 0n !== state.amount < 0n) {
+      return {
+        issues: [
+          {
+            path: ['linkAmount'],
+            message: 'Enter an amount with the same sign as the expense.',
+          },
+        ],
+      };
+    }
+  } else {
+    amount = linkAmountFor(database, lookup, {
+      amount: state.amount,
+      currency: state.currency,
+      wishCurrency: wish.currency,
+      date: state.date,
+    });
+  }
+  return {
+    link: {
+      id: 0,
+      wishId,
+      wishName: wish.name,
+      wishCurrency: wish.currency,
+      wishMonth: wish.month,
+      wishState: wish.state,
+      month,
+      amount,
+      amountManual: false,
+      madeHow: 'recorded',
+      madeBy: memberId,
+      madeAt: now,
+    },
+  };
 }
 
 type WishRow = {

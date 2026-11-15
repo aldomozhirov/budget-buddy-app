@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { isMinorInRange } from '../money/minor.js';
-import { transactionSchema } from './transactions.js';
 
 const idSchema = z.number().int().positive();
 const monthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/u);
@@ -253,43 +252,4 @@ export type LinkCandidatesResponse = z.infer<
 /** Body of `POST /api/wishes/:id/links` (PLN-10) and the envelope one. */
 export const linkExpenseRequestSchema = z.object({
   transactionId: idSchema,
-});
-
-/**
- * Body of `POST /api/wishes/:id/record` (PLN-18, UI-WSH-5). `amount` is what
- * the sheet showed, in minor units of the paying account's currency; `date`
- * and `categoryId` default to today and the wish's category.
- */
-export const recordWishRequestSchema = z
-  .object({
-    amount: wishAmountSchema,
-    accountId: idSchema,
-    merchant: z.string().trim().max(120).optional(),
-    date: dateSchema.optional(),
-    categoryId: idSchema.nullable().optional(),
-    /** True keeps the wish open; false ticks it off as done. */
-    keepOpen: z.boolean(),
-    /** The device's id, so a retry does not record twice. */
-    clientId: z.uuid('Send a UUID as the client id.'),
-  })
-  .strict();
-
-/** Validated body of the record call. */
-export type RecordWishRequest = z.infer<typeof recordWishRequestSchema>;
-
-/** Response of `POST /api/wishes/:id/record`. */
-export const recordWishResponseSchema = z.object({
-  transaction: transactionSchema,
-  wish: wishSchema,
-  /** The wish's state before, which Undo gives back to `unrecord`. */
-  previousState: wishStateSchema,
-});
-
-/** Response of `POST /api/wishes/:id/record`. */
-export type RecordWishResponse = z.infer<typeof recordWishResponseSchema>;
-
-/** Body of `POST /api/wishes/:id/unrecord`, the Undo of record. */
-export const unrecordWishRequestSchema = z.object({
-  transactionId: idSchema,
-  state: wishStateSchema,
 });

@@ -7,17 +7,22 @@ import {
   categorySuggestionsResponseSchema,
   convert,
   createTransactionResponseSchema,
+  currenciesResponseSchema,
   deleteTransactionResponseSchema,
   fillOnSave,
   formatMoney,
+  getCurrency,
   matchRule,
   pickAccountChips,
   ratePairResponseSchema,
   todayInTimeZone,
+  wishResponseSchema,
   type AddOptionsAccount,
   type AddOptionsResponse,
+  type CoinSetting,
   type DatedRate,
   type KnownMerchant,
+  type Wish,
 } from '@budget-buddy/shared';
 import AccountPickerSheet from '../../components/AccountPickerSheet.vue';
 import BbButton from '../../components/BbButton.vue';
@@ -48,6 +53,7 @@ import {
   type OutboxItem,
   type SendOutcome,
 } from '../../offline/outbox.js';
+import { monthName } from '../envelopes/envelopeFormat.js';
 import DateSheet from './DateSheet.vue';
 import MerchantSheet, { type MerchantOption } from './MerchantSheet.vue';
 import NoteSheet from './NoteSheet.vue';
@@ -56,6 +62,7 @@ import {
   accountCurrency,
   amountText,
   applyRule,
+  convertedPrefill,
   dayLabel,
   EMPTY_PICK,
   filledText,
@@ -64,9 +71,13 @@ import {
   pairLookup,
   parseEnvelopeId,
   parseKind,
+  parseWishId,
   pickLabel,
   savedSummary,
   toggleChip,
+  wishDate,
+  wishPrefill,
+  wishRateLine,
   withFront,
   type FormKind,
   type FormPick,
@@ -122,6 +133,19 @@ const keypadKey = ref(0);
 const merchant = ref('');
 const category = ref<FormPick>(EMPTY_PICK);
 const envelope = ref<FormPick>(EMPTY_PICK);
+/**
+ * The wish Add was opened from (`?wishId=`, PLN-18): null when none, or when
+ * it could not be loaded, which leaves a plain expense.
+ */
+const wish = ref<Wish | null>(null);
+const wishCoins = ref<CoinSetting[]>([]);
+/** The day's rate from the wish's currency to the account's. */
+const wishRate = ref<DatedRate | null>(null);
+const wishRateLoading = ref(false);
+/** The amount still is the prefill: not typed, pasted or calculated. */
+const prefillUntouched = ref(true);
+/** What the keypad starts with when the prefill is set. */
+const keypadStart = ref<bigint | null>(null);
 /** The envelope Add was opened from; it leads the chip row (UI-ADD-8). */
 const linkedEnvelopeId = ref<number | null>(null);
 const extraCategoryId = ref<number | null>(null);
@@ -156,6 +180,8 @@ const saved = ref<{
   summary: string;
   filled: string;
   noCategory: boolean;
+  /** The wish it counts for, "Counts for Winter tyres" (UI-ADD-16). */
+  wishName: string | null;
 } | null>(null);
 const undoing = ref(false);
 const savedHeading = ref<HTMLElement>();
@@ -197,6 +223,63 @@ const currency = computed(() =>
         symbol: '€',
         kind: 'fiat' as const,
       },
+);
+
+/** The wish counts only for an expense (income and transfer save no link). */
+const wishActive = computed(
+  () => wish.value !== null && kind.value === 'expense',
+);
+const wishCurrency = computed(() => {
+  const code = wish.value?.currency ?? '';
+  if (account.value?.currency === code) return currency.value;
+  return (
+    getCurrency(code, wishCoins.value) ?? {
+      code,
+      name: code,
+      decimals: 2,
+      symbol: code,
+      kind: 'coin' as const,
+    }
+  );
+});
+/** The wish's own prefill, in the wish's currency. */
+const wishBase = computed(() => (wish.value ? wishPrefill(wish.value) : null));
+/** The account's currency differs from the wish's. */
+const otherWishCurrency = computed(
+  () =>
+    wishActive.value &&
+    account.value !== undefined &&
+    account.value.currency !== wish.value?.currency,
+);
+const rateLineText = computed(() =>
+  otherWishCurrency.value && wishRate.value
+    ? wishRateLine(
+        wishRate.value,
+        wish.value?.currency ?? '',
+        currency.value.code,
+        date.value,
+        today.value,
+        wishCoins.value,
+      )
+    : '',
+);
+const wishRateMissing = computed(
+  () =>
+    otherWishCurrency.value &&
+    wishRate.value === null &&
+    !wishRateLoading.value,
+);
+/** A date outside the wish's month cannot count for it (Design 2). */
+const wishDateWrong = computed(
+  () =>
+    wishActive.value &&
+    date.value !== '' &&
+    date.value.slice(0, 7) !== wish.value?.month,
+);
+const wishDateWarning = computed(() =>
+  wishDateWrong.value && wish.value
+    ? `Pick a date in ${monthName(wish.value.month)} to count for ${wish.value.name}.`
+    : '',
 );
 
 function categoryById(id: number | null): CategoryOption | undefined {
@@ -489,6 +572,8 @@ const canSave = computed(
     amountOk.value &&
     (kind.value !== 'transfer' ||
       (toAccount.value !== undefined && (!fx.value || arriveOk.value))) &&
+    // A link to a wish is made on the server (PLN-21).
+    (!wishActive.value || (isOnline.value && !wishDateWrong.value)) &&
     !saving.value,
 );
 const saveLabel = computed(() => {
@@ -496,12 +581,15 @@ const saveLabel = computed(() => {
   if (!amountOk.value || amount.value === null) return 'Enter an amount';
   if (fx.value && !arriveOk.value) return 'Type what arrives';
   const sent = formatMoney(amount.value, currency.value);
+  if (wishActive.value && !isOnline.value)
+    return `Save ${sent} · needs a connection`;
   return fx.value && arriveValue.value !== null
     ? `Save ${sent} → ${formatMoney(arriveValue.value, toCurrency.value)}`
     : `Save ${sent}`;
 });
 
 function onAmountChange(change: AmountChange): void {
+  prefillUntouched.value = false;
   typed.value = change;
   if (change.amount !== null || change.empty) preview.value = change.amount;
 }
@@ -527,7 +615,8 @@ function reapplyRule(): void {
     },
   );
   category.value = next.category;
-  envelope.value = next.envelope;
+  // A wish takes the place of the envelope: no rule fills one (O13).
+  envelope.value = wishActive.value ? EMPTY_PICK : next.envelope;
 }
 
 /** The query of the category chips (Design 3.6) for the form as it is. */
@@ -640,6 +729,109 @@ watch(
   (next) => setKind(parseKind(next)),
 );
 
+/** The prefill in the account's currency; null while its rate is missing. */
+const prefillAmount = computed<bigint | null>(() =>
+  wishActive.value &&
+  wishBase.value !== null &&
+  account.value !== undefined &&
+  date.value
+    ? convertedPrefill(
+        wishBase.value,
+        wishCurrency.value,
+        currency.value,
+        date.value,
+        wishRate.value,
+      )
+    : null,
+);
+
+/** Puts an amount on the form and keypad as if it had been typed. */
+function setPrefill(value: bigint | null): void {
+  amount.value = value;
+  preview.value = value;
+  typed.value =
+    value === null
+      ? null
+      : { amount: value, empty: false, valid: true, text: '', error: '' };
+  keypadStart.value = value;
+  keypadKey.value += 1;
+  prefillUntouched.value = true;
+}
+
+// The untouched prefill follows the account, the date and the day's rate.
+watch(prefillAmount, (value) => {
+  if (wishActive.value && prefillUntouched.value) setPrefill(value);
+});
+
+/** Asks for the day's rate from the wish's currency to the account's. */
+async function loadWishRate(): Promise<void> {
+  const from = wish.value?.currency;
+  const to = account.value?.currency;
+  if (!from || !to || from === to || !date.value) {
+    wishRate.value = null;
+    wishRateLoading.value = false;
+    return;
+  }
+  const key = () => `${from}>${account.value?.currency}@${date.value}`;
+  const asked = `${from}>${to}@${date.value}`;
+  wishRate.value = null;
+  wishRateLoading.value = true;
+  try {
+    const answer = await callApi(
+      'GET',
+      `/api/rates/pair?${new URLSearchParams({ from, to, date: date.value })}`,
+      ratePairResponseSchema,
+    );
+    if (asked === key()) wishRate.value = answer.rate;
+  } catch {
+    // No rate: the member types the amount.
+  } finally {
+    if (asked === key()) wishRateLoading.value = false;
+  }
+}
+watch(
+  [() => wish.value?.id, () => account.value?.currency, date],
+  () => void loadWishRate(),
+);
+
+/** Loads the wish Add was opened from; none, or a plain expense on failure. */
+async function loadWish(): Promise<void> {
+  const id = parseWishId(route.query.wishId);
+  if (id === null) {
+    wish.value = null;
+    return;
+  }
+  try {
+    const [answer, currencies] = await Promise.all([
+      callApi('GET', `/api/wishes/${id}`, wishResponseSchema),
+      callApi('GET', '/api/currencies', currenciesResponseSchema),
+    ]);
+    wish.value = answer.wish;
+    wishCoins.value = currencies.coins;
+  } catch {
+    wish.value = null;
+  }
+}
+
+/**
+ * Starts the form from the wish (PLN-18): what is left, its name as the
+ * note, its category picked by hand, a date in its month, no envelope.
+ */
+function startWish(): void {
+  const item = wish.value;
+  if (!item) return;
+  linkedEnvelopeId.value = null;
+  envelope.value = EMPTY_PICK;
+  category.value =
+    item.categoryId !== null && categoryById(item.categoryId)
+      ? { id: item.categoryId, source: 'hand' }
+      : EMPTY_PICK;
+  extraCategoryId.value = category.value.id;
+  note.value = item.name;
+  date.value = wishDate(item.month, today.value);
+  setPrefill(prefillAmount.value);
+}
+
 function resetForm(): void {
   const data = options.value;
   amount.value = null;
@@ -663,6 +855,9 @@ function resetForm(): void {
   payerId.value = data?.profileId ?? 0;
   saveError.value = '';
   pending = null;
+  prefillUntouched.value = true;
+  keypadStart.value = null;
+  startWish();
 }
 
 /**
@@ -700,6 +895,8 @@ async function load(): Promise<void> {
     toAccountId.value = null;
     resetForm();
     ensureTo();
+    await loadWish();
+    startWish();
   } catch (cause) {
     loadError.value =
       cause instanceof ApiError && cause.status !== 0
@@ -841,7 +1038,18 @@ async function save(): Promise<void> {
             ...common,
             ...(merchant.value ? { merchant: merchant.value } : {}),
             categoryId: category.value.id,
-            envelopeId: envelope.value.id,
+            envelopeId: wishActive.value ? null : envelope.value.id,
+            ...(wishActive.value && wish.value
+              ? {
+                  wishId: wish.value.id,
+                  // The untouched prefill counts as the wish's own figure.
+                  ...(otherWishCurrency.value &&
+                  prefillUntouched.value &&
+                  wishBase.value !== null
+                    ? { linkAmount: wishBase.value.toString() }
+                    : {}),
+                }
+              : {}),
           };
   const signature = JSON.stringify(form);
   if (pending?.signature !== signature) {
@@ -897,6 +1105,10 @@ async function save(): Promise<void> {
         filled: filledText(filled, categoryName, envelopeName),
         noCategory:
           transaction.kind !== 'transfer' && transaction.categoryId === null,
+        wishName:
+          transaction.countsFor?.type === 'wish'
+            ? (transaction.countsFor.name ?? null)
+            : null,
       };
     } else {
       // On the phone, or sent by a locked session that only learns the id:
@@ -921,6 +1133,8 @@ async function save(): Promise<void> {
         filled: '',
         noCategory:
           item.body.kind !== 'transfer' && item.body.categoryId == null,
+        wishName:
+          item.body.wishId !== undefined ? (wish.value?.name ?? null) : null,
       };
     }
     undoError.value = '';
@@ -1030,10 +1244,15 @@ async function undo(): Promise<void> {
   }
 }
 
-function addAnother(): void {
+async function addAnother(): Promise<void> {
   saved.value = null;
   resetForm();
   focusAfter(amountGroup);
+  // The wish stays; what is left of it is read again.
+  if (wish.value) {
+    await loadWish();
+    startWish();
+  }
 }
 </script>
 
@@ -1099,7 +1318,11 @@ function addAnother(): void {
           <path d="M9 19h8a4 4 0 0 0 1.6-7.7" />
           <path d="M6 9.6A5 5 0 0 0 7 19" />
         </svg>
-        Offline. It stays on this phone and sends itself later.
+        {{
+          wishActive
+            ? 'Offline. Adding to a wish needs a connection.'
+            : 'Offline. It stays on this phone and sends itself later.'
+        }}
       </p>
 
       <div
@@ -1255,7 +1478,14 @@ function addAnother(): void {
         </BbChipGroup>
       </div>
 
-      <div v-if="kind === 'expense' && envelopes.length" class="add-field">
+      <div v-if="wishActive && wish" class="add-field">
+        <span class="lbl">Counts for</span>
+        <div class="add-counts" role="group" aria-label="Counts for">
+          <span class="add-counts-name">{{ wish.name }}</span>
+        </div>
+      </div>
+
+      <div v-else-if="kind === 'expense' && envelopes.length" class="add-field">
         <span class="lbl">{{ envelopeLabel }}</span>
         <BbChipGroup
           :model-value="envelope.id ?? 0"
@@ -1329,6 +1559,7 @@ function addAnother(): void {
         :allow-negative="kind === 'expense'"
         drop-pasted-sign
         :currency="currency"
+        :initial-amount="keypadStart"
         label="Amount"
         @change="onAmountChange"
       />
@@ -1342,6 +1573,15 @@ function addAnother(): void {
         label="Amount that arrives"
         @change="onArriveChange"
       />
+      <p v-if="rateLineText" class="num t-sub add-wish-rate">
+        {{ rateLineText }}
+      </p>
+      <p v-else-if="wishRateMissing" class="t-sub add-wish-rate warn">
+        Rate missing
+      </p>
+      <p v-if="wishDateWarning" class="t-sub warn" role="status">
+        {{ wishDateWarning }}
+      </p>
       <p v-if="saveError" class="error" role="alert">{{ saveError }}</p>
       <BbButton class="num" :disabled="!canSave" @click="save">{{
         saveLabel
@@ -1365,6 +1605,9 @@ function addAnother(): void {
         <RouterLink class="add-saved-link" to="/transactions?tab=needs-category"
           >Needs a category</RouterLink
         >.
+      </p>
+      <p v-if="saved.wishName" class="add-saved-note">
+        Counts for {{ saved.wishName }}
       </p>
       <p v-if="saved.filled" class="add-saved-note">{{ saved.filled }}</p>
       <p v-if="undoError" class="error" role="alert">{{ undoError }}</p>
@@ -1665,6 +1908,28 @@ function addAnother(): void {
 .add-saved-summary {
   margin: 0;
   color: var(--muted);
+}
+.add-counts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 14px;
+  background: var(--soft);
+  color: var(--ink);
+  font-weight: 500;
+}
+.add-counts-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.add-wish-rate {
+  margin: 0;
+  text-align: center;
 }
 .add-saved-note {
   margin: 0;
