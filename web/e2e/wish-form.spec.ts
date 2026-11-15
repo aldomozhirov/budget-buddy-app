@@ -158,24 +158,32 @@ test.describe('New and edit wish', () => {
     });
   });
 
-  test('adds a wish for a month 3 months ahead with the Month stepper', async ({
-    page,
-  }) => {
+  test('adds a wish 12 months ahead with the month input', async ({ page }) => {
     await startFamily(page, async (family) => {
       const month = await currentMonth(family);
-      const target = addMonths(month, 3);
+      const target = addMonths(month, 12);
       await page.goto(`${family.origin}/wishes/new`);
-      const previous = page.getByRole('button', { name: 'Previous month' });
-      const following = page.getByRole('button', { name: 'Next month' });
       await expect(
         page.getByText(`For ${nameOf(month)}`, { exact: true }),
       ).toBeVisible();
-      for (let i = 0; i < 3; i++) await following.click();
+      await expect(
+        page.getByRole('button', { name: 'Next month' }),
+      ).toHaveCount(0);
+      const input = page.getByLabel(
+        `Month, ${nameOf(month)} ${month.slice(0, 4)}`,
+      );
+      await expect(input).toHaveAttribute('type', 'month');
+      await expect(input).toHaveAttribute('min', '2000-01');
+      await expect(input).toHaveAttribute('max', target);
+      expect(
+        await input.evaluate((el) => parseFloat(getComputedStyle(el).fontSize)),
+      ).toBeGreaterThanOrEqual(16);
+      await input.fill(target);
       await expect(
         page.getByText(`For ${nameOf(target)}`, { exact: true }),
       ).toBeVisible();
       await expect(
-        page.getByText('In 3 months · plan ahead', { exact: true }),
+        page.getByText('In 12 months · plan ahead', { exact: true }),
       ).toBeVisible();
       await page.getByLabel('Name', { exact: true }).fill('Summer trip');
       await page.getByRole('button', { name: 'Amount', exact: true }).click();
@@ -186,35 +194,34 @@ test.describe('New and edit wish', () => {
       await expect(
         page.getByText(`Summer trip added to ${nameOf(target)}.`),
       ).toBeVisible();
-      await expect(page.locator('.wishes-month-name')).toHaveText(
+      await expect(page.locator('.wishes-month-name').first()).toHaveText(
         `${nameOf(target)} ${target.slice(0, 4)}`,
       );
-      await expect(previous).toBeEnabled();
     });
   });
 
-  test('the Month stepper stops at both ends', async ({ page }) => {
+  test('the month input clamps a month out of range', async ({ page }) => {
     await startFamily(page, async (family) => {
       const month = await currentMonth(family);
-      await page.goto(
-        `${family.origin}/wishes/new?month=${addMonths(month, 11)}`,
-      );
-      const previous = page.getByRole('button', { name: 'Previous month' });
-      const following = page.getByRole('button', { name: 'Next month' });
-      await expect(following).toBeEnabled();
-      await following.click();
+      const last = addMonths(month, 12);
+      await page.goto(`${family.origin}/wishes/new`);
+      const input = page.getByLabel(/^Month, /u);
+      await input.fill('2099-05');
       await expect(
-        page.getByText('In 12 months · plan ahead', { exact: true }),
+        page.getByText(`For ${nameOf(last)}`, { exact: true }),
       ).toBeVisible();
-      await expect(following).toBeDisabled();
-      await expect(previous).toBeEnabled();
-
-      await page.goto(`${family.origin}/wishes/new?month=2000-02`);
-      await expect(previous).toBeEnabled();
-      await previous.click();
-      await expect(page.getByText('January 2000')).toBeVisible();
-      await expect(previous).toBeDisabled();
-      await expect(following).toBeEnabled();
+      await expect(input).toHaveValue(last);
+      await input.fill('1990-03');
+      await expect(
+        page.getByText('For January', { exact: true }),
+      ).toBeVisible();
+      await expect(input).toHaveValue('2000-01');
+      // An empty value (the wheel's Clear) keeps the month shown.
+      await input.fill('');
+      await expect(
+        page.getByText('For January', { exact: true }),
+      ).toBeVisible();
+      await expect(input).toHaveValue('2000-01');
     });
   });
 
@@ -227,9 +234,7 @@ test.describe('New and edit wish', () => {
       await expect(
         page.getByText(`For ${nameOf(month)}`, { exact: true }),
       ).toBeVisible();
-      const previous = page.getByRole('button', { name: 'Previous month' });
-      await previous.click();
-      await previous.click();
+      await page.getByLabel(/^Month, /u).fill(earlier);
       await expect(
         page.getByText(`For ${nameOf(earlier)}`, { exact: true }),
       ).toBeVisible();

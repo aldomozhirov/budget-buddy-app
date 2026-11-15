@@ -413,7 +413,8 @@ async function remove(): Promise<void> {
           <span id="wish-lbl-month" class="lbl">Month</span>
           <WishMonthStepper
             v-model:month="month"
-            aria-labelledby="wish-lbl-month"
+            field
+            label="Month"
             :current="current"
           />
         </div>
