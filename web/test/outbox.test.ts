@@ -339,3 +339,54 @@ describe('outbox', () => {
     expect(idb.records('budget-buddy', 'outbox')).toEqual([]);
   });
 });
+
+describe('outbox with a wish (spec 3a, PLN-21)', () => {
+  /** An expense that counts for a wish, in another currency. */
+  function wishItem(clientId: string): OutboxItem {
+    const base = item(clientId);
+    return {
+      ...base,
+      body: { ...base.body, wishId: 7, linkAmount: '48000' },
+    };
+  }
+
+  it('keeps wishId and linkAmount across a reload', async () => {
+    const offline = setup({ online: () => false });
+    await offline.outbox.add(wishItem('w'));
+    const reloaded = setup({ idb: offline.idb });
+    await reloaded.outbox.load();
+    expect(reloaded.outbox.items.value[0]?.body).toMatchObject({
+      wishId: 7,
+      linkAmount: '48000',
+    });
+  });
+
+  it('sends wishId and linkAmount in the POST body', async () => {
+    const server = fakeServer();
+    const { outbox } = setup({ fetch: server.fetch });
+    await outbox.add(wishItem('w'));
+    await outbox.flush();
+    const init = server.fetch.mock.calls[0]?.[1];
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      clientId: 'w',
+      wishId: 7,
+      linkAmount: '48000',
+    });
+    expect(outbox.items.value).toEqual([]);
+  });
+
+  it('marks the item failed when the server refuses the wish (409)', async () => {
+    const fetch = vi.fn(async () =>
+      json(409, {
+        error: { code: 'conflict', message: 'The wish is closed.' },
+      }),
+    );
+    const { outbox } = setup({ fetch });
+    await outbox.add(wishItem('w'));
+    await outbox.flush();
+    expect(outbox.items.value[0]).toMatchObject({
+      state: 'failed',
+      error: 'The wish is closed.',
+    });
+  });
+});

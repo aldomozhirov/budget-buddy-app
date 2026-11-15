@@ -46,7 +46,6 @@ import {
   sendProfileRequired,
   type Issue,
 } from './errors.js';
-import { addRecordRoutes } from './record.js';
 
 /** The first month a wish can be for (O8). */
 const firstMonth = '2000-01';
@@ -228,8 +227,6 @@ export const wishRoutes: FastifyPluginAsync<{
       .code(201)
       .send(wishResponseSchema.parse({ wish: loadWish(database, id) }));
   });
-
-  addRecordRoutes(app, { database, clock, rates });
 
   app.post('/api/wishes', async (request, reply) => {
     const parsed = createWishRequestSchema.safeParse(request.body);

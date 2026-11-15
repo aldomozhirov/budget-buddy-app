@@ -1592,7 +1592,7 @@ describe('wish links on transactions', () => {
     expect((await wishRead(w)).spent).toBe('2000');
   });
 
-  it('creates a transaction with no link, and refuses a wish on the Add form', async () => {
+  it('creates a transaction with no link unless the Add call names a wish (TASK-50)', async () => {
     const joint = await account('Joint', 'EUR');
     const w = await wish();
     const groceries = await envelope('Groceries');
@@ -1609,20 +1609,15 @@ describe('wish links on transactions', () => {
       type: 'envelope',
       id: groceries,
     });
+    // Opened from a wish (TASK-50), the call makes the recorded link.
     const response = await call('POST', '/api/transactions', {
       kind: 'expense',
       accountId: joint,
       amount: '1000',
       wishId: w,
     });
-    expect(response.statusCode).toBe(400);
-    expect(
-      (
-        database.prepare('SELECT COUNT(*) AS n FROM plan_link').get() as {
-          n: bigint;
-        }
-      ).n,
-    ).toBe(0n);
+    expect(response.statusCode).toBe(201);
+    expect(activeLinks(response.json().transaction.id)).toBe(1);
   });
 
   // --- 15 ----------------------------------------------------------------

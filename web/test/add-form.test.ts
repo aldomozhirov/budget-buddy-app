@@ -4,6 +4,7 @@ import {
   accountCurrency,
   amountText,
   applyRule,
+  convertedPrefill,
   dayLabel,
   EMPTY_PICK,
   filledText,
@@ -12,10 +13,14 @@ import {
   pairLookup,
   parseEnvelopeId,
   parseKind,
+  parseWishId,
   pickLabel,
   savedSummary,
   shiftDate,
   toggleChip,
+  wishDate,
+  wishPrefill,
+  wishRateLine,
   withFront,
 } from '../src/screens/add/addForm.js';
 
@@ -279,5 +284,57 @@ describe('savedSummary for other kinds', () => {
         category: null,
       }),
     ).toBe('€20.00 → $21.86 · ING Visa → Wise $');
+  });
+});
+
+describe('parseWishId', () => {
+  it('reads a positive whole number, the first of a repeated value', () => {
+    expect(parseWishId('7')).toBe(7);
+    expect(parseWishId(['4', '9'])).toBe(4);
+    expect(parseWishId(12)).toBe(12);
+  });
+
+  it('gives null for anything else', () => {
+    for (const value of [undefined, '', '0', '-3', '1.5', 'abc', '7x', null]) {
+      expect(parseWishId(value)).toBeNull();
+    }
+  });
+});
+
+describe('wish prefill', () => {
+  const eur = getCurrency('EUR')!;
+  const usd = getCurrency('USD')!;
+  const rate = { rate: '1.25', date: '2026-10-01' };
+
+  it('starts from what is left, and from nothing when nothing is', () => {
+    expect(wishPrefill({ left: '32000' })).toBe(32000n);
+    expect(wishPrefill({ left: '0' })).toBeNull();
+    expect(wishPrefill({ left: '-500' })).toBeNull();
+  });
+
+  it('starts on today, or the last day of an earlier month', () => {
+    expect(wishDate('2026-10', '2026-10-15')).toBe('2026-10-15');
+    expect(wishDate('2026-09', '2026-10-15')).toBe('2026-09-30');
+    expect(wishDate('2026-02', '2026-10-15')).toBe('2026-02-28');
+    expect(wishDate('2028-02', '2028-03-01')).toBe('2028-02-29');
+  });
+
+  it('keeps the amount in the wish’s own currency', () => {
+    expect(convertedPrefill(32000n, eur, eur, '2026-10-15', null)).toBe(32000n);
+  });
+
+  it('converts at the day’s rate, and is empty while the rate is missing', () => {
+    // 320.00 euro at 1.25 dollars per euro.
+    expect(convertedPrefill(32000n, eur, usd, '2026-10-15', rate)).toBe(40000n);
+    expect(convertedPrefill(32000n, eur, usd, '2026-10-15', null)).toBeNull();
+  });
+
+  it('writes the rate line with the day', () => {
+    expect(
+      wishRateLine(rate, 'EUR', 'USD', '2026-10-15', '2026-10-15', []),
+    ).toBe('€1 = $1.25 today');
+    expect(
+      wishRateLine(rate, 'EUR', 'USD', '2026-10-03', '2026-10-15', []),
+    ).toBe('€1 = $1.25 on Sat 3 Oct');
   });
 });

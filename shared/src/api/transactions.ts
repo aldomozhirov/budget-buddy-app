@@ -132,11 +132,35 @@ export const createTransactionRequestSchema = z
     note: noteSchema.optional(),
     categoryId: idSchema.nullable().optional(),
     envelopeId: idSchema.nullable().optional(),
+    /**
+     * The wish the expense counts for, as a recorded link (PLN-18). Only an
+     * expense without an envelope can have one.
+     */
+    wishId: idSchema.optional(),
+    /**
+     * The amount counted for the wish in the wish's currency, when it is the
+     * wish's own figure rather than the expense converted. Needs `wishId`.
+     */
+    linkAmount: amountInputSchema.optional(),
     /** When it was typed on the device, UTC epoch milliseconds. */
     enteredAt: z.number().int().nonnegative().optional(),
   })
   .strict()
-  .superRefine(checkKindShape);
+  .superRefine(checkKindShape)
+  .superRefine((value, context) => {
+    const issue = (path: string, message: string) =>
+      context.addIssue({ code: 'custom', path: [path], message });
+    if (value.linkAmount !== undefined && value.wishId === undefined) {
+      issue('linkAmount', 'Choose a wish first.');
+    }
+    if (value.wishId === undefined) return;
+    if (value.kind !== 'expense') {
+      issue('wishId', 'Only an expense can count for a wish.');
+    }
+    if (value.envelopeId !== undefined && value.envelopeId !== null) {
+      issue('wishId', 'Choose an envelope or a wish, not both.');
+    }
+  });
 
 /** Validated new transaction. */
 export type CreateTransactionRequest = z.infer<

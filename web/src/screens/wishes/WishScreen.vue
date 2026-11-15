@@ -7,7 +7,6 @@ import {
   wishResponseSchema,
   wishesResponseSchema,
   type CoinSetting,
-  type RecordWishResponse,
   type Wish,
   type WishState,
 } from '@budget-buddy/shared';
@@ -15,7 +14,6 @@ import BbBackButton from '../../components/BbBackButton.vue';
 import BbIcon from '../../components/BbIcon.vue';
 import BbProgress from '../../components/BbProgress.vue';
 import LinkExpenseSheet from '../../components/LinkExpenseSheet.vue';
-import RecordSheet from './RecordSheet.vue';
 import { ApiError, callApi } from '../../api/callApi.js';
 import { isOnline } from '../../composables/useOnline.js';
 import { useBack } from '../../composables/useBack.js';
@@ -47,8 +45,6 @@ const error = ref('');
 const busy = ref(false);
 /** The "Link an expense" sheet is open. */
 const linking = ref(false);
-/** The "Record as expense" sheet is open. */
-const recording = ref(false);
 /** The message at the bottom, with the call that takes the change back. */
 const message = ref<{ text: string; undo: (() => Promise<void>) | null }>();
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -57,6 +53,13 @@ const formatter = computed(() => createMoneyFormatter(coins.value));
 const money = (minor: string): string =>
   formatter.value.money(minor, wish.value?.currency ?? '');
 const figures = computed(() => (wish.value ? cardFigures(wish.value) : null));
+/** A wish of a later month has no expense yet: no future dates on Add. */
+const comingMonth = computed(
+  () =>
+    wish.value !== null &&
+    current.value !== '' &&
+    wish.value.month > current.value,
+);
 const closed = computed(() => wish.value?.state !== 'open');
 const nextMonth = computed(() => addMonths(current.value, 1));
 const canMove = computed(
@@ -253,46 +256,6 @@ async function link(transactionId: number): Promise<void> {
   }
 }
 
-/**
- * The expense was saved from the record sheet: show the wish as it is now
- * and offer Undo, which deletes the expense and gives the wish its old
- * state back (Design 5).
- */
-function recorded(answer: RecordWishResponse, keepOpen: boolean): void {
-  recording.value = false;
-  wish.value = answer.wish;
-  const name = answer.wish.name;
-  say(
-    keepOpen
-      ? 'Expense saved · the wish stays open'
-      : `Expense saved · ${name} done`,
-    () => unrecord(answer),
-    UNDO_MS,
-  );
-}
-
-/** The Undo of a record; a 409 means someone changed the expense first. */
-async function unrecord(answer: RecordWishResponse): Promise<void> {
-  const item = wish.value;
-  if (!item) return;
-  try {
-    const result = await callApi(
-      'POST',
-      `/api/wishes/${item.id}/unrecord`,
-      wishResponseSchema,
-      {
-        transactionId: answer.transaction.id,
-        state: answer.previousState,
-      },
-    );
-    wish.value = result.wish;
-    say('Undone.', null, 4000);
-  } catch (cause) {
-    say(failure(cause), null, 4000);
-    await load();
-  }
-}
-
 /** Runs the message's Undo once. */
 async function undo(): Promise<void> {
   const action = message.value?.undo;
@@ -458,23 +421,25 @@ async function undo(): Promise<void> {
         </section>
 
         <p v-if="!isOnline" class="t-sub wish-offline" role="status">
-          Offline. Recording and changing wishes need a connection.
+          Offline. Adding to and changing wishes need a connection.
         </p>
       </template>
     </div>
 
     <div v-if="wish && wish.state === 'open'" class="wish-bar">
-      <button
-        class="primary num"
-        type="button"
-        :disabled="!isOnline"
-        @click="recording = true"
+      <p v-if="comingMonth" class="t-sub wish-bar-note">
+        This wish is for a coming month. Add its expense once the month starts.
+      </p>
+      <RouterLink
+        v-if="!comingMonth && isOnline"
+        class="primary num wish-add"
+        :to="{ path: '/add', query: { wishId: wish.id } }"
       >
-        {{
-          isOnline
-            ? 'Record as expense'
-            : 'Record as expense · needs a connection'
-        }}
+        <BbIcon name="plus" :size="22" :stroke-width="2.2" />
+        Add expense
+      </RouterLink>
+      <button v-else class="primary num wish-add" type="button" disabled>
+        {{ isOnline ? 'Add expense' : 'Add expense · needs a connection' }}
       </button>
     </div>
 
@@ -486,14 +451,6 @@ async function undo(): Promise<void> {
       :disabled="busy || !isOnline"
       @pick="link"
       @close="linking = false"
-    />
-
-    <RecordSheet
-      v-if="recording && wish"
-      :wish="wish"
-      :coins="coins"
-      @saved="recorded"
-      @close="recording = false"
     />
 
     <div v-if="message" class="toast wish-toast" role="status">
@@ -643,6 +600,15 @@ async function undo(): Promise<void> {
 }
 .wish-bar .primary {
   width: 100%;
+}
+.bb .wish-bar .wish-add {
+  height: 60px;
+  border-radius: 18px;
+  text-decoration: none;
+}
+.wish-bar-note {
+  margin: 0 0 8px;
+  text-align: center;
 }
 .wish-toast {
   position: fixed;

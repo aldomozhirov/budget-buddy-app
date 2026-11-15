@@ -1,14 +1,18 @@
 import {
+  convert,
   formatMoney,
   getCurrency,
   getIsoCurrency,
   type AddOptionsAccount,
+  type CoinCurrency,
   type Currency,
   type DatedRate,
   type RateLookup,
   type RuleMatch,
   type TransactionKind,
+  type Wish,
 } from '@budget-buddy/shared';
+import { rateText } from '../transactions/transactionPage.js';
 
 /** What the Add form records; the control at the top switches it. */
 export type FormKind = TransactionKind;
@@ -74,6 +78,71 @@ export function parseEnvelopeId(value: unknown): number | null {
   if (typeof first !== 'string' || !/^[1-9][0-9]*$/.test(first)) return null;
   const id = Number(first);
   return Number.isSafeInteger(id) ? id : null;
+}
+
+/** The wish named by `/add?wishId=`, read like `parseEnvelopeId`. */
+export function parseWishId(value: unknown): number | null {
+  return parseEnvelopeId(value);
+}
+
+/**
+ * What a wish prefills the amount with, in the wish's currency: what is
+ * left of it, or null when nothing is left (UI-ADD, PLN-18).
+ */
+export function wishPrefill(wish: Pick<Wish, 'left'>): bigint | null {
+  const left = BigInt(wish.left);
+  return left > 0n ? left : null;
+}
+
+/**
+ * The date an expense for a wish starts on: today, or the last day of the
+ * wish's month when that month is over.
+ * @param month The wish's month, YYYY-MM.
+ * @param today YYYY-MM-DD in the family time zone.
+ */
+export function wishDate(month: string, today: string): string {
+  if (month >= today.slice(0, 7)) return today;
+  const { year, month: m } = dateParts(`${month}-01`);
+  return isoDate(year, m, new Date(Date.UTC(year, m, 0)).getUTCDate());
+}
+
+/**
+ * The prefill in the paying account's currency at the day's rate: the same
+ * amount in the wish's currency, the converted one, or null while the rate
+ * is missing.
+ */
+export function convertedPrefill(
+  base: bigint,
+  from: Currency,
+  to: Currency,
+  date: string,
+  rate: DatedRate | null,
+): bigint | null {
+  if (from.code === to.code) return base;
+  if (!rate) return null;
+  const result = convert(
+    base,
+    from,
+    to,
+    date,
+    pairLookup(from.code, to.code, rate),
+  );
+  return 'value' in result ? result.value : null;
+}
+
+/** "€1 = $1.093 today": the day's rate between two currencies. */
+export function wishRateLine(
+  rate: DatedRate,
+  from: string,
+  to: string,
+  date: string,
+  today: string,
+  coins: readonly CoinCurrency[],
+): string {
+  const symbol = (code: string) =>
+    getCurrency(code, coins)?.symbol ?? `${code} `;
+  const when = date === today ? 'today' : `on ${dayLabel(date, today)}`;
+  return `${symbol(from)}1 = ${symbol(to)}${rateText(rate.rate)} ${when}`;
 }
 
 /**

@@ -193,9 +193,10 @@ test.describe('A wish’s page', () => {
           name: `Move to ${nameOf(addMonths(month, 1))}`,
         }),
       ).toBeVisible();
-      await expect(
-        page.getByRole('button', { name: 'Record as expense' }),
-      ).toBeVisible();
+      const add = page.getByRole('link', { name: 'Add expense' });
+      await expect(add).toBeVisible();
+      await expect(add).toHaveAttribute('href', `/add?wishId=${id}`);
+      await expect(page.getByText('Record as expense')).toHaveCount(0);
       await expect(page.getByText('Spent on it')).toBeVisible();
 
       // How it was linked, and it opens its transaction.
@@ -255,9 +256,7 @@ test.describe('A wish’s page', () => {
       await expect(page.getByRole('link', { name: /Thalia/u })).toContainText(
         'recorded from the wish',
       );
-      await expect(
-        page.getByRole('button', { name: 'Record as expense' }),
-      ).toHaveCount(0);
+      await expect(page.getByText('Add expense')).toHaveCount(0);
       await expect(page.getByRole('button', { name: /^Move to/u })).toHaveCount(
         0,
       );
@@ -315,6 +314,15 @@ test.describe('A wish’s page', () => {
       await expect(
         page.getByRole('button', { name: 'Tick off as done' }),
       ).toBeVisible();
+      // A coming month's wish has no expense yet: the bar is disabled.
+      await expect(
+        page.getByText(
+          'This wish is for a coming month. Add its expense once the month starts.',
+        ),
+      ).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: 'Add expense' }),
+      ).toBeDisabled();
       await expect(page.getByRole('button', { name: /^Move to/u })).toHaveCount(
         0,
       );
@@ -422,7 +430,7 @@ test.describe('A wish’s page', () => {
       await page.context().setOffline(true);
       await expect(
         page.getByText(
-          'Offline. Recording and changing wishes need a connection.',
+          'Offline. Adding to and changing wishes need a connection.',
         ),
       ).toBeVisible();
       await expect(
@@ -433,9 +441,12 @@ test.describe('A wish’s page', () => {
       ).toBeDisabled();
       await expect(
         page.getByRole('button', {
-          name: 'Record as expense · needs a connection',
+          name: 'Add expense · needs a connection',
         }),
       ).toBeDisabled();
+      await expect(page.getByRole('link', { name: 'Add expense' })).toHaveCount(
+        0,
+      );
       await page.context().setOffline(false);
     });
   });
