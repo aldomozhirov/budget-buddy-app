@@ -1,25 +1,25 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import {
-  wishCandidatesResponseSchema,
-  type WishCandidate,
+  linkCandidatesResponseSchema,
+  type LinkCandidate,
 } from '@budget-buddy/shared';
-import BbIcon from '../../components/BbIcon.vue';
-import BbSheet from '../../components/BbSheet.vue';
-import { ApiError, callApi } from '../../api/callApi.js';
-import { monthName } from '../envelopes/envelopeFormat.js';
-import { shortDay } from './wishesFormat.js';
+import BbIcon from './BbIcon.vue';
+import BbSheet from './BbSheet.vue';
+import { ApiError, callApi } from '../api/callApi.js';
+import { monthName } from '../screens/envelopes/envelopeFormat.js';
+import { shortDay } from '../screens/wishes/wishesFormat.js';
 
 /**
  * "Link an expense" (UI-WSH-6): the month's unplanned expenses, those that
- * fit the wish first, with a search over merchant, note and amount. One tap
- * picks an expense; the page links it and closes the sheet.
+ * fit the wish or envelope first, with a search over merchant, note and
+ * amount. One tap picks an expense; the page links it and closes the sheet.
+ * Shared by the wish page and the envelope page (UI-ENV-3).
  */
 const props = defineProps<{
-  /** The wish the expense will count for. */
-  wishId: number;
-  wishName: string;
-  /** The wish's month, as `2026-10`. */
+  /** What the expense will count for: a wish or an envelope. */
+  target: { kind: 'wish' | 'envelope'; id: number; name: string };
+  /** The target's month, as `2026-10`. */
   month: string;
   /** Formats a minor-unit amount in a currency, with its sign. */
   format: (minor: string, currency: string) => string;
@@ -37,13 +37,19 @@ const emit = defineEmits<{
 const SEARCH_DELAY_MS = 250;
 
 const search = ref('');
-const candidates = ref<WishCandidate[]>([]);
+const candidates = ref<LinkCandidate[]>([]);
 const loading = ref(true);
 const error = ref('');
 let timer: ReturnType<typeof setTimeout> | undefined;
 /** Orders the answers: a slow, older one is dropped. */
 let latest = 0;
 
+const name = computed(() => props.target.name);
+const footnote = computed(() =>
+  props.target.kind === 'wish'
+    ? 'To count one from an envelope, change it on its own page.'
+    : 'To move one from another envelope or a wish, change it on its own page.',
+);
 const month = computed(() => monthName(props.month));
 const fitting = computed(() => candidates.value.filter((item) => item.fits));
 const others = computed(() => candidates.value.filter((item) => !item.fits));
@@ -63,8 +69,8 @@ async function load(): Promise<void> {
   try {
     const answer = await callApi(
       'GET',
-      `/api/wishes/${props.wishId}/candidates${q ? `?q=${encodeURIComponent(q)}` : ''}`,
-      wishCandidatesResponseSchema,
+      `/api/${props.target.kind === 'wish' ? 'wishes' : 'envelopes'}/${props.target.id}/candidates${q ? `?q=${encodeURIComponent(q)}` : ''}`,
+      linkCandidatesResponseSchema,
     );
     if (call !== latest) return;
     candidates.value = answer.candidates;
@@ -81,12 +87,12 @@ async function load(): Promise<void> {
 }
 
 /** The merchant, else the note, as the row's title. */
-function title(item: WishCandidate): string {
+function title(item: LinkCandidate): string {
   return item.merchant ?? item.note ?? 'Expense';
 }
 
 /** Note, date, account and category, as the design's second line. */
-function meta(item: WishCandidate): string {
+function meta(item: LinkCandidate): string {
   return [
     item.merchant ? item.note : null,
     shortDay(item.date),
@@ -98,7 +104,7 @@ function meta(item: WishCandidate): string {
 }
 
 /** The amount as an expense: the stored amount, signed as spent. */
-function amount(item: WishCandidate): string {
+function amount(item: LinkCandidate): string {
   return props.format(String(-BigInt(item.amount)), item.currency);
 }
 </script>
@@ -106,7 +112,7 @@ function amount(item: WishCandidate): string {
 <template>
   <BbSheet
     title="Link an expense"
-    :subtitle="`It will count for ${wishName}`"
+    :subtitle="`It will count for ${name}`"
     tall
     :top="160"
     @close="emit('close')"
@@ -130,7 +136,7 @@ function amount(item: WishCandidate): string {
       </div>
       <template v-else>
         <section v-if="fitting.length" aria-labelledby="link-fits-h">
-          <h3 id="link-fits-h" class="t-group">Fits {{ wishName }}</h3>
+          <h3 id="link-fits-h" class="t-group">Fits {{ name }}</h3>
           <button
             v-for="item in fitting"
             :key="item.transactionId"
@@ -173,8 +179,7 @@ function amount(item: WishCandidate): string {
           }}
         </p>
         <p class="t-sub link-note">
-          {{ month }}’s expenses that count for nothing yet. To count one from
-          an envelope, change it on its own page.
+          {{ month }}’s expenses that count for nothing yet. {{ footnote }}
         </p>
       </template>
     </div>

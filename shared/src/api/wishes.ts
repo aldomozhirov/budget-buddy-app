@@ -214,14 +214,14 @@ export const restoreWishResponseSchema = z.object({
   notRestored: z.array(idSchema),
 });
 
-/** Query of `GET /api/wishes/:id/candidates` (UI-WSH-6). */
-export const wishCandidatesQuerySchema = z.object({
+/** Query of the candidates routes of a wish and an envelope (UI-WSH-6). */
+export const linkCandidatesQuerySchema = z.object({
   /** Words that must each match a merchant, note or amount. */
   q: z.string().max(200).optional(),
 });
 
-/** An unplanned expense of the wish's month that can be linked to it. */
-export const wishCandidateSchema = z.object({
+/** An unplanned expense of the month that a wish or envelope can take. */
+export const linkCandidateSchema = z.object({
   transactionId: idSchema,
   merchant: z.string().nullable(),
   note: z.string().nullable(),
@@ -232,26 +232,26 @@ export const wishCandidateSchema = z.object({
   /** The expense's own amount, in the account's currency. */
   amount: minorStringSchema,
   currency: z.string(),
-  /** The category or the merchant fits the wish (spec 3a, O2). */
+  /** The category or the merchant fits the wish or envelope (spec 3a, O2). */
   fits: z.boolean(),
 });
 
-/** An expense that can be linked to a wish. */
-export type WishCandidate = z.infer<typeof wishCandidateSchema>;
+/** An expense that can be linked to a wish or an envelope. */
+export type LinkCandidate = z.infer<typeof linkCandidateSchema>;
 
-/** Response of `GET /api/wishes/:id/candidates`; fitting ones come first. */
-export const wishCandidatesResponseSchema = z.object({
+/** Response of the candidates routes; fitting ones come first. */
+export const linkCandidatesResponseSchema = z.object({
   month: monthSchema,
-  candidates: z.array(wishCandidateSchema),
+  candidates: z.array(linkCandidateSchema),
 });
 
-/** Response of `GET /api/wishes/:id/candidates`. */
-export type WishCandidatesResponse = z.infer<
-  typeof wishCandidatesResponseSchema
+/** Response of the candidates routes. */
+export type LinkCandidatesResponse = z.infer<
+  typeof linkCandidatesResponseSchema
 >;
 
-/** Body of `POST /api/wishes/:id/links` (PLN-10). */
-export const linkWishExpenseRequestSchema = z.object({
+/** Body of `POST /api/wishes/:id/links` (PLN-10) and the envelope one. */
+export const linkExpenseRequestSchema = z.object({
   transactionId: idSchema,
 });
 
