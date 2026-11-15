@@ -430,3 +430,16 @@ test('Add income and Add transfer, with long names, do not scroll sideways', asy
     }
   });
 });
+
+test('the wish form and Wishes do not scroll sideways', async ({ page }) => {
+  await startFamily(page, async (family) => {
+    await page.goto(`${family.origin}/wishes`);
+    await page.getByRole('button', { name: 'Next month' }).waitFor();
+    await settled(page);
+    await expectNoSidewaysScroll(page, 'Wishes');
+    await page.goto(`${family.origin}/wishes/new`);
+    await page.getByLabel(/^Month, /u).waitFor({ state: 'attached' });
+    await settled(page);
+    await expectNoSidewaysScroll(page, 'New wish');
+  });
+});

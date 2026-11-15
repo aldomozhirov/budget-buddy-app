@@ -3,10 +3,12 @@ import type { Wish, WishExpense } from '@budget-buddy/shared';
 import {
   EARLIEST_MONTH,
   cardDetail,
+  clampMonth,
   cardFigures,
   doneDetail,
   hasNextMonth,
   hasPreviousMonth,
+  lastMonth,
   madeLine,
   monthRelation,
   pageDetail,
@@ -324,5 +326,29 @@ describe('shortDay', () => {
     expect(shortDay('2026-10-01')).toBe('01/10');
     expect(shortDay('2026-12-31')).toBe('31/12');
     expect(shortDay('2027-02-09')).toBe('09/02');
+  });
+});
+
+describe('lastMonth and clampMonth', () => {
+  it('ends 12 months after the current month, across a year end', () => {
+    expect(lastMonth('2026-10')).toBe('2027-10');
+    expect(lastMonth('2026-12')).toBe('2027-12');
+    expect(lastMonth('2026-01')).toBe('2027-01');
+  });
+
+  it('keeps a month inside the range, bounds included', () => {
+    expect(clampMonth('2026-10', '2026-10')).toBe('2026-10');
+    expect(clampMonth('2000-01', '2026-10')).toBe('2000-01');
+    expect(clampMonth('2027-10', '2026-10')).toBe('2027-10');
+  });
+
+  it('takes 2000-01 for an earlier month', () => {
+    expect(clampMonth('1999-12', '2026-10')).toBe('2000-01');
+    expect(clampMonth('0001-01', '2026-10')).toBe('2000-01');
+  });
+
+  it('takes the last month for a later one', () => {
+    expect(clampMonth('2027-11', '2026-10')).toBe('2027-10');
+    expect(clampMonth('2030-05', '2026-12')).toBe('2027-12');
   });
 });

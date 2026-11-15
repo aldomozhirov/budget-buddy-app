@@ -33,9 +33,21 @@ export function hasPreviousMonth(month: string): boolean {
   return month > EARLIEST_MONTH;
 }
 
+/** The last month a wish can be in: 12 months after the current one (O8). */
+export function lastMonth(current: string): string {
+  return addMonths(current, 12);
+}
+
 /** Coming months go up to 12 months after the current one (O8). */
 export function hasNextMonth(month: string, current: string): boolean {
-  return month < addMonths(current, 12);
+  return month < lastMonth(current);
+}
+
+/** Takes a `YYYY-MM` into the allowed range, 2000-01 to `lastMonth`. */
+export function clampMonth(month: string, current: string): string {
+  const last = lastMonth(current);
+  if (month < EARLIEST_MONTH) return EARLIEST_MONTH;
+  return month > last ? last : month;
 }
 
 /** "3 wishes · 2 open" (UI-WSH-2). */

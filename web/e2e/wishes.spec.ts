@@ -539,6 +539,42 @@ test.describe('Wishes', () => {
     });
   });
 
+  test('picking a month through the input loads it', async ({ page }) => {
+    await startFamily(page, async (family) => {
+      await seedBase(family);
+      const month = await currentMonth(family);
+      const far = addMonths(month, -7);
+      await wish(family, { month: far, name: 'Far plan', amount: '10000' });
+      await page.goto(`${family.origin}/wishes`);
+      const input = page.getByLabel(
+        `Choose month, ${nameOf(month)} ${month.slice(0, 4)}`,
+      );
+      await expect(input).toHaveAttribute('min', '2000-01');
+      await expect(input).toHaveAttribute('max', addMonths(month, 12));
+      expect(
+        await input.evaluate((el) => parseFloat(getComputedStyle(el).fontSize)),
+      ).toBeGreaterThanOrEqual(16);
+      const request = page.waitForRequest((r) =>
+        r.url().includes(`/api/wishes?month=${far}`),
+      );
+      await input.fill(far);
+      await request;
+      await expect(page.getByText(withYear(far))).toBeVisible();
+      await expect(card(page, 'Far plan')).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: 'Next month' }),
+      ).toBeEnabled();
+      // A month past the range takes the last allowed one.
+      await page.getByLabel(/^Choose month, /u).fill('2099-01');
+      await expect(
+        page.getByText(withYear(addMonths(month, 12))),
+      ).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: 'Next month' }),
+      ).toBeDisabled();
+    });
+  });
+
   test('an empty month a year back shows its name and the earliest month has no earlier arrow', async ({
     page,
   }) => {
