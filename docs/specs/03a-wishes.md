@@ -35,6 +35,7 @@ Chosen by the planning session where the requirements and the design are silent.
 | O12 | Order of wishes in a month | Open wishes by creation time, oldest first; done and dropped ones after them in the same order. A member cannot reorder wishes. | 38 |
 | O13 | A link and the Add form | A transaction created on the Add form has no link. Neither a rule nor a category's default fills an envelope into a linked expense: filling happens on create only, and labelling from "Needs a category" (spec 02 O7) never fills an envelope into a transaction that has a link. | 41 |
 | O14 | Requirements 4.2 rule 3 | The stored `plan_link.amount` is a second exception to "converted figures are never stored". Amend the rule to name wishes beside envelopes. | 38 |
+| O15 | Link an expense from an envelope (TASK-51) | The envelope page offers the sheet of UI-WSH-6 on its month tab, for the current month and an active envelope only; an archived envelope is refused with 409 `changed`. An expense fits the envelope when its category is the envelope's default category, or a category whose default envelope is this envelope, or its merchant (by `merchant_key`) is that of an expense already charged to the envelope. Expenses in another currency are offered; the envelope amount is converted as in spec 02 3.3. | 51 |
 
 ## Out of scope
 
@@ -106,6 +107,8 @@ Every route follows spec 1 Design 7 (session with a profile, zod schemas in `sha
 | `POST /api/wishes/:id/unrecord` | Undo of record: `{ transactionId, state }` deletes that expense (with a delete revision) if it is still linked to this wish as `recorded`, and sets the wish back to `state`; otherwise 409 `changed`. | UI-WSH-5 |
 | `GET /api/wishes/:id/candidates?q=` | The month's unplanned confirmed expenses, with a `fits` flag (O2); `q` splits on white space and matches merchant, note or amount, as in spec 02 section 5. None charged to an envelope, linked, a transfer or from another month. | UI-WSH-6 |
 | `POST /api/wishes/:id/links` | `{ transactionId }`: link from the wish (`member`); 409 if the expense is no longer unplanned. | PLN-10 |
+| `GET /api/envelopes/:id/candidates?q=` | The same list for an envelope (O15): the current month's unplanned confirmed expenses with a `fits` flag; same `q`. 404 for an unknown envelope. | UI-ENV-3 |
+| `POST /api/envelopes/:id/links` | `{ transactionId }`: sets the expense's envelope as `PATCH /api/transactions/:id` does (converted amount, history line by the member) and answers 201 with the envelope detail. 409 `changed` if the expense is gone, planned meanwhile or of another month, or the envelope is archived; 404; 400. | UI-ENV-3 |
 | `PATCH /api/transactions/:id` (extended) | Gains `wishId` (null for neither) beside `envelopeId`; sending both as non-null is 400 `invalid`. Gains `linkAmount`, set by hand like `envelopeAmount`. A date or amount change applies Design 2 and 3. | PLN-14, UI-TXN-10 |
 | `GET /api/transactions/:id` (extended) | Gains `countsFor: { type: 'envelope' \| 'wish' \| 'none', id?, name?, linkAmount?, linkAmountManual?, linkCurrency?, madeHow?, madeBy?, rate? }`, so the row and the sheet read one object. The sheet's wishes come from `GET /api/wishes?month=`. | PLN-14 |
 | `GET /api/home` (extended) | Adds `wishes: { open }`, the number of open wishes of the current month (O10). | UI-HOME-9 |
@@ -189,6 +192,7 @@ On the board with the label `spec-03a`, TASK-38 to TASK-47. Each task meets the 
 8. **TASK-45 Export: wishes and their links.** Design 7. Depends: 41.
 9. **TASK-47 New and edit wish: the form pages, drop and delete.** Design 8 (forms), 5 (drop, bring back, delete). Depends: 40, 41 (deleting a wish unlinks its expenses only once TASK-41 is built).
 10. **TASK-46 Spec 3a acceptance and retiring the shared note.** Verification (the trial). Depends: 39, 40, 41, 42, 43, 44, 45, 47.
+11. **TASK-51 Link an expense from an envelope's page.** The two envelope routes of Design 4, O15; the sheet is shared with TASK-44's. Tests: `envelope-links-integration.test.ts`, `routeTable.ts`, `web/e2e/envelope-link.spec.ts`.
 
 ## Verification
 

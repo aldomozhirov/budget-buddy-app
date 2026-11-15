@@ -430,7 +430,7 @@ export function createDraft(
 }
 
 /** A stored transaction with a change applied, before the checks. */
-function editDraft(
+export function editDraft(
   stored: StoredTransaction,
   body: UpdateTransactionRequest,
 ): Draft {
@@ -768,7 +768,7 @@ function checkEnvelopeAmount(
  * clears a typed one, when `convert` is set or the amount, date, account or
  * envelope changed (3.3).
  */
-function settle(
+export function settle(
   database: Database.Database,
   draft: Draft,
   lookup: ReturnType<typeof createRateLookup>,

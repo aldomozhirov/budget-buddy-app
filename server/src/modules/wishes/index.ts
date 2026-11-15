@@ -3,14 +3,14 @@ import type { FastifyPluginAsync } from 'fastify';
 import {
   addMonths,
   createWishRequestSchema,
-  linkWishExpenseRequestSchema,
+  linkExpenseRequestSchema,
   monthOfDate,
   moveWishRequestSchema,
   restoreWishResponseSchema,
   todayInTimeZone,
   updateWishRequestSchema,
-  wishCandidatesQuerySchema,
-  wishCandidatesResponseSchema,
+  linkCandidatesQuerySchema,
+  linkCandidatesResponseSchema,
   wishIdParamsSchema,
   wishResponseSchema,
   wishesQuerySchema,
@@ -120,7 +120,7 @@ export const wishRoutes: FastifyPluginAsync<{
 
   app.get('/api/wishes/:id/candidates', async (request, reply) => {
     const params = wishIdParamsSchema.safeParse(request.params);
-    const query = wishCandidatesQuerySchema.safeParse(request.query);
+    const query = linkCandidatesQuerySchema.safeParse(request.query);
     const wish = params.success
       ? loadWish(database, params.data.id)
       : undefined;
@@ -128,7 +128,7 @@ export const wishRoutes: FastifyPluginAsync<{
     if (!query.success) {
       return sendInvalid(reply, 'Check the search.', query.error.issues);
     }
-    return wishCandidatesResponseSchema.parse({
+    return linkCandidatesResponseSchema.parse({
       month: wish.month,
       candidates: listWishCandidates(database, wish, query.data.q),
     });
@@ -137,7 +137,7 @@ export const wishRoutes: FastifyPluginAsync<{
   app.post('/api/wishes/:id/links', async (request, reply) => {
     const params = wishIdParamsSchema.safeParse(request.params);
     if (!params.success) return sendNotFound(reply);
-    const parsed = linkWishExpenseRequestSchema.safeParse(request.body);
+    const parsed = linkExpenseRequestSchema.safeParse(request.body);
     if (!parsed.success) {
       return sendInvalid(reply, 'Check the expense.', parsed.error.issues);
     }

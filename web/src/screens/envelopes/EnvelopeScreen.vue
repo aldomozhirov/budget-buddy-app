@@ -20,8 +20,12 @@ import BbBackButton from '../../components/BbBackButton.vue';
 import BbConfirmSheet from '../../components/BbConfirmSheet.vue';
 import BbIcon from '../../components/BbIcon.vue';
 import BbProgress from '../../components/BbProgress.vue';
+import BbToast from '../../components/BbToast.vue';
+import LinkExpenseSheet from '../../components/LinkExpenseSheet.vue';
 import { ApiError, callApi } from '../../api/callApi.js';
 import { useBack } from '../../composables/useBack.js';
+import { isOnline } from '../../composables/useOnline.js';
+import { createMoneyFormatter } from '../summary/summaryFormat.js';
 import AdjustSheet from './AdjustSheet.vue';
 import EnvelopeHistoryTab from './EnvelopeHistoryTab.vue';
 import MoveMoneySheet from './MoveMoneySheet.vue';
@@ -67,6 +71,9 @@ const actionError = ref('');
 const sheet = ref<OpenSheet>(initialSheet());
 const pendingDelete = ref<EnvelopeAdjustment | null>(null);
 const historyKey = ref(0);
+const linking = ref(false);
+const linkBusy = ref(false);
+const linked = ref('');
 
 function initialSheet(): OpenSheet {
   const wanted = route.query.sheet;
@@ -78,6 +85,7 @@ const month = computed(() => detail.value?.month.month ?? '');
 const currency = computed(() =>
   envelopeCurrency(envelope.value?.currency ?? 'EUR', coins.value),
 );
+const formatter = computed(() => createMoneyFormatter(coins.value));
 const money = (value: string | bigint): string =>
   formatMoney(BigInt(value), currency.value);
 
@@ -253,6 +261,34 @@ async function load(): Promise<void> {
 async function refresh(): Promise<void> {
   await load();
   historyKey.value += 1;
+}
+
+/** Links the tapped expense to this envelope (UI-ENV-3, UI-WSH-6). */
+async function link(transactionId: number): Promise<void> {
+  const target = envelope.value;
+  if (!target || linkBusy.value || !isOnline.value) return;
+  linkBusy.value = true;
+  actionError.value = '';
+  try {
+    await callApi(
+      'POST',
+      `/api/envelopes/${target.id}/links`,
+      envelopeDetailResponseSchema,
+      { transactionId },
+    );
+    linking.value = false;
+    await refresh();
+    linked.value = `Linked to ${target.name}`;
+  } catch (cause) {
+    linking.value = false;
+    actionError.value =
+      cause instanceof ApiError && cause.status !== 0
+        ? cause.message
+        : 'Could not link the expense. Try again.';
+    if (cause instanceof ApiError && cause.status === 409) await refresh();
+  } finally {
+    linkBusy.value = false;
+  }
 }
 
 function openSheet(next: Exclude<OpenSheet, null>): void {
@@ -434,6 +470,20 @@ async function removeAdjustment(): Promise<void> {
             </template>
           </div>
           <p v-else class="t-sub">Nothing charged to this envelope yet.</p>
+          <template v-if="!envelope.archived">
+            <button
+              class="envelope-link"
+              type="button"
+              :disabled="!isOnline"
+              @click="linking = true"
+            >
+              <BbIcon name="plus" :size="18" :stroke-width="2.2" />
+              Link an expense you added
+            </button>
+            <p v-if="!isOnline" class="t-sub envelope-offline" role="status">
+              Offline. Linking an expense needs a connection.
+            </p>
+          </template>
         </template>
         <EnvelopeHistoryTab
           v-else
@@ -472,6 +522,16 @@ async function removeAdjustment(): Promise<void> {
       @adjusted="refresh"
       @close="closeSheet"
     />
+    <LinkExpenseSheet
+      v-if="linking && envelope"
+      :target="{ kind: 'envelope', id: envelope.id, name: envelope.name }"
+      :month="month"
+      :format="formatter.signed"
+      :disabled="linkBusy || !isOnline"
+      @pick="link"
+      @close="linking = false"
+    />
+    <BbToast v-if="linked" :message="linked" @done="linked = ''" />
     <BbConfirmSheet
       v-if="pendingDelete"
       :title="deleteTitle"
@@ -549,6 +609,23 @@ async function removeAdjustment(): Promise<void> {
 }
 .envelope-rows {
   padding: 4px 16px;
+}
+.envelope-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  margin-top: 8px;
+  color: var(--accent);
+  font-weight: 600;
+  text-align: left;
+}
+.envelope-link:disabled {
+  opacity: 0.5;
+}
+.envelope-offline {
+  margin: 0 4px;
+  color: var(--warn);
 }
 .envelope-row {
   width: 100%;

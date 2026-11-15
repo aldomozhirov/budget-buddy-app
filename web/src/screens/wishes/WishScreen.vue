@@ -14,7 +14,7 @@ import {
 import BbBackButton from '../../components/BbBackButton.vue';
 import BbIcon from '../../components/BbIcon.vue';
 import BbProgress from '../../components/BbProgress.vue';
-import LinkExpenseSheet from './LinkExpenseSheet.vue';
+import LinkExpenseSheet from '../../components/LinkExpenseSheet.vue';
 import RecordSheet from './RecordSheet.vue';
 import { ApiError, callApi } from '../../api/callApi.js';
 import { isOnline } from '../../composables/useOnline.js';
@@ -480,8 +480,7 @@ async function undo(): Promise<void> {
 
     <LinkExpenseSheet
       v-if="linking && wish"
-      :wish-id="wish.id"
-      :wish-name="wish.name"
+      :target="{ kind: 'wish', id: wish.id, name: wish.name }"
       :month="wish.month"
       :format="formatter.signed"
       :disabled="busy || !isOnline"

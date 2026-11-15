@@ -14,6 +14,9 @@ import {
   envelopeHistoryQuerySchema,
   envelopeHistoryResponseSchema,
   envelopeIdParamsSchema,
+  linkCandidatesQuerySchema,
+  linkCandidatesResponseSchema,
+  linkExpenseRequestSchema,
   envelopeResponseSchema,
   envelopesQuerySchema,
   envelopesResponseSchema,
@@ -37,13 +40,32 @@ import {
   type EnvelopePlan,
   type EnvelopeState,
 } from '../../domain/envelopes.js';
+import {
+  listEnvelopeCandidates,
+  unplannedExpense,
+} from '../../domain/wishCandidates.js';
+import {
+  changedFields,
+  readTransaction,
+  writeRevision,
+} from '../../domain/transactions.js';
+import { createRateLookup } from '../../rates/lookup.js';
+import type { BackfillRequester } from '../../rates/service.js';
+import {
+  checkDraft,
+  editDraft,
+  findEnvelope as findEnvelopeRow,
+  settle,
+  updateTransaction,
+} from '../transactions/index.js';
 
 /** Registers the envelope, adjustment, move and history routes. */
 export const envelopeRoutes: FastifyPluginAsync<{
   database: Database.Database;
   clock?: Clock;
+  rates?: BackfillRequester;
 }> = async (app, options) => {
-  const { database } = options;
+  const { database, rates } = options;
   const clock = options.clock ?? systemClock;
 
   /** Today's date and month in the family time zone. */
@@ -53,7 +75,7 @@ export const envelopeRoutes: FastifyPluginAsync<{
       .get() as { time_zone: string } | undefined;
     if (!family) throw new Error('The family has not been set up.');
     const date = todayInTimeZone(clock.now(), family.time_zone);
-    return { date, month: monthOfDate(date) };
+    return { date, month: monthOfDate(date), timeZone: family.time_zone };
   };
 
   app.get('/api/envelopes', async (request, reply) => {
@@ -171,6 +193,99 @@ export const envelopeRoutes: FastifyPluginAsync<{
       expenses: loadExpenses(database, state, month),
       adjustments: loadAdjustments(database, state, month),
     });
+  });
+
+  app.get('/api/envelopes/:id/candidates', async (request, reply) => {
+    const params = envelopeIdParamsSchema.safeParse(request.params);
+    const query = linkCandidatesQuerySchema.safeParse(request.query);
+    const envelope = params.success
+      ? findEnvelopeRow(database, params.data.id)
+      : undefined;
+    if (!params.success || !envelope) return sendNotFound(reply);
+    if (!query.success) {
+      return sendValidation(reply, 'Check the search.', query.error.issues);
+    }
+    const { month } = today();
+    return linkCandidatesResponseSchema.parse({
+      month,
+      candidates: listEnvelopeCandidates(
+        database,
+        { id: params.data.id, defaultCategoryId: envelope.defaultCategoryId },
+        month,
+        query.data.q,
+      ),
+    });
+  });
+
+  app.post('/api/envelopes/:id/links', async (request, reply) => {
+    const params = envelopeIdParamsSchema.safeParse(request.params);
+    if (!params.success) return sendNotFound(reply);
+    const body = linkExpenseRequestSchema.safeParse(request.body);
+    if (!body.success) {
+      return sendValidation(reply, 'Check the expense.', body.error.issues);
+    }
+    const memberId = request.authContext?.memberId;
+    if (memberId === null || memberId === undefined) {
+      return sendProfileRequired(reply);
+    }
+    const id = params.data.id;
+    const txnId = body.data.transactionId;
+    const now = clock.now().getTime();
+    const { date, month, timeZone } = today();
+    const lookup = createRateLookup(database);
+
+    const outcome = database.transaction(() => {
+      const envelope = findEnvelopeRow(database, id);
+      if (!envelope) return 'not_found' as const;
+      if (envelope.archived) return 'changed' as const;
+      const expense = database
+        .prepare(
+          `SELECT t.date FROM txn t JOIN account a ON a.id = t.account_id
+           WHERE t.id = ? AND ${unplannedExpense}`,
+        )
+        .get(txnId) as { date: string } | undefined;
+      // Gone, planned meanwhile or of another month: it changed.
+      if (!expense || expense.date.slice(0, 7) !== month) {
+        return 'changed' as const;
+      }
+      const stored = readTransaction(database, txnId);
+      if (!stored) return 'changed' as const;
+      const draft = editDraft(stored, { envelopeId: id });
+      if (checkDraft(database, draft, date, timeZone).length > 0) {
+        return 'changed' as const;
+      }
+      const next = settle(database, draft, lookup, false);
+      next.updatedBy = memberId;
+      next.updatedAt = now;
+      updateTransaction(database, next);
+      writeRevision(database, {
+        txnId,
+        action: 'update',
+        changes: changedFields(stored, next),
+        changedBy: memberId,
+        changedAt: now,
+      });
+      return 'ok' as const;
+    })();
+    if (outcome === 'not_found') return sendNotFound(reply);
+    if (outcome === 'changed') {
+      return reply.code(409).send({
+        error: { code: 'changed', message: 'Someone changed it meanwhile.' },
+      });
+    }
+    rates?.requestBackfill();
+    const state = listEnvelopeStates(database, month, id)[0];
+    const record = state?.months.find((entry) => entry.month === month);
+    const detail = loadEnvelopes(database, month, id)[0];
+    if (!state || !record || !detail) return sendNotFound(reply);
+    return reply.code(201).send(
+      envelopeDetailResponseSchema.parse({
+        envelope: detail,
+        month: toMonthResponse(record),
+        expenses: loadExpenses(database, state, month),
+        adjustments: loadAdjustments(database, state, month),
+      }),
+    );
   });
 
   app.patch('/api/envelopes/:id', async (request, reply) => {
