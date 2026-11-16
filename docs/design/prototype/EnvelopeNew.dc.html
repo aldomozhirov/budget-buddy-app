@@ -71,6 +71,7 @@ a{color:inherit}a:hover{color:inherit}
 .bb .amt-on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
 .bb .cur{flex:1;height:36px;border-radius:10px;font-size:14px;font-weight:600;color:var(--muted);text-align:center}
 .bb .cur-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.bb .pg .input,.bb .pg .amt,.bb .pg .note,.bb .pg .key:not(.key-op){background:var(--surface)}
 @media (prefers-reduced-motion: reduce){.bb,.bb *{animation:none!important;transition:none!important}}
 </style>
 </helmet>
@@ -137,14 +138,12 @@ a{color:inherit}a:hover{color:inherit}
 </sc-if>
 
 <sc-if value="{{sheetOpen}}" hint-placeholder-val="{{ true }}">
-<div onClick="{{closeSheet}}" style="position: absolute; inset: 0; background: var(--scrim)"></div>
-<div role="dialog" aria-label="{{sheetTitle}}" style="position: absolute; left: 0; right: 0; bottom: 0; top: 44px; background: var(--surface); border-radius: 24px 24px 0 0; padding: 10px 16px 30px; display: flex; flex-direction: column; gap: 10px">
-<div aria-hidden="true" style="align-self: center; width: 36px; height: 5px; border-radius: 3px; background: var(--line)"></div>
-<div style="display: flex; align-items: center; gap: 12px">
-<h2 style="flex: 1; margin: 0; font-size: 18px; font-weight: 600">{{sheetTitle}}</h2>
-<button onClick="{{closeSheet}}" aria-label="Close" style="width: 44px; height: 44px; border-radius: 22px; background: var(--bg); display: flex; align-items: center; justify-content: center">
-<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+<div class="pg" aria-label="{{sheetTitle}}" style="position: absolute; inset: 0; background: var(--bg); padding: 48px 16px 34px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 12px; padding-bottom: 6px">
+<button onClick="{{closeSheet}}" aria-label="Back to envelopes" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
 </button>
+<h1 style="flex: 1; margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em">{{sheetTitle}}</h1>
 </div>
 
 <div class="scroll" style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding-bottom: 4px">

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Budget Buddy — Wish · link an expense</title>
 <!-- Static export of the prototype screen "Wish · link an expense" (prototype file WishLink.dc.html), default state.
-     Generated on 2026-11-12. Layout and copy are the reference; see docs/design/html/README.md. -->
+     Generated on 2026-11-16. Layout and copy are the reference; see docs/design/html/README.md. -->
 <link rel="stylesheet" href="../fonts/geist.css">
 <style>
 body{margin:0}
@@ -76,6 +76,7 @@ a{color:inherit}a:hover{color:inherit}
 .bb .switch-on{background:var(--accent)}
 .bb .knob{position:absolute;top:2px;width:27px;height:27px;border-radius:14px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 .bb .act2{height:44px;border-radius:14px;background:var(--bg);font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:center;gap:6px}
+.bb .pg .input,.bb .pg .amt,.bb .pg .note,.bb .pg .key:not(.key-op){background:var(--surface)}
 @media (prefers-reduced-motion: reduce){.bb,.bb *{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -135,8 +136,12 @@ a{color:inherit}a:hover{color:inherit}
 
 
 <div style="padding: 12px 16px 34px; background: var(--bg); border-top: 1px solid var(--line)">
-<button class="num" style="width: 100%; height: 56px; border-radius: 18px; background: var(--ink); color: var(--on-ink); font-weight: 600; font-size: 17px; text-align: center">Record as expense</button>
+
+<a href="AddFromWish.dc.html" class="num" style="width: 100%; height: 56px; border-radius: 18px; background: var(--ink); color: var(--on-ink); font-weight: 600; font-size: 17px; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Add expense</a>
+
+
 </div>
+
 
 
 
@@ -191,8 +196,9 @@ a{color:inherit}a:hover{color:inherit}
 </div>
 
 
-
 </div>
+
+
 
 </div>
 </body>

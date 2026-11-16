@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Budget Buddy — Envelope · carries over</title>
 <!-- Static export of the prototype screen "Envelope · Unexpected (carries over)" (prototype file EnvelopeCarryOver.dc.html), default state.
-     Generated on 2026-10-14. Layout and copy are the reference; see docs/design/html/README.md. -->
+     Generated on 2026-11-16. Layout and copy are the reference; see docs/design/html/README.md. -->
 <link rel="stylesheet" href="../fonts/geist.css">
 <style>
 body{margin:0}
@@ -85,7 +85,7 @@ a{color:inherit}a:hover{color:inherit}
 </a>
 </div>
 
-<div class="scroll" style="flex: 1; overflow-y: auto; padding: 8px 16px 32px; display: flex; flex-direction: column; gap: 14px">
+<div class="scroll" style="flex: 1; overflow-y: auto; padding: 8px 16px 24px; display: flex; flex-direction: column; gap: 14px">
 <div style="display: flex; flex-direction: column; gap: 10px; padding: 18px 16px; border-radius: 20px; background: var(--surface)">
 <span class="num" style="font-size: 36px; font-weight: 600; letter-spacing: -0.02em; color: var(--ink)">€375.00 <span style="font-size: 15px; font-weight: 500; color: var(--muted); letter-spacing: 0">left</span></span>
 <span style="display: block; height: 6px; border-radius: 3px; background: var(--soft); overflow: hidden"><span style="display: block; height: 6px; border-radius: 3px; width: 11%; background: var(--accent)"></span></span>
@@ -164,9 +164,16 @@ a{color:inherit}a:hover{color:inherit}
 
 
 </div>
+<button style="display: flex; align-items: center; gap: 10px; min-height: 52px; margin-top: -6px; color: var(--accent); font-weight: 600; text-align: left">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Link an expense you added</button>
 
 
 
+</div>
+
+<div style="padding: 12px 16px 34px; background: var(--bg); border-top: 1px solid var(--line)">
+<a href="AddExpense.dc.html" style="height: 56px; border-radius: 18px; background: var(--ink); color: var(--on-ink); display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; font-weight: 600; font-size: 17px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Add expense</a>
 </div>
 
 

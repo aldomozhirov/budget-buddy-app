@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Budget Buddy — Add expense</title>
 <!-- Static export of the prototype screen "Add expense" (prototype file AddExpense.dc.html), default state.
-     Generated on 2026-10-14. Layout and copy are the reference; see docs/design/html/README.md. -->
+     Generated on 2026-11-16. Layout and copy are the reference; see docs/design/html/README.md. -->
 <link rel="stylesheet" href="../fonts/geist.css">
 <style>
 body{margin:0}
@@ -106,7 +106,7 @@ a{color:inherit}a:hover{color:inherit}
 </div>
 
 
-<span style="height: 16px; font-size: 12px; color: var(--warn)"></span>
+<span style="height: 16px; font-size: 12px; color: var(--muted)">Double-tap to paste</span>
 
 </div>
 
@@ -159,15 +159,20 @@ a{color:inherit}a:hover{color:inherit}
 
 
 <div style="display: flex; flex-direction: column; gap: 6px">
-<span class="lbl">Envelope · optional</span>
-<div class="row">
+<span class="lbl" id="lbl-counts">Counts for · optional</span>
+<div class="row" role="group" aria-labelledby="lbl-counts">
 
-<button class="chip" aria-pressed="false">Groceries</button>
+<button class="chip" aria-pressed="false" aria-label="Wish: Winter tyres"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"></path></svg>Winter tyres</button>
 
-<button class="chip" aria-pressed="false">Eating out</button>
+<button class="chip" aria-pressed="false" aria-label="Wish: Weekend in Salzburg"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"></path></svg>Weekend in Salzburg</button>
 
-<button class="chip" aria-pressed="false">Unexpected</button>
+<button class="chip" aria-pressed="false" aria-label="Groceries envelope"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg>Groceries</button>
 
+<button class="chip" aria-pressed="false" aria-label="Eating out envelope"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg>Eating out</button>
+
+<button class="chip" aria-pressed="false" aria-label="Unexpected envelope"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg>Unexpected</button>
+
+<button class="chip chip-ghost" aria-label="All envelopes and wishes">All…</button>
 </div>
 </div>
 

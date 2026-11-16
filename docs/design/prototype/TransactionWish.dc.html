@@ -116,7 +116,7 @@ a{color:inherit}a:hover{color:inherit}
 <a class="field" href="AccountDetail.dc.html"><span class="field-l">Paid from</span><span class="field-v">{{accountValue}}</span></a>
 <button class="field" onClick="{{openMerchant}}" aria-haspopup="dialog"><span class="field-l">Merchant</span><span class="field-v">{{merchantValue}}</span></button>
 <button class="field" onClick="{{openCategory}}" aria-haspopup="dialog"><span class="field-l">Category</span><span class="field-v">{{catValue}}</span></button>
-<button class="field" onClick="{{openEnvelope}}" aria-haspopup="dialog"><span class="field-l">Counts for</span><span class="field-v num">{{envValue}}</span></button>
+<button class="field" onClick="{{openEnvelope}}" aria-haspopup="dialog"><span class="field-l">Counts for</span><span class="field-v num" style="white-space: normal; overflow: visible; line-height: 1.35">{{envValue}}</span></button>
 <button class="field" onClick="{{openDate}}" aria-haspopup="dialog"><span class="field-l">Date</span><span class="field-v num">{{dateValue}}</span></button>
 <button class="field" onClick="{{openPayer}}" aria-haspopup="dialog"><span class="field-l">Paid by</span><span class="field-v">{{payer}}</span></button>
 <button class="field" onClick="{{openNote}}" aria-haspopup="dialog" style="border-bottom: 0"><span class="field-l">Note</span><span class="field-v" style="color: {{noteColor}}; font-weight: {{noteWeight}}">{{noteValue}}</span></button>
@@ -149,11 +149,11 @@ a{color:inherit}a:hover{color:inherit}
 <sc-if value="{{showExtras}}" hint-placeholder-val="{{ false }}">
 <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
 <button style="height: 52px; border-radius: 16px; background: var(--surface); font-weight: 600; text-align: center">Split</button>
-<button onClick="{{askDelete}}" style="height: 52px; border-radius: 16px; background: var(--surface); color: var(--warn); font-weight: 600; text-align: center">Delete</button>
+<button onClick="{{askDelete}}" style="flex: none; height: 52px; border-radius: 16px; background: var(--surface); color: var(--warn); font-weight: 600; text-align: center">Delete</button>
 </div>
 </sc-if>
 <sc-if value="{{noExtras}}" hint-placeholder-val="{{ true }}">
-<button onClick="{{askDelete}}" style="height: 52px; border-radius: 16px; background: var(--surface); color: var(--warn); font-weight: 600; text-align: center">Delete</button>
+<button onClick="{{askDelete}}" style="flex: none; height: 52px; border-radius: 16px; background: var(--surface); color: var(--warn); font-weight: 600; text-align: center">Delete</button>
 </sc-if>
 </div>
 
@@ -452,7 +452,7 @@ class Component extends DCLogic {
       accountValue: variant === 'envelope' ? 'ING Visa · EUR' : 'Revolut · EUR',
       typedBy: 'Typed in by Alena',
       typedAt: variant === 'wish' ? '1 Oct · 20:15' : variant === 'unplanned' ? '4 Oct · 08:40' : '12:04',
-      showExtras: !fx, noExtras: fx,
+      showExtras: false, noExtras: true,
       merchantValue: st.merchant || 'No merchant',
       payer: st.payer,
       dateLong: dayLong(st.day),
