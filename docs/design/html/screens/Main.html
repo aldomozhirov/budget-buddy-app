@@ -51,6 +51,8 @@ a{color:inherit}a:hover{color:inherit}
 .bb .pw-err{animation:bb-shake .4s ease}
 .bb [role="alert"]:not(:empty),.bb [role="status"]{animation:bb-fade .3s ease-out both}
 .bb .wrap{animation:bb-down .22s ease-out both}
+.bb .bb-carousel::-webkit-scrollbar{display:none}
+.bb .bb-carousel:active{cursor:grabbing}
 @media (prefers-reduced-motion: reduce){.bb,.bb *{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -103,12 +105,15 @@ a{color:inherit}a:hover{color:inherit}
 </a>
 </nav>
 
-<section aria-labelledby="month-h" style="background: var(--surface); border-radius: 20px; padding: 18px 16px 8px; display: flex; flex-direction: column; gap: 4px">
+<section aria-roledescription="carousel" aria-label="This month" style="display: flex; flex-direction: column; gap: 10px">
+<div class="bb-carousel" data-carousel="" style="display: flex; align-items: stretch; gap: 16px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; scroll-padding: 0 16px; cursor: grab">
+
+<div role="group" id="slide-env" aria-roledescription="slide" aria-label="Envelopes, 1 of 2" data-slide="envelopes" style="flex: 0 0 100%; scroll-snap-align: start; scroll-snap-stop: always; box-sizing: border-box; background: var(--surface); border-radius: 20px; padding: 16px 16px 6px; display: flex; flex-direction: column; gap: 4px">
 <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
-<h2 id="month-h" style="margin: 0; font-size: 15px; font-weight: 600">October</h2>
+<h2 style="margin: 0; font-size: 15px; font-weight: 600">Envelopes</h2>
 <span style="font-size: 13px; color: var(--muted)">Day 5 of 31</span>
 </div>
-<div style="display: flex; align-items: baseline; gap: 8px; padding: 6px 0 10px">
+<div style="display: flex; align-items: baseline; gap: 8px; padding: 4px 0 10px">
 <span class="num" style="font-size: 30px; font-weight: 600; letter-spacing: -0.02em">€ • • • •</span>
 <span style="font-size: 13px; color: var(--muted)">spent</span>
 </div>
@@ -143,14 +148,50 @@ a{color:inherit}a:hover{color:inherit}
 </span>
 </a>
 
-</section>
+</div>
 
-<a href="Wishes.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 16px; background: var(--surface); text-decoration: none; min-height: 44px">
-<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"></path></svg>
-<span style="flex: 1; font-weight: 500">Wishes</span>
-<span style="font-size: 13px; color: var(--muted)">2 open this month</span>
-<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+<div role="group" id="slide-wish" aria-roledescription="slide" aria-label="Wishes, 2 of 2" data-slide="wishes" style="flex: 0 0 100%; scroll-snap-align: start; scroll-snap-stop: always; box-sizing: border-box; background: var(--surface); border-radius: 20px; padding: 16px 16px 6px; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+<h2 style="margin: 0; font-size: 15px; font-weight: 600">Wishes</h2>
+<span style="font-size: 13px; color: var(--muted)">October</span>
+</div>
+<div style="display: flex; align-items: baseline; gap: 8px; padding: 4px 0 10px">
+<span class="num" style="font-size: 30px; font-weight: 600; letter-spacing: -0.02em">€ • • • •</span>
+<span class="num" style="font-size: 13px; color: var(--muted)">spent on wishes</span>
+</div>
+
+<a href="WishDetail.dc.html" style="display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-top: 1px solid var(--line); text-decoration: none; min-height: 44px">
+<span style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px">
+<span style="display: flex; align-items: center; gap: 6px; font-weight: 500; min-width: 0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"></path></svg><span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap">Weekend in Salzburg</span></span>
+<span class="num" style="font-size: 13px; color: var(--muted); flex: none">34% spent</span>
+</span>
+<span style="display: block; height: 6px; border-radius: 3px; background: var(--soft); overflow: hidden">
+<span style="display: block; height: 6px; border-radius: 3px; width: 34%; background: var(--accent)"></span>
+</span>
 </a>
+
+<a href="WishDetail.dc.html" style="display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-top: 1px solid var(--line); text-decoration: none; min-height: 44px">
+<span style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px">
+<span style="display: flex; align-items: center; gap: 6px; font-weight: 500; min-width: 0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"></path></svg><span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap">Winter tyres</span></span>
+<span class="num" style="font-size: 13px; color: var(--muted); flex: none">Nothing spent yet</span>
+</span>
+<span style="display: block; height: 6px; border-radius: 3px; background: var(--soft); overflow: hidden">
+<span style="display: block; height: 6px; border-radius: 3px; width: 0%; background: var(--accent)"></span>
+</span>
+</a>
+
+<a href="Wishes.dc.html" style="display: flex; align-items: center; gap: 6px; padding: 12px 0; border-top: 1px solid var(--line); text-decoration: none; min-height: 44px; font-size: 14px; color: var(--muted)"><span style="flex: 1">2 open this month · see all wishes</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></a>
+</div>
+
+</div>
+<div aria-hidden="true" style="display: flex; justify-content: center; gap: 6px; padding-top: 2px">
+
+<span style="width: 18px; height: 6px; border-radius: 3px; background: var(--ink); transition: width .2s"></span>
+
+<span style="width: 6px; height: 6px; border-radius: 3px; background: var(--line); transition: width .2s"></span>
+
+</div>
+</section>
 
 <a href="ToLabel.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 16px; background: var(--surface); text-decoration: none; min-height: 44px">
 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12V4h8l9 9-8 8-9-9z"></path><circle cx="7.5" cy="7.5" r="1.2"></circle></svg>
@@ -167,6 +208,8 @@ a{color:inherit}a:hover{color:inherit}
 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"></path><path d="M4 6h.01M4 12h.01M4 18h.01"></path></svg>Transactions</a>
 <a href="Envelopes.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 52px; border-radius: 14px; background: var(--surface); text-decoration: none; font-weight: 500">
 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg>Envelopes</a>
+<a href="Wishes.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 52px; border-radius: 14px; background: var(--surface); text-decoration: none; font-weight: 500">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"></path></svg>Wishes</a>
 <a href="Accounts.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 52px; border-radius: 14px; background: var(--surface); text-decoration: none; font-weight: 500">
 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M3 10h18"></path><path d="M16 14.5h2"></path></svg>Accounts</a>
 <a href="CheckIns.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 52px; border-radius: 14px; background: var(--surface); text-decoration: none; font-weight: 500">

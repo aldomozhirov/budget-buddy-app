@@ -85,7 +85,7 @@ a{color:inherit}a:hover{color:inherit}
 </helmet>
 <div class="bb {{themeClass}}" onClickCapture="{{navCapture}}" style="width: 390px; height: 844px; position: relative; overflow: hidden; background: var(--bg); color: var(--ink); font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.4; display: flex; flex-direction: column">
 <div style="padding: 48px 16px 8px; display: flex; align-items: center; gap: 12px">
-<a href="Wishes.dc.html" aria-label="Back to wishes" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
+<a href="{{backHref}}" aria-label="{{backLabel}}" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
 </a>
 <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
@@ -370,7 +370,12 @@ class Component extends DCLogic {
     ];
     var titles = { record: 'Record as expense', link: 'Link an expense', edit: 'Edit wish' };
     var hints = { record: w.name + ' · no envelope', link: 'It will count for ' + w.name, edit: 'For October' };
+    // Back returns where the wish was opened from (UI-NAV-2): a Home card goes back to Home, the list to Wishes
+    var BACKS = { 'Main.dc.html': ['Main.dc.html', 'Back to home'], 'HomeWishes.dc.html': ['HomeWishes.dc.html', 'Back to home'], 'HomeWaiting.dc.html': ['HomeWaiting.dc.html', 'Back to home'], 'HomePlan.dc.html': ['HomePlan.dc.html', 'Back to home'], 'Wishes.dc.html': ['Wishes.dc.html', 'Back to wishes'] };
+    var back = BACKS['Wishes.dc.html'];
+    try { var from = sessionStorage.getItem('bb-from:WishDetail.dc.html'); if (from && BACKS[from]) back = BACKS[from]; } catch (e) {}
     return Object.assign(this.nav('WishDetail.dc.html'), {
+      backHref: back[0], backLabel: back[1],
       name: w.name, strike: dropped ? 'line-through' : 'none',
       subtitle: 'October wish · ' + eur(w.amount) + (w.cat ? ' · ' + w.cat : ''),
       offline: off, offOp: off ? '.45' : '1',
