@@ -35,6 +35,19 @@ export type KnownMerchant = z.infer<typeof knownMerchantSchema>;
 /** How many of the member's own merchants the Recent group offers. */
 export const RECENT_MERCHANT_LIMIT = 6;
 
+/** An open wish the Add form offers as "Counts for" (UI-ADD-17). */
+export const addOptionsWishSchema = z.object({
+  id: idSchema,
+  name: z.string(),
+  /** YYYY-MM. */
+  month: z.string(),
+  currency: z.string(),
+  /** Planned amount, minor units of `currency`. */
+  amount: z.string(),
+  /** Spent so far, minor units of `currency`. */
+  spent: z.string(),
+});
+
 /**
  * What `GET /api/add-options` returns (Design 4; D3): the names the Add form
  * needs and no amount, balance or total. The lists are ordered for the
@@ -67,6 +80,12 @@ export const addOptionsResponseSchema = z.object({
     }),
   ),
   rules: z.array(ruleSchema),
+  /**
+   * The open wishes of the family's current month, in the order of the
+   * Wishes screen (UI-ADD-17). Empty when absent, so options stored before
+   * the field existed still load.
+   */
+  wishes: z.array(addOptionsWishSchema).default([]),
   /** The most recently used merchants, at most 500, newest first. */
   merchants: z.array(knownMerchantSchema),
   /**
@@ -81,6 +100,9 @@ export const addOptionsResponseSchema = z.object({
   commonCurrency: z.string(),
   timeZone: z.string(),
 });
+
+/** An open wish the Add form offers, as the options carry it. */
+export type AddOptionsWish = z.infer<typeof addOptionsWishSchema>;
 
 /** Add options as returned to web clients. */
 export type AddOptionsResponse = z.infer<typeof addOptionsResponseSchema>;

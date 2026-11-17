@@ -10,6 +10,7 @@ import {
   KNOWN_MERCHANT_LIMIT,
   knownMerchants,
 } from '../../domain/merchants.js';
+import { listWishes } from '../../domain/wishes.js';
 import { loadRules } from '../../domain/rules.js';
 import { orderCategories, orderedAccounts } from '../../domain/suggestions.js';
 
@@ -101,6 +102,16 @@ export const addOptionsRoutes: FastifyPluginAsync<{
           row.categoryId === null ? null : Number(row.categoryId),
       })),
       rules: loadRules(database),
+      wishes: listWishes(database, context.today.slice(0, 7))
+        .filter((wish) => wish.state === 'open')
+        .map(({ id, name, month, currency, amount, spent }) => ({
+          id,
+          name,
+          month,
+          currency,
+          amount,
+          spent,
+        })),
       merchants: knownMerchants(database, { limit: KNOWN_MERCHANT_LIMIT }).map(
         ({ merchant, key }) => ({ merchant, key }),
       ),

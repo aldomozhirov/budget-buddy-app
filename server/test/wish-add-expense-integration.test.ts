@@ -144,6 +144,7 @@ describe('adding an expense for a wish', () => {
       date: '2026-10-15',
       note: 'Winter tyres',
       wishId,
+      wishFrom: 'wish',
       ...extra,
     });
   }
@@ -222,6 +223,111 @@ describe('adding an expense for a wish', () => {
     expect(response.json().transaction.envelopeId).toBeNull();
     expect(response.json().transaction.countsFor.type).toBe('wish');
     expect(response.json().filled).toEqual({});
+  });
+
+  it('makes a member link for a wish picked on the form (UI-ADD-17)', async () => {
+    const bank = await account('Bank', 'EUR');
+    const food = await envelope('Food');
+    const groceries = category('Groceries');
+    await call('PATCH', `/api/categories/${groceries}`, {
+      defaultEnvelopeId: food,
+    });
+    const w = await wish();
+    const response = await add(bank, w, {
+      wishFrom: 'form',
+      categoryId: groceries,
+    });
+    expect(response.statusCode, response.body).toBe(201);
+    const txn = response.json().transaction;
+    expect(txn.envelopeId).toBeNull();
+    expect(txn.countsFor).toMatchObject({ type: 'wish', madeHow: 'member' });
+    expect(link(txn.id)).toMatchObject({ madeHow: 'member' });
+    const bare = await call('POST', '/api/transactions', {
+      kind: 'expense',
+      accountId: bank,
+      amount: '100',
+      date: '2026-10-15',
+      wishId: w,
+    });
+    expect(bare.json().transaction.countsFor.madeHow).toBe('member');
+  });
+
+  it('puts "neither" in no envelope and no link, despite a default', async () => {
+    const bank = await account('Bank', 'EUR');
+    const food = await envelope('Food');
+    const groceries = category('Groceries');
+    await call('PATCH', `/api/categories/${groceries}`, {
+      defaultEnvelopeId: food,
+    });
+    const plain = await call('POST', '/api/transactions', {
+      kind: 'expense',
+      accountId: bank,
+      amount: '100',
+      date: '2026-10-15',
+      categoryId: groceries,
+    });
+    expect(plain.json().transaction.envelopeId).toBe(food);
+    const response = await call('POST', '/api/transactions', {
+      kind: 'expense',
+      accountId: bank,
+      amount: '100',
+      date: '2026-10-15',
+      categoryId: groceries,
+      envelopeId: null,
+      unplanned: true,
+    });
+    expect(response.statusCode, response.body).toBe(201);
+    const txn = response.json().transaction;
+    expect(txn.envelopeId).toBeNull();
+    expect(txn.countsFor).toEqual({ type: 'none' });
+    expect(response.json().filled).toEqual({});
+    expect(link(txn.id)).toBeUndefined();
+  });
+
+  it('refuses "neither" with an envelope or a wish, or on an income', async () => {
+    const bank = await account('Bank', 'EUR');
+    const food = await envelope('Food');
+    const w = await wish();
+    const base = {
+      kind: 'expense',
+      accountId: bank,
+      amount: '100',
+      date: '2026-10-15',
+      unplanned: true,
+    };
+    const withEnvelope = await call('POST', '/api/transactions', {
+      ...base,
+      envelopeId: food,
+    });
+    expect(withEnvelope.statusCode).toBe(400);
+    const withWish = await call('POST', '/api/transactions', {
+      ...base,
+      wishId: w,
+    });
+    expect(withWish.statusCode).toBe(400);
+    const income = await call('POST', '/api/transactions', {
+      ...base,
+      kind: 'income',
+    });
+    expect(income.statusCode).toBe(400);
+    const orphan = await call('POST', '/api/transactions', {
+      kind: 'expense',
+      accountId: bank,
+      amount: '100',
+      wishFrom: 'form',
+    });
+    expect(orphan.statusCode).toBe(400);
+  });
+
+  it('answers 409 for a dropped wish and a date outside its month', async () => {
+    const bank = await account('Bank', 'EUR');
+    const w = await wish();
+    const other = await add(bank, w, { date: '2026-09-30', wishFrom: 'form' });
+    expect(other.statusCode).toBe(409);
+    database.prepare("UPDATE wish SET state = 'dropped' WHERE id = ?").run(w);
+    const dropped = await add(bank, w, { wishFrom: 'form' });
+    expect(dropped.statusCode).toBe(409);
+    expect(dropped.json().error.code).toBe('wish_not_open');
   });
 
   it('counts the typed amount in the same currency, whatever linkAmount says', async () => {

@@ -142,6 +142,18 @@ export const createTransactionRequestSchema = z
      * wish's own figure rather than the expense converted. Needs `wishId`.
      */
     linkAmount: amountInputSchema.optional(),
+    /**
+     * Where the wish was chosen: `'wish'` when the form was opened from it
+     * (a recorded link), `'form'` when picked on the form (a member's link,
+     * the default). Needs `wishId`.
+     */
+    wishFrom: z.enum(['wish', 'form']).optional(),
+    /**
+     * "Neither": the expense counts for no envelope and no wish, so the
+     * category's default envelope is not filled in (UI-ADD-17). Only an
+     * expense, and not with `envelopeId` or `wishId`.
+     */
+    unplanned: z.literal(true).optional(),
     /** When it was typed on the device, UTC epoch milliseconds. */
     enteredAt: z.number().int().nonnegative().optional(),
   })
@@ -150,6 +162,20 @@ export const createTransactionRequestSchema = z
   .superRefine((value, context) => {
     const issue = (path: string, message: string) =>
       context.addIssue({ code: 'custom', path: [path], message });
+    if (value.wishFrom !== undefined && value.wishId === undefined) {
+      issue('wishFrom', 'Choose a wish first.');
+    }
+    if (value.unplanned !== undefined) {
+      if (value.kind !== 'expense') {
+        issue('unplanned', 'Only an expense can count for neither.');
+      }
+      if (value.wishId !== undefined) {
+        issue('unplanned', 'Choose a wish or neither, not both.');
+      }
+      if (value.envelopeId !== undefined && value.envelopeId !== null) {
+        issue('unplanned', 'Choose an envelope or neither, not both.');
+      }
+    }
     if (value.linkAmount !== undefined && value.wishId === undefined) {
       issue('linkAmount', 'Choose a wish first.');
     }

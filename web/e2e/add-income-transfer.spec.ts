@@ -145,9 +145,9 @@ test('an income into Max’s DKB with Salary saves, with no merchant or envelope
     await expect(
       page.getByRole('button', { name: 'Add merchant' }),
     ).toHaveCount(0);
-    await expect(
-      page.getByRole('radiogroup', { name: 'Envelope' }),
-    ).toHaveCount(0);
+    await expect(page.getByRole('group', { name: /^Counts for/ })).toHaveCount(
+      0,
+    );
     await expect(
       page.getByRole('radiogroup', { name: 'To', exact: true }),
     ).toHaveCount(0);
@@ -222,8 +222,8 @@ test('switching the kind clears category and envelope', async ({ page }) => {
     ).toHaveCount(0);
     await expect(
       page
-        .getByRole('radiogroup', { name: 'Envelope' })
-        .getByRole('radio', { checked: true }),
+        .getByRole('group', { name: /^Counts for/ })
+        .getByRole('button', { pressed: true }),
     ).toHaveCount(0);
 
     // A refund is only an expense: the negative amount does not carry over.

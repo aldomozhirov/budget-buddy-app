@@ -17,7 +17,9 @@ import {
   ratePairResponseSchema,
   todayInTimeZone,
   wishResponseSchema,
+  wishesResponseSchema,
   type AddOptionsAccount,
+  type AddOptionsWish,
   type AddOptionsResponse,
   type CoinSetting,
   type DatedRate,
@@ -38,7 +40,6 @@ import {
   createDoubleTap,
 } from '../../composables/useClipboard.js';
 import CategoryPickerSheet from '../../components/CategoryPickerSheet.vue';
-import EnvelopePickerSheet from '../../components/EnvelopePickerSheet.vue';
 import { ApiError, callApi } from '../../api/callApi.js';
 import { useBack } from '../../composables/useBack.js';
 import { isOnline } from '../../composables/useOnline.js';
@@ -54,6 +55,7 @@ import {
   type SendOutcome,
 } from '../../offline/outbox.js';
 import { monthName } from '../envelopes/envelopeFormat.js';
+import CountsForSheet from '../transactions/CountsForSheet.vue';
 import DateSheet from './DateSheet.vue';
 import MerchantSheet, { type MerchantOption } from './MerchantSheet.vue';
 import NoteSheet from './NoteSheet.vue';
@@ -62,6 +64,13 @@ import {
   accountCurrency,
   amountText,
   applyRule,
+  countsChips,
+  countsForLabel,
+  countsIs,
+  countsPick,
+  type CountsFor,
+  type CountsRef,
+  toggleCounts,
   convertedPrefill,
   dayLabel,
   EMPTY_PICK,
@@ -100,14 +109,15 @@ type SheetName =
   | 'toAccount'
   | 'merchant'
   | 'category'
-  | 'envelope'
+  | 'counts'
   | 'date'
   | 'payer'
   | 'note';
 
 /** Chips before "All…" for suggested categories and envelopes. */
 const CATEGORY_CHIPS = 4;
-const ENVELOPE_CHIPS = 5;
+/** Chips before "All…" in the Counts for row (UI-ADD-17). */
+const COUNTS_CHIPS = 5;
 const RECENT_CATEGORIES = 3;
 
 const { goBack } = useBack();
@@ -138,6 +148,14 @@ const envelope = ref<FormPick>(EMPTY_PICK);
  * it could not be loaded, which leaves a plain expense.
  */
 const wish = ref<Wish | null>(null);
+/** The wish picked on the form (UI-ADD-17), the origin wish or another. */
+const wishPickId = ref<number | null>(null);
+/** "Neither" is picked: no envelope and no wish (UI-ADD-17). */
+const unplanned = ref(false);
+/** The open wishes of a month other than the options' (online only). */
+const fetchedWishes = ref<{ month: string; wishes: AddOptionsWish[] } | null>(
+  null,
+);
 const wishCoins = ref<CoinSetting[]>([]);
 /** The day's rate from the wish's currency to the account's. */
 const wishRate = ref<DatedRate | null>(null);
@@ -225,12 +243,34 @@ const currency = computed(() =>
       },
 );
 
+/** The date's month, YYYY-MM. */
+const dateMonth = computed(() => date.value.slice(0, 7));
+/** The open wishes of the date's month that can be picked (UI-ADD-17). */
+const wishChoices = computed<AddOptionsWish[]>(() => {
+  const month = dateMonth.value;
+  const list: AddOptionsWish[] =
+    fetchedWishes.value?.month === month
+      ? [...fetchedWishes.value.wishes]
+      : (options.value?.wishes ?? []).filter((item) => item.month === month);
+  const origin = wish.value;
+  if (origin && origin.month === month && !list.some((i) => i.id === origin.id))
+    list.push(origin);
+  return list;
+});
+/** The picked wish, when it can still be linked to. */
+const pickedWish = computed<AddOptionsWish | null>(
+  () => wishChoices.value.find((item) => item.id === wishPickId.value) ?? null,
+);
 /** The wish counts only for an expense (income and transfer save no link). */
 const wishActive = computed(
-  () => wish.value !== null && kind.value === 'expense',
+  () => pickedWish.value !== null && kind.value === 'expense',
+);
+/** The wish picked is the one Add was opened from (a recorded link). */
+const pickedIsOrigin = computed(
+  () => wish.value !== null && wish.value.id === wishPickId.value,
 );
 const wishCurrency = computed(() => {
-  const code = wish.value?.currency ?? '';
+  const code = pickedWish.value?.currency ?? '';
   if (account.value?.currency === code) return currency.value;
   return (
     getCurrency(code, wishCoins.value) ?? {
@@ -243,19 +283,21 @@ const wishCurrency = computed(() => {
   );
 });
 /** The wish's own prefill, in the wish's currency. */
-const wishBase = computed(() => (wish.value ? wishPrefill(wish.value) : null));
+const wishBase = computed(() =>
+  wish.value && pickedIsOrigin.value ? wishPrefill(wish.value) : null,
+);
 /** The account's currency differs from the wish's. */
 const otherWishCurrency = computed(
   () =>
     wishActive.value &&
     account.value !== undefined &&
-    account.value.currency !== wish.value?.currency,
+    account.value.currency !== pickedWish.value?.currency,
 );
 const rateLineText = computed(() =>
   otherWishCurrency.value && wishRate.value
     ? wishRateLine(
         wishRate.value,
-        wish.value?.currency ?? '',
+        pickedWish.value?.currency ?? '',
         currency.value.code,
         date.value,
         today.value,
@@ -269,19 +311,6 @@ const wishRateMissing = computed(
     wishRate.value === null &&
     !wishRateLoading.value,
 );
-/** A date outside the wish's month cannot count for it (Design 2). */
-const wishDateWrong = computed(
-  () =>
-    wishActive.value &&
-    date.value !== '' &&
-    date.value.slice(0, 7) !== wish.value?.month,
-);
-const wishDateWarning = computed(() =>
-  wishDateWrong.value && wish.value
-    ? `Pick a date in ${monthName(wish.value.month)} to count for ${wish.value.name}.`
-    : '',
-);
-
 function categoryById(id: number | null): CategoryOption | undefined {
   return options.value?.categories.find((item) => item.id === id);
 }
@@ -399,17 +428,39 @@ const recentCategoryIds = computed(() =>
 );
 
 const envelopes = computed(() => options.value?.envelopes ?? []);
-const envelopeChips = computed(() => {
-  const linked = linkedEnvelopeId.value;
-  const base = envelopes.value
-    .filter((item) => item.id !== linked)
-    .slice(0, linked === null ? ENVELOPE_CHIPS : ENVELOPE_CHIPS - 1)
-    .map((item) => item.id);
-  const lead = linked === null ? base : [linked, ...base];
-  return withFront(withFront(lead, extraEnvelopeId.value), envelope.value.id)
-    .map((id) => envelopeById(id))
-    .filter((item): item is EnvelopeOption => item !== undefined)
-    .map((item) => ({ label: item.name, value: item.id }));
+/** One chip of the Counts for row, with what the screen reader says. */
+interface CountsChip {
+  key: string;
+  ref: CountsRef;
+  label: string;
+  name: string;
+}
+
+/** The Counts for chips: the pick leads, then the usual ones (UI-ADD-17). */
+const countsRow = computed<CountsChip[]>(() => {
+  const suggested = fillPreview.value.filled.envelope
+    ? fillPreview.value.envelopeId
+    : null;
+  const row: CountsChip[] = [];
+  for (const ref of countsChips(
+    counts.value,
+    envelopes.value.map((item) => item.id),
+    wishChoices.value.map((item) => item.id),
+    suggested,
+    COUNTS_CHIPS,
+  )) {
+    const key = chipKey(ref);
+    if (ref.type === 'envelope') {
+      const name = envelopeById(ref.id)?.name;
+      if (name) row.push({ key, ref, label: name, name: `${name} envelope` });
+    } else if (ref.type === 'wish') {
+      const name = wishChoices.value.find((item) => item.id === ref.id)?.name;
+      if (name) row.push({ key, ref, label: name, name: `Wish: ${name}` });
+    } else {
+      row.push({ key, ref, label: 'Unplanned', name: 'Unplanned' });
+    }
+  }
+  return row;
 });
 
 /** Maps known merchants to the sheet's rows with what their rule fills. */
@@ -468,10 +519,9 @@ const categoryLabel = computed(() =>
       : null,
   ),
 );
-const envelopeLabel = computed(() =>
-  pickLabel(
-    'Envelope',
-    envelope.value,
+const countsLabel = computed(() =>
+  countsForLabel(
+    counts.value,
     merchant.value,
     fillPreview.value.filled.envelope
       ? (envelopeById(fillPreview.value.envelopeId)?.name ?? null)
@@ -573,7 +623,7 @@ const canSave = computed(
     (kind.value !== 'transfer' ||
       (toAccount.value !== undefined && (!fx.value || arriveOk.value))) &&
     // A link to a wish is made on the server (PLN-21).
-    (!wishActive.value || (isOnline.value && !wishDateWrong.value)) &&
+    (!wishActive.value || isOnline.value) &&
     !saving.value,
 );
 const saveLabel = computed(() => {
@@ -615,8 +665,10 @@ function reapplyRule(): void {
     },
   );
   category.value = next.category;
-  // A wish takes the place of the envelope: no rule fills one (O13).
-  envelope.value = wishActive.value ? EMPTY_PICK : next.envelope;
+  // A wish or "neither" takes the place of the envelope: a rule fills none
+  // and never replaces the pick (O13, UI-ADD-17).
+  envelope.value =
+    wishPickId.value !== null || unplanned.value ? EMPTY_PICK : next.envelope;
 }
 
 /** The query of the category chips (Design 3.6) for the form as it is. */
@@ -760,12 +812,14 @@ function setPrefill(value: bigint | null): void {
 
 // The untouched prefill follows the account, the date and the day's rate.
 watch(prefillAmount, (value) => {
-  if (wishActive.value && prefillUntouched.value) setPrefill(value);
+  // Another wish than the origin has no figure of its own: keep the amount.
+  if (wishActive.value && pickedIsOrigin.value && prefillUntouched.value)
+    setPrefill(value);
 });
 
 /** Asks for the day's rate from the wish's currency to the account's. */
 async function loadWishRate(): Promise<void> {
-  const from = wish.value?.currency;
+  const from = pickedWish.value?.currency;
   const to = account.value?.currency;
   if (!from || !to || from === to || !date.value) {
     wishRate.value = null;
@@ -790,9 +844,21 @@ async function loadWishRate(): Promise<void> {
   }
 }
 watch(
-  [() => wish.value?.id, () => account.value?.currency, date],
+  [() => pickedWish.value?.id, () => account.value?.currency, date],
   () => void loadWishRate(),
 );
+
+/** The family's coins, to write a wish's amount in the sheet (online). */
+async function loadCoins(): Promise<void> {
+  if (!isOnline.value || wishCoins.value.length) return;
+  try {
+    wishCoins.value = (
+      await callApi('GET', '/api/currencies', currenciesResponseSchema)
+    ).coins;
+  } catch {
+    // The sheet writes a coin's amount as euro-like digits until it loads.
+  }
+}
 
 /** Loads the wish Add was opened from; none, or a plain expense on failure. */
 async function loadWish(): Promise<void> {
@@ -822,6 +888,8 @@ function startWish(): void {
   if (!item) return;
   linkedEnvelopeId.value = null;
   envelope.value = EMPTY_PICK;
+  unplanned.value = false;
+  wishPickId.value = item.id;
   category.value =
     item.categoryId !== null && categoryById(item.categoryId)
       ? { id: item.categoryId, source: 'hand' }
@@ -850,6 +918,8 @@ function resetForm(): void {
     usable === null ? EMPTY_PICK : { id: usable, source: 'hand' };
   extraCategoryId.value = null;
   extraEnvelopeId.value = null;
+  wishPickId.value = null;
+  unplanned.value = false;
   note.value = '';
   date.value = today.value;
   payerId.value = data?.profileId ?? 0;
@@ -897,6 +967,7 @@ async function load(): Promise<void> {
     ensureTo();
     await loadWish();
     startWish();
+    void loadCoins();
   } catch (cause) {
     loadError.value =
       cause instanceof ApiError && cause.status !== 0
@@ -998,18 +1069,68 @@ function pickCategoryFromSheet(picked: { id: number; name: string }): void {
   category.value = { id: picked.id, source: 'hand' };
 }
 
-function tapEnvelope(value: string | number): void {
-  envelope.value = toggleChip(envelope.value, Number(value));
+/** The Counts for choice as one value. */
+const counts = computed<CountsFor>(() => ({
+  envelope: envelope.value,
+  wishId: wishPickId.value,
+  unplanned: unplanned.value,
+}));
+
+/** Makes `next` the choice: an envelope, a wish or "Unplanned". */
+function setCounts(next: CountsFor): void {
+  envelope.value = next.envelope;
+  wishPickId.value = next.wishId;
+  unplanned.value = next.unplanned;
 }
 
-function pickEnvelopeFromSheet(picked: EnvelopeOption | null): void {
+function tapCounts(target: CountsRef): void {
+  setCounts(toggleCounts(counts.value, target));
+}
+
+/** A pick from the "All…" sheet leads the chips (UI-ADD-17). */
+function pickCountsFromSheet(target: CountsRef): void {
   sheet.value = null;
-  if (!picked) {
-    envelope.value = EMPTY_PICK;
+  setCounts(countsPick(target));
+}
+
+/** The chips are keyed `envelope:3`, `wish:7` or `none`. */
+function chipKey(ref: CountsRef): string {
+  return ref.type === 'none' ? 'none' : `${ref.type}:${ref.id}`;
+}
+
+// Another month's wishes are asked for, online; none offline (UI-ADD-17).
+watch(dateMonth, (month) => void loadMonthWishes(month));
+
+// A picked wish that is no longer offered, as when the date moves to another
+// month, is cleared (UI-ADD-17), so the label never says "a wish" for none.
+watch(wishChoices, (list) => {
+  const id = wishPickId.value;
+  if (id !== null && !list.some((item) => item.id === id)) {
+    wishPickId.value = null;
+  }
+});
+
+/** Loads the open wishes of a month other than the options'. */
+async function loadMonthWishes(month: string): Promise<void> {
+  if (!month || month === today.value.slice(0, 7) || !isOnline.value) {
+    fetchedWishes.value = null;
     return;
   }
-  extraEnvelopeId.value = picked.id;
-  envelope.value = { id: picked.id, source: 'hand' };
+  try {
+    const answer = await callApi(
+      'GET',
+      `/api/wishes?month=${month}`,
+      wishesResponseSchema,
+    );
+    if (dateMonth.value === month) {
+      fetchedWishes.value = {
+        month,
+        wishes: answer.wishes.filter((item) => item.state === 'open'),
+      };
+    }
+  } catch {
+    if (dateMonth.value === month) fetchedWishes.value = null;
+  }
 }
 
 async function save(): Promise<void> {
@@ -1038,10 +1159,15 @@ async function save(): Promise<void> {
             ...common,
             ...(merchant.value ? { merchant: merchant.value } : {}),
             categoryId: category.value.id,
-            envelopeId: wishActive.value ? null : envelope.value.id,
-            ...(wishActive.value && wish.value
+            envelopeId:
+              wishActive.value || unplanned.value ? null : envelope.value.id,
+            ...(unplanned.value ? { unplanned: true as const } : {}),
+            ...(wishActive.value && pickedWish.value
               ? {
-                  wishId: wish.value.id,
+                  wishId: pickedWish.value.id,
+                  wishFrom: pickedIsOrigin.value
+                    ? ('wish' as const)
+                    : ('form' as const),
                   // The untouched prefill counts as the wish's own figure.
                   ...(otherWishCurrency.value &&
                   prefillUntouched.value &&
@@ -1134,7 +1260,9 @@ async function save(): Promise<void> {
         noCategory:
           item.body.kind !== 'transfer' && item.body.categoryId == null,
         wishName:
-          item.body.wishId !== undefined ? (wish.value?.name ?? null) : null,
+          item.body.wishId !== undefined
+            ? (pickedWish.value?.name ?? null)
+            : null,
       };
     }
     undoError.value = '';
@@ -1478,30 +1606,30 @@ async function addAnother(): Promise<void> {
         </BbChipGroup>
       </div>
 
-      <div v-if="wishActive && wish" class="add-field">
-        <span class="lbl">Counts for</span>
-        <div class="add-counts" role="group" aria-label="Counts for">
-          <span class="add-counts-name">{{ wish.name }}</span>
+      <div v-if="kind === 'expense'" class="add-field">
+        <span id="add-counts-label" class="lbl">{{ countsLabel }}</span>
+        <div class="hrow" role="group" aria-labelledby="add-counts-label">
+          <BbChip
+            v-for="chip in countsRow"
+            :key="chip.key"
+            :selected="countsIs(counts, chip.ref)"
+            :aria-label="chip.name"
+            @click="tapCounts(chip.ref)"
+          >
+            <BbIcon
+              v-if="chip.ref.type !== 'none'"
+              class="add-counts-icon"
+              :name="chip.ref.type === 'wish' ? 'star' : 'envelope'"
+              :size="15"
+            />{{ chip.label }}
+          </BbChip>
+          <BbChip
+            variant="ghost"
+            aria-label="All envelopes and wishes"
+            @click="sheet = 'counts'"
+            >All…</BbChip
+          >
         </div>
-      </div>
-
-      <div v-else-if="kind === 'expense' && envelopes.length" class="add-field">
-        <span class="lbl">{{ envelopeLabel }}</span>
-        <BbChipGroup
-          :model-value="envelope.id ?? 0"
-          :options="envelopeChips"
-          label="Envelope"
-          @update:model-value="tapEnvelope"
-        >
-          <template v-if="envelopes.length > ENVELOPE_CHIPS" #trailing>
-            <BbChip
-              variant="ghost"
-              aria-label="All envelopes"
-              @click="sheet = 'envelope'"
-              >All…</BbChip
-            >
-          </template>
-        </BbChipGroup>
       </div>
 
       <div class="add-tiles">
@@ -1578,9 +1706,6 @@ async function addAnother(): Promise<void> {
       </p>
       <p v-else-if="wishRateMissing" class="t-sub add-wish-rate warn">
         Rate missing
-      </p>
-      <p v-if="wishDateWarning" class="t-sub warn" role="status">
-        {{ wishDateWarning }}
       </p>
       <p v-if="saveError" class="error" role="alert">{{ saveError }}</p>
       <BbButton class="num" :disabled="!canSave" @click="save">{{
@@ -1661,12 +1786,19 @@ async function addAnother(): Promise<void> {
       @pick="pickCategoryFromSheet"
       @close="sheet = null"
     />
-    <EnvelopePickerSheet
-      v-if="sheet === 'envelope'"
+    <CountsForSheet
+      v-if="sheet === 'counts'"
       :envelopes="envelopes"
-      :coins="[]"
-      :selected-id="envelope.id"
-      @pick="pickEnvelopeFromSheet"
+      :wishes="wishChoices"
+      :coins="wishCoins"
+      :month-name="monthName(dateMonth)"
+      :envelope-id="envelope.id"
+      :wish-id="wishPickId"
+      :unplanned="unplanned"
+      on-form
+      @envelope="pickCountsFromSheet({ type: 'envelope', id: $event.id })"
+      @wish="pickCountsFromSheet({ type: 'wish', id: $event.id })"
+      @none="pickCountsFromSheet({ type: 'none', id: 0 })"
       @close="sheet = null"
     />
     <DateSheet
@@ -1909,23 +2041,8 @@ async function addAnother(): Promise<void> {
   margin: 0;
   color: var(--muted);
 }
-.add-counts {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  min-height: 44px;
-  padding: 0 14px;
-  border-radius: 14px;
-  background: var(--soft);
-  color: var(--ink);
-  font-weight: 500;
-}
-.add-counts-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.add-counts-icon {
+  flex: none;
 }
 .add-wish-rate {
   margin: 0;
