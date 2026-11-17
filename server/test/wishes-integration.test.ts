@@ -256,7 +256,9 @@ describe('wishes API', () => {
     const list = (await call('GET', '/api/wishes?month=2026-10')).json();
     expect(list.wishes).toEqual([]);
     expect(list.counts).toEqual({ total: 0, open: 0 });
-    expect((await call('GET', '/api/home')).json().wishes).toEqual({ open: 0 });
+    expect((await call('GET', '/api/home')).json().wishes).toMatchObject({
+      open: 0,
+    });
     expect(database.prepare('SELECT COUNT(*) AS n FROM wish').get()).toEqual({
       n: 1n,
     });
@@ -308,6 +310,50 @@ describe('wishes API', () => {
     const empty = (await call('GET', '/api/wishes?month=2026-09')).json();
     expect(empty.counts).toEqual({ total: 0, open: 0 });
     expect(empty.total.amount).toBeNull();
+  });
+
+  it('gives Home the open wishes of the month with the totals of the Wishes summary', async () => {
+    const insertRate = database.prepare(
+      `INSERT INTO rate (base, quote, date, rate, source, fetched_at)
+       VALUES (?, ?, ?, ?, 'test', 0)`,
+    );
+    insertRate.run('EUR', 'USD', '2026-10-01', '1.25');
+    const tyres = await add({ name: 'Tyres', amount: '40000' });
+    linkExpense(tyres.id, 12000n);
+    const dollars = await add({
+      name: 'Trip',
+      amount: '1250',
+      currency: 'USD',
+    });
+    const done = await add({ name: 'Done one', amount: '500' });
+    await call('PATCH', `/api/wishes/${done.id}`, { state: 'done' });
+    const dropped = await add({ name: 'Dropped', amount: '9900' });
+    await call('PATCH', `/api/wishes/${dropped.id}`, { state: 'dropped' });
+    await add({ month: '2026-12', name: 'Later', amount: '700' });
+    const card = (await call('GET', '/api/home')).json().wishes;
+    // 400.00 + 1250 USD (= 10.00 EUR at 1.25) + 5.00 done; dropped is left out.
+    expect(card).toMatchObject({
+      open: 2,
+      wished: '41500',
+      spent: '12000',
+      incomplete: false,
+    });
+    expect(card.items.map((item: { name: string }) => item.name)).toEqual([
+      'Tyres',
+      'Trip',
+    ]);
+    expect(card.items[0]).toEqual({
+      id: tyres.id,
+      name: 'Tyres',
+      currency: 'EUR',
+      amount: '40000',
+      spent: '12000',
+    });
+    expect(card.items[1].id).toBe(dollars.id);
+    await add({ name: 'In pounds', amount: '1000', currency: 'GBP' });
+    expect((await call('GET', '/api/home')).json().wishes).toMatchObject({
+      incomplete: true,
+    });
   });
 
   it('converts the total per currency at the rate of the first day, or the latest rate for a coming month', async () => {
@@ -431,7 +477,9 @@ describe('wishes API', () => {
     expect(
       (await call('GET', '/api/wishes?month=2026-11')).json().wishes,
     ).toHaveLength(1);
-    expect((await call('GET', '/api/home')).json().wishes).toEqual({ open: 0 });
+    expect((await call('GET', '/api/home')).json().wishes).toMatchObject({
+      open: 0,
+    });
 
     // Undo expects the month it moved to.
     const stale = await call('POST', `/api/wishes/${wish.id}/move`, {
@@ -548,7 +596,9 @@ describe('wishes API', () => {
     await add({ month: '2026-11', name: 'Next' });
     await call('PATCH', `/api/wishes/${two.id}`, { state: 'done' });
     await call('PATCH', `/api/wishes/${three.id}`, { state: 'dropped' });
-    expect((await call('GET', '/api/home')).json().wishes).toEqual({ open: 1 });
+    expect((await call('GET', '/api/home')).json().wishes).toMatchObject({
+      open: 1,
+    });
   });
 
   it('refuses what O7, O8, O11 and PLN-9 do not allow with 400 invalid', async () => {
@@ -821,7 +871,9 @@ describe('wishes API', () => {
     await add({ month: '2026-10', name: 'Old' });
     await add({ month: '2026-11', name: 'New' });
     expect((await call('GET', '/api/wishes')).json().month).toBe('2026-11');
-    expect((await call('GET', '/api/home')).json().wishes).toEqual({ open: 1 });
+    expect((await call('GET', '/api/home')).json().wishes).toMatchObject({
+      open: 1,
+    });
     const forward = await call('POST', '/api/wishes/2/move', {
       month: '2026-12',
     });

@@ -9,9 +9,8 @@ import process from 'node:process';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { todayInTimeZone } from '@budget-buddy/shared';
 
-/** The envelopes card is the region named after the month. */
-const monthName =
-  /^(January|February|March|April|May|June|July|August|September|October|November|December)$/u;
+/** The envelopes card is the first slide of the “This month” carousel. */
+const envelopesCard = 'Envelopes, 1 of 2';
 const password = 'correct horse battery staple';
 const day = 86_400_000;
 
@@ -81,7 +80,7 @@ test('amounts are hidden after a reload, and the eye shows them for 30 s', async
   await page.goto(`${origin}/`);
   await expect(page.getByRole('heading', { name: 'Hi, Alena' })).toBeVisible();
 
-  const card = page.getByRole('region', { name: monthName });
+  const card = page.getByRole('group', { name: envelopesCard });
   await expect(card).toContainText('€ • • • •');
   await expect(card).toContainText('62% used');
   await expectNoWealthCard(page);
@@ -138,7 +137,7 @@ test('a second tap hides the amounts at once, and nothing is stored', async ({
   await seedSpending(page.context(), seed.trade);
   await page.clock.install();
   await page.goto(`${origin}/`);
-  const card = page.getByRole('region', { name: monthName });
+  const card = page.getByRole('group', { name: envelopesCard });
   await expect(card).toContainText('€ • • • •');
 
   await page
@@ -166,7 +165,7 @@ test('a second tap hides the amounts at once, and nothing is stored', async ({
     .click();
   await expect(card).toContainText('€461.50');
   await page.reload();
-  await expect(page.getByRole('region', { name: monthName })).toContainText(
+  await expect(page.getByRole('group', { name: envelopesCard })).toContainText(
     '€ • • • •',
   );
   await expectNoAmounts(page);
@@ -180,7 +179,7 @@ test('backgrounding the page hides revealed amounts at once, and they stay hidde
   await seedSpending(page.context(), seed.trade);
   await page.clock.install();
   await page.goto(`${origin}/`);
-  const card = page.getByRole('region', { name: monthName });
+  const card = page.getByRole('group', { name: envelopesCard });
   await page
     .getByRole('button', { name: 'Show amounts for 30 seconds' })
     .click();
@@ -217,7 +216,7 @@ test('pagehide hides revealed amounts before the app switcher snapshot', async (
   await seedSpending(page.context(), seed.trade);
   await page.clock.install();
   await page.goto(`${origin}/`);
-  const card = page.getByRole('region', { name: monthName });
+  const card = page.getByRole('group', { name: envelopesCard });
   await page
     .getByRole('button', { name: 'Show amounts for 30 seconds' })
     .click();
@@ -243,7 +242,7 @@ test('with “Hide amounts on Home” off, Home shows the amount after a reload'
   await expect(hideSwitch).toHaveAttribute('aria-checked', 'false');
 
   await page.goto(`${origin}/`);
-  const card = page.getByRole('region', { name: monthName });
+  const card = page.getByRole('group', { name: envelopesCard });
   await expect(card).toContainText('€461.50');
   await expect(card).toContainText('€190.00 left of €500.00');
   await page.reload();
@@ -261,7 +260,7 @@ test('with “Hide amounts on Home” off, Home shows the amount after a reload'
   await page.goto(`${origin}/settings`);
   await page.getByRole('switch', { name: 'Hide amounts on Home' }).click();
   await page.goto(`${origin}/`);
-  await expect(page.getByRole('region', { name: monthName })).toContainText(
+  await expect(page.getByRole('group', { name: envelopesCard })).toContainText(
     '€ • • • •',
   );
 });
@@ -378,6 +377,7 @@ test('Home shows no wealth card, hidden or revealed, and Wealth history opens th
   await expect(everything.getByRole('link')).toHaveText([
     'Transactions',
     'Envelopes',
+    'Wishes',
     'Accounts',
     'Check-ins',
     'Wealth history',
@@ -468,7 +468,7 @@ test('the Income and Transfer tiles open Add with their kind', async ({
   }
 });
 
-test('the Everything grid lists seven entries and each opens its screen', async ({
+test('the Everything grid lists eight entries and each opens its screen', async ({
   page,
 }) => {
   const context = page.context();
@@ -477,6 +477,7 @@ test('the Everything grid lists seven entries and each opens its screen', async 
   const entries = [
     ['Transactions', '/transactions', 'Transactions'],
     ['Envelopes', '/envelopes', 'Envelopes'],
+    ['Wishes', '/wishes', 'Wishes'],
     ['Accounts', '/accounts', 'Accounts'],
     ['Check-ins', '/check-ins', 'Check-ins'],
     ['Wealth history', `/check-ins/${first}`, /^Check-in \d{2}\//u],
@@ -596,7 +597,7 @@ test('the envelopes card shows shares while hidden and balances when revealed', 
 
   await page.clock.install();
   await page.goto(`${origin}/`);
-  const card = page.getByRole('region', { name: monthName });
+  const card = page.getByRole('group', { name: envelopesCard });
   await expect(card).toContainText(`Day ${dayOfMonth} of ${length}`);
   await expect(card).toContainText('€ • • • •');
   await expect(card).toContainText('spent');
@@ -671,7 +672,7 @@ test('an envelope row opens that envelope, Back returns Home, and the card is go
 
   const envelopes = await seedSpending(page.context(), seed.trade);
   await page.reload();
-  const card = page.getByRole('region', { name: monthName });
+  const card = page.getByRole('group', { name: envelopesCard });
   for (const [name, id] of [
     ['Eating out', envelopes.eatingOut],
     ['Groceries', envelopes.groceries],

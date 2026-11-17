@@ -51,6 +51,33 @@ export const homeSpendingSchema = z.object({
   envelopes: z.array(homeEnvelopeSchema).min(1),
 });
 
+/** One open wish on Home's Wishes card. */
+export const homeWishSchema = z.object({
+  id: z.number().int().positive(),
+  name: z.string(),
+  currency: z.string(),
+  /** The wish's amount, in its currency's minor units. */
+  amount: minorStringSchema,
+  /** Spent on it so far, in the wish's currency. */
+  spent: minorStringSchema,
+});
+
+/** An open wish as Home's card shows it. */
+export type HomeWish = z.infer<typeof homeWishSchema>;
+
+/** The Wishes card's data (UI-HOME-10), for the family's current month. */
+export const homeWishesSchema = z.object({
+  /** How many wishes are open this month; the length of `items`. */
+  open: z.number().int().nonnegative(),
+  /** Wished and spent in the common currency, as the Wishes summary has it. */
+  wished: minorStringSchema.nullable(),
+  spent: minorStringSchema.nullable(),
+  /** A currency has no rate, so `wished` leaves it out. */
+  incomplete: z.boolean(),
+  /** Open wishes in the order of the Wishes screen. */
+  items: z.array(homeWishSchema),
+});
+
 /** What the Home screen needs in one call (DSH-1, NTF-1, BKP-4). */
 export const homeResponseSchema = z.object({
   /** Today in the family's time zone, YYYY-MM-DD. */
@@ -65,8 +92,8 @@ export const homeResponseSchema = z.object({
   spending: homeSpendingSchema.nullable(),
   /** Transactions waiting for a category (CAT-7); 0 hides the row. */
   needsCategory: z.number().int().nonnegative(),
-  /** Wishes of the current month (UI-HOME-9). */
-  wishes: z.object({ open: z.number().int().nonnegative() }),
+  /** The Wishes card of the current month (UI-HOME-10). */
+  wishes: homeWishesSchema,
   /** Set when the last successful backup is over two days old. */
   backupWarning: z.object({ daysAgo: z.number().int().min(2) }).nullable(),
 });

@@ -12,7 +12,8 @@ export interface SidewaysOverflow {
  * Lists what scrolls sideways on the page now: the page itself and every
  * scroll container (overflow auto or scroll) with `scrollWidth` above
  * `clientWidth`. Text fields scroll their own text and `.hrow` is the
- * design's deliberate swipeable chip row, so neither counts. Truncated text
+ * design's deliberate swipeable chip row and `.home-cards` is Home's
+ * month carousel, so neither counts. Truncated text
  * (overflow hidden) is not a scroll container and is left alone.
  */
 export async function findSidewaysOverflows(
@@ -37,7 +38,8 @@ export async function findSidewaysOverflows(
     const root = document.documentElement;
     if (root.scrollWidth > root.clientWidth) record(root);
     for (const element of Array.from(document.body.querySelectorAll('*'))) {
-      if (element.matches('input, textarea, select, .hrow')) continue;
+      if (element.matches('input, textarea, select, .hrow, .home-cards'))
+        continue;
       const { overflowX } = getComputedStyle(element);
       if (overflowX !== 'auto' && overflowX !== 'scroll') continue;
       if (element.scrollWidth > element.clientWidth) record(element);

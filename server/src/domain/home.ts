@@ -9,6 +9,7 @@ import { monthSpent } from '../modules/transactions/list.js';
 import { needsCategoryCount } from '../modules/transactions/needsCategory.js';
 import { getCheckin } from './checkin.js';
 import { listEnvelopeStates } from './envelopes.js';
+import { listWishes, wishesSpentTotal, wishesSummary } from './wishes.js';
 import { createValuation, type Valuation } from './valuation.js';
 
 const dayMs = 86_400_000;
@@ -52,9 +53,11 @@ export function getHome(
     lastClosedCheckinId: lastClosedCheckinId(database),
     spending: spending(database, valuation, options.now),
     needsCategory: needsCategoryCount(database),
-    wishes: {
-      open: openWishes(database, monthOfDate(valuation.dateOf(options.now))),
-    },
+    wishes: wishesCard(
+      database,
+      valuation,
+      monthOfDate(valuation.dateOf(options.now)),
+    ),
     backupWarning: backupWarning(database, options.now),
   };
 }
@@ -95,15 +98,31 @@ function openCheckin(
   };
 }
 
-/** The open wishes of a month, for Home's Wishes row (UI-HOME-9). */
-function openWishes(database: Database.Database, month: string): number {
-  const row = database
-    .prepare(
-      `SELECT COUNT(*) AS n FROM wish
-       WHERE month = ? AND state = 'open' AND deleted_at IS NULL`,
-    )
-    .get(month) as { n: bigint };
-  return Number(row.n);
+/**
+ * The Wishes card (UI-HOME-10): the month's totals, as the Wishes screen's
+ * summary line has them, and one entry per open wish.
+ */
+function wishesCard(
+  database: Database.Database,
+  valuation: Valuation,
+  month: string,
+): HomeResponse['wishes'] {
+  const wishes = listWishes(database, month);
+  const summary = wishesSummary(wishes, month, month, valuation);
+  const open = wishes.filter((wish) => wish.state === 'open');
+  return {
+    open: open.length,
+    wished: summary.total.amount,
+    spent: wishesSpentTotal(wishes, month, valuation),
+    incomplete: summary.total.incomplete,
+    items: open.map((wish) => ({
+      id: wish.id,
+      name: wish.name,
+      currency: wish.currency,
+      amount: wish.amount,
+      spent: wish.spent,
+    })),
+  };
 }
 
 /** A rhythm with a plain name: monthly, or every week; anything else none. */
