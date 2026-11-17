@@ -59,6 +59,10 @@ a{color:inherit}a:hover{color:inherit}
 .bb .pw-err{animation:bb-shake .4s ease}
 .bb [role="alert"]:not(:empty),.bb [role="status"]{animation:bb-fade .3s ease-out both}
 .bb .wrap{animation:bb-down .22s ease-out both}
+.bb .meta{height:52px;padding:0 10px 0 12px;border-radius:14px;background:var(--surface);border:1px solid var(--line);box-shadow:0 1px 0 rgba(0,0,0,.04);display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;min-width:0;text-align:left}
+.bb .meta-l{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.02em}
+.bb .meta-v{width:100%;display:flex;align-items:center;justify-content:space-between;gap:4px;font-size:14px;font-weight:600}
+.bb .meta-t{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media (prefers-reduced-motion: reduce){.bb,.bb *{animation:none!important;transition:none!important}}
 </style>
 </helmet>
@@ -141,13 +145,10 @@ a{color:inherit}a:hover{color:inherit}
 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
 </button>
 </div>
-<sc-if value="{{isSet}}" hint-placeholder-val="{{ true }}">
-<div style="display: flex; gap: 8px">
-<sc-for list="{{whens}}" as="w" hint-placeholder-count="2">
-<button class="{{w.cls}}" aria-pressed="{{w.on}}" onClick="{{w.pick}}">{{w.label}}</button>
-</sc-for>
-</div>
-</sc-if>
+<button class="meta" aria-label="Date: {{dateTile}}. Change" style="align-self: flex-start; width: 132px">
+<span class="meta-l"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="13" height="15" rx="2"></rect><path d="M4 10h13M9 3v4M15 3v4"></path></svg>Date</span>
+<span class="meta-v"><span class="meta-t num">{{dateTile}}</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted)"><path d="M6 9l6 6 6-6"></path></svg></span>
+</button>
 <div style="display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 16px; background: var(--bg)">
 <div style="flex: 1; display: flex; flex-direction: column; min-width: 0">
 <span class="num" style="height: 18px; font-size: 13px; color: var(--muted)">{{exprLine}}</span>
@@ -370,7 +371,7 @@ class Component extends DCLogic {
       isSet: isSet, isCorrect: isCorrect,
       kTitle: isSet ? 'Set balance' : 'Correct ' + (editSnap ? editSnap.d : ''),
       kSub: isSet ? 'Last ' + money(latest.v) + ' on ' + latest.d : (editSnap ? money(editSnap.v) + ' · ' + editSnap.src + ' · ' + editSnap.who + '. The old value is kept in the change log.' : ''),
-      whens: whens,
+      whens: whens, dateTile: isSet ? 'Today' : (editSnap ? editSnap.d : ''),
       exprLine: hasOp ? st.expr : '',
       amountText: valid ? money(value) : (st.expr ? '…' : money(ref ? ref.v : 0)),
       amountColor: valid ? 'var(--ink)' : 'var(--muted)',
@@ -381,7 +382,7 @@ class Component extends DCLogic {
       saveDisabled: !valid,
       saveBg: valid ? 'var(--ink)' : 'var(--soft)',
       saveFg: valid ? 'var(--on-ink)' : 'var(--muted)',
-      saveLabel: !valid ? 'Enter a balance' : (isSet ? 'Save ' + money(value) + (st.when === 'now' ? ' as of now' : '') : 'Save correction'),
+      saveLabel: !valid ? 'Enter a balance' : (isSet ? 'Save ' + money(value) + '' : 'Save correction'),
       saveK: function () {
         if (!valid) return;
         var s = self.state.snaps.slice();

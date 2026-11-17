@@ -335,7 +335,7 @@ class Component extends DCLogic {
     function onKey(k) { self.setState({ expr: self.typed(self.state.expr, k) }); }
     var CATS = [null, 'Travel', 'Gifts', 'Shopping', 'Transport'];
     if (st.cat && CATS.indexOf(st.cat) < 0) CATS.splice(1, 0, st.cat);
-    var BACKS = { 'Main.dc.html': ['Main.dc.html', 'Back to home'], 'HomeWishes.dc.html': ['HomeWishes.dc.html', 'Back to home'] };
+    var BACKS = { 'Main.dc.html': ['Main.dc.html', 'Back to home'], 'HomeWishes.dc.html': ['HomeWishes.dc.html', 'Back to home'], 'HomeWaiting.dc.html': ['HomeWaiting.dc.html', 'Back to home'], 'HomePlan.dc.html': ['HomePlan.dc.html', 'Back to home'] };
     var back = BACKS['HomeWishes.dc.html'];
     try { var from = sessionStorage.getItem('bb-from:Wishes.dc.html'); if (from && BACKS[from]) back = BACKS[from]; } catch (e) {}
     var hasExpr = /[+−×÷()%]/.test(st.expr);

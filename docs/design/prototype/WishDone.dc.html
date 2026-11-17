@@ -79,12 +79,13 @@ a{color:inherit}a:hover{color:inherit}
 .bb .switch-on{background:var(--accent)}
 .bb .knob{position:absolute;top:2px;width:27px;height:27px;border-radius:14px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 .bb .act2{height:44px;border-radius:14px;background:var(--bg);font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:center;gap:6px}
+.bb .pg .input,.bb .pg .amt,.bb .pg .note,.bb .pg .key:not(.key-op){background:var(--surface)}
 @media (prefers-reduced-motion: reduce){.bb,.bb *{animation:none!important;transition:none!important}}
 </style>
 </helmet>
 <div class="bb {{themeClass}}" onClickCapture="{{navCapture}}" style="width: 390px; height: 844px; position: relative; overflow: hidden; background: var(--bg); color: var(--ink); font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.4; display: flex; flex-direction: column">
 <div style="padding: 48px 16px 8px; display: flex; align-items: center; gap: 12px">
-<a href="Wishes.dc.html" aria-label="Back to wishes" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
+<a href="{{backHref}}" aria-label="{{backLabel}}" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
 </a>
 <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
@@ -127,7 +128,7 @@ a{color:inherit}a:hover{color:inherit}
 </a>
 </sc-for>
 <sc-if value="{{noExpenses}}" hint-placeholder-val="{{ false }}">
-<p style="margin: 0; padding: 10px 0 14px; border-bottom: 1px solid var(--line); font-size: 14px; color: var(--muted)">Nothing yet. Record it when you buy it, or link an expense you already added.</p>
+<p style="margin: 0; padding: 10px 0 14px; border-bottom: 1px solid var(--line); font-size: 14px; color: var(--muted)">No expenses yet.</p>
 </sc-if>
 <button onClick="{{openLink}}" disabled="{{offline}}" style="display: flex; align-items: center; gap: 10px; min-height: 52px; color: var(--accent); font-weight: 600; text-align: left; opacity: {{offOp}}">
 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Link an expense you added</button>
@@ -140,17 +141,23 @@ a{color:inherit}a:hover{color:inherit}
 </div>
 </sc-if>
 <sc-if value="{{offline}}" hint-placeholder-val="{{ false }}">
-<p style="margin: 0 4px; font-size: 13px; color: var(--muted)">Offline. Recording and changing wishes need a connection.</p>
+<p style="margin: 0 4px; font-size: 13px; color: var(--muted)">Offline. Adding to and changing wishes need a connection.</p>
 </sc-if>
 </div>
 
 <sc-if value="{{showRecord}}" hint-placeholder-val="{{ true }}">
 <div style="padding: 12px 16px 34px; background: var(--bg); border-top: 1px solid var(--line)">
-<button onClick="{{openRecord}}" disabled="{{offline}}" class="num" style="width: 100%; height: 56px; border-radius: 18px; background: {{recBg}}; color: {{recFg}}; font-weight: 600; font-size: 17px; text-align: center">{{recordLabel}}</button>
+<sc-if value="{{online}}" hint-placeholder-val="{{ true }}">
+<a href="AddFromWish.dc.html" class="num" style="width: 100%; height: 56px; border-radius: 18px; background: var(--ink); color: var(--on-ink); font-weight: 600; font-size: 17px; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Add expense</a>
+</sc-if>
+<sc-if value="{{offline}}" hint-placeholder-val="{{ false }}">
+<button disabled class="num" style="width: 100%; height: 56px; border-radius: 18px; background: var(--soft); color: var(--muted); font-weight: 600; font-size: 17px; text-align: center">Add expense · needs a connection</button>
+</sc-if>
 </div>
 </sc-if>
 
 <sc-if value="{{sheetOpen}}" hint-placeholder-val="{{ false }}">
+<sc-if value="{{notEdit}}" hint-placeholder-val="{{ true }}">
 <div onClick="{{closeSheet}}" style="position: absolute; inset: 0; background: var(--scrim)"></div>
 <div role="dialog" aria-label="{{sheetTitle}}" style="position: absolute; left: 0; right: 0; bottom: 0; top: {{sheetTop}}; background: var(--surface); border-radius: 24px 24px 0 0; padding: 10px 16px 30px; display: flex; flex-direction: column; gap: 12px">
 <div aria-hidden="true" style="align-self: center; width: 36px; height: 5px; border-radius: 3px; background: var(--line); flex: none"></div>
@@ -220,9 +227,28 @@ a{color:inherit}a:hover{color:inherit}
 </div>
 </sc-if>
 
+</div>
+</sc-if>
 <sc-if value="{{isEdit}}" hint-placeholder-val="{{ false }}">
+<div class="pg" aria-label="{{sheetTitle}}" style="position: absolute; inset: 0; background: var(--bg); padding: 48px 16px 34px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 12px; padding-bottom: 6px">
+<button onClick="{{closeSheet}}" aria-label="Back to the wish" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+</button>
+<div style="flex: 1; display: flex; flex-direction: column">
+<h1 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em">{{sheetTitle}}</h1>
+<span class="num" style="font-size: 13px; color: var(--muted)">{{sheetHint}}</span>
+</div>
+</div>
 <div class="scroll" style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px">
 <div style="display: flex; flex-direction: column; gap: 6px"><label for="wish-name" class="lbl">Name</label><input id="wish-name" class="input" type="text" value="{{name}}"></div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="lbl" id="lbl-month">Month</span>
+<button class="input" aria-labelledby="lbl-month" aria-haspopup="dialog" style="display: flex; flex-direction: column; justify-content: center; align-items: flex-start; height: auto; min-height: 56px; padding: 8px 14px; text-align: left">
+<span style="font-weight: 600">{{formMonth}}</span>
+<span style="font-size: 13px; color: var(--muted)">{{formMonthHint}}</span>
+</button>
+</div>
 <div style="display: flex; flex-direction: column; gap: 6px"><span class="lbl">Amount</span>
 <button class="amt"><span class="num" style="flex: 1; font-size: 18px; font-weight: 600">{{amountText}}</span><span style="font-size: 12px; font-weight: 600; color: var(--muted)">EUR</span></button></div>
 <div style="display: flex; flex-direction: column; gap: 6px"><span class="lbl">Currency</span>
@@ -232,17 +258,17 @@ a{color:inherit}a:hover{color:inherit}
 <div style="display: flex; flex-direction: column; gap: 6px"><label for="wish-note" class="lbl">Note · optional</label><input id="wish-note" class="input" type="text" value="{{noteRaw}}" placeholder="Optional"></div>
 <div style="display: flex; align-items: center; gap: 12px; padding-top: 12px; border-top: 1px solid var(--line)">
 <span style="flex: 1; font-size: 13px; color: var(--muted)">{{lifeHint}}</span>
-<button onClick="{{drop}}" style="flex: none; height: 44px; padding: 0 14px; border-radius: 22px; background: var(--bg); font-weight: 600; font-size: 14px">{{dropLabel}}</button>
-<button onClick="{{del}}" style="flex: none; height: 44px; padding: 0 14px; border-radius: 22px; background: var(--bg); font-weight: 600; font-size: 14px; color: var(--warn)">Delete</button>
+<button onClick="{{drop}}" style="flex: none; height: 44px; padding: 0 14px; border-radius: 22px; background: var(--surface); font-weight: 600; font-size: 14px">{{dropLabel}}</button>
+<button onClick="{{del}}" style="flex: none; height: 44px; padding: 0 14px; border-radius: 22px; background: var(--surface); font-weight: 600; font-size: 14px; color: var(--warn)">Delete</button>
 </div>
 </div>
 <button onClick="{{closeSheet}}" style="flex: none; height: 56px; border-radius: 18px; background: var(--ink); color: var(--on-ink); font-weight: 600; font-size: 16px; text-align: center">Save</button>
-</sc-if>
 </div>
+</sc-if>
 </sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"wish":{"editor":"enum","options":["salzburg","tyres","birthday"],"default":"birthday"},"sheet":{"editor":"enum","options":["none","record","link","edit"],"default":"none"},"offline":{"editor":"boolean","default":false},"$preview":{"width":390,"height":844}}'>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"wish":{"editor":"enum","options":["salzburg","tyres","birthday"],"default":"birthday"},"sheet":{"editor":"enum","options":["none","link","edit"],"default":"none"},"offline":{"editor":"boolean","default":false},"$preview":{"width":390,"height":844}}'>
 class Component extends DCLogic {
   nav(from) {
     return {
@@ -343,8 +369,13 @@ class Component extends DCLogic {
       { title: 'Other expenses in October', items: [['Amazon', '03/10 · ING Visa · Shopping', 62.6], ['dm', '02/10 · Cash € · no category', 23.8]] }
     ];
     var titles = { record: 'Record as expense', link: 'Link an expense', edit: 'Edit wish' };
-    var hints = { record: w.name + ' · no envelope', link: 'It will count for ' + w.name, edit: 'October wish' };
+    var hints = { record: w.name + ' · no envelope', link: 'It will count for ' + w.name, edit: 'For October' };
+    // Back returns where the wish was opened from (UI-NAV-2): a Home card goes back to Home, the list to Wishes
+    var BACKS = { 'Main.dc.html': ['Main.dc.html', 'Back to home'], 'HomeWishes.dc.html': ['HomeWishes.dc.html', 'Back to home'], 'HomeWaiting.dc.html': ['HomeWaiting.dc.html', 'Back to home'], 'HomePlan.dc.html': ['HomePlan.dc.html', 'Back to home'], 'Wishes.dc.html': ['Wishes.dc.html', 'Back to wishes'] };
+    var back = BACKS['Wishes.dc.html'];
+    try { var from = sessionStorage.getItem('bb-from:WishDetail.dc.html'); if (from && BACKS[from]) back = BACKS[from]; } catch (e) {}
     return Object.assign(this.nav('WishDetail.dc.html'), {
+      backHref: back[0], backLabel: back[1],
       name: w.name, strike: dropped ? 'line-through' : 'none',
       subtitle: 'October wish · ' + eur(w.amount) + (w.cat ? ' · ' + w.cat : ''),
       offline: off, offOp: off ? '.45' : '1',
@@ -375,7 +406,7 @@ class Component extends DCLogic {
       sheetOpen: !!st.sheet, sheetTitle: titles[st.sheet] || '', sheetHint: hints[st.sheet] || '',
       sheetTop: st.sheet === 'link' ? '160px' : '96px',
       closeSheet: function () { self.setState({ sheet: null, focus: null }); },
-      isRecord: st.sheet === 'record', isLink: st.sheet === 'link', isEdit: st.sheet === 'edit',
+      isRecord: st.sheet === 'record', isLink: st.sheet === 'link', isEdit: st.sheet === 'edit', notEdit: st.sheet !== 'edit', online: !off, formMonth: 'October 2026', formMonthHint: 'This month',
       amtOn: st.focus === 'amount', amtCls: st.focus === 'amount' ? 'amt amt-on' : 'amt',
       amtAria: 'Amount ' + amtText + '. Change',
       focusAmount: function () { self.setState({ focus: self.state.focus ? null : 'amount' }); },

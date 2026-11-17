@@ -116,7 +116,7 @@ a{color:inherit}a:hover{color:inherit}
 <a class="field" href="AccountDetail.dc.html"><span class="field-l">Paid from</span><span class="field-v">{{accountValue}}</span></a>
 <button class="field" onClick="{{openMerchant}}" aria-haspopup="dialog"><span class="field-l">Merchant</span><span class="field-v">{{merchantValue}}</span></button>
 <button class="field" onClick="{{openCategory}}" aria-haspopup="dialog"><span class="field-l">Category</span><span class="field-v">{{catValue}}</span></button>
-<button class="field" onClick="{{openEnvelope}}" aria-haspopup="dialog"><span class="field-l">Envelope</span><span class="field-v num">{{envValue}}</span></button>
+<button class="field" onClick="{{openEnvelope}}" aria-haspopup="dialog"><span class="field-l">Counts for</span><span class="field-v num" style="white-space: normal; overflow: visible; line-height: 1.35">{{envValue}}</span></button>
 <button class="field" onClick="{{openDate}}" aria-haspopup="dialog"><span class="field-l">Date</span><span class="field-v num">{{dateValue}}</span></button>
 <button class="field" onClick="{{openPayer}}" aria-haspopup="dialog"><span class="field-l">Paid by</span><span class="field-v">{{payer}}</span></button>
 <button class="field" onClick="{{openNote}}" aria-haspopup="dialog" style="border-bottom: 0"><span class="field-l">Note</span><span class="field-v" style="color: {{noteColor}}; font-weight: {{noteWeight}}">{{noteValue}}</span></button>
@@ -149,11 +149,11 @@ a{color:inherit}a:hover{color:inherit}
 <sc-if value="{{showExtras}}" hint-placeholder-val="{{ false }}">
 <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
 <button style="height: 52px; border-radius: 16px; background: var(--surface); font-weight: 600; text-align: center">Split</button>
-<button onClick="{{askDelete}}" style="height: 52px; border-radius: 16px; background: var(--surface); color: var(--warn); font-weight: 600; text-align: center">Delete</button>
+<button onClick="{{askDelete}}" style="flex: none; height: 52px; border-radius: 16px; background: var(--surface); color: var(--warn); font-weight: 600; text-align: center">Delete</button>
 </div>
 </sc-if>
 <sc-if value="{{noExtras}}" hint-placeholder-val="{{ true }}">
-<button onClick="{{askDelete}}" style="height: 52px; border-radius: 16px; background: var(--surface); color: var(--warn); font-weight: 600; text-align: center">Delete</button>
+<button onClick="{{askDelete}}" style="flex: none; height: 52px; border-radius: 16px; background: var(--surface); color: var(--warn); font-weight: 600; text-align: center">Delete</button>
 </sc-if>
 </div>
 
@@ -369,11 +369,11 @@ class Component extends DCLogic {
         }
       }
     } else if (sheet === 'envelope') {
-      title = 'Envelope';
-      hint = 'Changing it never changes the category.';
-      top = fx ? '72px' : 'auto';
-      var ENV = [['Groceries', 'Resets monthly · €187.60 left'], ['Eating out', 'Resets monthly · −€14.50 overspent'], ['Unexpected', 'Carries over · €375.00 left'], ['None', 'Counts in no envelope']];
-      groups.push({ title: '', aria: 'Envelope', items: ENV.map(function (e) {
+      title = 'Counts for';
+      hint = 'Pick one: an envelope, one of October’s wishes, or neither. The category stays.';
+      top = fx ? '72px' : '96px';
+      var ENV = [['Groceries', 'Resets monthly · €187.60 left'], ['Eating out', 'Resets monthly · −€14.50 overspent'], ['Unexpected', 'Carries over · €375.00 left']];
+      groups.push({ title: 'Envelopes', aria: 'Envelopes', items: ENV.map(function (e) {
         return { label: e[0], sub: e[1], on: st.env === e[0], pick: function () {
           if (e[0] === self.state.env) { if (!fx) close({}); return; }
           // another envelope recomputes the amount at the date's rate and clears a hand-typed one
@@ -381,6 +381,12 @@ class Component extends DCLogic {
           if (fx && e[0] !== 'None') self.setState(patch); else close(patch);
         } };
       }) });
+      groups.push({ title: 'Wishes in October', aria: 'Wishes', items: [['Winter tyres', '€480.00 · nothing spent yet'], ['Weekend in Salzburg', '€350.00 · €120.00 spent']].map(function (w) {
+        return { label: w[0], sub: w[1], on: false, pick: function () { close({ env: 'None', history: log('Moved from the ' + self.state.env + ' envelope to the wish ' + w[0]) }); } };
+      }) });
+      groups.push({ title: 'Neither', aria: 'Neither', items: [{ label: 'Unplanned', sub: 'No envelope and no wish', on: st.env === 'None', pick: function () {
+        close(self.state.env === 'None' ? {} : { env: 'None', history: log('Envelope removed') });
+      } }] });
     } else if (sheet === 'payer') {
       title = 'Paid by'; hint = 'Who paid. The account stays as picked.'; top = 'auto';
       groups.push({ title: '', aria: 'Paid by', items: ['Alena', 'Max', 'Sofia'].map(function (m) {
@@ -433,13 +439,13 @@ class Component extends DCLogic {
       accountValue: fx ? 'Wise $ · USD' : 'ING Visa · EUR',
       typedBy: fx ? 'Typed in by Max' : 'Typed in by Alena',
       typedAt: fx ? '2 Oct · 18:42' : '12:04',
-      showExtras: !fx, noExtras: fx,
+      showExtras: false, noExtras: true,
       merchantValue: st.merchant || 'No merchant',
       payer: st.payer,
       dateLong: dayLong(st.day),
       dateValue: (st.day < 10 ? '0' : '') + st.day + '/10/2026',
       catValue: st.cat || 'None',
-      envValue: st.env === 'None' ? 'None' : (fx ? st.env + ' · counts as ' + eur(st.count) : st.env),
+      envValue: st.env === 'None' ? 'Unplanned' : (fx ? st.env + ' envelope · counts as ' + eur(st.count) : st.env + ' envelope'),
       noteValue: st.note || 'Add a note',
       noteColor: st.note ? 'var(--ink)' : 'var(--muted)',
       noteWeight: st.note ? '500' : '400',

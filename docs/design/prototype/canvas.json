@@ -389,15 +389,6 @@
       "is_interactive": true,
       "radius": 28
     },
-    "WishRecord.dc.html": {
-      "x": 2350,
-      "y": 11000,
-      "w": 390,
-      "h": 844,
-      "title": "Wish · record as expense",
-      "is_interactive": true,
-      "radius": 28
-    },
     "WishLink.dc.html": {
       "x": 2820,
       "y": 11000,
@@ -440,6 +431,24 @@
       "w": 390,
       "h": 844,
       "title": "Transaction · in an envelope",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "AddFromWish.dc.html": {
+      "x": 2350,
+      "y": 11000,
+      "w": 390,
+      "h": 844,
+      "title": "Add expense · from a wish",
+      "is_interactive": true,
+      "radius": 28
+    },
+    "AddCountsFor.dc.html": {
+      "x": 1410,
+      "y": 964,
+      "w": 390,
+      "h": 844,
+      "title": "Add expense · counts for",
       "is_interactive": true,
       "radius": 28
     }
@@ -525,6 +534,7 @@
     "CheckIn.dc.html",
     "SearchAccounts.dc.html",
     "SearchCategories.dc.html",
+    "AddCountsFor.dc.html",
     "Envelopes.dc.html",
     "EnvelopeDetail.dc.html",
     "Transactions.dc.html",
@@ -563,7 +573,7 @@
     "WishesNew.dc.html",
     "WishesNext.dc.html",
     "WishDetail.dc.html",
-    "WishRecord.dc.html",
+    "AddFromWish.dc.html",
     "WishLink.dc.html",
     "WishDone.dc.html",
     "TransactionWish.dc.html",

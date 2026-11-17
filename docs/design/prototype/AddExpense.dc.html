@@ -111,7 +111,7 @@ Offline. It stays on this phone and sends itself later.
 <button onClick="{{editArrive}}" aria-label="{{arriveAria}}" aria-pressed="{{arriveEdit}}" class="num" style="height: 32px; margin-top: 2px; padding: 0 12px; border-radius: 16px; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; background: {{arriveBg}}; color: {{arriveFg}}; box-shadow: {{arriveRing}}">{{arriveText}}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"></path></svg></button>
 </sc-if>
 <sc-if value="{{noFx}}" hint-placeholder-val="{{ true }}">
-<span style="height: 16px; font-size: 12px; color: var(--warn)">{{errorText}}</span>
+<span style="height: 16px; font-size: 12px; color: {{errorColor}}">{{errorTextShown}}</span>
 </sc-if>
 </div>
 
@@ -158,13 +158,14 @@ Offline. It stays on this phone and sends itself later.
 </div>
 </sc-if>
 
-<sc-if value="{{isExpense}}" hint-placeholder-val="{{ true }}">
+<sc-if value="{{showEnvRow}}" hint-placeholder-val="{{ true }}">
 <div style="display: flex; flex-direction: column; gap: 6px">
-<span class="lbl">{{envLabelText}}</span>
-<div class="row">
-<sc-for list="{{envelopes}}" as="e" hint-placeholder-count="3">
-<button class="{{e.cls}}" aria-pressed="{{e.on}}" onClick="{{e.pick}}">{{e.label}}</button>
+<span class="lbl" id="lbl-counts">{{envLabelText}}</span>
+<div class="row" role="group" aria-labelledby="lbl-counts">
+<sc-for list="{{envelopes}}" as="e" hint-placeholder-count="5">
+<button class="{{e.cls}}" aria-pressed="{{e.on}}" aria-label="{{e.aria}}" onClick="{{e.pick}}"><sc-if value="{{e.isEnv}}" hint-placeholder-val="{{ true }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg></sc-if><sc-if value="{{e.isWish}}" hint-placeholder-val="{{ false }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"></path></svg></sc-if>{{e.label}}</button>
 </sc-for>
+<button class="chip chip-ghost" onClick="{{openCounts}}" aria-label="All envelopes and wishes">All…</button>
 </div>
 </div>
 </sc-if>
@@ -299,7 +300,10 @@ Offline. It stays on this phone and sends itself later.
 <h2 style="margin: 0; font-size: 22px; font-weight: 600">{{savedTitle}}</h2>
 <p class="num" style="margin: 0; color: var(--muted)">{{savedSummary}}</p>
 <sc-if value="{{savedNoCat}}" hint-placeholder-val="{{ false }}">
-<p style="margin: 0; font-size: 13px; color: var(--muted); max-width: 260px">No category yet. It waits in <a href="ToLabel.dc.html" style="color: var(--accent); font-weight: 500">Needs a category</a>, with a suggestion.</p>
+<p style="margin: 0; font-size: 13px; color: var(--muted); max-width: 260px">No category yet. It waits in <a href="ToLabel.dc.html" style="color: var(--accent); font-weight: 500">Needs a category</a>.</p>
+</sc-if>
+<sc-if value="{{savedWish}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; font-size: 13px; color: var(--muted); max-width: 280px">Counts for {{wishName}}</p>
 </sc-if>
 <sc-if value="{{savedAuto}}" hint-placeholder-val="{{ false }}">
 <p style="margin: 0; font-size: 13px; color: var(--muted); max-width: 280px">{{savedAutoText}}</p>
@@ -314,7 +318,7 @@ Offline. It stays on this phone and sends itself later.
 
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"offline":{"editor":"boolean","default":false},"kind":{"editor":"enum","options":["expense","income","transfer"],"default":"expense"},"to":{"editor":"enum","options":["cash","wise","tbank"],"default":"cash"},"amount":{"editor":"text","default":""},"picker":{"editor":"enum","options":["none","account","category"],"default":"none"},"pickerQuery":{"editor":"text","default":""},"$preview":{"width":390,"height":844}}'>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"offline":{"editor":"boolean","default":false},"kind":{"editor":"enum","options":["expense","income","transfer"],"default":"expense"},"to":{"editor":"enum","options":["cash","wise","tbank"],"default":"cash"},"amount":{"editor":"text","default":""},"picker":{"editor":"enum","options":["none","account","category","counts"],"default":"none"},"pickerQuery":{"editor":"text","default":""},"$preview":{"width":390,"height":844},"wish":{"editor":"boolean","default":false}}'>
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -322,6 +326,7 @@ class Component extends DCLogic {
     var to0 = props.to || 'cash';
     this.state = { kind: props.kind || 'expense', expr: p ? '23.80' : (props.amount || ''), acc: 'ing', to: to0, extraTo0: ['ing', 'cash', 'rev', 'wise', 'cashusd'].indexOf(to0) < 0 ? to0 : null, arrive: null, arriveEdit: false, arriveFresh: false, env: null, cat: null, envSrc: null, saved: false, picker: p, query: props.pickerQuery || '', customCats: [], extraAcc: null, extraTo: null, extraCat: null, merchant: null, catSrc: null, day: 5, payer: 'Alena', note: '', noteDraft: '', mini: null };
     if (this.state.extraTo0) this.state.extraTo = this.state.extraTo0;
+    if (props.wish) Object.assign(this.state, { expr: '230', cat: 'Travel', catSrc: 'hand', extraCat: 'Travel', note: 'Weekend in Salzburg', wish: 'Weekend in Salzburg' });
   }
   evaluate(s) {
     var t = s.replace(/−/g, '-').replace(/×/g, '*').replace(/÷/g, '/');
@@ -425,7 +430,7 @@ class Component extends DCLogic {
           patch.cat = m.cat || null; patch.catSrc = m.cat ? 'rule' : null;
           if (m.cat && SUGG_EXP.indexOf(m.cat) < 0) patch.extraCat = m.cat;
         }
-        if (!s.env || s.envSrc === 'rule') { patch.env = m.env || null; patch.envSrc = m.env ? 'rule' : null; }
+        if (!s.wish && (!s.env || s.envSrc === 'rule')) { patch.env = m.env || null; patch.envSrc = m.env ? 'rule' : null; }
       }
       self.setState(patch);
     };
@@ -480,7 +485,7 @@ class Component extends DCLogic {
       { id: 'transfer', label: 'Transfer' }
     ].map(function (k) {
       var on = st.kind === k.id;
-      return { label: k.label, on: on, cls: on ? 'seg seg-on' : 'seg', pick: function () { self.setState({ kind: k.id, cat: null, catSrc: null, env: null, envSrc: null, arrive: null, arriveEdit: false }); } };
+      return { label: k.label, on: on, cls: on ? 'seg seg-on' : 'seg', pick: function () { self.setState({ kind: k.id, cat: null, catSrc: null, env: null, envSrc: null, wish: null, arrive: null, arriveEdit: false }); } };
     });
 
     function pickFrom(id) {
@@ -505,12 +510,26 @@ class Component extends DCLogic {
       return { label: a.label, on: on, cls: on ? 'chip chip-on' : 'chip', pick: function () { pickTo(id); } };
     });
 
-    var envelopes = ENV.map(function (e) {
-      var on = st.env === e.id;
-      return { label: e.label, on: on, cls: on ? 'chip chip-on' : 'chip', pick: function () {
-        self.setState({ env: self.state.env === e.id ? null : e.id, envSrc: null });
-      } };
-    });
+    // Counts for: one choice among the envelopes and this month's wishes (or explicitly neither)
+    var WISHES = [{ id: 'Winter tyres', sub: '€480.00 · nothing spent yet' }, { id: 'Weekend in Salzburg', sub: '€350.00 · €120.00 spent' }];
+    var ENV_SUB = { groceries: 'Resets monthly · €187.60 left', eating: 'Resets monthly · −€14.50 overspent', unexpected: 'Carries over · €375.00 left' };
+    this.pickCounts = function (kind, id, toggle) {
+      var s = self.state;
+      if (kind === 'env') self.setState(toggle && s.env === id ? { env: null, envSrc: null } : { env: id, envSrc: null, wish: null });
+      else if (kind === 'wish') self.setState(toggle && s.wish === id ? { wish: null } : { wish: id, env: null, envSrc: null });
+      else self.setState(toggle && s.env === 'none' ? { env: null } : { env: 'none', envSrc: null, wish: null });
+    };
+    function chip(label, on, isWish, aria, pick, isEnv) { return { label: label, on: on, isWish: isWish, isEnv: !!isEnv, aria: aria, cls: on ? 'chip chip-on' : 'chip', pick: pick }; }
+    var envChips = ENV.map(function (e) { return chip(e.label, st.env === e.id, false, e.label + ' envelope', function () { self.pickCounts('env', e.id, true); }, true); });
+    var wishChips = WISHES.map(function (w) { return chip(w.id, st.wish === w.id, true, 'Wish: ' + w.id, function () { self.pickCounts('wish', w.id, true); }); });
+    // order: the pick first; else the envelope the category or merchant rule suggests; then this month's wishes; then the other envelopes
+    var mRule = st.merchant ? MERCH.filter(function (m) { return m.n === st.merchant; })[0] : null;
+    var suggId = st.env && st.env !== 'none' ? st.env : (st.cat && CAT_ENV[st.cat]) || (mRule && mRule.env) || null;
+    var sugg = envChips.filter(function (c, i) { return ENV[i].id === suggId; });
+    var otherEnv = envChips.filter(function (c, i) { return ENV[i].id !== suggId; });
+    var envelopes = sugg.concat(wishChips, otherEnv);
+    if (st.wish) envelopes = wishChips.filter(function (c) { return c.on; }).concat(envChips, wishChips.filter(function (c) { return !c.on; }));
+    if (st.env === 'none') envelopes.unshift(chip('Unplanned', true, false, 'Unplanned: no envelope and no wish', function () { self.pickCounts('none', null, true); }));
 
     function pickCat(c) {
       self.chooseCat(c, false);
@@ -577,6 +596,19 @@ class Component extends DCLogic {
           createLabel = 'Add category “' + name + '”';
         }
       }
+    } else if (st.picker === 'counts') {
+      pickerTitle = 'Counts for';
+      pickerPlaceholder = 'Search envelopes and wishes';
+      var eItems = ENV.filter(function (e) { return matches(e.label + ' envelope'); }).map(function (e) {
+        return { label: e.label, sub: ENV_SUB[e.id], on: st.env === e.id, pick: function () { self.pickCounts('env', e.id, false); self.setState({ picker: null, query: '' }); } };
+      });
+      var wItems = WISHES.filter(function (w) { return matches(w.id + ' wish'); }).map(function (w) {
+        return { label: w.id, sub: w.sub, on: st.wish === w.id, pick: function () { self.pickCounts('wish', w.id, false); self.setState({ picker: null, query: '' }); } };
+      });
+      if (eItems.length) groups.push({ title: 'Envelopes', items: eItems });
+      if (wItems.length) groups.push({ title: 'Wishes in October', items: wItems });
+      if (!tokens.length) groups.push({ title: 'Neither', items: [{ label: 'Unplanned', sub: 'No envelope and no wish', on: st.env === 'none', pick: function () { self.pickCounts('none', null, false); self.setState({ picker: null, query: '' }); } }] });
+      if (!groups.length) { noMatch = true; noMatchText = 'No envelope or wish matches “' + st.query.trim() + '”.'; }
     } else if (st.picker === 'merchant') {
       pickerTitle = 'Merchant';
       pickerPlaceholder = 'Search or type a merchant';
@@ -619,12 +651,12 @@ class Component extends DCLogic {
     function envById(id) { return ENV.filter(function (e) { return e.id === id; })[0]; }
     var rule = st.merchant ? MERCH.filter(function (m) { return m.n === st.merchant; })[0] : null;
     var finalCat = st.cat, catFrom = null;
-    if (!finalCat && isExpense && st.env && envById(st.env).cat) { finalCat = envById(st.env).cat; catFrom = 'the ' + envById(st.env).label + ' envelope'; }
+    if (!finalCat && isExpense && st.env && st.env !== 'none' && envById(st.env).cat) { finalCat = envById(st.env).cat; catFrom = 'the ' + envById(st.env).label + ' envelope'; }
     if (!finalCat && isExpense && rule && rule.cat) { finalCat = rule.cat; catFrom = 'the ' + rule.n + ' rule'; }
-    var finalEnv = st.env, envFrom = null;
-    if (!st.env && isExpense && st.cat && CAT_ENV[st.cat]) { finalEnv = CAT_ENV[st.cat]; envFrom = 'the ' + st.cat + ' category'; }
-    if (!st.env && !finalEnv && isExpense && rule && rule.env) { finalEnv = rule.env; envFrom = 'the ' + rule.n + ' rule'; }
-    if (!st.env && !finalEnv && isExpense && !st.cat && finalCat && CAT_ENV[finalCat]) { finalEnv = CAT_ENV[finalCat]; envFrom = 'the ' + rule.n + ' rule'; }
+    var finalEnv = st.env === 'none' ? null : st.env, envFrom = null;
+    if (!st.env && !st.wish && isExpense && st.cat && CAT_ENV[st.cat]) { finalEnv = CAT_ENV[st.cat]; envFrom = 'the ' + st.cat + ' category'; }
+    if (!st.env && !st.wish && !finalEnv && isExpense && rule && rule.env) { finalEnv = rule.env; envFrom = 'the ' + rule.n + ' rule'; }
+    if (!st.env && !st.wish && !finalEnv && isExpense && !st.cat && finalCat && CAT_ENV[finalCat]) { finalEnv = CAT_ENV[finalCat]; envFrom = 'the ' + rule.n + ' rule'; }
     var envLabel = finalEnv ? envById(finalEnv).label : null;
     var toAcc = accById(st.to);
     // O11: a transfer between two currencies has a second amount, from the date's rate or typed
@@ -659,13 +691,14 @@ class Component extends DCLogic {
       offline: offline,
       kinds: kinds,
       isExpense: isExpense,
+      showEnvRow: isExpense, wishName: st.wish || '', savedWish: !!st.wish && isExpense,
       isTransfer: isTransfer,
       showCategory: !isTransfer,
       fromLabel: isExpense ? 'Paid from' : isIncome ? 'Paid into' : 'From',
       catLabel: st.cat && st.catSrc === 'rule' ? 'Category · from ' + st.merchant + ' rule' : !st.cat && catFrom ? 'Category · optional · if empty, ' + finalCat : 'Category · optional',
       accounts: accounts,
       toAccounts: toAccounts,
-      envelopes: envelopes,
+      envelopes: envelopes, openCounts: function () { self.setState({ picker: 'counts', query: '' }); },
       categories: categories,
       keys: keys,
       currency: acc.cur,
@@ -673,6 +706,7 @@ class Component extends DCLogic {
       amountText: amountText,
       amountColor: shown === null ? 'var(--muted)' : 'var(--ink)',
       errorText: errorText,
+      errorTextShown: errorText || 'Double-tap to paste', errorColor: errorText ? 'var(--warn)' : 'var(--muted)',
       fx: fx,
       noFx: !fx,
       arriveEdit: st.arriveEdit,
@@ -699,7 +733,7 @@ class Component extends DCLogic {
       savedNoCat: !isTransfer && !finalCat,
       savedAuto: !!(catFrom || envFrom),
       savedAutoText: [envFrom ? envLabel + ' envelope added from ' + envFrom : '', catFrom ? finalCat + ' category added from ' + catFrom : ''].filter(Boolean).join('. ') + '.',
-      again: function () { self.setState({ saved: false, expr: '', arrive: null, arriveEdit: false, env: null, envSrc: null, cat: null, catSrc: null, merchant: null, note: '' }); },
+      again: function () { self.setState({ saved: false, expr: '', arrive: null, arriveEdit: false, env: null, envSrc: null, wish: null, cat: null, catSrc: null, merchant: null, note: '' }); },
       undo: function () { self.setState({ saved: false }); },
       openAccounts: function () { self.setState({ picker: 'account', query: '' }); },
       openTo: function () { self.setState({ picker: 'to', query: '' }); },
@@ -722,7 +756,7 @@ class Component extends DCLogic {
       noMatch: noMatch,
       noMatchText: noMatchText,
       merchantLabel: st.merchant ? st.merchant : '+ Merchant',
-      envLabelText: st.env && st.envSrc === 'rule' ? 'Envelope · from ' + st.merchant + ' rule' : (!st.env && envFrom ? 'Envelope · optional · if empty, ' + envLabel : 'Envelope · optional'),
+      envLabelText: st.wish ? 'Counts for · a wish, so no envelope' : (st.env === 'none' ? 'Counts for · no envelope and no wish' : (st.env && st.envSrc === 'rule' ? 'Counts for · from ' + st.merchant + ' rule' : (!st.env && envFrom ? 'Counts for · optional · if empty, ' + envLabel + ' envelope' : 'Counts for · optional'))),
       merchantText: st.merchant ? st.merchant : 'Add merchant',
       merchantHint: st.merchant ? ((st.catSrc === 'rule' || st.envSrc === 'rule') ? 'Rule applied · change' : 'Change') : 'Optional',
       merchantWeight: st.merchant ? '600' : '400',
