@@ -206,3 +206,31 @@ export function wishesSummary(
     },
   };
 }
+
+/**
+ * What the non-dropped wishes of the current month have had spent on them,
+ * in the common currency, summed per currency first and converted at the
+ * rate of the month's first day like the total of `wishesSummary`. Null
+ * when nothing is counted.
+ */
+export function wishesSpentTotal(
+  wishes: Wish[],
+  month: string,
+  valuation: Valuation,
+): string | null {
+  const perCurrency = new Map<string, bigint>();
+  for (const wish of wishes) {
+    if (wish.state === 'dropped') continue;
+    perCurrency.set(
+      wish.currency,
+      (perCurrency.get(wish.currency) ?? 0n) + BigInt(wish.spent),
+    );
+  }
+  if (perCurrency.size === 0) return null;
+  let total = 0n;
+  for (const [code, amount] of perCurrency) {
+    const converted = valuation.toCommon(amount, code, `${month}-01`);
+    if (converted !== undefined) total += converted;
+  }
+  return toMinorString(total);
+}

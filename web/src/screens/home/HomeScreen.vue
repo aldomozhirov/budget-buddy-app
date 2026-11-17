@@ -32,6 +32,7 @@ import ProfileSheet from './ProfileSheet.vue';
 import { authState, setAuthState } from '../../stores/auth.js';
 import { monthName } from '../envelopes/envelopeFormat.js';
 import { createMoneyFormatter } from '../summary/summaryFormat';
+import { wishesCardLines, type HomeCardKey } from './wishesCard.js';
 
 /**
  * Home: greeting, the eye button, the open check-in banner, the Income,
@@ -91,11 +92,6 @@ const dateLine = computed(() =>
 
 const spending = computed(() => home.value?.spending ?? null);
 const needsCategory = computed(() => home.value?.needsCategory ?? 0);
-/** The Wishes row's line; it shows no amounts (UI-HOME-9). */
-const wishesText = computed(() => {
-  const open = home.value?.wishes.open ?? 0;
-  return open > 0 ? `${open} open this month` : 'No wishes this month';
-});
 /** "October" and "Day 13 of 31" for the envelopes card's heading. */
 const monthHeading = computed(() => {
   const today = home.value?.today;
@@ -107,6 +103,80 @@ const monthHeading = computed(() => {
     day: `Day ${day} of ${length}`,
   };
 });
+/** The Wishes card's lines (UI-HOME-10). */
+const wishesLines = computed(() =>
+  home.value
+    ? wishesCardLines(
+        home.value.wishes,
+        visible.value,
+        currency.value,
+        formatter.value,
+      )
+    : null,
+);
+/** The cards of the carousel, in order; the month plan joins in spec 3c. */
+const cards = computed<{ key: HomeCardKey; title: string }[]>(() => [
+  ...(spending.value
+    ? [{ key: 'envelopes' as const, title: 'Envelopes' }]
+    : []),
+  { key: 'wishes', title: 'Wishes' },
+]);
+/** The card in view, as an index into `cards`. */
+const activeCard = ref(0);
+const carousel = ref<HTMLElement | null>(null);
+/** Where this device remembers the card last in view (not on the account). */
+const CARD_KEY = 'bb.home.card';
+
+/** The remembered card's name; storage may be missing or blocked. */
+function rememberedCard(): string | null {
+  try {
+    return localStorage.getItem(CARD_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Distance in pixels from one card's start to the next one's. */
+function cardStep(track: HTMLElement): number {
+  const [first, second] = Array.from(track.children) as HTMLElement[];
+  return first && second ? second.offsetLeft - first.offsetLeft : 0;
+}
+
+/** Follows the swipe: the dots and the remembered card. */
+function onCarouselScroll(): void {
+  const track = carousel.value;
+  const step = track ? cardStep(track) : 0;
+  if (!track || step === 0) return;
+  const index = Math.min(
+    Math.max(0, Math.round(track.scrollLeft / step)),
+    cards.value.length - 1,
+  );
+  const card = cards.value[index];
+  if (!card || index === activeCard.value) return;
+  activeCard.value = index;
+  try {
+    localStorage.setItem(CARD_KEY, card.key);
+  } catch {
+    // Not remembering is harmless.
+  }
+}
+
+/** Opens the carousel on the remembered card, without sliding there. */
+function showRememberedCard(track: HTMLElement): void {
+  const remembered = rememberedCard();
+  const index = Math.max(
+    0,
+    cards.value.findIndex((card) => card.key === remembered),
+  );
+  activeCard.value = index;
+  track.scrollLeft = index * cardStep(track);
+}
+
+// The carousel exists once Home has loaded; open it on the remembered card.
+watch(carousel, (track) => {
+  if (track) showRememberedCard(track);
+});
+
 /** The month's spending, or what stands in for it while hidden. */
 const spentAmount = computed(() => {
   const spent = spending.value?.spent;
@@ -438,59 +508,127 @@ onBeforeUnmount(() => {
         </RouterLink>
 
         <section
-          v-if="spending"
-          class="home-month"
-          aria-labelledby="month-heading"
+          class="home-carousel"
+          role="group"
+          aria-roledescription="carousel"
+          aria-label="This month"
         >
-          <div class="home-month-head">
-            <h2 id="month-heading" class="home-month-title">
-              {{ monthHeading.month }}
-            </h2>
-            <span class="t-sub">{{ monthHeading.day }}</span>
-          </div>
-          <div class="home-month-spent">
-            <span
-              v-if="visible && spending.spent === null"
-              class="num home-month-amount"
-            >
-              {{ spentAmount }}
-            </span>
-            <BbAmount
-              v-else
-              class="home-month-amount"
-              :value="spentAmount"
-              :visible="visible"
-              :masked-value="spentMask"
-            />
-            <span class="t-sub">spent</span>
-          </div>
-          <RouterLink
-            v-for="row in envelopeRows"
-            :key="row.envelope.id"
-            class="home-envelope"
-            :to="`/envelopes/${row.envelope.id}`"
+          <div
+            ref="carousel"
+            class="home-cards"
+            @scroll.passive="onCarouselScroll"
           >
-            <span class="home-envelope-head">
-              <span class="home-envelope-name">{{ row.envelope.name }}</span>
-              <span class="num t-sub" :class="{ warn: row.envelope.over }">
-                {{ row.text }}
-              </span>
-            </span>
-            <BbProgress
-              :value="row.envelope.share"
-              :over="row.envelope.over"
-              :label="`${row.envelope.name} used`"
-              :value-text="visible ? '' : row.text"
-            />
-          </RouterLink>
-        </section>
+            <section
+              v-for="(card, index) in cards"
+              :key="card.key"
+              class="home-month home-card"
+              role="group"
+              aria-roledescription="slide"
+              :aria-label="`${card.title}, ${index + 1} of ${cards.length}`"
+            >
+              <div class="home-month-head">
+                <h2 class="home-month-title">{{ card.title }}</h2>
+                <span class="t-sub">{{
+                  card.key === 'envelopes'
+                    ? monthHeading.day
+                    : monthHeading.month
+                }}</span>
+              </div>
 
-        <RouterLink class="home-needs home-wishes" to="/wishes">
-          <BbIcon name="star" :size="22" />
-          <span class="home-needs-text">Wishes</span>
-          <span class="t-sub home-wishes-count">{{ wishesText }}</span>
-          <BbIcon name="forward" :size="18" class="chev" />
-        </RouterLink>
+              <template v-if="card.key === 'envelopes' && spending">
+                <div class="home-month-spent">
+                  <span
+                    v-if="visible && spending.spent === null"
+                    class="num home-month-amount"
+                  >
+                    {{ spentAmount }}
+                  </span>
+                  <BbAmount
+                    v-else
+                    class="home-month-amount"
+                    :value="spentAmount"
+                    :visible="visible"
+                    :masked-value="spentMask"
+                  />
+                  <span class="t-sub">spent</span>
+                </div>
+                <RouterLink
+                  v-for="row in envelopeRows"
+                  :key="row.envelope.id"
+                  class="home-envelope"
+                  :to="`/envelopes/${row.envelope.id}`"
+                >
+                  <span class="home-envelope-head">
+                    <span class="home-envelope-name">{{
+                      row.envelope.name
+                    }}</span>
+                    <span
+                      class="num t-sub"
+                      :class="{ warn: row.envelope.over }"
+                    >
+                      {{ row.text }}
+                    </span>
+                  </span>
+                  <BbProgress
+                    :value="row.envelope.share"
+                    :over="row.envelope.over"
+                    :label="`${row.envelope.name} used`"
+                    :value-text="visible ? '' : row.text"
+                  />
+                </RouterLink>
+              </template>
+
+              <template v-else-if="card.key === 'wishes' && wishesLines">
+                <div v-if="!wishesLines.empty" class="home-month-spent">
+                  <span class="num home-month-amount">{{
+                    wishesLines.figure
+                  }}</span>
+                  <span class="num t-sub">{{ wishesLines.caption }}</span>
+                </div>
+                <p v-else class="home-wishes-empty">No wishes this month</p>
+                <RouterLink
+                  v-for="row in wishesLines.rows"
+                  :key="row.wish.id"
+                  class="home-envelope"
+                  :to="`/wishes/${row.wish.id}`"
+                >
+                  <span class="home-envelope-head">
+                    <span class="home-envelope-name home-wish-name">
+                      <BbIcon name="star" :size="14" class="home-wish-star" />
+                      <span class="home-wish-title">{{ row.wish.name }}</span>
+                    </span>
+                    <span
+                      class="num t-sub home-wish-text"
+                      :class="{ warn: row.over }"
+                    >
+                      {{ row.text }}
+                    </span>
+                  </span>
+                  <BbProgress
+                    :value="row.share"
+                    :over="row.over"
+                    :label="`${row.wish.name} spent`"
+                    :value-text="visible ? '' : row.text"
+                  />
+                </RouterLink>
+                <RouterLink class="home-wishes-all t-sub" to="/wishes">
+                  <span class="home-wishes-all-text">{{
+                    wishesLines.footer
+                  }}</span>
+                  <BbIcon name="forward" :size="16" class="chev" />
+                </RouterLink>
+              </template>
+            </section>
+          </div>
+          <div v-if="cards.length > 1" class="home-dots" aria-hidden="true">
+            <span
+              v-for="(card, index) in cards"
+              :key="card.key"
+              class="home-dot"
+              :class="{ 'home-dot-active': index === activeCard }"
+            ></span>
+          </div>
+        </section>
 
         <RouterLink
           v-if="needsCategory > 0"
@@ -516,6 +654,10 @@ onBeforeUnmount(() => {
             <RouterLink class="home-grid-link" to="/envelopes">
               <BbIcon name="envelope" />
               Envelopes
+            </RouterLink>
+            <RouterLink class="home-grid-link" to="/wishes">
+              <BbIcon name="star" />
+              Wishes
             </RouterLink>
             <RouterLink class="home-grid-link" to="/accounts">
               <BbIcon name="account" />
@@ -722,6 +864,69 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
+.home-carousel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* One card in view; the track bleeds to the screen's edges so the next card
+   never peeks in, and each card is a snap stop. */
+.home-cards {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+  margin: 0 calc(-1 * var(--gutter));
+  padding: 0 var(--gutter);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-padding: 0 var(--gutter);
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.home-cards::-webkit-scrollbar {
+  display: none;
+}
+
+.home-card {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  box-sizing: border-box;
+}
+
+.home-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.home-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+  transition: width 0.2s;
+}
+
+.home-dot-active {
+  width: 18px;
+  background: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-cards {
+    scroll-behavior: auto;
+  }
+
+  .home-dot {
+    transition: none;
+  }
+}
+
 .home-month {
   display: flex;
   flex-direction: column;
@@ -796,7 +1001,46 @@ onBeforeUnmount(() => {
   font-weight: 500;
 }
 
-.home-wishes-count {
-  font-size: 13px;
+.home-wishes-empty {
+  margin: 0;
+  padding: 4px 0 14px;
+  color: var(--muted);
+}
+
+.home-wish-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.home-wish-star {
+  flex: none;
+  color: var(--muted);
+}
+
+.home-wish-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-wish-text {
+  flex: none;
+}
+
+.home-wishes-all {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.home-wishes-all-text {
+  flex: 1;
 }
 </style>

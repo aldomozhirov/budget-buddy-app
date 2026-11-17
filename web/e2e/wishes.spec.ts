@@ -3,8 +3,8 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { create, startFamily, type Family } from './support/family.js';
 
 /**
- * Wishes and Home's Wishes row (spec 3a task 39; UI-WSH-1, UI-WSH-2,
- * UI-WSH-7, UI-HOME-9). Wishes are seeded through the API. Expenses cannot
+ * Wishes, and the limited Home without the Wishes card (spec 3a task 39;
+ * UI-WSH-1, UI-WSH-2, UI-WSH-7, UI-HOME-10). Home's carousel has its own spec. Wishes are seeded through the API. Expenses cannot
  * be linked to a wish yet, so the figures of "spent" come from a changed
  * answer of `GET /api/wishes`.
  */
@@ -122,199 +122,66 @@ function card(page: Page, name: string) {
   return page.getByRole('link', { name: new RegExp(`^${name}`, 'u') });
 }
 
-/** Home's Wishes row. */
+/** The last row of Home's Wishes card, which opens Wishes. */
 function homeRow(page: Page) {
-  return page.getByRole('link', { name: /^Wishes/u });
+  return page.getByRole('link', { name: /(open this month|Plan a wish)/u });
 }
 
-test.describe('Home’s Wishes row', () => {
-  test('reads “2 open this month”, opens Wishes on this month, and Back returns', async ({
-    page,
-  }, testInfo) => {
-    await startFamily(page, async (family) => {
-      await seedBase(family);
-      await create(family, '/api/envelopes', {
-        name: 'Groceries',
-        currency: 'EUR',
-        monthlyAmount: '50000',
-        mode: 'reset',
-      });
-      const month = await currentMonth(family);
-      await wish(family, { month, name: 'Winter tyres', amount: '48000' });
-      await wish(family, { month, name: 'Weekend away', amount: '35000' });
-      const finished = await wish(family, {
-        month,
-        name: 'Sofia’s birthday',
-        amount: '15000',
-      });
-      await setState(family, finished, 'done');
-      // A wish of another month is not counted.
-      await wish(family, {
-        month: addMonths(month, 1),
-        name: 'Next month’s wish',
-        amount: '10000',
-      });
+test.describe('Home’s Wishes card offline', () => {
+  test.use({ serviceWorkers: 'allow' });
 
-      await page.goto(`${family.origin}/`);
-      const row = homeRow(page);
-      await expect(row).toContainText('2 open this month');
-      await expect(row).toHaveAttribute('href', '/wishes');
-      await screenshot(page, testInfo, 'HomeWishes');
-
-      await row.click();
-      await expect(page).toHaveURL(`${family.origin}/wishes`);
-      await expect(page.getByRole('heading', { name: 'Wishes' })).toBeVisible();
-      await expect(page.getByText(withYear(month))).toBeVisible();
-      await expect(page.getByText('This month', { exact: true })).toBeVisible();
-
-      await page.getByRole('button', { name: 'Back to home' }).click();
-      await expect(page).toHaveURL(`${family.origin}/`);
-      await expect(homeRow(page)).toContainText('2 open this month');
-    });
-  });
-
-  test('reads “No wishes this month” with none open, and still opens Wishes', async ({
-    page,
-  }) => {
-    await startFamily(page, async (family) => {
-      await seedBase(family);
-      const month = await currentMonth(family);
-      // Only a done wish, and one next month: nothing is open this month.
-      const finished = await wish(family, {
-        month,
-        name: 'Sofia’s birthday',
-        amount: '15000',
-      });
-      await setState(family, finished, 'done');
-      await wish(family, {
-        month: addMonths(month, 1),
-        name: 'Next month’s wish',
-        amount: '10000',
-      });
-
-      await page.goto(`${family.origin}/`);
-      await expect(homeRow(page)).toContainText('No wishes this month');
-      await expect(homeRow(page)).not.toContainText('open');
-      await homeRow(page).click();
-      await expect(page).toHaveURL(`${family.origin}/wishes`);
-      await expect(page.getByText('1 wish · 0 open')).toBeVisible();
-    });
-  });
-
-  test('sits under the envelopes card and above “Needs a category”', async ({
-    page,
-  }) => {
-    await startFamily(page, async (family) => {
-      await seedBase(family);
-      await create(family, '/api/envelopes', {
-        name: 'Groceries',
-        currency: 'EUR',
-        monthlyAmount: '50000',
-        mode: 'reset',
-      });
-      await create(family, '/api/transactions', {
-        kind: 'expense',
-        date: new Date().toISOString().slice(0, 10),
-        accountId: 1,
-        amount: '3250',
-        merchant: 'Edeka',
-      });
-      await page.goto(`${family.origin}/`);
-      const row = homeRow(page);
-      const needs = page.getByRole('link', { name: /^Needs a category/u });
-      await expect(row).toBeVisible();
-      await expect(needs).toBeVisible();
-      const month = nameOf(await currentMonth(family));
-      const envelopes = (await page
-        .getByRole('region', { name: month })
-        .boundingBox())!;
-      const wishes = (await row.boundingBox())!;
-      const uncategorised = (await needs.boundingBox())!;
-      expect(wishes.y).toBeGreaterThanOrEqual(envelopes.y + envelopes.height);
-      expect(uncategorised.y).toBeGreaterThanOrEqual(wishes.y + wishes.height);
-      // No amount is shown on the row.
-      await expect(row).not.toContainText(/\d[.,]\d\d/u);
-    });
-  });
-
-  test('is left as it is when amounts are hidden or shown', async ({
+  test('the limited Home has no Wishes card, and Wishes cannot be opened', async ({
     page,
   }) => {
     await startFamily(page, async (family) => {
       await seedBase(family);
       const month = await currentMonth(family);
       await wish(family, { month, name: 'Winter tyres', amount: '48000' });
-      await wish(family, { month, name: 'Weekend away', amount: '35000' });
 
       await page.goto(`${family.origin}/`);
-      const eye = page.getByRole('button', {
-        name: 'Show amounts for 30 seconds',
-      });
-      await expect(eye).toHaveAttribute('aria-pressed', 'false');
-      await expect(homeRow(page)).toHaveText(/Wishes\s*2 open this month/u);
-      const hidden = await homeRow(page).innerText();
-
-      await eye.click();
+      await expect(homeRow(page)).toContainText('1 open this month');
       await expect(
-        page.getByRole('button', { name: 'Hide amounts' }),
-      ).toHaveAttribute('aria-pressed', 'true');
-      await expect(homeRow(page)).toContainText('2 open this month');
-      expect(await homeRow(page).innerText()).toBe(hidden);
-    });
-  });
+        page.getByRole('link', { name: 'Wealth history' }),
+      ).toBeVisible();
+      await expect.poll(() => records(page, 'addOptions')).toBe(1);
 
-  test.describe('offline', () => {
-    test.use({ serviceWorkers: 'allow' });
+      // Wishes opened once online; the worker keeps none of it (UI-WSH-7).
+      await homeRow(page).click();
+      await expect(card(page, 'Winter tyres')).toBeVisible();
+      await page.goBack();
+      await expect(homeRow(page)).toBeVisible();
+      await waitForControl(page);
+      expect(await cachedApiRequests(page)).toEqual([]);
 
-    test('the limited Home has no Wishes row, and Wishes cannot be opened', async ({
-      page,
-    }) => {
-      await startFamily(page, async (family) => {
-        await seedBase(family);
-        const month = await currentMonth(family);
-        await wish(family, { month, name: 'Winter tyres', amount: '48000' });
+      await goOffline(page, family);
+      await page.reload();
+      await expect(
+        page.getByRole('heading', { name: 'Hi, Alena' }),
+      ).toBeVisible();
+      await expect(page.getByText('Offline', { exact: true })).toBeVisible();
+      await expect(homeRow(page)).toHaveCount(0);
+      await expect(page.getByRole('group', { name: 'This month' })).toHaveCount(
+        0,
+      );
+      await expect(page.getByRole('group', { name: /^Wishes/u })).toHaveCount(
+        0,
+      );
+      await expect(page.getByText('open this month')).toHaveCount(0);
+      await expect(page.getByText('No wishes this month')).toHaveCount(0);
 
-        await page.goto(`${family.origin}/`);
-        await expect(homeRow(page)).toContainText('1 open this month');
-        await expect(
-          page.getByRole('link', { name: 'Wealth history' }),
-        ).toBeVisible();
-        await expect.poll(() => records(page, 'addOptions')).toBe(1);
-
-        // Wishes opened once online; the worker keeps none of it (UI-WSH-7).
-        await homeRow(page).click();
-        await expect(card(page, 'Winter tyres')).toBeVisible();
-        await page.goBack();
-        await expect(homeRow(page)).toBeVisible();
-        await waitForControl(page);
-        expect(await cachedApiRequests(page)).toEqual([]);
-
-        await goOffline(page, family);
-        await page.reload();
-        await expect(
-          page.getByRole('heading', { name: 'Hi, Alena' }),
-        ).toBeVisible();
-        await expect(page.getByText('Offline', { exact: true })).toBeVisible();
-        await expect(homeRow(page)).toHaveCount(0);
-        await expect(page.getByText('open this month')).toHaveCount(0);
-        await expect(page.getByText('No wishes this month')).toHaveCount(0);
-
-        // Typing the address does not open it either: nothing of the list
-        // is on the phone.
-        await page.goto(`${family.origin}/wishes`);
-        await expect(
-          page.getByRole('heading', { name: 'Wishes' }),
-        ).toBeVisible();
-        await expect(page.getByRole('alert')).toContainText(
-          'Could not load the wishes. Check your connection and try again.',
-        );
-        await expect(
-          page.getByRole('button', { name: 'Try again' }),
-        ).toBeVisible();
-        await expect(page.getByText('Winter tyres')).toHaveCount(0);
-        await expect(page.getByText('1 wish · 1 open')).toHaveCount(0);
-        expect(await cachedApiRequests(page)).toEqual([]);
-      });
+      // Typing the address does not open it either: nothing of the list
+      // is on the phone.
+      await page.goto(`${family.origin}/wishes`);
+      await expect(page.getByRole('heading', { name: 'Wishes' })).toBeVisible();
+      await expect(page.getByRole('alert')).toContainText(
+        'Could not load the wishes. Check your connection and try again.',
+      );
+      await expect(
+        page.getByRole('button', { name: 'Try again' }),
+      ).toBeVisible();
+      await expect(page.getByText('Winter tyres')).toHaveCount(0);
+      await expect(page.getByText('1 wish · 1 open')).toHaveCount(0);
+      expect(await cachedApiRequests(page)).toEqual([]);
     });
   });
 });
