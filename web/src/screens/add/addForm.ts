@@ -234,6 +234,125 @@ export function pickLabel(
 }
 
 /**
+ * What an expense counts for (UI-ADD-17): one choice among an envelope, a
+ * wish of the date's month and neither. An empty choice is none of them.
+ */
+export interface CountsFor {
+  envelope: FormPick;
+  wishId: number | null;
+  /** "Neither": no envelope and no wish, whatever the category's default. */
+  unplanned: boolean;
+}
+
+/** Nothing chosen yet. */
+export const EMPTY_COUNTS: CountsFor = {
+  envelope: EMPTY_PICK,
+  wishId: null,
+  unplanned: false,
+};
+
+/** One thing the Counts for chips can show. */
+export interface CountsRef {
+  type: 'envelope' | 'wish' | 'none';
+  /** 0 for `none`. */
+  id: number;
+}
+
+/** The pick that makes `target` the choice, by hand; the rest is cleared. */
+export function countsPick(target: CountsRef): CountsFor {
+  if (target.type === 'envelope') {
+    return {
+      envelope: { id: target.id, source: 'hand' },
+      wishId: null,
+      unplanned: false,
+    };
+  }
+  if (target.type === 'wish') {
+    return { envelope: EMPTY_PICK, wishId: target.id, unplanned: false };
+  }
+  return { envelope: EMPTY_PICK, wishId: null, unplanned: true };
+}
+
+/** Whether `target` is the current choice. */
+export function countsIs(current: CountsFor, target: CountsRef): boolean {
+  if (target.type === 'envelope') return current.envelope.id === target.id;
+  if (target.type === 'wish') return current.wishId === target.id;
+  return current.unplanned;
+}
+
+/**
+ * Tapping a chip picks it and clears the other kinds; tapping the selected
+ * chip clears it (UI-ADD-17).
+ */
+export function toggleCounts(current: CountsFor, target: CountsRef): CountsFor {
+  return countsIs(current, target) ? EMPTY_COUNTS : countsPick(target);
+}
+
+/**
+ * The chips of the Counts for row (UI-ADD-17): the picked one leads, else
+ * the envelope the category would fill, then the date's wishes, then the
+ * other envelopes, cut at `limit`. "Unplanned" shows only while picked.
+ * @param suggested The envelope the on-save fill would give, or null.
+ */
+export function countsChips(
+  current: CountsFor,
+  envelopeIds: readonly number[],
+  wishIds: readonly number[],
+  suggested: number | null,
+  limit: number,
+): CountsRef[] {
+  const first: CountsRef[] =
+    suggested !== null && envelopeIds.includes(suggested)
+      ? [{ type: 'envelope', id: suggested }]
+      : [];
+  const rest: CountsRef[] = [
+    ...wishIds.map((id): CountsRef => ({ type: 'wish', id })),
+    ...envelopeIds
+      .filter((id) => id !== suggested)
+      .map((id): CountsRef => ({ type: 'envelope', id })),
+  ];
+  const row = [...first, ...rest].slice(0, limit);
+  const picked: CountsRef | null = current.unplanned
+    ? { type: 'none', id: 0 }
+    : current.wishId !== null
+      ? { type: 'wish', id: current.wishId }
+      : current.envelope.id !== null
+        ? { type: 'envelope', id: current.envelope.id }
+        : null;
+  if (!picked) return row;
+  return [
+    picked,
+    ...row.filter((ref) => !(ref.type === picked.type && ref.id === picked.id)),
+  ];
+}
+
+/**
+ * The label above the Counts for chips (UI-ADD-17): "Counts for · optional",
+ * "· optional · if empty, Groceries envelope", "· from REWE rule", "· a
+ * wish, so no envelope" or "· no envelope and no wish".
+ * @param preview Name of the envelope the on-save fill would give.
+ */
+export function countsForLabel(
+  current: CountsFor,
+  merchant: string,
+  preview: string | null,
+): string {
+  if (current.wishId !== null) return 'Counts for · a wish, so no envelope';
+  if (current.unplanned) return 'Counts for · no envelope and no wish';
+  if (
+    current.envelope.id !== null &&
+    current.envelope.source === 'rule' &&
+    merchant
+  ) {
+    return `Counts for · from ${merchant} rule`;
+  }
+  if (current.envelope.id === null && preview) {
+    return `Counts for · optional · if empty, ${preview} envelope`;
+  }
+  return 'Counts for · optional';
+}
+
+/**
  * The hint at the end of the merchant field: "Optional" while empty, "Rule
  * applied · change" while a rule's value is on the form, else "Change".
  */

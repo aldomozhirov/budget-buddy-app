@@ -139,12 +139,20 @@ test.describe('Adding an expense from a wish', () => {
         .getByRole('radio', { name: /ING Visa/u })
         .click();
       await expect(amount).toContainText('€480.00');
-      await expect(page.getByText('Counts for', { exact: true })).toBeVisible();
       await expect(
-        page.getByRole('group', { name: 'Counts for' }),
-      ).toContainText('Winter tyres');
-      // No Envelope row: the wish takes its place.
-      await expect(page.getByText(/^Envelope/u)).toHaveCount(0);
+        page.getByText('Counts for · a wish, so no envelope', { exact: true }),
+      ).toBeVisible();
+      // The wish is picked by hand and leads the chips (UI-ADD-16).
+      const counts = page.getByRole('group', { name: /^Counts for/u });
+      await expect(counts.getByRole('button').first()).toHaveAccessibleName(
+        'Wish: Winter tyres',
+      );
+      await expect(
+        counts.getByRole('button', {
+          name: 'Wish: Winter tyres',
+          pressed: true,
+        }),
+      ).toBeVisible();
       await expect(
         page.getByRole('button', { name: 'Note: Winter tyres. Change' }),
       ).toBeVisible();
@@ -312,7 +320,7 @@ test.describe('Adding an expense from a wish', () => {
     });
   });
 
-  test('a date outside the wish’s month disables Save and says why', async ({
+  test('a date outside the wish’s month clears the wish, with no warning, and Save is enabled', async ({
     page,
   }) => {
     await startFamily(page, async (family) => {
@@ -320,34 +328,31 @@ test.describe('Adding an expense from a wish', () => {
       const month = await currentMonth(family);
       const id = await seedWish(family, month);
       await openFromWish(page, family, id);
+      const counts = page.getByRole('group', { name: /^Counts for/u });
+      await expect(
+        counts.getByRole('button', {
+          name: 'Wish: Winter tyres',
+          pressed: true,
+        }),
+      ).toBeVisible();
       await page.getByRole('button', { name: /^Date:/u }).click();
       const sheet = page.getByRole('dialog', { name: 'Date' });
       await sheet.getByRole('button', { name: 'Previous month' }).click();
       await sheet
         .getByRole('button', { name: /^1 [A-Z][a-z]+ \d{4}$/u })
         .click();
-      const names = [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December',
-      ];
+      await expect(sheet).toHaveCount(0);
+      // No "Pick a date in <month>" warning any more: the wish is let go.
+      await expect(page.getByText(/^Pick a date in /u)).toHaveCount(0);
       await expect(
-        page.getByText(
-          `Pick a date in ${names[Number(month.slice(5)) - 1]} to count for Winter tyres.`,
-        ),
-      ).toBeVisible();
+        counts.getByRole('button', { name: 'Wish: Winter tyres' }),
+      ).toHaveCount(0);
+      await expect(counts.getByRole('button', { pressed: true })).toHaveCount(
+        0,
+      );
       await expect(
         page.getByRole('button', { name: 'Save €480.00' }),
-      ).toBeDisabled();
+      ).toBeEnabled();
     });
   });
 
@@ -363,9 +368,7 @@ test.describe('Adding an expense from a wish', () => {
 
       await page.getByRole('radio', { name: 'Income', exact: true }).click();
       await expect(counts).toHaveCount(0);
-      await expect(page.getByText('Counts for', { exact: true })).toHaveCount(
-        0,
-      );
+      await expect(page.getByText(/^Counts for/u)).toHaveCount(0);
       await page.getByRole('radio', { name: 'Transfer', exact: true }).click();
       await expect(counts).toHaveCount(0);
 
@@ -400,12 +403,15 @@ test.describe('Adding an expense from a wish', () => {
       await expect(
         page.getByRole('group', { name: 'Amount', exact: true }),
       ).toBeVisible();
-      await expect(page.getByRole('group', { name: 'Counts for' })).toHaveCount(
-        0,
-      );
-      await expect(page.getByText('Counts for', { exact: true })).toHaveCount(
-        0,
-      );
+      // The row is the plain Counts for row: nothing is picked in it.
+      await expect(
+        page.getByText('Counts for · optional', { exact: true }),
+      ).toBeVisible();
+      await expect(
+        page
+          .getByRole('group', { name: /^Counts for/u })
+          .getByRole('button', { pressed: true }),
+      ).toHaveCount(0);
       await expect(
         page.getByRole('button', { name: 'Enter an amount' }),
       ).toBeDisabled();
@@ -420,7 +426,8 @@ test.describe('Adding an expense from a wish', () => {
       await expect(
         page.getByRole('heading', { name: 'Expense saved' }),
       ).toBeVisible();
-      await expect(page.getByText(/^Counts for/u)).toHaveCount(0);
+      // The form's own label stays in the page; the saved note has no "·".
+      await expect(page.getByText(/^Counts for (?!·)/u)).toHaveCount(0);
     });
   });
 

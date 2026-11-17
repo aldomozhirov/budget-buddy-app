@@ -62,4 +62,58 @@ describe('createTransactionRequestSchema with a wish', () => {
       }).success,
     ).toBe(false);
   });
+
+  it('accepts a link kind with a wish only', () => {
+    for (const wishFrom of ['wish', 'form']) {
+      expect(
+        createTransactionRequestSchema.safeParse({
+          ...expense,
+          wishId: 3,
+          wishFrom,
+        }).success,
+      ).toBe(true);
+    }
+    expect(
+      createTransactionRequestSchema.safeParse({ ...expense, wishFrom: 'form' })
+        .success,
+    ).toBe(false);
+    expect(
+      createTransactionRequestSchema.safeParse({
+        ...expense,
+        wishId: 3,
+        wishFrom: 'member',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('accepts neither on an expense, alone or with a null envelope', () => {
+    expect(
+      createTransactionRequestSchema.safeParse({ ...expense, unplanned: true })
+        .success,
+    ).toBe(true);
+    expect(
+      createTransactionRequestSchema.safeParse({
+        ...expense,
+        envelopeId: null,
+        unplanned: true,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('refuses neither with an envelope, a wish, false or an income', () => {
+    for (const extra of [
+      { envelopeId: 2 },
+      { wishId: 3 },
+      { unplanned: false },
+      { kind: 'income' },
+    ]) {
+      expect(
+        createTransactionRequestSchema.safeParse({
+          ...expense,
+          unplanned: true,
+          ...extra,
+        }).success,
+      ).toBe(false);
+    }
+  });
 });

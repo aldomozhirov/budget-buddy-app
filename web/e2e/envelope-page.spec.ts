@@ -671,12 +671,19 @@ async function openAddFrom(
   await expect(
     page.getByRole('radio', { name: 'Expense', checked: true }),
   ).toBeVisible();
-  const chips = page.getByRole('radiogroup', { name: 'Envelope' });
-  await expect(chips.getByRole('radio', { checked: true })).toHaveCount(1);
-  await expect(chips.getByRole('radio', { name })).toBeChecked();
-  await expect(chips.getByRole('radio').first()).toHaveAccessibleName(name);
-  await expect(chips.getByRole('radio').first()).toBeChecked();
-  await expect(page.getByText('Envelope · optional')).toBeVisible();
+  const chips = page.getByRole('group', { name: /^Counts for/ });
+  await expect(chips.getByRole('button', { pressed: true })).toHaveCount(1);
+  await expect(
+    chips.getByRole('button', { name: `${name} envelope`, pressed: true }),
+  ).toBeVisible();
+  await expect(chips.getByRole('button').first()).toHaveAccessibleName(
+    `${name} envelope`,
+  );
+  await expect(chips.getByRole('button').first()).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(page.getByText('Counts for · optional')).toBeVisible();
 }
 
 test('Add expense opens Add with that envelope selected and first', async ({
@@ -708,8 +715,10 @@ test('the linked envelope previews its category, fills it on save and survives A
     await page.goto(`${family.origin}/envelopes/${groceries}`);
     await page.getByRole('link', { name: 'Add expense' }).click();
 
-    const chips = page.getByRole('radiogroup', { name: 'Envelope' });
-    await expect(chips.getByRole('radio', { name: 'Groceries' })).toBeChecked();
+    const chips = page.getByRole('group', { name: /^Counts for/ });
+    await expect(
+      chips.getByRole('button', { name: 'Groceries envelope', pressed: true }),
+    ).toBeVisible();
     await expect(
       page.getByText('Category · optional · if empty, Groceries'),
     ).toBeVisible();
@@ -728,9 +737,11 @@ test('the linked envelope previews its category, fills it on save and survives A
 
     // Add another keeps the envelope, and still previews the category.
     await page.getByRole('button', { name: 'Add another' }).click();
-    await expect(chips.getByRole('radio', { name: 'Groceries' })).toBeChecked();
-    await expect(chips.getByRole('radio').first()).toHaveAccessibleName(
-      'Groceries',
+    await expect(
+      chips.getByRole('button', { name: 'Groceries envelope', pressed: true }),
+    ).toBeVisible();
+    await expect(chips.getByRole('button').first()).toHaveAccessibleName(
+      'Groceries envelope',
     );
     await expect(
       page.getByText('Category · optional · if empty, Groceries'),

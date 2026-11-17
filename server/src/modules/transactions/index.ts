@@ -128,8 +128,8 @@ export const transactionRoutes: FastifyPluginAsync<{
             };
           }
         }
-        // A wish takes the expense out of any envelope, default or rule
-        // (PLN-18, O13), so nothing is filled in for an envelope.
+        // A wish or "neither" takes the expense out of any envelope, default
+        // or rule (PLN-18, O13, UI-ADD-17), so none is filled in.
         const fill = fillOnSave(
           {
             kind: body.kind,
@@ -144,8 +144,8 @@ export const transactionRoutes: FastifyPluginAsync<{
         if (issues.length > 0) return { kind: 'invalid', issues };
         // Only what was sent is checked: a filled value is an active default.
         draft.state.categoryId = fill.categoryId;
-        draft.state.envelopeId =
-          body.wishId === undefined ? fill.envelopeId : null;
+        const noEnvelope = body.wishId !== undefined || body.unplanned === true;
+        draft.state.envelopeId = noEnvelope ? null : fill.envelopeId;
         const state = settle(database, draft, lookup, true);
         if (body.wishId !== undefined) {
           const linked = recordedLink(
@@ -176,9 +176,9 @@ export const transactionRoutes: FastifyPluginAsync<{
             changedAt: now,
           });
         }
-        // No envelope default was used for an expense that counts for a wish.
+        // No envelope default was used for a wish or "neither".
         const filled = { ...fill.filled };
-        if (body.wishId !== undefined) delete filled.envelope;
+        if (noEnvelope) delete filled.envelope;
         return { kind: 'created', id, filled };
       },
     )();
@@ -642,7 +642,9 @@ export function checkDraft(
 }
 
 /**
- * The recorded link of a new expense to its wish (PLN-18, spec 3a Design 3).
+ * The link of a new expense to its wish (PLN-18, spec 3a Design 3): recorded
+ * when the form was opened from the wish (`wishFrom: 'wish'`), else a
+ * member's (UI-ADD-17).
  * The link amount is the typed `linkAmount` (the wish's own figure of an
  * untouched prefill), else the expense converted at the day's rate.
  * @returns The link, `message` for a wish that is dropped, deleted or of
@@ -706,7 +708,7 @@ function recordedLink(
       month,
       amount,
       amountManual: false,
-      madeHow: 'recorded',
+      madeHow: body.wishFrom === 'wish' ? 'recorded' : 'member',
       madeBy: memberId,
       madeAt: now,
     },

@@ -5,6 +5,11 @@ import {
   amountText,
   applyRule,
   convertedPrefill,
+  countsChips,
+  countsForLabel,
+  countsPick,
+  EMPTY_COUNTS,
+  toggleCounts,
   dayLabel,
   EMPTY_PICK,
   filledText,
@@ -336,5 +341,79 @@ describe('wish prefill', () => {
     expect(
       wishRateLine(rate, 'EUR', 'USD', '2026-10-03', '2026-10-15', []),
     ).toBe('€1 = $1.25 on Sat 3 Oct');
+  });
+});
+
+describe('Counts for (UI-ADD-17)', () => {
+  const none = EMPTY_COUNTS;
+  const wishPick = countsPick({ type: 'wish', id: 7 });
+  const envPick = countsPick({ type: 'envelope', id: 2 });
+
+  it('clears an envelope when a wish is picked and the reverse', () => {
+    expect(toggleCounts(envPick, { type: 'wish', id: 7 })).toEqual(wishPick);
+    expect(toggleCounts(wishPick, { type: 'envelope', id: 2 })).toEqual(
+      envPick,
+    );
+    expect(toggleCounts(wishPick, { type: 'none', id: 0 }).unplanned).toBe(
+      true,
+    );
+  });
+
+  it('clears the choice when the selected chip is tapped', () => {
+    expect(toggleCounts(wishPick, { type: 'wish', id: 7 })).toEqual(none);
+    expect(toggleCounts(envPick, { type: 'envelope', id: 2 })).toEqual(none);
+    expect(
+      toggleCounts(countsPick({ type: 'none', id: 0 }), {
+        type: 'none',
+        id: 0,
+      }),
+    ).toEqual(none);
+  });
+
+  it('orders the suggested envelope, the wishes, then the envelopes', () => {
+    const row = countsChips(none, [1, 2, 3], [7, 8], 2, 5);
+    expect(row.map((ref) => `${ref.type}:${ref.id}`)).toEqual([
+      'envelope:2',
+      'wish:7',
+      'wish:8',
+      'envelope:1',
+      'envelope:3',
+    ]);
+  });
+
+  it('puts the pick first, from the row or from the sheet', () => {
+    const inRow = countsChips(wishPick, [1, 2], [7, 8], null, 3);
+    expect(inRow.map((ref) => `${ref.type}:${ref.id}`)).toEqual([
+      'wish:7',
+      'wish:8',
+      'envelope:1',
+    ]);
+    const outside = countsChips(envPick, [1, 2, 3, 4], [], null, 2);
+    expect(outside[0]).toEqual({ type: 'envelope', id: 2 });
+    expect(outside).toHaveLength(2);
+    const unplanned = countsChips(
+      countsPick({ type: 'none', id: 0 }),
+      [1],
+      [],
+      null,
+      5,
+    );
+    expect(unplanned[0]?.type).toBe('none');
+  });
+
+  it('previews each state in the label', () => {
+    expect(countsForLabel(none, '', null)).toBe('Counts for · optional');
+    expect(countsForLabel(none, '', 'Groceries')).toBe(
+      'Counts for · optional · if empty, Groceries envelope',
+    );
+    expect(countsForLabel({ ...none, envelope: rule(2) }, 'REWE', null)).toBe(
+      'Counts for · from REWE rule',
+    );
+    expect(countsForLabel(wishPick, 'REWE', 'Groceries')).toBe(
+      'Counts for · a wish, so no envelope',
+    );
+    expect(countsForLabel(countsPick({ type: 'none', id: 0 }), '', null)).toBe(
+      'Counts for · no envelope and no wish',
+    );
   });
 });

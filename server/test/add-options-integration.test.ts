@@ -174,7 +174,8 @@ describe('add options, merchants and suggestions API', () => {
           collect(value);
         }
       };
-      collect(z.toJSONSchema(addOptionsResponseSchema));
+      // Open wishes carry their planned and spent figures (UI-ADD-17).
+      collect(z.toJSONSchema(addOptionsResponseSchema.omit({ wishes: true })));
       expect(keys.size).toBeGreaterThan(20);
       expect(
         [...keys].filter((name) => /amount|balance|total|spent/iu.test(name)),
@@ -184,11 +185,38 @@ describe('add options, merchants and suggestions API', () => {
       const joint = await account('Joint', 'EUR');
       await envelope('Groceries');
       await spend(joint, '2026-10-01', { amount: '1234' });
-      const body = JSON.stringify(
-        (await call('GET', '/api/add-options')).json(),
-      );
+      const body = JSON.stringify({
+        ...(await call('GET', '/api/add-options')).json(),
+        wishes: [],
+      });
       expect(body).not.toMatch(/amount|balance/iu);
       expect(body).not.toContain('1234');
+    });
+
+    it('lists only the open wishes of the current month', async () => {
+      const wish = async (month: string, name: string) =>
+        (
+          await call('POST', '/api/wishes', {
+            month,
+            name,
+            amount: '48000',
+            currency: 'EUR',
+          })
+        ).json().wish.id as number;
+      const open = await wish('2026-10', 'Winter tyres');
+      const done = await wish('2026-10', 'Bike lights');
+      await wish('2026-11', 'Next month');
+      database.prepare("UPDATE wish SET state = 'done' WHERE id = ?").run(done);
+      expect((await addOptions()).wishes).toEqual([
+        {
+          id: open,
+          name: 'Winter tyres',
+          month: '2026-10',
+          currency: 'EUR',
+          amount: '48000',
+          spent: '0',
+        },
+      ]);
     });
 
     it('lists only what is active', async () => {

@@ -1,4 +1,10 @@
-import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import {
+  expect,
+  test,
+  type Locator,
+  type Page,
+  type TestInfo,
+} from '@playwright/test';
 import { create, startFamily, type Family } from './support/family.js';
 
 /** Keypad key names where the key's symbol is not its name. */
@@ -86,6 +92,11 @@ async function seed(family: Family): Promise<void> {
   });
 }
 
+/** The Counts for chips (UI-ADD-17); its name is the label above them. */
+function countsRow(page: Page): Locator {
+  return page.getByRole('group', { name: /^Counts for/ });
+}
+
 async function openAdd(page: Page, family: Family): Promise<void> {
   await page.goto(`${family.origin}/add`);
   await expect(
@@ -167,18 +178,21 @@ test('a merchant rule fills category and envelope, never over a hand pick', asyn
     await seed(family);
     await openAdd(page, family);
     const categories = page.getByRole('radiogroup', { name: 'Category' });
-    const envelopes = page.getByRole('radiogroup', { name: 'Envelope' });
+    const envelopes = countsRow(page);
 
     await pickMerchant(page, 'REWE');
     await expect(page.getByText('Category · from REWE rule')).toBeVisible();
-    await expect(page.getByText('Envelope · from REWE rule')).toBeVisible();
+    await expect(page.getByText('Counts for · from REWE rule')).toBeVisible();
     await expect(page.getByText('Rule applied · change')).toBeVisible();
     await expect(
       categories.getByRole('radio', { name: 'Groceries' }),
     ).toBeChecked();
     await expect(
-      envelopes.getByRole('radio', { name: 'Groceries' }),
-    ).toBeChecked();
+      envelopes.getByRole('button', {
+        name: 'Groceries envelope',
+        pressed: true,
+      }),
+    ).toBeVisible();
     await typeAmount(page, '42.10');
     await screenshot(page, testInfo, 'AddExpenseRule');
 
@@ -187,12 +201,12 @@ test('a merchant rule fills category and envelope, never over a hand pick', asyn
       page.getByText('Category · optional', { exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByText('Envelope · optional', { exact: true }),
+      page.getByText('Counts for · optional', { exact: true }),
     ).toBeVisible();
     await expect(categories.getByRole('radio', { checked: true })).toHaveCount(
       0,
     );
-    await expect(envelopes.getByRole('radio', { checked: true })).toHaveCount(
+    await expect(envelopes.getByRole('button', { pressed: true })).toHaveCount(
       0,
     );
 
@@ -203,13 +217,16 @@ test('a merchant rule fills category and envelope, never over a hand pick', asyn
       categories.getByRole('radio', { name: 'Eating out' }),
     ).toBeChecked();
     await expect(
-      envelopes.getByRole('radio', { name: 'Groceries' }),
-    ).toBeChecked();
-    await expect(page.getByText('Envelope · from REWE rule')).toBeVisible();
+      envelopes.getByRole('button', {
+        name: 'Groceries envelope',
+        pressed: true,
+      }),
+    ).toBeVisible();
+    await expect(page.getByText('Counts for · from REWE rule')).toBeVisible();
   });
 });
 
-test('the envelope label previews the on-save fill and the saved view says it', async ({
+test('the Counts for label previews the on-save fill and the saved view says it', async ({
   page,
 }) => {
   await startFamily(page, async (family) => {
@@ -219,7 +236,9 @@ test('the envelope label previews the on-save fill and the saved view says it', 
 
     await categories.getByRole('radio', { name: 'Groceries' }).click();
     await expect(
-      page.getByText('Envelope · optional · if empty, Groceries'),
+      page.getByText('Counts for · optional · if empty, Groceries envelope', {
+        exact: true,
+      }),
     ).toBeVisible();
 
     // Tapping the selected chip clears it.
@@ -228,7 +247,7 @@ test('the envelope label previews the on-save fill and the saved view says it', 
       0,
     );
     await expect(
-      page.getByText('Envelope · optional', { exact: true }),
+      page.getByText('Counts for · optional', { exact: true }),
     ).toBeVisible();
 
     await categories.getByRole('radio', { name: 'Groceries' }).click();
@@ -260,21 +279,21 @@ test('a merchant rule never replaces the envelope Add was opened with', async ({
     const ids = await envelopeIds(family);
     await page.goto(`${family.origin}/add?envelopeId=${ids['Unexpected']}`);
     const categories = page.getByRole('radiogroup', { name: 'Category' });
-    const envelopes = page.getByRole('radiogroup', { name: 'Envelope' });
-    await expect(
-      envelopes.getByRole('radio', { name: 'Unexpected' }),
-    ).toBeChecked();
+    const envelopes = countsRow(page);
+    const unexpected = envelopes.getByRole('button', {
+      name: 'Unexpected envelope',
+      pressed: true,
+    });
+    await expect(unexpected).toBeVisible();
 
     // The REWE rule names Groceries for both, but the pick is by hand.
     await pickMerchant(page, 'REWE');
-    await expect(
-      envelopes.getByRole('radio', { name: 'Unexpected' }),
-    ).toBeChecked();
-    await expect(envelopes.getByRole('radio', { checked: true })).toHaveCount(
+    await expect(unexpected).toBeVisible();
+    await expect(envelopes.getByRole('button', { pressed: true })).toHaveCount(
       1,
     );
-    await expect(page.getByText('Envelope · from REWE rule')).toHaveCount(0);
-    await expect(page.getByText('Envelope · optional')).toBeVisible();
+    await expect(page.getByText('Counts for · from REWE rule')).toHaveCount(0);
+    await expect(page.getByText('Counts for · optional')).toBeVisible();
     await expect(
       categories.getByRole('radio', { name: 'Groceries' }),
     ).toBeChecked();
@@ -318,16 +337,12 @@ test('an unknown, malformed or archived envelope id opens Add with nothing selec
       await expect(
         page.getByRole('button', { name: 'Enter an amount' }),
       ).toBeDisabled();
+      await expect(countsRow(page)).toBeVisible();
       await expect(
-        page.getByRole('radiogroup', { name: 'Envelope' }),
-      ).toBeVisible();
-      await expect(
-        page
-          .getByRole('radiogroup', { name: 'Envelope' })
-          .getByRole('radio', { checked: true }),
+        countsRow(page).getByRole('button', { pressed: true }),
       ).toHaveCount(0);
       await expect(
-        page.getByText('Envelope · optional', { exact: true }),
+        page.getByText('Counts for · optional', { exact: true }),
       ).toBeVisible();
       await expect(page.getByRole('alert')).toHaveCount(0);
     }

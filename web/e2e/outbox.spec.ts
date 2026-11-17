@@ -191,8 +191,8 @@ test('a refused expense shows “Couldn’t send” and sign-out asks first', as
     await typeAmount(page, '28.90');
     await pickMerchant(page, 'Lieferando');
     await page
-      .getByRole('radiogroup', { name: 'Envelope' })
-      .getByRole('radio', { name: 'Eating out' })
+      .getByRole('group', { name: /^Counts for/ })
+      .getByRole('button', { name: 'Eating out envelope' })
       .click();
     await page.getByRole('button', { name: 'Save €28.90' }).click();
     await expect(
@@ -296,8 +296,8 @@ test('Delete takes a refused expense off the phone', async ({ page }) => {
     await page.context().setOffline(true);
     await typeAmount(page, '12');
     await page
-      .getByRole('radiogroup', { name: 'Envelope' })
-      .getByRole('radio', { name: 'Eating out' })
+      .getByRole('group', { name: /^Counts for/ })
+      .getByRole('button', { name: 'Eating out envelope' })
       .click();
     await page.getByRole('button', { name: 'Save €12.00' }).click();
     await expect(
@@ -332,8 +332,8 @@ test('Settings’ sign-out asks too, and clears the phone', async ({ page }) => 
     await page.context().setOffline(true);
     await typeAmount(page, '12');
     await page
-      .getByRole('radiogroup', { name: 'Envelope' })
-      .getByRole('radio', { name: 'Eating out' })
+      .getByRole('group', { name: /^Counts for/ })
+      .getByRole('button', { name: 'Eating out envelope' })
       .click();
     await page.getByRole('button', { name: 'Save €12.00' }).click();
     await expect(

@@ -45,6 +45,7 @@ const options: AddOptionsResponse = {
   ],
   envelopes: [{ id: 5, name: 'Food', currency: 'EUR', defaultCategoryId: 4 }],
   rules: [],
+  wishes: [],
   merchants: [{ merchant: 'REWE', key: 'rewe' }],
   recentMerchants: [{ merchant: 'REWE', key: 'rewe' }],
   commonCurrency: 'EUR',
