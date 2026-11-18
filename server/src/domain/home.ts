@@ -100,7 +100,7 @@ function openCheckin(
 
 /**
  * The Wishes card (UI-HOME-10): the month's totals, as the Wishes screen's
- * summary line has them, and one entry per open wish.
+ * summary line has them, and one entry per open or done wish.
  */
 function wishesCard(
   database: Database.Database,
@@ -110,17 +110,20 @@ function wishesCard(
   const wishes = listWishes(database, month);
   const summary = wishesSummary(wishes, month, month, valuation);
   const open = wishes.filter((wish) => wish.state === 'open');
+  // listWishes puts open first; dropped wishes stay off the card.
+  const shown = wishes.filter((wish) => wish.state !== 'dropped');
   return {
     open: open.length,
     wished: summary.total.amount,
     spent: wishesSpentTotal(wishes, month, valuation),
     incomplete: summary.total.incomplete,
-    items: open.map((wish) => ({
+    items: shown.map((wish) => ({
       id: wish.id,
       name: wish.name,
       currency: wish.currency,
       amount: wish.amount,
       spent: wish.spent,
+      state: wish.state === 'done' ? 'done' : 'open',
     })),
   };
 }

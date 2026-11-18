@@ -341,6 +341,12 @@ describe('wishes API', () => {
     expect(card.items.map((item: { name: string }) => item.name)).toEqual([
       'Tyres',
       'Trip',
+      'Done one',
+    ]);
+    expect(card.items.map((item: { state: string }) => item.state)).toEqual([
+      'open',
+      'open',
+      'done',
     ]);
     expect(card.items[0]).toEqual({
       id: tyres.id,
@@ -348,8 +354,16 @@ describe('wishes API', () => {
       currency: 'EUR',
       amount: '40000',
       spent: '12000',
+      state: 'open',
     });
     expect(card.items[1].id).toBe(dollars.id);
+    // Ticking a wish moves it in the list but leaves the totals alone.
+    await call('PATCH', `/api/wishes/${tyres.id}`, { state: 'done' });
+    const ticked = (await call('GET', '/api/home')).json().wishes;
+    expect(ticked).toMatchObject({ wished: '41500', spent: '12000', open: 1 });
+    expect(
+      ticked.items.map((item: { state: string }) => item.state),
+    ).toEqual(['open', 'done', 'done']);
     await add({ name: 'In pounds', amount: '1000', currency: 'GBP' });
     expect((await call('GET', '/api/home')).json().wishes).toMatchObject({
       incomplete: true,

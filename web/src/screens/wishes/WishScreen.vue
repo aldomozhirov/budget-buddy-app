@@ -18,6 +18,7 @@ import { ApiError, callApi } from '../../api/callApi.js';
 import { isOnline } from '../../composables/useOnline.js';
 import { useBack } from '../../composables/useBack.js';
 import { expenseCountText, monthName } from '../envelopes/envelopeFormat.js';
+import { patchWishState, UNDO_MS, wishFailure } from './wishState.js';
 import { createMoneyFormatter } from '../summary/summaryFormat.js';
 import { cardFigures, madeLine, pageDetail, shortDay } from './wishesFormat.js';
 
@@ -28,10 +29,6 @@ import { cardFigures, madeLine, pageDetail, shortDay } from './wishesFormat.js';
  * Design 5). It needs a connection (UI-WSH-7).
  */
 defineOptions({ name: 'WishScreen' });
-
-/** How long the message, and so Undo, stays. */
-const UNDO_MS = 8000;
-const CHANGED = 'Someone changed it meanwhile.';
 
 const route = useRoute();
 const { label: backLabel, goBack } = useBack();
@@ -137,13 +134,7 @@ function say(text: string, undo: (() => Promise<void>) | null, ms: number) {
   timer = setTimeout(() => (message.value = undefined), ms);
 }
 
-/** The text of a failed call, "changed" included. */
-function failure(cause: unknown): string {
-  if (cause instanceof ApiError && cause.status === 409) return CHANGED;
-  return cause instanceof ApiError && cause.status !== 0
-    ? cause.message
-    : 'Could not reach the server. Check your connection and try again.';
-}
+const failure = wishFailure;
 
 /** Sets the state, remembering what to go back to. */
 async function setState(next: WishState, text: string): Promise<void> {
@@ -152,13 +143,7 @@ async function setState(next: WishState, text: string): Promise<void> {
   const previous = item.state;
   busy.value = true;
   try {
-    const answer = await callApi(
-      'PATCH',
-      `/api/wishes/${item.id}`,
-      wishResponseSchema,
-      { state: next, expect: { state: previous } },
-    );
-    wish.value = answer.wish;
+    wish.value = await patchWishState(item.id, next, { state: previous });
     say(text, () => change(previous, { state: next }, 'Undone.'), UNDO_MS);
   } catch (cause) {
     say(failure(cause), null, 4000);
@@ -177,13 +162,7 @@ async function change(
   const item = wish.value;
   if (!item) return;
   try {
-    const answer = await callApi(
-      'PATCH',
-      `/api/wishes/${item.id}`,
-      wishResponseSchema,
-      { state, expect },
-    );
-    wish.value = answer.wish;
+    wish.value = await patchWishState(item.id, state, expect);
     say(text, null, 4000);
   } catch (cause) {
     say(failure(cause), null, 4000);

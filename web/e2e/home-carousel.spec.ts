@@ -174,7 +174,10 @@ test.describe('Home’s month carousel', () => {
 
       // Two dots, an indicator that is not exposed or tappable.
       await expect(dots(page)).toHaveCount(2);
-      await expect(carousel(page).getByRole('button')).toHaveCount(0);
+      // The only buttons are the wishes' ticks.
+      await expect(
+        carousel(page).getByRole('button', { name: /^(?!Tick off|Reopen)/u }),
+      ).toHaveCount(0);
       expect(await activeDot(page)).toBe(0);
       await expect(envelopesCard(page)).toBeInViewport({ ratio: 0.9 });
 
@@ -206,15 +209,6 @@ test.describe('Home’s month carousel', () => {
             : 'test-results/screens/Main-ipad.png',
         scale: 'css',
       });
-      if (testInfo.project.name === 'iphone') {
-        await swipeToWishes(page);
-        await expect.poll(() => activeDot(page)).toBe(1);
-        await page.waitForTimeout(500);
-        await page.screenshot({
-          path: 'test-results/screens/HomeWishes.png',
-          scale: 'css',
-        });
-      }
     });
   });
 
@@ -341,7 +335,7 @@ test.describe('Home’s Wishes card', () => {
     });
   });
 
-  test('says “No wishes this month” with none open, and “Plan a wish” opens Wishes', async ({
+  test('lists a done wish with none open, and “Plan a wish” opens Wishes', async ({
     page,
   }) => {
     await startFamily(page, async (family) => {
@@ -358,7 +352,7 @@ test.describe('Home’s Wishes card', () => {
         monthlyAmount: '50000',
         mode: 'reset',
       });
-      // Done and next month's wishes do not count as open this month.
+      // A done wish is listed but is not open this month.
       const { month } = await api<WishesResponse>(family, '/api/wishes');
       const done = await create(family, '/api/wishes', {
         month,
@@ -378,10 +372,13 @@ test.describe('Home’s Wishes card', () => {
 
       await page.goto(`${family.origin}/`);
       const card = wishesCard(page);
-      await expect(card).toContainText('No wishes this month');
+      await expect(card).toContainText('Sofia’s birthday');
+      await expect(card).toContainText('Done');
       await expect(card).not.toContainText('open this month');
-      await expect(card).not.toContainText('Sofia’s birthday');
-      await expect(card.getByRole('link')).toHaveText([/Plan a wish/u]);
+      await expect(card.getByRole('link')).toHaveText([
+        /Sofia’s birthday\s*Done/u,
+        /Plan a wish/u,
+      ]);
 
       await card.getByRole('link', { name: 'Plan a wish' }).click();
       await expect(page).toHaveURL(`${family.origin}/wishes`);
@@ -551,6 +548,212 @@ test.describe('Home’s carousel with reduced motion', () => {
       await page.reload();
       await expect(wishesCard(page)).toBeInViewport({ ratio: 0.9 });
       await expect.poll(() => activeDot(page)).toBe(1);
+    });
+  });
+});
+
+test.describe('Home’s Wishes card ticks', () => {
+  /** The tick of the wish called `name`, open or done. */
+  function tick(page: Page, name: string): Locator {
+    return wishesCard(page).getByRole('button', {
+      name: new RegExp(`^(Tick off ${name} as done|Reopen ${name})$`, 'u'),
+    });
+  }
+
+  /** The names of the card's rows, in order. */
+  async function rowNames(page: Page): Promise<string[]> {
+    await expect(wishesCard(page).getByRole('button').first()).toBeVisible();
+    return wishesCard(page)
+      .getByRole('button', { name: /^(Tick off .* as done|Reopen .*)$/u })
+      .evaluateAll((all) =>
+        all.map((button) =>
+          (button.getAttribute('aria-label') ?? '')
+            .replace(/^Tick off /u, '')
+            .replace(/ as done$/u, '')
+            .replace(/^Reopen /u, ''),
+        ),
+      );
+  }
+
+  const toast = (page: Page): Locator => page.getByRole('status');
+
+  test('ticks a wish off, undoes it and reopens it', async ({
+    page,
+  }, testInfo) => {
+    await startFamily(page, async (family) => {
+      const { tyres } = await seed(family);
+      await page.goto(`${family.origin}/`);
+      await swipeToWishes(page);
+      const button = tick(page, 'Winter tyres');
+      await expect(button).toHaveAttribute('aria-pressed', 'false');
+      const box = (await button.boundingBox())!;
+      expect(box.width).toBeGreaterThanOrEqual(44);
+      expect(box.height).toBeGreaterThanOrEqual(44);
+
+      // Reveal the amounts, so the done line shows what was spent.
+      await page
+        .getByRole('button', { name: 'Show amounts for 30 seconds' })
+        .click();
+      await button.click();
+      await expect(
+        wishesCard(page).getByRole('button', {
+          name: 'Reopen Winter tyres',
+        }),
+      ).toHaveAttribute('aria-pressed', 'true');
+      await expect(wishesCard(page)).toContainText('Done · €120.00');
+      await expect(toast(page)).toContainText('Winter tyres ticked off.');
+      await expect(
+        wishesCard(page).getByText('Winter tyres', { exact: true }),
+      ).toHaveCSS('text-decoration-line', 'line-through');
+      const done = await family.api.get(`${family.origin}/api/wishes/${tyres}`);
+      expect((await done.json()).wish.state).toBe('done');
+
+      await toast(page).getByRole('button', { name: 'Undo' }).click();
+      await expect(toast(page)).toContainText('Undone.');
+      await expect(tick(page, 'Winter tyres')).toHaveAttribute(
+        'aria-pressed',
+        'false',
+      );
+      await expect(wishesCard(page)).not.toContainText('Done');
+
+      // Done once more, then reopened from the card.
+      await tick(page, 'Winter tyres').click();
+      await expect(toast(page)).toContainText('Winter tyres ticked off.');
+      await tick(page, 'Winter tyres').click();
+      await expect(toast(page)).toContainText('Winter tyres reopened.');
+      await expect(tick(page, 'Winter tyres')).toHaveAttribute(
+        'aria-pressed',
+        'false',
+      );
+      // The toast sits above Add expense, in the bottom bar.
+      const bar = (await page
+        .getByRole('link', { name: 'Add expense' })
+        .boundingBox())!;
+      const message = (await toast(page).boundingBox())!;
+      expect(message.y + message.height).toBeLessThanOrEqual(bar.y);
+
+      if (testInfo.project.name === 'iphone') {
+        await tick(page, 'Winter tyres').click();
+        await expect(toast(page)).toContainText('Winter tyres ticked off.');
+        await page.reload();
+        await swipeToWishes(page);
+        await page.waitForTimeout(500);
+        await page.screenshot({
+          path: 'test-results/screens/HomeWishes.png',
+          scale: 'css',
+        });
+      }
+    });
+  });
+
+  test('a ticked wish keeps its place, then comes after the open ones', async ({
+    page,
+  }) => {
+    await startFamily(page, async (family) => {
+      await seed(family);
+      await page.goto(`${family.origin}/`);
+      expect(await rowNames(page)).toEqual(['Winter tyres', 'Weekend away']);
+      await tick(page, 'Winter tyres').click();
+      await expect(toast(page)).toContainText('ticked off.');
+      expect(await rowNames(page)).toEqual(['Winter tyres', 'Weekend away']);
+
+      await page.goto(`${family.origin}/settings`);
+      await page.goto(`${family.origin}/`);
+      await expect(tick(page, 'Weekend away')).toBeVisible();
+      expect(await rowNames(page)).toEqual(['Weekend away', 'Winter tyres']);
+    });
+  });
+
+  test('the toast ends after 8 seconds, even when the amounts hide meanwhile', async ({
+    page,
+  }) => {
+    await startFamily(page, async (family) => {
+      await seed(family);
+      await page.clock.install();
+      await page.goto(`${family.origin}/`);
+      await page
+        .getByRole('button', { name: 'Show amounts for 30 seconds' })
+        .click();
+      await tick(page, 'Winter tyres').click();
+      await expect(toast(page)).toContainText('ticked off.');
+      // The eye hides the amounts; the toast keeps its own time.
+      await page
+        .getByRole('button', { name: /amounts/u })
+        .first()
+        .click();
+      await page.clock.fastForward(8100);
+      await expect(toast(page)).toHaveCount(0);
+    });
+  });
+
+  test('says when someone changed the wish meanwhile', async ({ page }) => {
+    await startFamily(page, async (family) => {
+      const { tyres } = await seed(family);
+      await page.goto(`${family.origin}/`);
+      await expect(tick(page, 'Winter tyres')).toBeVisible();
+      const changed = await family.api.patch(
+        `${family.origin}/api/wishes/${tyres}`,
+        { headers: { Origin: family.origin }, data: { state: 'done' } },
+      );
+      expect(changed.status()).toBe(200);
+      await tick(page, 'Winter tyres').click();
+      await expect(toast(page)).toContainText('Someone changed it meanwhile.');
+      await expect(tick(page, 'Winter tyres')).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
+    });
+  });
+
+  test('Undo after someone changed the wish says so, and the toast ends', async ({
+    page,
+  }) => {
+    await startFamily(page, async (family) => {
+      const { tyres } = await seed(family);
+      await page.goto(`${family.origin}/`);
+      await tick(page, 'Winter tyres').click();
+      await expect(toast(page)).toContainText('Winter tyres ticked off.');
+      const changed = await family.api.patch(
+        `${family.origin}/api/wishes/${tyres}`,
+        {
+          headers: { Origin: family.origin },
+          data: { state: 'open', expect: { state: 'done' } },
+        },
+      );
+      expect(changed.status()).toBe(200);
+      await toast(page).getByRole('button', { name: 'Undo' }).click();
+      await expect(toast(page)).toContainText('Someone changed it meanwhile.');
+      await expect(toast(page).getByRole('button')).toHaveCount(0);
+      await expect(tick(page, 'Winter tyres')).toHaveAttribute(
+        'aria-pressed',
+        'false',
+      );
+    });
+  });
+
+  test('offline the ticks are off, and a row still opens the wish', async ({
+    page,
+    context,
+  }) => {
+    await startFamily(page, async (family) => {
+      const { tyres } = await seed(family);
+      await page.goto(`${family.origin}/`);
+      await expect(tick(page, 'Winter tyres')).toBeEnabled();
+      // Open the wish once online, so its code is loaded.
+      await wishesCard(page)
+        .getByRole('link', { name: /^Winter tyres/u })
+        .click();
+      await expect(page).toHaveURL(`${family.origin}/wishes/${tyres}`);
+      await page.getByRole('button', { name: 'Back to home' }).click();
+      await expect(tick(page, 'Winter tyres')).toBeEnabled();
+      await context.setOffline(true);
+      await expect(tick(page, 'Winter tyres')).toBeDisabled();
+      await expect(tick(page, 'Weekend away')).toBeDisabled();
+      await wishesCard(page)
+        .getByRole('link', { name: /^Winter tyres/u })
+        .click();
+      await expect(page).toHaveURL(`${family.origin}/wishes/${tyres}`);
+      await context.setOffline(false);
     });
   });
 });

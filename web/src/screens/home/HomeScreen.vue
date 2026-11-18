@@ -7,6 +7,7 @@ import {
   homeResponseSchema,
   type CoinSetting,
   type HomeResponse,
+  type HomeWish,
 } from '@budget-buddy/shared';
 import BbAmount from '../../components/BbAmount.vue';
 import BbButton from '../../components/BbButton.vue';
@@ -32,7 +33,17 @@ import ProfileSheet from './ProfileSheet.vue';
 import { authState, setAuthState } from '../../stores/auth.js';
 import { monthName } from '../envelopes/envelopeFormat.js';
 import { createMoneyFormatter } from '../summary/summaryFormat';
-import { wishesCardLines, type HomeCardKey } from './wishesCard.js';
+import {
+  keepWishOrder,
+  wishesCardLines,
+  type HomeCardKey,
+} from './wishesCard.js';
+import {
+  isWishConflict,
+  patchWishState,
+  UNDO_MS,
+  wishFailure,
+} from '../wishes/wishState.js';
 
 /**
  * Home: greeting, the eye button, the open check-in banner, the Income,
@@ -325,6 +336,73 @@ const waiting = computed(() =>
   })),
 );
 
+/** The wishes whose tick call is running; their ticks are disabled. */
+const ticking = ref<number[]>([]);
+/** The toast above "Add expense", with the call that takes it back. */
+const message = ref<{ text: string; undo: (() => Promise<void>) | null }>();
+let messageTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Shows `text` for `ms`; a newer message replaces the one on screen. */
+function say(text: string, undo: (() => Promise<void>) | null, ms: number) {
+  clearTimeout(messageTimer);
+  message.value = { text, undo };
+  messageTimer = setTimeout(() => (message.value = undefined), ms);
+}
+
+/** Puts a wish's new state on its row, in place; the totals stay. */
+function applyWish(wish: { id: number; state: string }): void {
+  const card = home.value?.wishes;
+  if (!card) return;
+  const state = wish.state === 'done' ? 'done' : 'open';
+  card.items = card.items.map((item) =>
+    item.id === wish.id ? { ...item, state } : item,
+  );
+  card.open = card.items.filter((item) => item.state === 'open').length;
+}
+
+/** Runs a state change of a wish row, and reloads Home after a conflict. */
+async function changeWish(
+  wish: HomeWish,
+  state: HomeWish['state'],
+  expect: HomeWish['state'],
+  text: string,
+  undo: (() => Promise<void>) | null,
+): Promise<void> {
+  ticking.value = [...ticking.value, wish.id];
+  try {
+    applyWish(await patchWishState(wish.id, state, { state: expect }));
+    say(text, undo, undo ? UNDO_MS : 4000);
+  } catch (cause) {
+    say(wishFailure(cause), null, 4000);
+    if (isWishConflict(cause)) await load(true);
+  } finally {
+    ticking.value = ticking.value.filter((id) => id !== wish.id);
+  }
+}
+
+/** Ticks a wish off or reopens it at once; Undo does the opposite. */
+async function tick(wish: HomeWish): Promise<void> {
+  if (!isOnline.value || ticking.value.includes(wish.id)) return;
+  const previous = wish.state;
+  const next = previous === 'open' ? 'done' : 'open';
+  await changeWish(
+    wish,
+    next,
+    previous,
+    `${wish.name} ${next === 'done' ? 'ticked off' : 'reopened'}.`,
+    () => changeWish(wish, previous, next, 'Undone.', null),
+  );
+}
+
+/** Runs the toast's Undo once. */
+async function undoMessage(): Promise<void> {
+  const current = message.value;
+  if (!current?.undo) return;
+  const action = current.undo;
+  message.value = { text: current.text, undo: null };
+  await action();
+}
+
 /**
  * Loads Home. `quiet` keeps what is shown while it reloads (after the
  * outbox sent something) and keeps it on a failure.
@@ -343,7 +421,15 @@ async function load(quiet = false): Promise<void> {
       return;
     }
     if (!homeResponse.ok) throw new Error('Could not load Home.');
-    home.value = homeResponseSchema.parse(await homeResponse.json());
+    const fresh = homeResponseSchema.parse(await homeResponse.json());
+    // A quiet reload keeps the wishes where they are (O17).
+    if (quiet && home.value) {
+      fresh.wishes.items = keepWishOrder(
+        home.value.wishes.items,
+        fresh.wishes.items,
+      );
+    }
+    home.value = fresh;
     // Coins only matter for a coin as the common currency; the code shows
     // without them.
     coins.value = currenciesResponse.ok
@@ -389,6 +475,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  clearTimeout(messageTimer);
   clearTimeout(hideTimer);
   clearInterval(tickTimer);
   document.removeEventListener('visibilitychange', hideWhenBackgrounded);
@@ -586,31 +673,52 @@ onBeforeUnmount(() => {
                   <span class="num t-sub">{{ wishesLines.caption }}</span>
                 </div>
                 <p v-else class="home-wishes-empty">No wishes this month</p>
-                <RouterLink
+                <div
                   v-for="row in wishesLines.rows"
                   :key="row.wish.id"
-                  class="home-envelope"
-                  :to="`/wishes/${row.wish.id}`"
+                  class="home-wish-row"
+                  :class="{ 'home-wish-done': row.done }"
                 >
-                  <span class="home-envelope-head">
-                    <span class="home-envelope-name home-wish-name">
-                      <BbIcon name="star" :size="14" class="home-wish-star" />
-                      <span class="home-wish-title">{{ row.wish.name }}</span>
+                  <button
+                    class="home-wish-tick"
+                    type="button"
+                    :aria-pressed="row.done"
+                    :aria-label="row.tickLabel"
+                    :disabled="!isOnline || ticking.includes(row.wish.id)"
+                    @click="tick(row.wish)"
+                  >
+                    <span class="home-wish-ring">
+                      <BbIcon
+                        v-if="row.done"
+                        name="check"
+                        :size="14"
+                        :stroke-width="3"
+                      />
                     </span>
-                    <span
-                      class="num t-sub home-wish-text"
-                      :class="{ warn: row.over }"
-                    >
-                      {{ row.text }}
+                  </button>
+                  <RouterLink
+                    class="home-wish-link"
+                    :to="`/wishes/${row.wish.id}`"
+                  >
+                    <span class="home-envelope-head">
+                      <span class="home-envelope-name home-wish-title">{{
+                        row.wish.name
+                      }}</span>
+                      <span
+                        class="num t-sub home-wish-text"
+                        :class="{ warn: row.over }"
+                      >
+                        {{ row.text }}
+                      </span>
                     </span>
-                  </span>
-                  <BbProgress
-                    :value="row.share"
-                    :over="row.over"
-                    :label="`${row.wish.name} spent`"
-                    :value-text="visible ? '' : row.text"
-                  />
-                </RouterLink>
+                    <BbProgress
+                      :value="row.share"
+                      :over="row.over"
+                      :label="`${row.wish.name} spent`"
+                      :value-text="visible ? '' : row.text"
+                    />
+                  </RouterLink>
+                </div>
                 <RouterLink class="home-wishes-all t-sub" to="/wishes">
                   <span class="home-wishes-all-text">{{
                     wishesLines.footer
@@ -685,6 +793,18 @@ onBeforeUnmount(() => {
     </div>
 
     <footer class="bottombar home-bottombar">
+      <div v-if="message" class="toast home-toast" role="status">
+        <span class="home-toast-text">{{ message.text }}</span>
+        <button
+          v-if="message.undo"
+          class="home-undo"
+          type="button"
+          :disabled="!isOnline || ticking.length > 0"
+          @click="undoMessage"
+        >
+          Undo
+        </button>
+      </div>
       <RouterLink class="primary home-add" to="/add">
         <BbIcon name="plus" :size="22" :stroke-width="2.2" />
         Add expense
@@ -1007,22 +1127,95 @@ onBeforeUnmount(() => {
   color: var(--muted);
 }
 
-.home-wish-name {
+.home-wish-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-width: 0;
+  gap: 4px;
+  border-top: 1px solid var(--line);
 }
 
-.home-wish-star {
+.home-wish-tick {
   flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-left: -10px;
+  color: var(--on-ink);
+}
+
+.home-wish-tick:disabled {
+  opacity: 0.5;
+}
+
+.home-wish-ring {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.home-wish-done .home-wish-ring {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.home-wish-link {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 12px 0;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.home-wish-done .home-wish-title {
   color: var(--muted);
+  text-decoration: line-through;
+}
+
+.home-wish-done .home-wish-link :deep(.progress > span) {
+  background: var(--muted);
 }
 
 .home-wish-title {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.bb .home-bottombar {
+  position: relative;
+}
+
+.home-toast {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  z-index: 30;
+}
+
+.home-toast-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.home-undo {
+  min-height: 44px;
+  padding: 0 8px;
+  font-weight: 600;
+  color: var(--on-ink);
 }
 
 .home-wish-text {
