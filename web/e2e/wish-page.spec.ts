@@ -37,6 +37,18 @@ function nameOf(month: string): string {
   return MONTH_NAMES[Number(month.slice(5, 7)) - 1]!;
 }
 
+function withYear(month: string): string {
+  return `${nameOf(month)} ${month.slice(0, 4)}`;
+}
+
+/** Sets the hidden month input's value and fires `change`, as a pick does. */
+async function pickMonth(page: Page, value: string): Promise<void> {
+  await page.locator('input[type="month"]').evaluate((el, v) => {
+    (el as HTMLInputElement).value = v;
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }, value);
+}
+
 async function screenshot(
   page: Page,
   testInfo: TestInfo,
@@ -190,7 +202,7 @@ test.describe('A wish’s page', () => {
       ).toBeVisible();
       await expect(
         page.getByRole('button', {
-          name: `Move to ${nameOf(addMonths(month, 1))}`,
+          name: 'Change month',
         }),
       ).toBeVisible();
       const add = page.getByRole('link', { name: 'Add expense' });
@@ -257,9 +269,9 @@ test.describe('A wish’s page', () => {
         'recorded from the wish',
       );
       await expect(page.getByText('Add expense')).toHaveCount(0);
-      await expect(page.getByRole('button', { name: /^Move to/u })).toHaveCount(
-        0,
-      );
+      await expect(
+        page.getByRole('button', { name: 'Change month' }),
+      ).toHaveCount(0);
       await screenshot(page, testInfo, 'WishDone');
 
       await page.getByRole('button', { name: 'Undo' }).click();
@@ -280,13 +292,12 @@ test.describe('A wish’s page', () => {
     });
   });
 
-  test('moves an open wish to the next month, and Undo moves it back', async ({
-    page,
-  }) => {
+  test('moves an open wish to the month picked', async ({ page }) => {
     await startFamily(page, async (family) => {
       await seedAccounts(family);
       const month = await currentMonth(family);
       const next = addMonths(month, 1);
+      const far = addMonths(month, 3);
       const id = await create(
         family,
         '/api/wishes',
@@ -303,13 +314,24 @@ test.describe('A wish’s page', () => {
         wishRequest(month, 'Finished'),
       );
       await patch(family, finished, { state: 'done' });
+      const dropped = await create(
+        family,
+        '/api/wishes',
+        wishRequest(month, 'Dropped one'),
+      );
+      await patch(family, dropped, { state: 'dropped' });
+      await page.goto(`${family.origin}/wishes/${dropped}`);
+      await expect(page.getByRole('button', { name: 'Reopen' })).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: 'Change month' }),
+      ).toHaveCount(0);
 
-      // Absent for a done wish and for another month.
+      // Absent for a done and a dropped wish, shown for a coming month.
       await page.goto(`${family.origin}/wishes/${finished}`);
       await expect(page.getByRole('button', { name: 'Reopen' })).toBeVisible();
-      await expect(page.getByRole('button', { name: /^Move to/u })).toHaveCount(
-        0,
-      );
+      await expect(
+        page.getByRole('button', { name: 'Change month' }),
+      ).toHaveCount(0);
       await page.goto(`${family.origin}/wishes/${later}`);
       await expect(
         page.getByRole('button', { name: 'Tick off as done' }),
@@ -323,23 +345,34 @@ test.describe('A wish’s page', () => {
       await expect(
         page.getByRole('button', { name: 'Add expense' }),
       ).toBeDisabled();
-      await expect(page.getByRole('button', { name: /^Move to/u })).toHaveCount(
-        0,
-      );
+      await expect(
+        page.getByRole('button', { name: 'Change month' }),
+      ).toBeVisible();
 
       await page.goto(`${family.origin}/wishes/${id}`);
-      await page
-        .getByRole('button', { name: `Move to ${nameOf(next)}` })
-        .click();
-      await expect(page.getByText(`${nameOf(next)} wish`)).toBeVisible();
-      await expect(page.getByRole('button', { name: /^Move to/u })).toHaveCount(
-        0,
-      );
+      const input = page.locator('input[type="month"]');
+      await expect(input).toHaveAttribute('min', month);
+      await expect(input).toHaveAttribute('max', addMonths(month, 12));
+      await expect(input).toHaveValue(month);
+      const requests: string[] = [];
+      page.on('request', (r) => {
+        if (r.url().includes('/move')) requests.push(r.url());
+      });
+      // The wish's own month, and an empty value, make no request.
+      await pickMonth(page, month);
+      await pickMonth(page, '');
+      await expect(page.getByText(/^Moved to/u)).toHaveCount(0);
+      expect(requests).toEqual([]);
+
+      await pickMonth(page, far);
+      await expect(page.getByText(`Moved to ${withYear(far)}.`)).toBeVisible();
+      await expect(page.getByText(`${nameOf(far)} wish`)).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: 'Change month' }),
+      ).toBeVisible();
 
       await page.goto(`${family.origin}/wishes`);
       await expect(page.getByText('Winter tyres')).toHaveCount(0);
-      await page.getByRole('button', { name: 'Next month' }).click();
-      await expect(page.getByText('Winter tyres')).toBeVisible();
     });
   });
 
@@ -347,22 +380,19 @@ test.describe('A wish’s page', () => {
     await startFamily(page, async (family) => {
       await seedAccounts(family);
       const month = await currentMonth(family);
-      const next = addMonths(month, 1);
+      const far = addMonths(month, 2);
       const id = await create(
         family,
         '/api/wishes',
         wishRequest(month, 'Winter tyres'),
       );
       await page.goto(`${family.origin}/wishes/${id}`);
-      await page
-        .getByRole('button', { name: `Move to ${nameOf(next)}` })
-        .click();
-      await expect(page.getByText(`${nameOf(next)} wish`)).toBeVisible();
+      await pickMonth(page, far);
+      await expect(page.getByText(`Moved to ${withYear(far)}.`)).toBeVisible();
+      await expect(page.getByText(`${nameOf(far)} wish`)).toBeVisible();
       await page.getByRole('button', { name: 'Undo' }).click();
       await expect(page.getByText(`${nameOf(month)} wish`)).toBeVisible();
-      await expect(
-        page.getByRole('button', { name: `Move to ${nameOf(next)}` }),
-      ).toBeVisible();
+      await expect(page.locator('input[type="month"]')).toHaveValue(month);
     });
   });
 
@@ -437,7 +467,7 @@ test.describe('A wish’s page', () => {
         page.getByRole('button', { name: 'Tick off as done' }),
       ).toBeDisabled();
       await expect(
-        page.getByRole('button', { name: /^Move to/u }),
+        page.getByRole('button', { name: 'Change month' }),
       ).toBeDisabled();
       await expect(
         page.getByRole('button', {

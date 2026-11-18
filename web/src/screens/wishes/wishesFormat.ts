@@ -43,10 +43,17 @@ export function hasNextMonth(month: string, current: string): boolean {
   return month < lastMonth(current);
 }
 
-/** Takes a `YYYY-MM` into the allowed range, 2000-01 to `lastMonth`. */
-export function clampMonth(month: string, current: string): string {
+/**
+ * Takes a `YYYY-MM` into the allowed range: `min` (default 2000-01) to
+ * `lastMonth`.
+ */
+export function clampMonth(
+  month: string,
+  current: string,
+  min: string = EARLIEST_MONTH,
+): string {
   const last = lastMonth(current);
-  if (month < EARLIEST_MONTH) return EARLIEST_MONTH;
+  if (month < min) return min;
   return month > last ? last : month;
 }
 

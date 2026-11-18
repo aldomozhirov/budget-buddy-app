@@ -342,6 +342,12 @@ describe('lastMonth and clampMonth', () => {
     expect(clampMonth('2027-10', '2026-10')).toBe('2027-10');
   });
 
+  it('takes the lower bound when one is given', () => {
+    expect(clampMonth('2026-09', '2026-10', '2026-10')).toBe('2026-10');
+    expect(clampMonth('2026-10', '2026-10', '2026-10')).toBe('2026-10');
+    expect(clampMonth('2028-01', '2026-10', '2026-10')).toBe('2027-10');
+  });
+
   it('takes 2000-01 for an earlier month', () => {
     expect(clampMonth('1999-12', '2026-10')).toBe('2000-01');
     expect(clampMonth('0001-01', '2026-10')).toBe('2000-01');
