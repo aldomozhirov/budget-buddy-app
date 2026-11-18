@@ -110,8 +110,9 @@ a{color:inherit}a:hover{color:inherit}
 <button class="act2" onClick="{{toggleDone}}" disabled="{{offline}}" style="opacity: {{offOp}}">
 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{doneIcon}}"></path></svg>{{doneLabel}}</button>
 <sc-if value="{{canMove}}" hint-placeholder-val="{{ true }}">
-<button class="act2" onClick="{{move}}" disabled="{{offline}}" style="opacity: {{offOp}}">
-<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>Move to November</button>
+<button class="act2" onClick="{{pickMonth}}" disabled="{{offline}}" aria-haspopup="dialog" style="opacity: {{offOp}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M4 10h16M9 3v4M15 3v4"></path></svg>Change month</button>
+<input type="month" data-move-month tabindex="-1" aria-hidden="true" min="{{monthMin}}" max="{{monthMax}}" value="{{monthVal}}" style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none">
 </sc-if>
 </div>
 </div>
@@ -347,6 +348,20 @@ class Component extends DCLogic {
     var s = props.sheet && props.sheet !== 'none' ? props.sheet : null;
     this.state = { w: JSON.parse(JSON.stringify(w)), prev: null, sheet: s, acc: null, keep: false, expr: '', focus: null, toast: '', moved: false };
   }
+  componentDidMount() {
+    var self = this;
+    var NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    this._onPick = function (e) {
+      var t = e.target; if (!t || !t.hasAttribute || !t.hasAttribute('data-move-month') || !t.value) return;
+      var from = self.state.movedVal || '2026-10'; if (t.value === from) return;
+      var parts = t.value.split('-'), label = NAMES[+parts[1] - 1] + ' ' + parts[0];
+      self.setState({ moved: t.value !== '2026-10', movedVal: t.value, movedTo: label, toast: 'Moved to ' + label + '.', prev: JSON.parse(JSON.stringify(self.state.w)) });
+    };
+    document.addEventListener('change', this._onPick, true);
+  }
+  componentWillUnmount() {
+    document.removeEventListener('change', this._onPick, true);
+  }
   renderVals() {
     var self = this, st = this.state, w = st.w;
     function eur(v) { return '€' + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -377,7 +392,7 @@ class Component extends DCLogic {
     return Object.assign(this.nav('WishDetail.dc.html'), {
       backHref: back[0], backLabel: back[1],
       name: w.name, strike: dropped ? 'line-through' : 'none',
-      subtitle: 'October wish · ' + eur(w.amount) + (w.cat ? ' · ' + w.cat : ''),
+      subtitle: (st.movedTo ? st.movedTo.split(' ')[0] : 'October') + ' wish · ' + eur(w.amount) + (w.cat ? ' · ' + w.cat : ''),
       offline: off, offOp: off ? '.45' : '1',
       leftText: done ? eur(spent) : eur(Math.abs(left)),
       leftWord: done ? 'spent' : dropped ? 'not spent' : left < 0 ? 'over' : spent ? 'left' : 'to spend',
@@ -386,17 +401,23 @@ class Component extends DCLogic {
       bar: 'width: ' + Math.min(100, Math.round(spent / w.amount * 100)) + '%; background: ' + (spent > w.amount ? 'var(--warn)' : 'var(--accent)'),
       spentLine: spent ? eur(spent) + ' spent of ' + eur(w.amount) + ' · ' + n + (n === 1 ? ' expense' : ' expenses') + (done && left > 0 ? ' · ' + eur(left) + ' under' : done && left < 0 ? ' · ' + eur(-left) + ' over' : '') : 'Nothing spent yet',
       note: w.note, noteRaw: w.note,
-      actCols: open && !st.moved ? 'repeat(2, minmax(0, 1fr))' : '1fr',
+      actCols: open ? 'repeat(2, minmax(0, 1fr))' : '1fr',
       doneLabel: open ? 'Tick off as done' : 'Reopen',
       doneIcon: open ? 'M5 12.5l4.5 4.5L19 7.5' : 'M3 12a9 9 0 1 0 3-6.7M3 4v5h5',
       toggleDone: function () { if (!off) save({ state: open ? 'done' : 'open' }, open ? w.name + ' ticked off as done' : w.name + ' is open again'); },
-      canMove: open && !st.moved,
-      move: function () { if (!off) { self.setState({ moved: true, toast: w.name + ' moved to November', prev: JSON.parse(JSON.stringify(self.state.w)) }); } },
+      canMove: open,
+      // Change month: the iPhone's month picker, as on the wish form; any month from this one to a year ahead
+      pickMonth: function () {
+        if (off) return;
+        var i = document.querySelector('[data-move-month]'); if (!i) return;
+        try { i.showPicker(); } catch (e) { i.focus(); i.click(); }
+      },
+      monthMin: '2026-10', monthMax: '2027-10', monthVal: st.movedVal || '2026-10',
       spentTitle: n ? 'Spent on it' : 'Spent on it · nothing yet',
       expenses: w.spent.map(function (x) { return { merchant: x[0], meta: x[1], amount: '−' + eur(x[2]) }; }),
       noExpenses: n === 0,
       toast: st.toast,
-      undo: function () { self.setState({ w: self.state.prev || self.state.w, moved: false, toast: '' }); },
+      undo: function () { self.setState({ w: self.state.prev || self.state.w, moved: false, movedTo: '', movedVal: '', toast: '' }); },
       showRecord: open && !st.moved,
       recordLabel: off ? 'Record as expense · needs a connection' : 'Record as expense',
       recBg: off ? 'var(--soft)' : 'var(--ink)', recFg: off ? 'var(--muted)' : 'var(--on-ink)',

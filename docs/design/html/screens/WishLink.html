@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Budget Buddy — Wish · link an expense</title>
 <!-- Static export of the prototype screen "Wish · link an expense" (prototype file WishLink.dc.html), default state.
-     Generated on 2026-11-16. Layout and copy are the reference; see docs/design/html/README.md. -->
+     Generated on 2026-11-18. Layout and copy are the reference; see docs/design/html/README.md. -->
 <link rel="stylesheet" href="../fonts/geist.css">
 <style>
 body{margin:0}
@@ -108,8 +108,9 @@ a{color:inherit}a:hover{color:inherit}
 <button class="act2" style="opacity: 1">
 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Tick off as done</button>
 
-<button class="act2" style="opacity: 1">
-<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>Move to November</button>
+<button class="act2" aria-haspopup="dialog" style="opacity: 1">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M4 10h16M9 3v4M15 3v4"></path></svg>Change month</button>
+<input type="month" data-move-month="" tabindex="-1" aria-hidden="true" min="2026-10" max="2027-10" value="2026-10" style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none">
 
 </div>
 </div>

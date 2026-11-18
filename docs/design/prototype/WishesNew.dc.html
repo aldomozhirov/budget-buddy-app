@@ -152,9 +152,16 @@ a{color:inherit}a:hover{color:inherit}
 <sc-if value="{{sheetOpen}}" hint-placeholder-val="{{ false }}">
 <div class="pg" aria-label="{{sheetTitle}}" style="position: absolute; inset: 0; background: var(--bg); padding: 48px 16px 34px; display: flex; flex-direction: column; gap: 10px">
 <div style="display: flex; align-items: center; gap: 12px; padding-bottom: 6px">
+<sc-if value="{{notFromHome}}" hint-placeholder-val="{{ true }}">
 <button onClick="{{closeSheet}}" aria-label="Back to wishes" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none">
 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
 </button>
+</sc-if>
+<sc-if value="{{fromHome}}" hint-placeholder-val="{{ false }}">
+<a href="{{homeHref}}" aria-label="Back to home" style="width: 44px; height: 44px; border-radius: 22px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex: none; color: inherit">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+</a>
+</sc-if>
 <div style="flex: 1; display: flex; flex-direction: column">
 <h1 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em">{{sheetTitle}}</h1>
 <span class="num" style="font-size: 13px; color: var(--muted)">{{sheetHint}}</span>
@@ -214,7 +221,12 @@ a{color:inherit}a:hover{color:inherit}
 </sc-for>
 </div>
 </sc-if>
+<sc-if value="{{saveHere}}" hint-placeholder-val="{{ true }}">
 <button onClick="{{confirm}}" disabled="{{confirmDisabled}}" class="num" style="flex: none; height: 56px; border-radius: 18px; background: {{confirmBg}}; color: {{confirmFg}}; font-weight: 600; font-size: 16px; text-align: center">{{confirmLabel}}</button>
+</sc-if>
+<sc-if value="{{saveHome}}" hint-placeholder-val="{{ false }}">
+<a href="{{homeHref}}" class="num" style="flex: none; height: 56px; border-radius: 18px; background: var(--ink); color: var(--on-ink); font-weight: 600; font-size: 16px; display: flex; align-items: center; justify-content: center; text-decoration: none">{{confirmLabel}}</a>
+</sc-if>
 </div>
 </sc-if>
 </div>
@@ -345,6 +357,9 @@ class Component extends DCLogic {
     var back = BACKS['HomeWishes.dc.html'];
     try { var from = sessionStorage.getItem('bb-from:Wishes.dc.html'); if (from && BACKS[from]) back = BACKS[from]; } catch (e) {}
     var hasExpr = /[+−×÷()%]/.test(st.expr);
+    // opened from Home's Wishes card: Back and saving go back to Home (UI-NAV-2)
+    var homeFrom = null;
+    try { var hf = sessionStorage.getItem('bb-from:WishesNew.dc.html'); if (/^(Main|HomeWishes|HomeWaiting|HomePlan)\.dc\.html$/.test(hf || '')) homeFrom = hf; } catch (e) {}
     return Object.assign(this.nav('Wishes.dc.html'), {
       backHref: back[0], backLabel: back[1],
       monthTitle: M[st.mon][0], monthHint: M[st.mon][1],
@@ -376,7 +391,7 @@ class Component extends DCLogic {
       cats: CATS.map(function (c) { var on = st.cat === c; return { label: c || 'None', on: on, cls: on ? 'chip chip-on' : 'chip', pick: function () { self.setState({ cat: c, focus: null }); } }; }),
       keypadOpen: st.focus === 'amount',
       keys: this.keypad(onKey),
-      confirmDisabled: !valid,
+      confirmDisabled: !valid, fromHome: !!homeFrom, notFromHome: !homeFrom, homeHref: homeFrom || 'Main.dc.html', saveHome: !!homeFrom && valid, saveHere: !(homeFrom && valid),
       confirmBg: valid ? 'var(--ink)' : 'var(--soft)', confirmFg: valid ? 'var(--on-ink)' : 'var(--muted)',
       confirmLabel: valid ? 'Add ' + money(typed) : (!st.name.trim() ? 'Name the wish' : 'Enter the amount'),
       confirm: function () {
