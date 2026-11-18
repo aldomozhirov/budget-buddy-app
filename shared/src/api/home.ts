@@ -51,7 +51,7 @@ export const homeSpendingSchema = z.object({
   envelopes: z.array(homeEnvelopeSchema).min(1),
 });
 
-/** One open wish on Home's Wishes card. */
+/** One open or done wish on Home's Wishes card. */
 export const homeWishSchema = z.object({
   id: z.number().int().positive(),
   name: z.string(),
@@ -60,9 +60,11 @@ export const homeWishSchema = z.object({
   amount: minorStringSchema,
   /** Spent on it so far, in the wish's currency. */
   spent: minorStringSchema,
+  /** Open, or ticked off as done; dropped wishes are not listed. */
+  state: z.enum(['open', 'done']),
 });
 
-/** An open wish as Home's card shows it. */
+/** A wish as Home's card shows it. */
 export type HomeWish = z.infer<typeof homeWishSchema>;
 
 /** The Wishes card's data (UI-HOME-10), for the family's current month. */
@@ -74,7 +76,7 @@ export const homeWishesSchema = z.object({
   spent: minorStringSchema.nullable(),
   /** A currency has no rate, so `wished` leaves it out. */
   incomplete: z.boolean(),
-  /** Open wishes in the order of the Wishes screen. */
+  /** Open, then done wishes, in the order of the Wishes screen. */
   items: z.array(homeWishSchema),
 });
 
