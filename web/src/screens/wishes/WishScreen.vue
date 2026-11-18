@@ -2,7 +2,6 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import {
-  addMonths,
   currenciesResponseSchema,
   wishResponseSchema,
   wishesResponseSchema,
@@ -17,14 +16,25 @@ import LinkExpenseSheet from '../../components/LinkExpenseSheet.vue';
 import { ApiError, callApi } from '../../api/callApi.js';
 import { isOnline } from '../../composables/useOnline.js';
 import { useBack } from '../../composables/useBack.js';
-import { expenseCountText, monthName } from '../envelopes/envelopeFormat.js';
+import {
+  expenseCountText,
+  monthName,
+  monthWithYear,
+} from '../envelopes/envelopeFormat.js';
 import { patchWishState, UNDO_MS, wishFailure } from './wishState.js';
 import { createMoneyFormatter } from '../summary/summaryFormat.js';
-import { cardFigures, madeLine, pageDetail, shortDay } from './wishesFormat.js';
+import {
+  cardFigures,
+  clampMonth,
+  lastMonth,
+  madeLine,
+  pageDetail,
+  shortDay,
+} from './wishesFormat.js';
 
 /**
  * A wish's page: what is left and spent, "Tick off as done" or "Reopen",
- * "Move to <next month>", and the expenses that count for it (UI-WSH-4).
+ * "Change month", and the expenses that count for it (UI-WSH-4).
  * Each change acts at once and offers Undo in a short message (spec 3a,
  * Design 5). It needs a connection (UI-WSH-7).
  */
@@ -35,7 +45,7 @@ const { label: backLabel, goBack } = useBack();
 const id = computed(() => String(route.params.id));
 const wish = ref<Wish | null>(null);
 const coins = ref<CoinSetting[]>([]);
-/** The family's current month, which decides whether a wish can move. */
+/** The family's current month, which bounds the months a wish can move to. */
 const current = ref('');
 const loading = ref(true);
 const error = ref('');
@@ -58,10 +68,8 @@ const comingMonth = computed(
     wish.value.month > current.value,
 );
 const closed = computed(() => wish.value?.state !== 'open');
-const nextMonth = computed(() => addMonths(current.value, 1));
-const canMove = computed(
-  () => wish.value?.state === 'open' && wish.value.month === current.value,
-);
+const canMove = computed(() => wish.value?.state === 'open');
+const monthInput = ref<HTMLInputElement | null>(null);
 const subtitle = computed(() => {
   const item = wish.value;
   if (!item) return '';
@@ -168,6 +176,34 @@ async function change(
     say(failure(cause), null, 4000);
     await load();
   }
+}
+
+/** Opens the month picker; focus and click if `showPicker` is refused. */
+function openPicker(): void {
+  const input = monthInput.value;
+  if (!input) return;
+  try {
+    input.showPicker();
+  } catch {
+    input.focus();
+    input.click();
+  }
+}
+
+/**
+ * Moves the wish to the picked month, kept in range. An empty value or the
+ * wish's own month does nothing.
+ */
+async function pickMonth(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement;
+  const item = wish.value;
+  if (!item) return;
+  const raw = input.value;
+  input.value = item.month;
+  if (!/^\d{4}-\d{2}$/.test(raw) || raw === item.month) return;
+  const picked = clampMonth(raw, current.value, current.value);
+  if (picked === item.month) return;
+  await move(picked, item.month, `Moved to ${monthWithYear(picked)}.`);
 }
 
 /** Moves the open wish to `target` month; Undo moves it back. */
@@ -343,26 +379,25 @@ async function undo(): Promise<void> {
               v-if="canMove"
               class="wish-act"
               type="button"
+              aria-haspopup="dialog"
               :disabled="busy || !isOnline"
-              @click="
-                move(nextMonth, wish.month, `Moved to ${monthName(nextMonth)}.`)
-              "
+              @click="openPicker"
             >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M5 12h14M13 6l6 6-6 6" />
-              </svg>
-              Move to {{ monthName(nextMonth) }}
+              <BbIcon name="calendar" :size="16" />
+              Change month
             </button>
+            <input
+              v-if="canMove"
+              ref="monthInput"
+              class="wish-month-input"
+              type="month"
+              tabindex="-1"
+              aria-hidden="true"
+              :min="current"
+              :max="lastMonth(current)"
+              :value="wish.month"
+              @change="pickMonth"
+            />
           </div>
         </section>
 
@@ -512,6 +547,13 @@ async function undo(): Promise<void> {
   align-items: center;
   justify-content: center;
   gap: 6px;
+}
+.wish-month-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 .wish-act:disabled {
   opacity: 0.5;
