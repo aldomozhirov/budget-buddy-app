@@ -28,7 +28,7 @@ import CategoryPickerSheet from '../../components/CategoryPickerSheet.vue';
 import CurrencyPickerSheet from '../../components/CurrencyPickerSheet.vue';
 import { ApiError, callApi } from '../../api/callApi.js';
 import { useBack } from '../../composables/useBack.js';
-import { leaveToPast } from '../../router/index.js';
+import { leaveToPast, navigationStack, router } from '../../router/index.js';
 import { envelopeCurrency, monthName } from '../envelopes/envelopeFormat.js';
 import WishMonthStepper from './WishMonthStepper.vue';
 import { pendingWishMessage } from './wishMessage.js';
@@ -290,11 +290,16 @@ async function save(): Promise<void> {
         ...body,
         month: month.value,
       });
-      pendingWishMessage.value = {
-        text: `${body.name} added to ${monthName(month.value)}.`,
-        undo: null,
-        month: month.value,
-      };
+      // Wishes would show the message later if it were left from Home.
+      const fromHome =
+        router.resolve(navigationStack.value.at(-1) ?? '/wishes').path === '/';
+      if (!fromHome) {
+        pendingWishMessage.value = {
+          text: `${body.name} added to ${monthName(month.value)}.`,
+          undo: null,
+          month: month.value,
+        };
+      }
       goBack();
     }
   } catch (cause) {

@@ -114,6 +114,8 @@ const monthHeading = computed(() => {
     day: `Day ${day} of ${length}`,
   };
 });
+/** The family's current month, "YYYY-MM", for the new wish link. */
+const currentMonth = computed(() => home.value?.today.slice(0, 7) ?? '');
 /** The Wishes card's lines (UI-HOME-10). */
 const wishesLines = computed(() =>
   home.value
@@ -357,7 +359,6 @@ function applyWish(wish: { id: number; state: string }): void {
   card.items = card.items.map((item) =>
     item.id === wish.id ? { ...item, state } : item,
   );
-  card.open = card.items.filter((item) => item.state === 'open').length;
 }
 
 /** Runs a state change of a wish row, and reloads Home after a conflict. */
@@ -613,14 +614,20 @@ onBeforeUnmount(() => {
               aria-roledescription="slide"
               :aria-label="`${card.title}, ${index + 1} of ${cards.length}`"
             >
-              <div class="home-month-head">
+              <RouterLink
+                class="home-month-head"
+                :to="card.key === 'envelopes' ? '/envelopes' : '/wishes'"
+              >
                 <h2 class="home-month-title">{{ card.title }}</h2>
-                <span class="t-sub">{{
-                  card.key === 'envelopes'
-                    ? monthHeading.day
-                    : monthHeading.month
-                }}</span>
-              </div>
+                <span class="home-month-side t-sub">
+                  {{
+                    card.key === 'envelopes'
+                      ? monthHeading.day
+                      : monthHeading.month
+                  }}
+                  <BbIcon name="forward" :size="16" class="chev" />
+                </span>
+              </RouterLink>
 
               <template v-if="card.key === 'envelopes' && spending">
                 <div class="home-month-spent">
@@ -719,11 +726,12 @@ onBeforeUnmount(() => {
                     />
                   </RouterLink>
                 </div>
-                <RouterLink class="home-wishes-all t-sub" to="/wishes">
-                  <span class="home-wishes-all-text">{{
-                    wishesLines.footer
-                  }}</span>
-                  <BbIcon name="forward" :size="16" class="chev" />
+                <RouterLink
+                  class="home-wishes-add"
+                  :to="`/wishes/new?month=${currentMonth}`"
+                >
+                  <BbIcon name="plus" :size="18" :stroke-width="2.2" />
+                  Add a wish
                 </RouterLink>
               </template>
             </section>
@@ -1058,9 +1066,19 @@ onBeforeUnmount(() => {
 
 .home-month-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
+  min-height: 44px;
+  margin: -10px 0 -8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.home-month-side {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 
 .home-month-title {
@@ -1222,18 +1240,16 @@ onBeforeUnmount(() => {
   flex: none;
 }
 
-.home-wishes-all {
+.home-wishes-add {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   min-height: 44px;
   padding: 12px 0;
   border-top: 1px solid var(--line);
-  color: var(--muted);
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 600;
   text-decoration: none;
-}
-
-.home-wishes-all-text {
-  flex: 1;
 }
 </style>

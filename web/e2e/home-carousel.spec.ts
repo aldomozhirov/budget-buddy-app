@@ -263,9 +263,10 @@ test.describe('Home’s Wishes card', () => {
       await expect(card).toContainText('€ • • • •');
       await expect(card).toContainText('spent on wishes');
       await expect(card.getByRole('link')).toHaveText([
+        /^Wishes\s*\w+/u,
         /Winter tyres\s*34% spent/u,
         /Weekend away\s*Nothing spent yet/u,
-        /2 open this month · see all wishes/u,
+        /Add a wish/u,
       ]);
       expect(await card.innerText()).not.toMatch(/[€$]\s?\d/u);
       const html = await page.content();
@@ -279,9 +280,10 @@ test.describe('Home’s Wishes card', () => {
       await expect(card).toContainText('€120.00');
       await expect(card).toContainText('spent of €830.00 wished');
       await expect(card.getByRole('link')).toHaveText([
+        /^Wishes\s*\w+/u,
         /Winter tyres\s*€120\.00 of €350\.00/u,
         /Weekend away\s*Nothing spent yet/u,
-        /2 open this month · see all wishes/u,
+        /Add a wish/u,
       ]);
       await expect(card).not.toContainText('% spent');
       await expect(card).not.toContainText('€ • • • •');
@@ -310,32 +312,75 @@ test.describe('Home’s Wishes card', () => {
     });
   });
 
-  test('the last row opens Wishes, and a wish opened there goes Back to Wishes', async ({
+  test('the headers open Envelopes and Wishes, and Back returns to Home', async ({
     page,
-  }) => {
+  }, testInfo) => {
     await startFamily(page, async (family) => {
-      const { weekend } = await seed(family);
+      await seed(family);
       await page.goto(`${family.origin}/`);
+      const envelopes = envelopesCard(page).getByRole('link', {
+        name: /^Envelopes\s*Day \d+ of \d+$/u,
+      });
+      const box = await envelopes.boundingBox();
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+      if (testInfo.project.name === 'iphone') {
+        await page.waitForTimeout(500);
+        await page.screenshot({ path: 'test-results/screens/Main.png' });
+      }
+      await envelopes.click();
+      await expect(page).toHaveURL(`${family.origin}/envelopes`);
+      await page.getByRole('button', { name: 'Back to home' }).click();
+      await expect(page).toHaveURL(`${family.origin}/`);
+
+      await swipeToWishes(page);
+      if (testInfo.project.name === 'iphone') {
+        await page.waitForTimeout(500);
+        await page.screenshot({ path: 'test-results/screens/HomeWishes.png' });
+      }
       await wishesCard(page)
-        .getByRole('link', { name: /2 open this month/u })
+        .getByRole('link', { name: /^Wishes\s*\w+$/u })
         .click();
       await expect(page).toHaveURL(`${family.origin}/wishes`);
       await expect(
         page.getByRole('heading', { name: 'Wishes', level: 1 }),
       ).toBeVisible();
-
-      await page
-        .getByRole('link', { name: /^Weekend away.*to spend/u })
-        .click();
-      await expect(page).toHaveURL(`${family.origin}/wishes/${weekend}`);
-      await page.getByRole('button', { name: 'Back to wishes' }).click();
-      await expect(page).toHaveURL(`${family.origin}/wishes`);
       await page.getByRole('button', { name: 'Back to home' }).click();
       await expect(page).toHaveURL(`${family.origin}/`);
     });
   });
 
-  test('lists a done wish with none open, and “Plan a wish” opens Wishes', async ({
+  test('"Add a wish" opens the form for this month; Back and Save return to Home', async ({
+    page,
+  }) => {
+    await startFamily(page, async (family) => {
+      const { month } = await seed(family);
+      await page.goto(`${family.origin}/`);
+      const add = wishesCard(page).getByRole('link', { name: 'Add a wish' });
+      await expect(add).toHaveAttribute('href', `/wishes/new?month=${month}`);
+      await add.click();
+      await expect(page).toHaveURL(
+        `${family.origin}/wishes/new?month=${month}`,
+      );
+      await page.getByRole('button', { name: 'Back to home' }).click();
+      await expect(page).toHaveURL(`${family.origin}/`);
+
+      await wishesCard(page).getByRole('link', { name: 'Add a wish' }).click();
+      await page.getByLabel('Name', { exact: true }).fill('Winter coat');
+      await page.getByRole('button', { name: 'Amount', exact: true }).click();
+      for (const k of ['5', '0', '0'])
+        await page.getByRole('button', { name: k, exact: true }).click();
+      await page.locator('footer').getByRole('button').last().click();
+      await expect(page).toHaveURL(`${family.origin}/`);
+      await expect(wishesCard(page)).toContainText('Winter coat');
+      await expect(page.getByText(/Winter coat added to/u)).toHaveCount(0);
+
+      await page.goto(`${family.origin}/wishes`);
+      await expect(page.getByText('Winter coat').first()).toBeVisible();
+      await expect(page.getByText(/Winter coat added to/u)).toHaveCount(0);
+    });
+  });
+
+  test('lists a done wish, and an empty month reads “No wishes this month”', async ({
     page,
   }) => {
     await startFamily(page, async (family) => {
@@ -352,6 +397,12 @@ test.describe('Home’s Wishes card', () => {
         monthlyAmount: '50000',
         mode: 'reset',
       });
+      // With no wish at all, the card has its empty line.
+      await page.goto(`${family.origin}/`);
+      await expect(wishesCard(page)).toContainText('No wishes this month');
+      await expect(
+        wishesCard(page).getByRole('link', { name: 'Add a wish' }),
+      ).toBeVisible();
       // A done wish is listed but is not open this month.
       const { month } = await api<WishesResponse>(family, '/api/wishes');
       const done = await create(family, '/api/wishes', {
@@ -376,12 +427,10 @@ test.describe('Home’s Wishes card', () => {
       await expect(card).toContainText('Done');
       await expect(card).not.toContainText('open this month');
       await expect(card.getByRole('link')).toHaveText([
+        /^Wishes\s*\w+/u,
         /Sofia’s birthday\s*Done/u,
-        /Plan a wish/u,
+        /Add a wish/u,
       ]);
-
-      await card.getByRole('link', { name: 'Plan a wish' }).click();
-      await expect(page).toHaveURL(`${family.origin}/wishes`);
     });
   });
 });
@@ -457,10 +506,6 @@ test.describe('Home’s Everything grid', () => {
     await startFamily(page, async (family) => {
       await seed(family);
       await page.goto(`${family.origin}/`);
-      // The old row ("Wishes · 2 open this month") is gone.
-      await expect(
-        page.getByRole('link', { name: /^Wishes\s+\d+ open this month/u }),
-      ).toHaveCount(0);
 
       const everything = page.getByRole('navigation', { name: 'Everything' });
       await expect(everything.getByRole('link')).toHaveText([

@@ -5,7 +5,6 @@ import { keepWishOrder, wishesCardLines } from '../src/screens/home/wishesCard';
 
 const formatter = createMoneyFormatter([]);
 const card: HomeResponse['wishes'] = {
-  open: 2,
   wished: '83000',
   spent: '12000',
   incomplete: false,
@@ -38,7 +37,7 @@ describe('wishesCardLines', () => {
       '€120.00 of €350.00',
       'Nothing spent yet',
     ]);
-    expect(lines.footer).toBe('2 open this month · see all wishes');
+    expect('footer' in lines).toBe(false);
     expect(lines.empty).toBe(false);
   });
 
@@ -73,9 +72,8 @@ describe('wishesCardLines', () => {
     expect(lines.rows[0]?.share).toBe(100);
   });
 
-  it('has an empty state that plans a wish', () => {
+  it('has an empty state with no rows', () => {
     const none = {
-      open: 0,
       wished: null,
       spent: null,
       incomplete: false,
@@ -83,14 +81,13 @@ describe('wishesCardLines', () => {
     };
     const lines = wishesCardLines(none, true, 'EUR', formatter);
     expect(lines.empty).toBe(true);
-    expect(lines.footer).toBe('Plan a wish');
+    expect('footer' in lines).toBe(false);
     expect(lines.rows).toEqual([]);
   });
 
   it('shows a done wish with what was spent, or its share hidden', () => {
     const done: HomeResponse['wishes'] = {
       ...card,
-      open: 0,
       items: [
         { ...card.items[0]!, state: 'done' },
         { ...card.items[1]!, state: 'done' },

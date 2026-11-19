@@ -602,6 +602,7 @@ test('the envelopes card shows shares while hidden and balances when revealed', 
   await expect(card).toContainText('€ • • • •');
   await expect(card).toContainText('spent');
   await expect(card.getByRole('link')).toHaveText([
+    /^Envelopes\s*Day \d+ of \d+/u,
     /Groceries\s*62% used/u,
     /Eating out\s*Over budget/u,
     /Unexpected\s*11% used/u,
@@ -640,6 +641,7 @@ test('the envelopes card shows shares while hidden and balances when revealed', 
     .click();
   await expect(card).toContainText('€461.50');
   await expect(card.getByRole('link')).toHaveText([
+    /^Envelopes\s*Day \d+ of \d+/u,
     /Groceries\s*€190\.00 left of €500\.00/u,
     /Eating out\s*€14\.50 over/u,
     /Unexpected\s*€178\.00 left of €200\.00/u,
@@ -658,7 +660,7 @@ test('the envelopes card shows shares while hidden and balances when revealed', 
 
   await page.clock.runFor(30_000);
   await expect(card).toContainText('€ • • • •');
-  await expect(card.getByRole('link').first()).toContainText('62% used');
+  await expect(card.getByRole('link').nth(1)).toContainText('62% used');
   await expect(card).not.toContainText('€461.50');
 });
 

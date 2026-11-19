@@ -109,11 +109,9 @@ function wishesCard(
 ): HomeResponse['wishes'] {
   const wishes = listWishes(database, month);
   const summary = wishesSummary(wishes, month, month, valuation);
-  const open = wishes.filter((wish) => wish.state === 'open');
   // listWishes puts open first; dropped wishes stay off the card.
   const shown = wishes.filter((wish) => wish.state !== 'dropped');
   return {
-    open: open.length,
     wished: summary.total.amount,
     spent: wishesSpentTotal(wishes, month, valuation),
     incomplete: summary.total.incomplete,
