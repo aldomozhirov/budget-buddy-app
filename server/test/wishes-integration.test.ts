@@ -257,7 +257,7 @@ describe('wishes API', () => {
     expect(list.wishes).toEqual([]);
     expect(list.counts).toEqual({ total: 0, open: 0 });
     expect((await call('GET', '/api/home')).json().wishes).toMatchObject({
-      open: 0,
+      items: [],
     });
     expect(database.prepare('SELECT COUNT(*) AS n FROM wish').get()).toEqual({
       n: 1n,
@@ -333,7 +333,6 @@ describe('wishes API', () => {
     const card = (await call('GET', '/api/home')).json().wishes;
     // 400.00 + 1250 USD (= 10.00 EUR at 1.25) + 5.00 done; dropped is left out.
     expect(card).toMatchObject({
-      open: 2,
       wished: '41500',
       spent: '12000',
       incomplete: false,
@@ -360,10 +359,12 @@ describe('wishes API', () => {
     // Ticking a wish moves it in the list but leaves the totals alone.
     await call('PATCH', `/api/wishes/${tyres.id}`, { state: 'done' });
     const ticked = (await call('GET', '/api/home')).json().wishes;
-    expect(ticked).toMatchObject({ wished: '41500', spent: '12000', open: 1 });
-    expect(
-      ticked.items.map((item: { state: string }) => item.state),
-    ).toEqual(['open', 'done', 'done']);
+    expect(ticked).toMatchObject({ wished: '41500', spent: '12000' });
+    expect(ticked.items.map((item: { state: string }) => item.state)).toEqual([
+      'open',
+      'done',
+      'done',
+    ]);
     await add({ name: 'In pounds', amount: '1000', currency: 'GBP' });
     expect((await call('GET', '/api/home')).json().wishes).toMatchObject({
       incomplete: true,
@@ -492,7 +493,7 @@ describe('wishes API', () => {
       (await call('GET', '/api/wishes?month=2026-11')).json().wishes,
     ).toHaveLength(1);
     expect((await call('GET', '/api/home')).json().wishes).toMatchObject({
-      open: 0,
+      items: [],
     });
 
     // Undo expects the month it moved to.
@@ -603,16 +604,15 @@ describe('wishes API', () => {
     }
   });
 
-  it('counts the open wishes of the current month on Home', async () => {
+  it('leaves the count of open wishes off Home, and drops dropped wishes', async () => {
     await add({ name: 'One' });
-    const two = await add({ name: 'Two' });
     const three = await add({ name: 'Three' });
-    await add({ month: '2026-11', name: 'Next' });
-    await call('PATCH', `/api/wishes/${two.id}`, { state: 'done' });
     await call('PATCH', `/api/wishes/${three.id}`, { state: 'dropped' });
-    expect((await call('GET', '/api/home')).json().wishes).toMatchObject({
-      open: 1,
-    });
+    const card = (await call('GET', '/api/home')).json().wishes;
+    expect(card).not.toHaveProperty('open');
+    expect(card.items.map((item: { name: string }) => item.name)).toEqual([
+      'One',
+    ]);
   });
 
   it('refuses what O7, O8, O11 and PLN-9 do not allow with 400 invalid', async () => {
@@ -886,7 +886,7 @@ describe('wishes API', () => {
     await add({ month: '2026-11', name: 'New' });
     expect((await call('GET', '/api/wishes')).json().month).toBe('2026-11');
     expect((await call('GET', '/api/home')).json().wishes).toMatchObject({
-      open: 1,
+      items: [expect.objectContaining({ name: 'New' })],
     });
     const forward = await call('POST', '/api/wishes/2/move', {
       month: '2026-12',

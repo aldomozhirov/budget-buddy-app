@@ -25,8 +25,6 @@ export interface WishesCardLines {
   /** The words beside it: "spent of €830.00 wished", "spent on wishes". */
   caption: string;
   rows: WishRowLines[];
-  /** The last row: "2 open this month · see all wishes", "Plan a wish". */
-  footer: string;
   /** The card has no wish at all: "No wishes this month". */
   empty: boolean;
 }
@@ -83,7 +81,6 @@ export function wishesCardLines(
       tickLabel: done ? `Reopen ${wish.name}` : `Tick off ${wish.name} as done`,
     };
   });
-  const open = wishes.open;
   const empty = wishes.items.length === 0;
   let figure: string;
   let caption: string;
@@ -106,8 +103,6 @@ export function wishesCardLines(
     figure,
     caption,
     rows,
-    footer:
-      open === 0 ? 'Plan a wish' : `${open} open this month · see all wishes`,
     empty,
   };
 }

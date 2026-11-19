@@ -122,9 +122,11 @@ function card(page: Page, name: string) {
   return page.getByRole('link', { name: new RegExp(`^${name}`, 'u') });
 }
 
-/** The last row of Home's Wishes card, which opens Wishes. */
+/** The header of Home's Wishes card, which opens Wishes. */
 function homeRow(page: Page) {
-  return page.getByRole('link', { name: /(open this month|Plan a wish)/u });
+  return page
+    .getByRole('group', { name: /^Wishes/u })
+    .getByRole('link', { name: /^Wishes\s*\w+$/u });
 }
 
 test.describe('Home’s Wishes card offline', () => {
@@ -139,7 +141,7 @@ test.describe('Home’s Wishes card offline', () => {
       await wish(family, { month, name: 'Winter tyres', amount: '48000' });
 
       await page.goto(`${family.origin}/`);
-      await expect(homeRow(page)).toContainText('1 open this month');
+      await expect(homeRow(page)).toBeVisible();
       await expect(
         page.getByRole('link', { name: 'Wealth history' }),
       ).toBeVisible();
@@ -166,7 +168,6 @@ test.describe('Home’s Wishes card offline', () => {
       await expect(page.getByRole('group', { name: /^Wishes/u })).toHaveCount(
         0,
       );
-      await expect(page.getByText('open this month')).toHaveCount(0);
       await expect(page.getByText('No wishes this month')).toHaveCount(0);
 
       // Typing the address does not open it either: nothing of the list

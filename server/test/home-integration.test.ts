@@ -147,7 +147,6 @@ describe('home and device routes', () => {
       spending: null,
       needsCategory: 0,
       wishes: {
-        open: 0,
         wished: null,
         spent: null,
         incomplete: false,

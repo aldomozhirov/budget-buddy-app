@@ -69,8 +69,6 @@ export type HomeWish = z.infer<typeof homeWishSchema>;
 
 /** The Wishes card's data (UI-HOME-10), for the family's current month. */
 export const homeWishesSchema = z.object({
-  /** How many wishes are open this month; the length of `items`. */
-  open: z.number().int().nonnegative(),
   /** Wished and spent in the common currency, as the Wishes summary has it. */
   wished: minorStringSchema.nullable(),
   spent: minorStringSchema.nullable(),
